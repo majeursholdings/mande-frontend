@@ -1,17 +1,174 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* Primary Color Palette (Green) */
+  --color-primary-50: #ebf8f0;
+  --color-primary-100: #d3f4df;
+  --color-primary-200: #aae7c2;
+  --color-primary-300: #74d39f;
+  --color-primary-400: #48bf81;
+  --color-primary-500: #34a96c;
+  --color-primary-600: #1f8f55;
+  --color-primary-700: #08783e;
+  --color-primary-800: #0d5e33;
+  --color-primary-900: #0c4d2b;
+  --color-primary-950: #042b16;
+
+  /* Secondary Color Palette (Red) */
+  --color-secondary-50: #fbf2f2;
+  --color-secondary-100: #f6e3e3;
+  --color-secondary-200: #eecbcb;
+  --color-secondary-300: #e0a6a6;
+  --color-secondary-400: #cc7979;
+  --color-secondary-500: #b35353;
+  --color-secondary-600: #8c3232;
+  --color-secondary-700: #752828;
+  --color-secondary-800: #612424;
+  --color-secondary-900: #522222;
+  --color-secondary-950: #2d0e0e;
+
+  /* Mist Palette */
+  --color-mist-50: #f8faf9;
+  --color-mist-100: #f0f4f2;
+  --color-mist-200: #dde6e2;
+  --color-mist-300: #c2d2cb;
+  --color-mist-400: #9eb5ab;
+  --color-mist-500: #7d978c;
+  --color-mist-600: #627b71;
+  --color-mist-700: #4f635c;
+  --color-mist-800: #41514b;
+  --color-mist-900: #384440;
+  --color-mist-950: #1d2522;
+
+  /* Fonts */
+  --font-helvetica: var(--font-helvetica), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-sans: var(--font-helvetica), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+@theme inline {
+  --font-heading: var(--font-helvetica), sans-serif;
+  --font-sans: var(--font-helvetica), sans-serif;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  --primary: #08783e;
+  --primary-foreground: #ffffff;
+  --secondary: #8c3232;
+  --secondary-foreground: #ffffff;
+  --muted: #f4f5f6;
+  --muted-foreground: #64748b;
+  --accent: #ebf8f0;
+  --accent-foreground: #08783e;
+  --destructive: #dc2626;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #08783e;
+  --chart-1: #08783e;
+  --chart-2: #34a96c;
+  --chart-3: #8c3232;
+  --chart-4: #48bf81;
+  --chart-5: #b35353;
+  --radius: 0.625rem;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #171717;
+  --sidebar-primary: #08783e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ebf8f0;
+  --sidebar-accent-foreground: #08783e;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #08783e;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card: #141414;
+  --card-foreground: #ededed;
+  --popover: #141414;
+  --popover-foreground: #ededed;
+  --primary: #34a96c;
+  --primary-foreground: #042b16;
+  --secondary: #b35353;
+  --secondary-foreground: #ffffff;
+  --muted: #1e1e1e;
+  --muted-foreground: #94a3b8;
+  --accent: #0c4d2b;
+  --accent-foreground: #aae7c2;
+  --destructive: #ef4444;
+  --border: #262626;
+  --input: #262626;
+  --ring: #34a96c;
+  --chart-1: #34a96c;
+  --chart-2: #48bf81;
+  --chart-3: #cc7979;
+  --chart-4: #74d39f;
+  --chart-5: #8c3232;
+  --sidebar: #141414;
+  --sidebar-foreground: #ededed;
+  --sidebar-primary: #34a96c;
+  --sidebar-primary-foreground: #042b16;
+  --sidebar-accent: #0c4d2b;
+  --sidebar-accent-foreground: #aae7c2;
+  --sidebar-border: #262626;
+  --sidebar-ring: #34a96c;
 }
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html, body {
+    font-family: var(--font-helvetica), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }
