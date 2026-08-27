@@ -127,7 +127,7 @@ export default function MobileMenu() {
                         <Link
                             href={ARTISAN_SIGNUP_URL}
                             title="Sign up"
-                            className="w-fit border rounded-none px-5 py-1 text-mist-100 text-base font-normal bg-transparent hover:border-primary-200 hover:text-mist-800 hover:bg-primary-200 transition-colors duration-300"
+                            className="w-fit border rounded-none px-5 py-1.5 text-mist-100 text-base font-normal bg-transparent hover:border-primary-200 hover:text-mist-800 hover:bg-primary-200 transition-colors duration-300"
                         >
                             Sign up
                         </Link>

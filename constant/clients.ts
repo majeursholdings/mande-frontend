@@ -1,0 +1,51 @@
+
+export const clientList = [
+    {
+        id: `1`,
+        src: `/images/clients-logo/bbc.png`,
+        alt: `bbc`,
+        title: `bbc`,
+        width: 280,
+        height: 80,
+    },
+    {
+        id: `2`,
+        src: `/images/clients-logo/heineken.png`,
+        alt: `heineken`,
+        title: `heineken`,
+        width: 136,
+        height: 80,
+    },
+    {
+        id: `3`,
+        src: `/images/clients-logo/gaia.png`,
+        alt: `gaia`,
+        title: `gaia`,
+        width: 196,
+        height: 80,
+    },
+    {
+        id: `4`,
+        src: `/images/clients-logo/ideo.png`,
+        alt: `ideo`,
+        title: `ideo`,
+        width: 340,
+        height: 80,
+    },
+    {
+        id: `5`,
+        src: `/images/clients-logo/nff.png`,
+        alt: `nff`,
+        title: `nff`,
+        width: 232,
+        height: 80,
+    },
+    {
+        id: `6`,
+        src: `/images/clients-logo/tourvest.png`,
+        alt: `tourvest`,
+        title: `tourvest`,
+        width: 299,
+        height: 80,
+    },
+]
