@@ -1,4 +1,4 @@
-import { clientList } from "@/constant/clients"
+import { clientList } from "@/constant/global"
 import { ARTISAN_SIGNUP_URL } from "@/constant/navigation"
 import Image from "next/image"
 import Link from "next/link"

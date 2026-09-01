@@ -1,3 +1,4 @@
+import Footer from "@/components/mainWebsite/navigations/footer";
 import Header from "@/components/mainWebsite/navigations/header";
 
 export default function WebsiteLayout({
@@ -9,6 +10,7 @@ export default function WebsiteLayout({
     <>
       <Header />
       <main className="flex-1 flex flex-col">{children}</main>
+      <Footer/>
     </>
   );
 }

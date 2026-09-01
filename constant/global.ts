@@ -1,3 +1,5 @@
+export const DEFAULT_CURRENCY = "₦"
+export const DEFAULT_IMAGE = "/images/default-img.png";
 
 export const clientList = [
     {

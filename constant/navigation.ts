@@ -32,6 +32,33 @@ export const mainmenu:Mainmenu[] = [
     },
 ]
 
+export const footerMenu: Mainmenu[] = [
+    {
+        label: "About",
+        href: "/about-mande",
+    },
+    {
+        label: "Services",
+        href: "/mande-services",
+    },
+    {
+        label: "Contact",
+        href: "/contact-mande",
+    },
+    {
+        label: "FAQs",
+        href: "/faqs",
+    },
+    {
+        label: "Terms",
+        href: "/terms-and-conditions",
+    },
+    {
+        label: "Legals",
+        href: "/legals",
+    },
+];
+
 export const ARTISAN_LOGIN_URL = "/artisan/login"
 export const ARTISAN_SIGNUP_URL = "/artisan/sign-up"
 
