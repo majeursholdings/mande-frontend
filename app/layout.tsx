@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Toaster } from "sonner";
-import { helvetica } from "./fonts";
+import { inter } from "./fonts";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 
@@ -17,9 +17,9 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={cn("h-full antialiased", helvetica.variable, helvetica.className)}
+      className={cn("h-full antialiased", inter.variable, inter.className)}
     >
-      <body className={cn("min-h-full flex flex-col font-sans", helvetica.className)}>
+      <body className={cn("min-h-full flex flex-col font-sans", inter.className)}>
         {children}
         <Toaster position="top-right" richColors />
       </body>
