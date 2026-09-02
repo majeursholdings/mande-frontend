@@ -1,0 +1,405 @@
+"use client";
+
+import { useState, useCallback, type ReactNode } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+} from "@/components/ui/sheet";
+import { Checkbox } from "@/components/ui/checkbox";
+import { TableIdContext, useTableParam } from "./tableContext";
+import { TableDialog } from "./tableDialog";
+import { RowActionsMenu } from "./rowActionsMenu";
+import { TableSkeletonRows } from "./tableSkeletonRows";
+import type {
+    ColumnDef,
+    PaginationMeta,
+    ViewAction,
+    EditAction,
+    DeleteAction,
+    LinkAction,
+} from "./types";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// getPageNumbers — windowed page list with ellipsis gaps, e.g.
+// [1, 2, 3, 4, 5], [1, "…", 4, 5, 6, "…", 20]
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getPageNumbers(current: number, total: number): (number | "…")[] {
+    const siblingCount = 1;
+    const totalSlots = siblingCount * 2 + 5; // first, last, current, 2 siblings, 2 ellipses
+
+    if (total <= totalSlots) {
+        return Array.from({ length: total }, (_, i) => i + 1);
+    }
+
+    const left = Math.max(current - siblingCount, 2);
+    const right = Math.min(current + siblingCount, total - 1);
+
+    const pages: (number | "…")[] = [1];
+    if (left > 2) pages.push("…");
+    for (let p = left; p <= right; p++) pages.push(p);
+    if (right < total - 1) pages.push("…");
+    pages.push(total);
+
+    return pages;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DataTable
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DataTableProps<TRow extends { id: string }> {
+    tableId: string;
+    columns: ColumnDef<TRow>[];
+    rows: TRow[];
+    pagination: PaginationMeta;
+    toolbar?: ReactNode;
+    loading?: boolean;
+    emptyMessage?: string;
+    /** Eye icon — "link" navigates, "popup" fires onClick */
+    viewAction?: ViewAction<TRow>;
+    /** Pencil icon — opens Edit dialog with parent-supplied body */
+    editAction?: EditAction<TRow>;
+    /** Trash icon — opens Delete confirmation dialog */
+    deleteAction?: DeleteAction<TRow>;
+    /** Plain text link in the actions cell — no icon */
+    linkAction?: LinkAction<TRow>;
+    /** Adds a leading "#" column numbered from the current page's offset */
+    showIndex?: boolean;
+    /** Adds a leading checkbox column for row selection */
+    selectable?: boolean;
+    /** Controlled selection — pass together with onSelectionChange */
+    selectedIds?: string[];
+    onSelectionChange?: (ids: string[]) => void;
+}
+
+export function DataTable<TRow extends { id: string }>({
+    tableId,
+    columns,
+    rows,
+    pagination,
+    toolbar,
+    viewAction,
+    editAction,
+    deleteAction,
+    linkAction,
+    showIndex = false,
+    selectable = false,
+    selectedIds,
+    onSelectionChange,
+    loading = false,
+    emptyMessage = "No results match your filters.",
+}: DataTableProps<TRow>) {
+    const { getParam, setParam } = useTableParam(tableId);
+
+    const page = Math.max(1, Number(getParam("page") ?? 1));
+    const totalPages = Math.max(1, pagination.totalPages);
+    const { rowsPerPage, total } = pagination;
+
+    const goToPage = (p: number) => setParam("page", String(p));
+
+    const paginationLabel =
+        total === 0
+            ? "0 results"
+            : `Showing ${(page - 1) * rowsPerPage + 1} - ${Math.min(page * rowsPerPage, total)} of ${total}`;
+
+    // ── Dialog state ────────────────────────────────────────────────────────
+    type PanelKind = "edit" | "delete" | "sheet" | null;
+    const [activeRow, setActiveRow] = useState<TRow | null>(null);
+    const [panelKind, setPanelKind] = useState<PanelKind>(null);
+
+    // Memoized so TableDialog's Escape-key callback ref (which keys its
+    // listener lifecycle off `onClose`'s identity) doesn't detach/reattach
+    // on every DataTable re-render while a dialog is open.
+    const openPanel = useCallback(
+        (kind: Exclude<PanelKind, null>, row: TRow) => {
+            setActiveRow(row);
+            setPanelKind(kind);
+        },
+        [],
+    );
+    const closePanel = useCallback(() => {
+        setPanelKind(null);
+        setActiveRow(null);
+    }, []);
+
+    const handleEditConfirm = () => {
+        if (activeRow && editAction && editAction.type !== "link") {
+            editAction.onConfirm(activeRow);
+            closePanel();
+        }
+    };
+    const handleDeleteConfirm = () => {
+        if (activeRow && deleteAction) {
+            deleteAction.onConfirm(activeRow);
+            closePanel();
+        }
+    };
+
+    // ── Selection state ─────────────────────────────────────────────────────
+    const [internalSelected, setInternalSelected] = useState<Set<string>>(
+        new Set(),
+    );
+    const selected = selectedIds ? new Set(selectedIds) : internalSelected;
+
+    const updateSelection = (next: Set<string>) => {
+        if (!selectedIds) setInternalSelected(next);
+        onSelectionChange?.(Array.from(next));
+    };
+
+    const toggleRow = (id: string) => {
+        const next = new Set(selected);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        updateSelection(next);
+    };
+
+    const allSelectedOnPage =
+        rows.length > 0 && rows.every((r) => selected.has(r.id));
+    const someSelectedOnPage =
+        !allSelectedOnPage && rows.some((r) => selected.has(r.id));
+
+    const toggleAllOnPage = () => {
+        const next = new Set(selected);
+        if (allSelectedOnPage) rows.forEach((r) => next.delete(r.id));
+        else rows.forEach((r) => next.add(r.id));
+        updateSelection(next);
+    };
+
+    const hasActions = Boolean(
+        viewAction || editAction || deleteAction || linkAction,
+    );
+
+    const colCount =
+        columns.length +
+        (hasActions ? 1 : 0) +
+        (showIndex ? 1 : 0) +
+        (selectable ? 1 : 0);
+
+    return (
+        <TableIdContext.Provider value={tableId}>
+            {toolbar}
+
+            <div className="bg-white rounded-[10px] border border-gray-200 overflow-hidden">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="bg-gray-50">
+                            {selectable && (
+                                <TableHead className="w-10 px-3 md:px-6">
+                                    <Checkbox
+                                        checked={allSelectedOnPage}
+                                        indeterminate={someSelectedOnPage}
+                                        onCheckedChange={toggleAllOnPage}
+                                        aria-label="Select all rows on this page"
+                                    />
+                                </TableHead>
+                            )}
+                            {showIndex && (
+                                <TableHead className="w-10 px-3 md:px-6 text-gray-500 text-xs font-semibold font-text uppercase">
+                                    #
+                                </TableHead>
+                            )}
+                            {columns.map((col) => (
+                                <TableHead
+                                    key={col.key}
+                                    className={`px-3 md:px-6 text-gray-500 text-xs font-semibold font-text uppercase ${col.className}`}
+                                >
+                                    {col.header ?? col.key}
+                                </TableHead>
+                            ))}
+                            {hasActions && (
+                                <TableHead className="w-14 px-3 md:px-6" />
+                            )}
+                        </TableRow>
+                    </TableHeader>
+
+                    <TableBody>
+                        {loading ? (
+                            <TableSkeletonRows cols={colCount} />
+                        ) : rows.length === 0 ? (
+                            <TableRow>
+                                <TableCell
+                                    colSpan={colCount}
+                                    className="text-center px-3 md:px-6 py-8 md:py-16 text-gray-400 text-sm"
+                                >
+                                    {emptyMessage}
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            rows.map((row, i) => (
+                                <TableRow key={row.id}>
+                                    {selectable && (
+                                        <TableCell className="w-10 px-3 md:px-6">
+                                            <Checkbox
+                                                checked={selected.has(row.id)}
+                                                onCheckedChange={() =>
+                                                    toggleRow(row.id)
+                                                }
+                                                aria-label="Select row"
+                                            />
+                                        </TableCell>
+                                    )}
+                                    {showIndex && (
+                                        <TableCell className="w-10 px-3 md:px-6 text-sm font-text text-gray-500">
+                                            {(page - 1) * rowsPerPage + i + 1}
+                                        </TableCell>
+                                    )}
+                                    {columns.map((col) => (
+                                        <TableCell
+                                            key={col.key}
+                                            className={`px-3 md:px-6 py-4 text-sm font-text leading-5 ${col.className}`}
+                                        >
+                                            {col.cell
+                                                ? col.cell(row)
+                                                : String(
+                                                      (
+                                                          row as Record<
+                                                              string,
+                                                              unknown
+                                                          >
+                                                      )[col.key] ?? "",
+                                                  )}
+                                        </TableCell>
+                                    ))}
+                                    {/* ── Actions cell — single "..." kebab menu ─────────── */}
+                                    {hasActions && (
+                                        <TableCell className="px-3 md:px-6">
+                                            <RowActionsMenu
+                                                row={row}
+                                                viewAction={viewAction}
+                                                editAction={editAction}
+                                                deleteAction={deleteAction}
+                                                linkAction={linkAction}
+                                                onOpenSheet={() =>
+                                                    openPanel("sheet", row)
+                                                }
+                                                onOpenEdit={() =>
+                                                    openPanel("edit", row)
+                                                }
+                                                onOpenDelete={() =>
+                                                    openPanel("delete", row)
+                                                }
+                                            />
+                                        </TableCell>
+                                    )}
+                                </TableRow>
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+
+                {/* Pagination */}
+                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-gray-200">
+                    <span className="text-sm text-gray-500 font-text">
+                        {paginationLabel}
+                    </span>
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => goToPage(page - 1)}
+                            disabled={page <= 1}
+                            className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                        >
+                            <ChevronLeft className="size-4 text-gray-600" />
+                        </button>
+                        {getPageNumbers(page, totalPages).map((p, i) =>
+                            p === "…" ? (
+                                <span
+                                    key={`ellipsis-${i}`}
+                                    className="px-2 text-sm text-gray-400 select-none"
+                                >
+                                    …
+                                </span>
+                            ) : (
+                                <button
+                                    key={p}
+                                    onClick={() => goToPage(p)}
+                                    className={[
+                                        "min-w-8 h-8 px-2 rounded-lg text-sm font-text transition-colors cursor-pointer",
+                                        p === page
+                                            ? "bg-gray-100 text-neutral-900 font-medium"
+                                            : "text-gray-500 hover:bg-gray-50",
+                                    ].join(" ")}
+                                >
+                                    {p}
+                                </button>
+                            ),
+                        )}
+                        <button
+                            onClick={() => goToPage(page + 1)}
+                            disabled={page >= totalPages}
+                            className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                        >
+                            <ChevronRight className="size-4 text-gray-600" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Edit dialog — only rendered when editAction is the dialog variant */}
+            {editAction && editAction.type !== "link" && (
+                <TableDialog
+                    open={panelKind === "edit"}
+                    onClose={closePanel}
+                    onConfirm={handleEditConfirm}
+                    variant="edit"
+                    title="Edit details"
+                    confirmLabel={editAction.confirmLabel ?? "Save changes"}
+                >
+                    {activeRow ? editAction.dialogContent(activeRow) : null}
+                </TableDialog>
+            )}
+
+            {/* Delete dialog */}
+            {deleteAction && (
+                <TableDialog
+                    open={panelKind === "delete"}
+                    onClose={closePanel}
+                    onConfirm={handleDeleteConfirm}
+                    variant="delete"
+                    title={`Delete ${deleteAction.dataType}?`}
+                    confirmLabel="Delete"
+                >
+                    {activeRow ? deleteAction.dialogContent(activeRow) : null}
+                </TableDialog>
+            )}
+
+            {/* View sheet — shadcn Sheet sliding in from the right */}
+            {viewAction && viewAction.type === "sheet" && (
+                <Sheet
+                    open={panelKind === "sheet"}
+                    onOpenChange={(open) => {
+                        if (!open) closePanel();
+                    }}
+                >
+                    <SheetContent
+                        side="right"
+                        className="md:min-w-xl overflow-y-auto"
+                    >
+                        <SheetHeader className="sticky top-0 bg-white">
+                            <SheetTitle className="text-neutral-950 text-base font-bold font-text">
+                                {activeRow
+                                    ? (viewAction.title?.(activeRow) ??
+                                      "Details")
+                                    : "Details"}
+                            </SheetTitle>
+                        </SheetHeader>
+                        <div className="px-4 pb-6">
+                            {activeRow ? viewAction.content(activeRow) : null}
+                        </div>
+                    </SheetContent>
+                </Sheet>
+            )}
+        </TableIdContext.Provider>
+    );
+}
