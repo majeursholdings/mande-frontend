@@ -1,16 +1,40 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { IdCard } from "lucide-react";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import NinCardReuploadForm from "@/components/manufacturerPlatform/form/ninCardReuploadForm";
+import type { VerificationStatus } from "@/constant/manufacturer";
 import Notice from "../notice";
 import SettingsSection from "../settingsSection";
 import VerificationBadge from "../verificationBadge";
 import { useManufacturerProfile } from "../dashboardLayout/manufacturerProfileContext";
 
-/** The NIN card from sign-up, with whether an admin has verified it. View only. */
+// A rejection has its own notice, with the reason and a way to upload a new photo
+const STATUS_NOTICES: Record<Exclude<VerificationStatus, "rejected">, string> = {
+    pending: "Our team is reviewing your NIN card. We'll let you know once you're verified.",
+    processing:
+        "We're checking your NIN card against your details now. We'll let you know once you're verified.",
+    manual_review:
+        "Our team is taking a closer look at your NIN card. We'll let you know once you're verified.",
+    verified: "Our team has checked your NIN card against your details.",
+};
+
+/**
+ * The NIN card from sign-up, with where it is in verification. View only,
+ * unless it's rejected — then a new photo can be uploaded for another review.
+ */
 export default function IdentityVerification() {
     const { profile } = useManufacturerProfile();
-    const { imageUrl, isVerified } = profile.ninCard;
+    const { imageUrl, status, rejectionReason } = profile.ninCard;
+    const [isReuploadOpen, setIsReuploadOpen] = useState(false);
+    const isRejected = status === "rejected";
 
     return (
         // Follows the Basic Info form, so it always shows its divider
@@ -18,7 +42,7 @@ export default function IdentityVerification() {
             headingLevel="h3"
             title="NIN card"
             description="The ID you added when you signed up."
-            action={<VerificationBadge isVerified={isVerified} />}
+            action={<VerificationBadge status={status} />}
             className="first-of-type:border-t first-of-type:pt-6"
         >
 
@@ -40,13 +64,43 @@ export default function IdentityVerification() {
                 </div>
             )}
 
-            <Notice tone={isVerified ? "info" : "warning"} className="max-w-sm">
-                {isVerified
-                    ? "Our team has checked your NIN card against your details."
-                    : imageUrl
-                      ? "Our team is reviewing your NIN card. We'll let you know once you're verified."
-                      : "Contact support to add your NIN card and get verified."}
+            <Notice tone={status === "verified" ? "info" : "warning"} className="max-w-sm">
+                {status === "rejected"
+                    ? `We couldn't verify this NIN card.${rejectionReason ? ` ${rejectionReason}` : ""} Upload a new photo to try again.`
+                    : !imageUrl && status !== "verified"
+                      ? "Contact support to add your NIN card and get verified."
+                      : STATUS_NOTICES[status]}
             </Notice>
+
+            {isRejected && (
+                <div>
+                    <button
+                        type="button"
+                        onClick={() => setIsReuploadOpen(true)}
+                        className="h-9 rounded-button bg-secondary-700 px-4 text-sm font-medium font-text text-white transition-colors duration-200 cursor-pointer hover:bg-secondary-900"
+                    >
+                        Upload new NIN card
+                    </button>
+                </div>
+            )}
+
+            <Dialog open={isReuploadOpen} onOpenChange={setIsReuploadOpen}>
+                <DialogContent>
+                    <div className="flex flex-col gap-1">
+                        <DialogTitle>Upload a new NIN card</DialogTitle>
+                        <DialogDescription>
+                            We&apos;ll review your new photo and let you know once you&apos;re
+                            verified.
+                        </DialogDescription>
+                    </div>
+                    {rejectionReason && (
+                        <Notice tone="warning">
+                            Your last photo was rejected. {rejectionReason}
+                        </Notice>
+                    )}
+                    <NinCardReuploadForm onSubmitted={() => setIsReuploadOpen(false)} />
+                </DialogContent>
+            </Dialog>
         </SettingsSection>
     );
 }

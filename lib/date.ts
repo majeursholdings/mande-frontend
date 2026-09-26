@@ -9,6 +9,18 @@ export function getCountdownLabel(dueDate: Date, from: Date = new Date()): strin
     return `${weeks} week${weeks === 1 ? "" : "s"} left`;
 }
 
+/** "today" / "yesterday" / "3 days ago" / "2 weeks ago" — how long ago a past date was, e.g. when a job was posted. */
+export function getTimeAgoLabel(date: Date, from: Date = new Date()): string {
+    const diffDays = Math.floor((from.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 0) return "today";
+    if (diffDays === 1) return "yesterday";
+    if (diffDays < 7) return `${diffDays} days ago`;
+
+    const weeks = Math.round(diffDays / 7);
+    return `${weeks} week${weeks === 1 ? "" : "s"} ago`;
+}
+
 function ordinalSuffix(day: number): string {
     if (day % 100 >= 11 && day % 100 <= 13) return "th";
     switch (day % 10) {

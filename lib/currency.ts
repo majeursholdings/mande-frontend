@@ -1,8 +1,14 @@
 import { DEFAULT_CURRENCY } from "@/constant/global";
+import { formatCompactNumber } from "@/lib/number";
 
 /** 450000 → "₦450,000" */
 export function formatPrice(amount: number): string {
     return `${DEFAULT_CURRENCY}${amount.toLocaleString("en-NG")}`;
+}
+
+/** 1800000 → "₦1.8M", 500000 → "₦500k" — for tight spots where the exact amount isn't needed. */
+export function formatCompactPrice(amount: number): string {
+    return `${DEFAULT_CURRENCY}${formatCompactNumber(amount)}`;
 }
 
 /** 400000 → "₦400,000.00" — balances always show kobo, prices don't. */

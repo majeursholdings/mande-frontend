@@ -33,15 +33,17 @@ const TABS: {
 // edits survive switching tabs.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function ManufacturerSettingsPage() {
+export default function ManufacturerSettingsPage({ initialTab }: { initialTab?: string }) {
     const isDesktop = useMediaQuery("(min-width: 1024px)");
+    // e.g. ?tab=plan from an "Upgrade" link
+    const defaultTab = TABS.find((tab) => tab.value === initialTab)?.value ?? TABS[0].value;
 
     return (
         <div className="flex flex-col gap-6 lg:gap-10">
             <PageHeader title="Settings" backLink={MANUFACTURER_PROFILE_BACK_LINK} />
 
             <Tabs.Root
-                defaultValue={TABS[0].value}
+                defaultValue={defaultTab}
                 orientation={isDesktop ? "vertical" : "horizontal"}
                 className="flex flex-col gap-8 lg:flex-row lg:gap-0"
             >

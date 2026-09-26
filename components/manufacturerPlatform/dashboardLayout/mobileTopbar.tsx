@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft, Bell, Search } from "lucide-react";
@@ -9,7 +9,7 @@ import { BlackLogo } from "@/components/mainWebsite/navigations/logo";
 import { useManufacturerProfile } from "./manufacturerProfileContext";
 import { useNotifications } from "./notificationsContext";
 import NotificationsPanel from "./notificationsPanel";
-import SearchPanel from "./searchPanel";
+import SearchPanel, { SEARCH_PLACEHOLDERS, type SearchScope } from "./searchPanel";
 import UserAvatar from "./userAvatar";
 import UserMenu from "./userMenu";
 
@@ -18,6 +18,9 @@ type MobileOverlay = "search" | "notifications" | null;
 export default function MobileTopbar() {
     const [overlay, setOverlay] = useState<MobileOverlay>(null);
     const [query, setQuery] = useState("");
+    // Kept between searches, so the next one looks in the same place
+    const [searchScope, setSearchScope] = useState<SearchScope>("open");
+    const searchInputRef = useRef<HTMLInputElement>(null);
     const { hasUnread } = useNotifications();
     const { profile } = useManufacturerProfile();
     const backLink = getSubpageBackLink(usePathname());
@@ -97,11 +100,12 @@ export default function MobileTopbar() {
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-mist-400 pointer-events-none" />
                             <input
+                                ref={searchInputRef}
                                 type="text"
                                 autoFocus
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
-                                placeholder="Search Job..."
+                                placeholder={SEARCH_PLACEHOLDERS[searchScope]}
                                 className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-3 text-sm font-text text-mist-900 placeholder:text-mist-400 outline-none focus:border-secondary-400 focus:ring-2 focus:ring-secondary-100 transition-all duration-200"
                             />
                         </div>
@@ -116,6 +120,11 @@ export default function MobileTopbar() {
                     <div className="flex-1 overflow-y-auto px-4 py-4">
                         <SearchPanel
                             query={query}
+                            scope={searchScope}
+                            onScopeChange={(scope) => {
+                                setSearchScope(scope);
+                                searchInputRef.current?.focus();
+                            }}
                             onRecentSearchSelect={setQuery}
                             onResultSelect={() => {
                                 setQuery("");

@@ -7,10 +7,13 @@ import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
 import { useManufacturerSubscription } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerSubscriptionContext";
+import VerificationBadge from "@/components/manufacturerPlatform/verificationBadge";
 import {
     COMPANY_SPECIALITY_OPTIONS,
     MAX_COMPANY_SPECIALITIES,
     STAFF_RANGE_OPTIONS,
+    getVerificationAfterSave,
+    type DocumentVerification,
 } from "@/constant/manufacturer";
 import { requiresBusinessDocuments } from "@/constant/sampleData";
 import { ADDRESS_ROW_PAIRS, getAddressFields, type AddressFormValues } from "./addressFields";
@@ -19,7 +22,7 @@ import { FormSubmitButton } from "./formButtons";
 type AboutCompanyFormValues = AddressFormValues & {
     // Set at registration — shown for reference only
     companyName: string;
-    // Editable until submitted, then locked
+    // Editable until submitted, then locked unless rejected
     companyTaxNumber: string;
     businessLicenseNumber: string;
     staffRange: string;
@@ -55,30 +58,54 @@ const COMPANY_DETAIL_FIELDS: FormFieldConfig[] = [
 
 /**
  * A tax number / business license field — editable (required unless the plan
- * is Solo) until it's been submitted, then locked.
+ * is Solo) until it's been submitted, then locked with its verification
+ * status beside the label. A rejected number opens up again, so it can be
+ * corrected and resubmitted.
  */
 function businessDocumentField({
     name,
     label,
     placeholder,
-    isSubmitted,
     isRequired,
+    verification,
 }: {
     name: keyof AboutCompanyFormValues;
     label: string;
     placeholder: string;
-    isSubmitted: boolean;
     isRequired: boolean;
+    /** Null until the number has been submitted. */
+    verification: DocumentVerification | null;
 }): FormFieldConfig {
-    if (isSubmitted) return { name, type: "text", label, disabled: true };
+    if (!verification) {
+        return {
+            name,
+            type: "text",
+            label: isRequired ? label : `${label} (optional)`,
+            placeholder,
+            validation: isRequired
+                ? { required: `${label} is required`, validate: notBlank(label) }
+                : undefined,
+        };
+    }
+
+    const labelWithStatus = (
+        <>
+            {label}
+            <VerificationBadge status={verification.status} />
+        </>
+    );
+    if (verification.status !== "rejected") {
+        return { name, type: "text", label: labelWithStatus, disabled: true };
+    }
     return {
         name,
         type: "text",
-        label: isRequired ? label : `${label} (optional)`,
+        label: labelWithStatus,
         placeholder,
-        validation: isRequired
-            ? { required: `${label} is required`, validate: notBlank(label) }
-            : undefined,
+        description: `${verification.rejectionReason ?? `We couldn't verify this ${label.toLowerCase()}.`} Correct it and save to resubmit.`,
+        // Not `required` — it already holds the rejected number, and an
+        // asterisk after the badge would only add noise
+        validation: isRequired ? { validate: notBlank(label) } : undefined,
     };
 }
 
@@ -112,8 +139,12 @@ function AboutCompanyForm() {
     const { isDirty } = methods.formState;
     const country = useWatch({ control: methods.control, name: "country" });
 
-    const isTaxNumberSubmitted = !!profile.companyTaxNumber.trim();
-    const isLicenseSubmitted = !!profile.businessLicenseNumber.trim();
+    const taxNumberVerification = profile.companyTaxNumber.trim()
+        ? profile.companyTaxNumberVerification
+        : null;
+    const licenseVerification = profile.businessLicenseNumber.trim()
+        ? profile.businessLicenseNumberVerification
+        : null;
     const documentsRequired = requiresBusinessDocuments(subscription.planId);
 
     const fields: FormFieldConfig[] = [
@@ -122,15 +153,15 @@ function AboutCompanyForm() {
             name: "companyTaxNumber",
             label: "Company tax number",
             placeholder: "e.g. TT-0444339",
-            isSubmitted: isTaxNumberSubmitted,
             isRequired: documentsRequired,
+            verification: taxNumberVerification,
         }),
         businessDocumentField({
             name: "businessLicenseNumber",
             label: "Business license number",
             placeholder: "e.g. 45599KT",
-            isSubmitted: isLicenseSubmitted,
             isRequired: documentsRequired,
+            verification: licenseVerification,
         }),
         ...getAddressFields({
             country,
@@ -139,8 +170,10 @@ function AboutCompanyForm() {
         ...COMPANY_DETAIL_FIELDS,
     ];
 
+    const isLocked = (verification: DocumentVerification | null) =>
+        !!verification && verification.status !== "rejected";
     const description =
-        isTaxNumberSubmitted && isLicenseSubmitted
+        isLocked(taxNumberVerification) && isLocked(licenseVerification)
             ? "Your company name, tax number and business license number can't be changed. Contact support if any of them need updating."
             : "Your company name can't be changed. Your tax number and business license number can't be changed once submitted, so check them before you save.";
 
@@ -156,9 +189,21 @@ function AboutCompanyForm() {
                 state: values.state,
                 country: values.country,
             };
+            const companyTaxNumber = values.companyTaxNumber.trim();
+            const businessLicenseNumber = values.businessLicenseNumber.trim();
             const changes = {
-                companyTaxNumber: values.companyTaxNumber.trim(),
-                businessLicenseNumber: values.businessLicenseNumber.trim(),
+                companyTaxNumber,
+                companyTaxNumberVerification: getVerificationAfterSave(
+                    profile.companyTaxNumber,
+                    companyTaxNumber,
+                    profile.companyTaxNumberVerification,
+                ),
+                businessLicenseNumber,
+                businessLicenseNumberVerification: getVerificationAfterSave(
+                    profile.businessLicenseNumber,
+                    businessLicenseNumber,
+                    profile.businessLicenseNumberVerification,
+                ),
                 companyAddress,
                 staffRange: values.staffRange,
                 specialities: values.specialities,

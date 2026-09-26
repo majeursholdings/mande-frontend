@@ -166,6 +166,12 @@ export type PricingPlan = {
     ctaUrl: string;
     /** The STAFF_RANGE_OPTIONS value that fits this plan's team size — prefills sign-up's staff question. */
     defaultStaffRange: string;
+    /**
+     * How many jobs the manufacturer can have on at once — unfinished
+     * assigned jobs plus open jobs they've applied for. Null for no limit.
+     * Matches the "Concurrent jobs" feature.
+     */
+    maxConcurrentJobs: number | null;
 };
 
 export type BillingCycle = "monthly" | "annual";
@@ -187,6 +193,7 @@ export const PRICING_PLANS: PricingPlan[] = [
         buttonText: "Choose solo",
         defaultStaffRange: "1-10",
         ctaUrl: `${ARTISAN_SIGNUP_URL}?plan=solo`,
+        maxConcurrentJobs: 2,
     },
     {
         id: "workshop",
@@ -204,6 +211,7 @@ export const PRICING_PLANS: PricingPlan[] = [
         buttonText: "Choose workshop",
         defaultStaffRange: "1-10",
         ctaUrl: `${ARTISAN_SIGNUP_URL}?plan=workshop`,
+        maxConcurrentJobs: 6,
     },
     {
         id: "studio-enterprise",
@@ -221,6 +229,7 @@ export const PRICING_PLANS: PricingPlan[] = [
         buttonText: "Choose studio",
         defaultStaffRange: "11-20",
         ctaUrl: `${ARTISAN_SIGNUP_URL}?plan=studio-enterprise`,
+        maxConcurrentJobs: null,
     },
 ];
 

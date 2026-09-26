@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { MANUFACTURER_JOBS_URL, RECENT_JOBS } from "@/constant/manufacturer";
+import { MANUFACTURER_ACTIVE_JOBS_URL, RECENT_JOBS } from "@/constant/manufacturer";
 import JobCard from "../jobsPage/jobCard";
 import EmptyState from "./emptyState";
 
@@ -10,7 +10,7 @@ export default function RecentJobsSection() {
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-base font-semibold font-text text-mist-950">Recent Jobs</h3>
                 <Link
-                    href={MANUFACTURER_JOBS_URL}
+                    href={MANUFACTURER_ACTIVE_JOBS_URL}
                     className="flex items-center gap-0.5 text-sm font-medium font-text text-secondary-600 hover:underline"
                 >
                     View all

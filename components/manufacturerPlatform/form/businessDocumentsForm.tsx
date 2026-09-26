@@ -7,6 +7,7 @@ import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
 import Notice from "@/components/manufacturerPlatform/notice";
+import { getVerificationAfterSave } from "@/constant/manufacturer";
 import { FormSubmitButton } from "./formButtons";
 
 // Named apart from the About Company form's fields — MainForm uses field names
@@ -65,9 +66,21 @@ export default function BusinessDocumentsForm() {
             // No backend is wired up yet — simulate the request so the flow
             // is testable end-to-end.
             await new Promise((resolve) => setTimeout(resolve, 800));
+            const companyTaxNumber = values.taxNumber.trim();
+            const businessLicenseNumber = values.licenseNumber.trim();
             updateProfile({
-                companyTaxNumber: values.taxNumber.trim(),
-                businessLicenseNumber: values.licenseNumber.trim(),
+                companyTaxNumber,
+                companyTaxNumberVerification: getVerificationAfterSave(
+                    profile.companyTaxNumber,
+                    companyTaxNumber,
+                    profile.companyTaxNumberVerification,
+                ),
+                businessLicenseNumber,
+                businessLicenseNumberVerification: getVerificationAfterSave(
+                    profile.businessLicenseNumber,
+                    businessLicenseNumber,
+                    profile.businessLicenseNumberVerification,
+                ),
             });
             toast.success("Business details submitted");
         } catch {

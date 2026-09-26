@@ -3,6 +3,7 @@ import type { SelectFilterItem } from "@/components/customTable/types";
 import type { StatusTone } from "@/components/customTable/statusBadge";
 import { DEFAULT_CURRENCY_CODE } from "@/constant/global";
 import { getCountryName } from "@/constant/africanCountries";
+import { formatCompactPrice } from "@/lib/currency";
 import type { BillingCycle } from "@/constant/sampleData";
 import {
     LayoutGrid,
@@ -78,6 +79,8 @@ export const MANUFACTURER_REVIEWS_URL = "/manufacturer/reviews";
 export const MANUFACTURER_PROFILE_URL = "/manufacturer/profile";
 // Reached from the profile page
 export const MANUFACTURER_SETTINGS_URL = "/manufacturer/profile/settings";
+/** Opens Settings on the Plan tab — where "Upgrade" links go. */
+export const MANUFACTURER_PLAN_SETTINGS_URL = `${MANUFACTURER_SETTINGS_URL}?tab=plan`;
 export const MANUFACTURER_SECURITY_URL = "/manufacturer/profile/security";
 export const MANUFACTURER_COMMUNITY_URL = "/manufacturer/profile/community";
 export const MANUFACTURER_LEGAL_URL = "/manufacturer/profile/legal";
@@ -145,107 +148,10 @@ export type DashboardStat = {
 
 export const DASHBOARD_STATS: DashboardStat[] = [
     { id: "jobs-completed", label: "Total Jobs Completed", value: "24", icon: "jobs" },
-    { id: "amount-made", label: "Total Amount Made", value: "₦1,800,000", icon: "amount" },
+    { id: "amount-made", label: "Total Amount Made", value: formatCompactPrice(1_800_000), icon: "amount" },
     { id: "delivery-rate", label: "Delivery Success Rate", value: "92%", icon: "delivery" },
     { id: "quality-rating", label: "Quality Control Rating", value: "4 /5", icon: "quality" },
 ];
-
-export type JobStatisticsRange = "weekly" | "monthly";
-
-export type JobStatisticsPoint = {
-    label: string;
-    successful: number;
-    unsuccessful: number;
-};
-
-type JobStatisticsValues = {
-    axisMax: number;
-    axisStep: number;
-    performance: number;
-    values: { successful: number; unsuccessful: number }[];
-};
-
-// Sample successful/unsuccessful counts, oldest first — labels are generated
-// at read time relative to "today" (see getJobStatistics below) so the chart
-// always shows the last 7 days / last 12 months instead of a fixed Sun–Sat
-// or Jan–Dec range.
-const JOB_STATISTICS_VALUES: Record<JobStatisticsRange, JobStatisticsValues> = {
-    weekly: {
-        axisMax: 8,
-        axisStep: 2,
-        performance: 86,
-        values: [
-            { successful: 5, unsuccessful: 1 },
-            { successful: 3, unsuccessful: 0 },
-            { successful: 1, unsuccessful: 1 },
-            { successful: 8, unsuccessful: 0 },
-            { successful: 1, unsuccessful: 4 },
-            { successful: 1, unsuccessful: 2 },
-            { successful: 6, unsuccessful: 0 },
-        ],
-    },
-    monthly: {
-        axisMax: 20,
-        axisStep: 5,
-        performance: 88,
-        values: [
-            { successful: 12, unsuccessful: 0 },
-            { successful: 4, unsuccessful: 0 },
-            { successful: 1, unsuccessful: 0 },
-            { successful: 19, unsuccessful: 0 },
-            { successful: 3, unsuccessful: 10 },
-            { successful: 1, unsuccessful: 1 },
-            { successful: 13, unsuccessful: 0 },
-            { successful: 17, unsuccessful: 0 },
-            { successful: 2, unsuccessful: 3 },
-            { successful: 2, unsuccessful: 0 },
-            { successful: 11, unsuccessful: 0 },
-            { successful: 18, unsuccessful: 0 },
-        ],
-    },
-};
-
-function getLastNDayLabels(n: number, referenceDate: Date): string[] {
-    const labels: string[] = [];
-    for (let i = n - 1; i >= 0; i--) {
-        const date = new Date(referenceDate);
-        date.setDate(referenceDate.getDate() - i);
-        labels.push(date.toLocaleDateString("en-US", { weekday: "short" }));
-    }
-    return labels;
-}
-
-function getLastNMonthLabels(n: number, referenceDate: Date): string[] {
-    const labels: string[] = [];
-    for (let i = n - 1; i >= 0; i--) {
-        const date = new Date(referenceDate.getFullYear(), referenceDate.getMonth() - i, 1);
-        labels.push(date.toLocaleDateString("en-US", { month: "short" }));
-    }
-    return labels;
-}
-
-/**
- * Builds job statistics for the given range with labels relative to
- * `referenceDate` (defaults to now) — the last 7 days for "weekly", the
- * last 12 months for "monthly" — instead of a fixed calendar range.
- */
-export function getJobStatistics(
-    range: JobStatisticsRange,
-    referenceDate: Date = new Date(),
-): { axisMax: number; axisStep: number; performance: number; data: JobStatisticsPoint[] } {
-    const { axisMax, axisStep, performance, values } = JOB_STATISTICS_VALUES[range];
-    const labels =
-        range === "weekly"
-            ? getLastNDayLabels(values.length, referenceDate)
-            : getLastNMonthLabels(values.length, referenceDate);
-
-    return {
-        axisMax,
-        axisStep,
-        performance,
-        data: values.map((point, index) => ({ label: labels[index], ...point })),
-    };
-}
 
 export type JobStatus =
     | "pending"
@@ -790,6 +696,153 @@ export const RECENT_JOBS: Job[] = JOBS.filter(
     .sort((a, b) => (a.assignedDaysAgo ?? -1) - (b.assignedDaysAgo ?? -1))
     .slice(0, 4);
 
+/**
+ * Whether an assigned job still takes up one of the plan's concurrent job
+ * slots — from assignment until it's completed, cancelled, or rejected for
+ * the last time (when it can no longer be resubmitted).
+ */
+export function isActiveJob(job: Pick<Job, "status" | "rejections">): boolean {
+    switch (job.status) {
+        case "completed":
+        case "cancelled":
+            return false;
+        case "rejected":
+            return (job.rejections?.length ?? 0) < MAX_JOB_REJECTIONS;
+        default:
+            return true;
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Open jobs — posted to every manufacturer, who can apply for them. An
+// application takes up one of the plan's concurrent job slots (as does every
+// active job) until it's withdrawn or turned down; if it's accepted, the job
+// is assigned to the manufacturer and keeps the slot as an active job.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The jobs page's two tabs — open jobs to apply for, and the manufacturer's own assigned jobs. */
+export type JobsPageTab = "open" | "active";
+
+export const MANUFACTURER_ACTIVE_JOBS_URL = `${MANUFACTURER_JOBS_URL}?tab=active`;
+
+export type OpenJob = {
+    id: string;
+    code: string;
+    title: string;
+    description: string;
+    /** A COMPANY_SPECIALITY_OPTIONS value, e.g. "upholstery". */
+    category: string;
+    /** What the manufacturer is paid for the job, in naira. */
+    price: number;
+    /** ISO date the finished furniture is due. */
+    dueDate: string;
+    /** ISO date the job was posted. */
+    postedAt: string;
+    /** A photo of the furniture to make — every open job has one. */
+    imageUrl: string;
+    attachments: JobAttachment[];
+};
+
+export const OPEN_JOB_SORT_OPTIONS: SelectFilterItem[] = [
+    { label: "Name", value: "name" },
+    { label: "Date posted", value: "date" },
+    { label: "Due date", value: "due-date" },
+    { label: "Category", value: "category" },
+    { label: "Pay", value: "price" },
+];
+
+export const OPEN_JOBS: OpenJob[] = [
+    {
+        id: "open-1",
+        code: "MD00139",
+        title: "Modular Sectional Sofa",
+        description:
+            "A three-piece modular sectional in oatmeal bouclé, with loose back cushions and hidden plinth legs. Each module needs to work on its own and together.",
+        category: "sofas",
+        price: 850000,
+        dueDate: daysFromNow(42),
+        postedAt: daysFromNow(0),
+        imageUrl: "/sample-image/sectional-sofa.png",
+        attachments: [{ name: "Sectional Spec.pdf", url: "/sectional-spec.pdf" }],
+    },
+    {
+        id: "open-2",
+        code: "MD00140",
+        title: "Carved Oak Executive Desk",
+        description:
+            "A solid oak executive desk with a hand-carved diamond pattern across the front and sides, sitting on two block plinths. Oiled, not lacquered.",
+        category: "desks",
+        price: 720000,
+        dueDate: daysFromNow(35),
+        postedAt: daysFromNow(-1),
+        imageUrl: "/sample-image/table.webp",
+        attachments: [{ name: "Desk Drawings.pdf", url: "/desk-drawings.pdf" }],
+    },
+    {
+        id: "open-3",
+        code: "MD00141",
+        title: "Upholstered King Bed Frame",
+        description:
+            "A king-size bed frame fully upholstered in teal performance velvet, with a curved headboard that wraps into the side rails.",
+        category: "beds",
+        price: 540000,
+        dueDate: daysFromNow(28),
+        postedAt: daysFromNow(-2),
+        imageUrl: "/sample-image/bed.webp",
+        attachments: [{ name: "Bed Frame Spec.pdf", url: "/bed-frame-spec.pdf" }],
+    },
+    {
+        id: "open-4",
+        code: "MD00142",
+        title: "4 Leather Lounge Chairs",
+        description:
+            "Four lounge chairs in tan leather with open wooden arms and tapered dark legs, for a hotel lobby. All four need to match exactly.",
+        category: "chairs-seating",
+        price: 960000,
+        dueDate: daysFromNow(49),
+        postedAt: daysFromNow(-4),
+        imageUrl: "/sample-image/sarki-chair.webp",
+        attachments: [{ name: "Lounge Chair Spec.pdf", url: "/lounge-chair-spec.pdf" }],
+    },
+    {
+        id: "open-5",
+        code: "MD00143",
+        title: "Low Slate TV Console",
+        description:
+            "A long, low TV console with a honed slate top on two blackened steel slab legs. Cable routing through the back of the legs.",
+        category: "cabinetry",
+        price: 390000,
+        dueDate: daysFromNow(21),
+        postedAt: daysFromNow(-6),
+        imageUrl: "/sample-image/tv-console.webp",
+        attachments: [],
+    },
+    {
+        id: "open-6",
+        code: "MD00144",
+        title: "Chesterfield Leather Sofa",
+        description:
+            "A classic three-seat Chesterfield in oxblood leather, with deep button tufting, rolled arms and turned wooden feet.",
+        category: "leather",
+        price: 1100000,
+        dueDate: daysFromNow(56),
+        postedAt: daysFromNow(-9),
+        imageUrl: "/images/image1.png",
+        attachments: [{ name: "Chesterfield Spec.pdf", url: "/chesterfield-spec.pdf" }],
+    },
+];
+
+export type JobApplication = {
+    /** An OPEN_JOBS id. */
+    jobId: string;
+    /** ISO date the manufacturer applied. */
+    appliedAt: string;
+};
+
+export const MANUFACTURER_JOB_APPLICATIONS: JobApplication[] = [
+    { jobId: "open-3", appliedAt: daysFromNow(-1) },
+];
+
 export type NotificationItem = {
     id: string;
     message: string;
@@ -882,10 +935,14 @@ export type ManufacturerProfile = {
     joinedAt: string | null;
     /** Set at registration; can't be changed from the profile. */
     companyName: string;
-    /** Empty until submitted (optional on the Solo plan). Can't be changed once submitted. */
+    /** Empty until submitted (optional on the Solo plan). Can't be changed once submitted, unless it's rejected. */
     companyTaxNumber: string;
-    /** Empty until submitted (optional on the Solo plan). Can't be changed once submitted. */
+    /** Ignored while companyTaxNumber is empty. */
+    companyTaxNumberVerification: DocumentVerification;
+    /** Empty until submitted (optional on the Solo plan). Can't be changed once submitted, unless it's rejected. */
     businessLicenseNumber: string;
+    /** Ignored while businessLicenseNumber is empty. */
+    businessLicenseNumberVerification: DocumentVerification;
     companyAddress: ManufacturerAddress;
     /** COMPANY_SPECIALITY_OPTIONS values, e.g. "beds". Up to MAX_COMPANY_SPECIALITIES. */
     specialities: string[];
@@ -893,16 +950,49 @@ export type ManufacturerProfile = {
     staffRange: string;
     /** A PRODUCTION_LEAD_TIME_OPTIONS value, e.g. "5-8-weeks". Empty until set. */
     productionLeadTime: string;
-    /** The NIN card photo uploaded at sign-up, and whether an admin has reviewed and verified it. */
+    /** The NIN card photo uploaded at sign-up (or re-uploaded after a rejection), and where it is in verification. */
     ninCard: ManufacturerNinCard;
     security: ManufacturerSecurity;
 };
 
-export type ManufacturerNinCard = {
+/** Where a submitted document (NIN card, tax number, business license number) is in verification. */
+export type VerificationStatus =
+    | "pending"
+    | "processing"
+    | "verified"
+    | "rejected"
+    | "manual_review";
+
+export type DocumentVerification = {
+    /**
+     * "pending" once submitted, "processing" while it's being checked, and
+     * "manual_review" when it needs a person to look at it — then "verified"
+     * or "rejected". Submitting it again after a rejection puts it back to
+     * "pending".
+     */
+    status: VerificationStatus;
+    /** Why it was rejected, e.g. "The photo is too blurry to read." Null unless rejected. */
+    rejectionReason: string | null;
+};
+
+/** A new or resubmitted document, waiting to be checked. */
+export const PENDING_VERIFICATION: DocumentVerification = { status: "pending", rejectionReason: null };
+
+/**
+ * A document's verification once `newValue` is saved over `savedValue` — a
+ * new or changed value goes back to waiting to be checked.
+ */
+export function getVerificationAfterSave(
+    savedValue: string,
+    newValue: string,
+    verification: DocumentVerification,
+): DocumentVerification {
+    return newValue === savedValue ? verification : PENDING_VERIFICATION;
+}
+
+export type ManufacturerNinCard = DocumentVerification & {
     /** Null when no photo has been uploaded. */
     imageUrl: string | null;
-    /** True once an admin has checked the card against the manufacturer's details. */
-    isVerified: boolean;
 };
 
 export const EMPTY_MANUFACTURER_PROFILE: ManufacturerProfile = {
@@ -915,12 +1005,14 @@ export const EMPTY_MANUFACTURER_PROFILE: ManufacturerProfile = {
     joinedAt: null,
     companyName: "",
     companyTaxNumber: "",
+    companyTaxNumberVerification: PENDING_VERIFICATION,
     businessLicenseNumber: "",
+    businessLicenseNumberVerification: PENDING_VERIFICATION,
     companyAddress: { streetAddress: "", city: "", state: "", country: "" },
     specialities: [],
     staffRange: "",
     productionLeadTime: "",
-    ninCard: { imageUrl: null, isVerified: false },
+    ninCard: { imageUrl: null, ...PENDING_VERIFICATION },
     security: {
         linkedAccounts: { google: null, facebook: null },
         twoFactorMethod: null,
@@ -936,9 +1028,12 @@ export const MANUFACTURER_PROFILE: ManufacturerProfile = {
     avatarUrl: null,
     joinedAt: "2022-01-12T12:00:00.000Z",
     companyName: "Majeurs Chesterfield",
-    // Not submitted yet — the sample account is on the Solo plan, which doesn't need them
+    // Not submitted yet — the sample account is on the Solo plan, which doesn't need them.
+    // Fill a number in and set its verification status to see that on the About Company tab
     companyTaxNumber: "",
+    companyTaxNumberVerification: PENDING_VERIFICATION,
     businessLicenseNumber: "",
+    businessLicenseNumberVerification: PENDING_VERIFICATION,
     companyAddress: {
         streetAddress: "20, Peacock Drive",
         city: "Lekki",
@@ -948,8 +1043,13 @@ export const MANUFACTURER_PROFILE: ManufacturerProfile = {
     specialities: ["beds", "desks", "chairs-seating"],
     staffRange: "21-30",
     productionLeadTime: "5-8-weeks",
-    // Flip isVerified to see the verified state — an admin sets it after review
-    ninCard: { imageUrl: "/sample-image/nin-card-sample.svg", isVerified: false },
+    // Set status to any VerificationStatus to see that state. A rejectionReason
+    // (e.g. "The photo is too blurry to read.") is optional, and only shown when rejected
+    ninCard: {
+        imageUrl: "/sample-image/nin-card-sample.svg",
+        status: "rejected",
+        rejectionReason: null,
+    },
     security: {
         linkedAccounts: { google: null, facebook: null },
         twoFactorMethod: null,

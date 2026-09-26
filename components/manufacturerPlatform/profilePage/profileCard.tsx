@@ -79,7 +79,7 @@ export default function ProfileCard({
                         >
                             {fullName || "Name not provided"}
                         </h2>
-                        <VerificationBadge isVerified={profile.ninCard.isVerified} />
+                        <VerificationBadge status={profile.ninCard.status} rejectedLabel="ID rejected" />
                     </div>
                     {profile.joinedAt && (
                         <p className="text-xs font-text text-mist-400">
