@@ -25,7 +25,7 @@ export default function UserDetailsStep({
             name: "firstName",
             type: "text",
             label: "First name",
-            placeholder: "Enter first name",
+            placeholder: "e.g. Demi",
             autoComplete: "given-name",
             validation: validators.name("First name"),
         },
@@ -33,7 +33,7 @@ export default function UserDetailsStep({
             name: "lastName",
             type: "text",
             label: "Last name",
-            placeholder: "Enter last name",
+            placeholder: "e.g. Semande",
             autoComplete: "family-name",
             validation: validators.name("Last name"),
         },
@@ -41,7 +41,7 @@ export default function UserDetailsStep({
             name: "email",
             type: "email",
             label: "Email",
-            placeholder: "Enter email",
+            placeholder: "e.g. demi@example.com",
             autoComplete: "email",
             validation: validators.email(),
         },
@@ -49,7 +49,7 @@ export default function UserDetailsStep({
             name: "password",
             type: "password",
             label: "Password",
-            placeholder: "Enter password",
+            placeholder: "At least 8 characters",
             autoComplete: "new-password",
             validation: validators.password(),
         },
@@ -84,7 +84,6 @@ export default function UserDetailsStep({
         <div className="flex flex-col gap-6">
             <StepHeader
                 step={1}
-                totalSteps={4}
                 title={
                     <>
                         Welcome to{" "}

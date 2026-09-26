@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { HTMLAttributes, ReactNode } from "react";
 import { FieldValues, RegisterOptions, UseFormReturn } from "react-hook-form";
 
 export type FieldType =
@@ -8,8 +8,10 @@ export type FieldType =
     | "tel"
     | "number"
     | "number-dollar"
+    | "amount" // money — digits only, shown as "₦300,000"; the value is the digit string
     | "textarea"
     | "select"
+    | "combobox" // a select you can type into to filter its options
     | "multiselect"
     | "radio"
     | "date"
@@ -33,9 +35,13 @@ export type FormFieldConfig = {
     uploadIcon?: ReactNode; // custom icon for file/image upload
     accept?: string; // for file/image — e.g. "image/png, image/jpeg"
     multiple?: boolean; // for file upload
-    options?: SelectOption[]; // for select / multiselect / radio fields
+    options?: SelectOption[]; // for select / combobox / multiselect / radio fields
     maxSelections?: number; // for multiselect — caps how many options can be chosen
-    loadOptions?: () => Promise<SelectOption[]>; // ← add this for async selects
+    // For async select / combobox fields — the field suspends until it
+    // resolves, so return the same (cached) promise on every call.
+    loadOptions?: () => Promise<SelectOption[]>;
+    emptyMessage?: string; // for combobox — shown when no option matches the search
+    currencySymbol?: string; // for amount — defaults to ₦
     rows?: number; // for textarea
     height?: number;
     min?: number | string;
@@ -44,6 +50,9 @@ export type FormFieldConfig = {
     minDate?: Date | string; // for date/datetime — disables earlier dates
     isDateDisabled?: (date: Date) => boolean;
     autoComplete?: string;
+    inputMode?: HTMLAttributes<HTMLInputElement>["inputMode"]; // e.g. "numeric" for an account number
+    maxLength?: number;
+    readOnly?: boolean; // shown but not editable — e.g. a value filled in by a lookup
     validation?: RegisterOptions;
     defaultValue?: string | number | boolean;
     className?: string;

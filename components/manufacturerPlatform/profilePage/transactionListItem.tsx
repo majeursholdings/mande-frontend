@@ -1,0 +1,75 @@
+import { ArrowDown, ArrowUp } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { formatPrice } from "@/lib/currency";
+import { formatOrdinalDate } from "@/lib/date";
+import type { ManufacturerTransaction } from "@/constant/manufacturer";
+
+/** Green "money in" badge for a payment, red "money out" for a withdrawal or plan payment. */
+export function TransactionIcon({
+    type,
+    className,
+}: {
+    type: ManufacturerTransaction["type"];
+    className?: string;
+}) {
+    const isMoneyOut = type !== "payment";
+    const Arrow = isMoneyOut ? ArrowUp : ArrowDown;
+
+    return (
+        <span
+            aria-hidden
+            className={cn(
+                "flex size-5 shrink-0 items-center justify-center rounded-full text-white",
+                isMoneyOut ? "bg-error-500" : "bg-primary-500",
+                className,
+            )}
+        >
+            <Arrow className="size-3" strokeWidth={2.5} />
+        </span>
+    );
+}
+
+/**
+ * One transaction as a list row. "preview" (the profile card) shows the
+ * label and date; "full" (the mobile transactions page, where there's no
+ * room for the table) adds the project name.
+ */
+export default function TransactionListItem({
+    transaction,
+    variant = "preview",
+}: {
+    transaction: ManufacturerTransaction;
+    variant?: "preview" | "full";
+}) {
+    const isFull = variant === "full";
+
+    return (
+        <li className="flex gap-3">
+            <TransactionIcon type={transaction.type} className="mt-0.5" />
+            <div className="min-w-0 flex-1">
+                <p
+                    className={cn(
+                        "font-medium font-text text-mist-950",
+                        isFull ? "text-base" : "text-sm",
+                    )}
+                >
+                    {transaction.label}
+                </p>
+                {isFull && transaction.projectName && (
+                    <p className="text-sm font-text text-mist-600">{transaction.projectName}</p>
+                )}
+                <p className="text-xs font-text text-mist-400">
+                    {formatOrdinalDate(new Date(transaction.date))}
+                </p>
+            </div>
+            <p
+                className={cn(
+                    "shrink-0 font-semibold font-text text-mist-950",
+                    isFull ? "self-start text-base" : "self-center text-sm",
+                )}
+            >
+                {formatPrice(transaction.amount)}
+            </p>
+        </li>
+    );
+}

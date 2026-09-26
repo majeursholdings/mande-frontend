@@ -1,15 +1,17 @@
 import { ReactNode } from "react";
+import { REGISTRATION_STEPS } from "@/constant/manufacturer";
 
 export type StepHeaderProps = {
     step: number;
-    totalSteps: number;
+    /** Defaults to the number of REGISTRATION_STEPS. */
+    totalSteps?: number;
     title: ReactNode;
     description?: string;
 };
 
 export default function StepHeader({
     step,
-    totalSteps,
+    totalSteps = REGISTRATION_STEPS.length,
     title,
     description,
 }: StepHeaderProps) {

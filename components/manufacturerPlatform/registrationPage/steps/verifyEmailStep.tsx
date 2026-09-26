@@ -49,7 +49,6 @@ export default function VerifyEmailStep({
         <div className="flex flex-col gap-6">
             <StepHeader
                 step={2}
-                totalSteps={4}
                 title="Verify your email"
                 description="Enter the code sent to your email address."
             />
@@ -64,7 +63,15 @@ export default function VerifyEmailStep({
                         <OtpInput
                             length={OTP_LENGTH}
                             value={code}
-                            onChange={field.onChange}
+                            onChange={(value) => {
+                                field.onChange(value);
+                                // Moves on as soon as the last digit is in —
+                                // no need to press Continue
+                                if (value.length === OTP_LENGTH && !isLoading) {
+                                    void methods.handleSubmit(onContinue)();
+                                }
+                            }}
+                            disabled={isLoading}
                             error={!!fieldState.error}
                             name={field.name}
                         />

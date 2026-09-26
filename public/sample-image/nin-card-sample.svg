@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 340" role="img" aria-label="Sample ID card">
+  <rect x="4" y="4" width="532" height="332" rx="22" fill="#f4f7f5" stroke="#c2d2cb" stroke-width="2"/>
+  <rect x="4" y="4" width="532" height="64" rx="22" fill="#1f8f55"/>
+  <rect x="4" y="46" width="532" height="22" fill="#1f8f55"/>
+  <text x="32" y="46" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#ffffff" letter-spacing="2">SAMPLE ID CARD</text>
+  <rect x="32" y="96" width="132" height="160" rx="12" fill="#dde6e2"/>
+  <circle cx="98" cy="152" r="30" fill="#9eb5ab"/>
+  <path d="M52 238c8-30 26-44 46-44s38 14 46 44z" fill="#9eb5ab"/>
+  <g font-family="Helvetica, Arial, sans-serif">
+    <text x="196" y="112" font-size="13" fill="#7d978c" letter-spacing="1">SURNAME</text>
+    <rect x="196" y="120" width="170" height="16" rx="4" fill="#c2d2cb"/>
+    <text x="196" y="164" font-size="13" fill="#7d978c" letter-spacing="1">GIVEN NAMES</text>
+    <rect x="196" y="172" width="210" height="16" rx="4" fill="#c2d2cb"/>
+    <text x="196" y="216" font-size="13" fill="#7d978c" letter-spacing="1">DATE OF BIRTH</text>
+    <rect x="196" y="224" width="120" height="16" rx="4" fill="#c2d2cb"/>
+    <text x="32" y="298" font-size="13" fill="#7d978c" letter-spacing="1">NIN</text>
+    <text x="72" y="299" font-size="20" font-weight="700" fill="#41514b" letter-spacing="4">0000 000 0000</text>
+  </g>
+</svg>

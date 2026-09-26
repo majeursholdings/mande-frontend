@@ -1,32 +1,50 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ArrowLeft, Bell, Search } from "lucide-react";
-import { CURRENT_MANUFACTURER_USER, NOTIFICATIONS } from "@/constant/manufacturer";
+import {
+    MANUFACTURER_SUBPAGE_BACK_LINKS,
+    getManufacturerFullName,
+} from "@/constant/manufacturer";
+import { BlackLogo } from "@/components/mainWebsite/navigations/logo";
+import { useManufacturerProfile } from "./manufacturerProfileContext";
+import { useNotifications } from "./notificationsContext";
 import NotificationsPanel from "./notificationsPanel";
 import SearchPanel from "./searchPanel";
 import UserAvatar from "./userAvatar";
+import UserMenu from "./userMenu";
 
 type MobileOverlay = "search" | "notifications" | null;
 
 export default function MobileTopbar() {
     const [overlay, setOverlay] = useState<MobileOverlay>(null);
     const [query, setQuery] = useState("");
-    const hasUnread = NOTIFICATIONS.some((n) => !n.isRead);
+    const { hasUnread } = useNotifications();
+    const { profile } = useManufacturerProfile();
+    const backLink = MANUFACTURER_SUBPAGE_BACK_LINKS[usePathname()];
+
+    if (backLink) {
+        return (
+            <header className="lg:hidden sticky top-0 z-30 flex items-center border-b border-border bg-white px-4 py-3.5">
+                <Link
+                    href={backLink.href}
+                    className="flex items-center gap-3 text-lg font-medium font-text text-mist-950"
+                >
+                    <ArrowLeft className="size-6" />
+                    {backLink.label}
+                </Link>
+            </header>
+        );
+    }
 
     return (
         <>
             <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border bg-white px-4 py-3">
-                <Image
-                    src="/MANDE Logo Black.png"
-                    alt="MANDE Logo"
-                    title="MANDE Logo"
-                    width={112}
-                    height={26}
-                    priority
-                    className="h-6 w-auto"
-                />
+                <div className="w-25">
+                    <BlackLogo />
+                </div>
 
                 <div className="flex items-center gap-4">
                     <button
@@ -48,7 +66,13 @@ export default function MobileTopbar() {
                             <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-secondary-500" />
                         )}
                     </button>
-                    <UserAvatar name={CURRENT_MANUFACTURER_USER.name} className="size-8 text-xs" />
+                    <UserMenu aria-label="Profile menu" className="rounded-full cursor-pointer">
+                        <UserAvatar
+                            name={getManufacturerFullName(profile)}
+                            src={profile.avatarUrl}
+                            className="size-8 text-xs"
+                        />
+                    </UserMenu>
                 </div>
             </header>
 
@@ -65,7 +89,7 @@ export default function MobileTopbar() {
                         </button>
                     </div>
                     <div className="flex-1 overflow-y-auto px-4 py-4">
-                        <NotificationsPanel />
+                        <NotificationsPanel onLinkClick={() => setOverlay(null)} />
                     </div>
                 </div>
             )}
@@ -80,7 +104,7 @@ export default function MobileTopbar() {
                                 autoFocus
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
-                                placeholder="Search"
+                                placeholder="Search Job..."
                                 className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-3 text-sm font-text text-mist-900 placeholder:text-mist-400 outline-none focus:border-secondary-400 focus:ring-2 focus:ring-secondary-100 transition-all duration-200"
                             />
                         </div>
@@ -92,10 +116,12 @@ export default function MobileTopbar() {
                             Cancel
                         </button>
                     </div>
-                    <div className="px-4 py-4">
+                    <div className="flex-1 overflow-y-auto px-4 py-4">
                         <SearchPanel
-                            onSelect={(term) => {
-                                setQuery(term);
+                            query={query}
+                            onRecentSearchSelect={setQuery}
+                            onResultSelect={() => {
+                                setQuery("");
                                 setOverlay(null);
                             }}
                         />

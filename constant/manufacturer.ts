@@ -1,11 +1,12 @@
 import type { SelectOption } from "@/components/form/types";
 import type { SelectFilterItem } from "@/components/customTable/types";
 import type { StatusTone } from "@/components/customTable/statusBadge";
+import { DEFAULT_CURRENCY_CODE } from "@/constant/global";
+import { getCountryName } from "@/constant/africanCountries";
+import type { BillingCycle } from "@/constant/sampleData";
 import {
     LayoutGrid,
     ListChecks,
-    GitBranch,
-    FolderClosed,
     UserRound,
     type LucideIcon,
 } from "lucide-react";
@@ -17,7 +18,8 @@ export type RegistrationStep = {
 export const REGISTRATION_STEPS: RegistrationStep[] = [
     { label: "User details" },
     { label: "Verify email" },
-    { label: "About company" },
+    { label: "Choose a plan" },
+    { label: "About company & documents" },
     { label: "Company specifications" },
 ];
 
@@ -70,6 +72,9 @@ export const MANUFACTURER_JOBS_URL = "/manufacturer/jobs";
 export const MANUFACTURER_TIMELINE_URL = "/manufacturer/timeline";
 export const MANUFACTURER_FILES_URL = "/manufacturer/files";
 export const MANUFACTURER_PROFILE_URL = "/manufacturer/profile";
+export const MANUFACTURER_EDIT_PROFILE_URL = "/manufacturer/profile/edit";
+export const MANUFACTURER_TRANSACTIONS_URL = "/manufacturer/profile/transactions";
+export const MANUFACTURER_REVIEWS_URL = "/manufacturer/profile/reviews";
 
 export type ManufacturerNavItem = {
     label: string;
@@ -77,16 +82,33 @@ export type ManufacturerNavItem = {
     icon: LucideIcon;
 };
 
+// Timeline and Files are left out of the menu for now — their "coming soon"
+// routes still exist.
 export const MANUFACTURER_NAV_ITEMS: ManufacturerNavItem[] = [
     { label: "Dashboard", href: MANUFACTURER_DASHBOARD_URL, icon: LayoutGrid },
     { label: "Jobs", href: MANUFACTURER_JOBS_URL, icon: ListChecks },
-    { label: "Timeline", href: MANUFACTURER_TIMELINE_URL, icon: GitBranch },
-    { label: "Files", href: MANUFACTURER_FILES_URL, icon: FolderClosed },
     { label: "Profile", href: MANUFACTURER_PROFILE_URL, icon: UserRound },
 ];
 
-export const CURRENT_MANUFACTURER_USER = {
-    name: "Demi Semande",
+export type ManufacturerBackLink = {
+    label: string;
+    href: string;
+};
+
+export const MANUFACTURER_PROFILE_BACK_LINK: ManufacturerBackLink = {
+    label: "Back to Profile",
+    href: MANUFACTURER_PROFILE_URL,
+};
+
+/**
+ * Sub-pages, keyed by pathname, whose mobile top bar is just a "Back to …"
+ * link in place of the logo, search and notifications. On desktop the same
+ * link sits above the page title instead.
+ */
+export const MANUFACTURER_SUBPAGE_BACK_LINKS: Record<string, ManufacturerBackLink> = {
+    [MANUFACTURER_EDIT_PROFILE_URL]: MANUFACTURER_PROFILE_BACK_LINK,
+    [MANUFACTURER_TRANSACTIONS_URL]: MANUFACTURER_PROFILE_BACK_LINK,
+    [MANUFACTURER_REVIEWS_URL]: MANUFACTURER_PROFILE_BACK_LINK,
 };
 
 export type DashboardStat = {
@@ -792,3 +814,410 @@ export const NOTIFICATIONS: NotificationItem[] = [
 ];
 
 export const RECENT_SEARCHES = ["Cushions", "Desks", "Fabrication"];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Manufacturer profile — the signed-in manufacturer's account and company
+// details, wallet (balance, bank account, transactions) and reviews. Sample
+// data until the backend is connected. The EMPTY_* shapes (and an empty
+// reviews list) are what a brand-new account looks like — every profile
+// screen has an empty state for them.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type SocialLoginProvider = "google" | "facebook";
+
+/** How the second step of two-factor authentication is done. */
+export type TwoFactorMethod = "email" | "app";
+
+export type ManufacturerSecurity = {
+    /** Accounts linked for one-click login — the linked account's email, null when not linked. */
+    linkedAccounts: Record<SocialLoginProvider, string | null>;
+    /** Null when two-factor authentication is off. */
+    twoFactorMethod: TwoFactorMethod | null;
+};
+
+export type ManufacturerAddress = {
+    streetAddress: string;
+    city: string;
+    state: string;
+    /** ISO country code, e.g. "NG" — African countries only (see AFRICAN_COUNTRIES). */
+    country: string;
+};
+
+export type ManufacturerProfile = {
+    firstName: string;
+    lastName: string;
+    /** Sign-in email — shown on the edit page, but can't be changed there. */
+    email: string;
+    phoneNumber: string;
+    /** ISO date. Null until set. */
+    dateOfBirth: string | null;
+    /** Profile photo URL. Null shows the initials avatar instead. */
+    avatarUrl: string | null;
+    /** ISO date the account was created. Null hides the "Joined" line. */
+    joinedAt: string | null;
+    /** Set at registration; can't be changed from the profile. */
+    companyName: string;
+    /** Empty until submitted (optional on the Solo plan). Can't be changed once submitted. */
+    companyTaxNumber: string;
+    /** Empty until submitted (optional on the Solo plan). Can't be changed once submitted. */
+    businessLicenseNumber: string;
+    companyAddress: ManufacturerAddress;
+    /** COMPANY_SPECIALITY_OPTIONS values, e.g. "beds". Up to MAX_COMPANY_SPECIALITIES. */
+    specialities: string[];
+    /** A STAFF_RANGE_OPTIONS value, e.g. "21-30". Empty until set. */
+    staffRange: string;
+    /** A PRODUCTION_LEAD_TIME_OPTIONS value, e.g. "5-8-weeks". Empty until set. */
+    productionLeadTime: string;
+    /** The NIN card photo uploaded at sign-up, and whether an admin has reviewed and verified it. */
+    ninCard: ManufacturerNinCard;
+    security: ManufacturerSecurity;
+};
+
+export type ManufacturerNinCard = {
+    /** Null when no photo has been uploaded. */
+    imageUrl: string | null;
+    /** True once an admin has checked the card against the manufacturer's details. */
+    isVerified: boolean;
+};
+
+export const EMPTY_MANUFACTURER_PROFILE: ManufacturerProfile = {
+    firstName: "",
+    lastName: "",
+    email: "",
+    phoneNumber: "",
+    dateOfBirth: null,
+    avatarUrl: null,
+    joinedAt: null,
+    companyName: "",
+    companyTaxNumber: "",
+    businessLicenseNumber: "",
+    companyAddress: { streetAddress: "", city: "", state: "", country: "" },
+    specialities: [],
+    staffRange: "",
+    productionLeadTime: "",
+    ninCard: { imageUrl: null, isVerified: false },
+    security: {
+        linkedAccounts: { google: null, facebook: null },
+        twoFactorMethod: null,
+    },
+};
+
+export const MANUFACTURER_PROFILE: ManufacturerProfile = {
+    firstName: "Demi",
+    lastName: "Semande",
+    email: "demi@example.com",
+    phoneNumber: "+234 801 234 5678",
+    dateOfBirth: "1990-05-14T12:00:00.000Z",
+    avatarUrl: null,
+    joinedAt: "2022-01-12T12:00:00.000Z",
+    companyName: "Majeurs Chesterfield",
+    // Not submitted yet — the sample account is on the Solo plan, which doesn't need them
+    companyTaxNumber: "",
+    businessLicenseNumber: "",
+    companyAddress: {
+        streetAddress: "20, Peacock Drive",
+        city: "Lekki",
+        state: "Lagos",
+        country: "NG",
+    },
+    specialities: ["beds", "desks", "chairs-seating"],
+    staffRange: "21-30",
+    productionLeadTime: "5-8-weeks",
+    // Flip isVerified to see the verified state — an admin sets it after review
+    ninCard: { imageUrl: "/sample-image/nin-card-sample.svg", isVerified: false },
+    security: {
+        linkedAccounts: { google: null, facebook: null },
+        twoFactorMethod: null,
+    },
+};
+
+/**
+ * Where a one-time code for a sensitive action (password change, withdrawal)
+ * comes from — the authenticator app if that's the manufacturer's
+ * two-factor method, otherwise their email.
+ */
+export function getOtpChannel(profile: Pick<ManufacturerProfile, "security">): TwoFactorMethod {
+    return profile.security.twoFactorMethod === "app" ? "app" : "email";
+}
+
+/** Whether both the company tax number and business license number are on file. */
+export function hasBusinessDocuments(
+    profile: Pick<ManufacturerProfile, "companyTaxNumber" | "businessLicenseNumber">,
+): boolean {
+    return !!profile.companyTaxNumber.trim() && !!profile.businessLicenseNumber.trim();
+}
+
+/** "Demi" + "Semande" → "Demi Semande". Empty when neither name is set. */
+export function getManufacturerFullName(
+    profile: Pick<ManufacturerProfile, "firstName" | "lastName">,
+): string {
+    return [profile.firstName, profile.lastName]
+        .map((name) => name.trim())
+        .filter(Boolean)
+        .join(" ");
+}
+
+/** "20, Peacock Drive, Lekki, Lagos, Nigeria" — empty when no part of the address is set. */
+export function formatAddress(address: ManufacturerAddress): string {
+    return [address.streetAddress, address.city, address.state, getCountryName(address.country)]
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .join(", ");
+}
+
+/** "21-30" → "21 to 30". Empty for an unset value; an unknown one is shown as-is. */
+export function getOptionLabel(options: SelectOption[], value: string): string {
+    return options.find((option) => option.value === value)?.label ?? value;
+}
+
+export type ManufacturerTransaction = {
+    id: string;
+    /**
+     * "payment" is money in for a job. Money out: "withdrawal" to the bank
+     * account, "subscription" for a plan paid from the wallet balance.
+     */
+    type: "payment" | "withdrawal" | "subscription";
+    /** e.g. "First installment", or "Withdrawal". */
+    label: string;
+    /** Title of the job a payment is for. Null for withdrawals. */
+    projectName: string | null;
+    /** ISO date of the transaction. */
+    date: string;
+    /** In naira — always positive; `type` says which way it went. */
+    amount: number;
+};
+
+export const TRANSACTION_SORT_OPTIONS: SelectFilterItem[] = [
+    { label: "Project name", value: "project-name" },
+    { label: "Date", value: "date" },
+    { label: "Amount", value: "amount" },
+];
+
+/** Newest first — the order the profile preview and "All" sort show. */
+const SAMPLE_TRANSACTIONS: ManufacturerTransaction[] = [
+    {
+        id: "txn-1",
+        type: "payment",
+        label: "First installment",
+        projectName: "Metal Fabrication",
+        date: "2022-03-04T12:00:00.000Z",
+        amount: 100000,
+    },
+    {
+        id: "txn-2",
+        type: "payment",
+        label: "Second installment",
+        projectName: "Metal Fabrication",
+        date: "2022-02-24T12:00:00.000Z",
+        amount: 80000,
+    },
+    {
+        id: "txn-3",
+        type: "payment",
+        label: "Third installment",
+        projectName: "4 Cushions & Seating Fabric",
+        date: "2022-02-01T12:00:00.000Z",
+        amount: 300000,
+    },
+    {
+        id: "txn-4",
+        type: "payment",
+        label: "First installment",
+        projectName: "3 Tables & Carver Chairs",
+        date: "2022-01-13T12:00:00.000Z",
+        amount: 250000,
+    },
+    {
+        id: "txn-5",
+        type: "payment",
+        label: "Second installment",
+        projectName: "2 Leather Seats",
+        date: "2022-01-10T12:00:00.000Z",
+        amount: 250000,
+    },
+    {
+        id: "txn-6",
+        type: "payment",
+        label: "Third installment",
+        projectName: "3 Tables & Carver Chairs",
+        date: "2022-01-04T12:00:00.000Z",
+        amount: 250000,
+    },
+    {
+        id: "txn-7",
+        type: "withdrawal",
+        label: "Withdrawal",
+        projectName: null,
+        date: "2021-12-28T12:00:00.000Z",
+        amount: 300000,
+    },
+    {
+        id: "txn-8",
+        type: "payment",
+        label: "Third installment",
+        projectName: "Cushion Arm Rests",
+        date: "2021-12-23T12:00:00.000Z",
+        amount: 250000,
+    },
+    {
+        id: "txn-9",
+        type: "payment",
+        label: "First installment",
+        projectName: "8 Throw Pillows",
+        date: "2021-12-15T12:00:00.000Z",
+        amount: 250000,
+    },
+];
+
+/** Account numbers are 10-digit NUBANs. */
+export const BANK_ACCOUNT_NUMBER_LENGTH = 10;
+
+export type ManufacturerBankAccount = {
+    /** The bank's code from the banking API's bank list, e.g. "058". */
+    bankCode: string;
+    bankName: string;
+    accountNumber: string;
+    /** The name the account is registered to, as returned by the bank lookup. */
+    accountName: string;
+    /** Only naira accounts are supported for now. */
+    currency: typeof DEFAULT_CURRENCY_CODE;
+};
+
+export type ManufacturerWallet = {
+    /** Available balance, in naira. */
+    balance: number;
+    /** Where withdrawals are paid out to. Null until one is added. */
+    bankAccount: ManufacturerBankAccount | null;
+    /** Newest first. */
+    transactions: ManufacturerTransaction[];
+};
+
+export const EMPTY_MANUFACTURER_WALLET: ManufacturerWallet = {
+    balance: 0,
+    bankAccount: null,
+    transactions: [],
+};
+
+export const MANUFACTURER_WALLET: ManufacturerWallet = {
+    balance: 400000,
+    bankAccount: null,
+    transactions: SAMPLE_TRANSACTIONS,
+};
+
+/**
+ * Nigerian banks, labelled by name with the bank's code as the value. Sample
+ * list until the banking API provides it.
+ */
+export const NIGERIAN_BANKS: SelectOption[] = [
+    { label: "Access Bank", value: "044" },
+    { label: "Citibank Nigeria", value: "023" },
+    { label: "Ecobank Nigeria", value: "050" },
+    { label: "Fidelity Bank", value: "070" },
+    { label: "First Bank of Nigeria", value: "011" },
+    { label: "First City Monument Bank", value: "214" },
+    { label: "Globus Bank", value: "00103" },
+    { label: "Guaranty Trust Bank", value: "058" },
+    { label: "Heritage Bank", value: "030" },
+    { label: "Keystone Bank", value: "082" },
+    { label: "Kuda Bank", value: "50211" },
+    { label: "Moniepoint MFB", value: "50515" },
+    { label: "OPay", value: "999992" },
+    { label: "PalmPay", value: "999991" },
+    { label: "Polaris Bank", value: "076" },
+    { label: "Providus Bank", value: "101" },
+    { label: "Stanbic IBTC Bank", value: "221" },
+    { label: "Standard Chartered Bank", value: "068" },
+    { label: "Sterling Bank", value: "232" },
+    { label: "Union Bank of Nigeria", value: "032" },
+    { label: "United Bank for Africa", value: "033" },
+    { label: "Unity Bank", value: "215" },
+    { label: "Wema Bank", value: "035" },
+    { label: "Zenith Bank", value: "057" },
+];
+
+export type ManufacturerReview = {
+    id: string;
+    customerName: string;
+    /** 1–5 stars. */
+    rating: number;
+    comment: string;
+};
+
+/** Newest first — the order the profile preview and reviews page show. */
+export const MANUFACTURER_REVIEWS: ManufacturerReview[] = [
+    {
+        id: "review-1",
+        customerName: "Latade Dipe",
+        rating: 4,
+        comment:
+            "The office table I ordered from Mande actually exceeded my expectation, the specifications were 100% accurate! 👍🏽",
+    },
+    {
+        id: "review-2",
+        customerName: "James O.",
+        rating: 4,
+        comment:
+            "The throw pillows came right on time, the attention to detail is second to none. 🙌🏽🙌🏽",
+    },
+    {
+        id: "review-3",
+        customerName: "Priscilla Adams",
+        rating: 3,
+        comment: "Would have preferred a deeper shade of brown for my cushions. 🤔",
+    },
+    {
+        id: "review-4",
+        customerName: "Vanessa Jacobs",
+        rating: 3,
+        comment: "Would have preferred a deeper shade of brown for my cushions. 🤔",
+    },
+    {
+        id: "review-5",
+        customerName: "Christian Adams",
+        rating: 3,
+        comment: "Would have preferred a deeper shade of brown for my cushions. 🤔",
+    },
+    {
+        id: "review-6",
+        customerName: "Ebun Bento",
+        rating: 3,
+        comment: "Would have preferred a deeper shade of brown for my cushions. 🤔",
+    },
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Subscription — the manufacturer's plan (a PRICING_PLANS id) and the cards
+// saved for paying for it. Sample data until the backend is connected.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ManufacturerSubscription = {
+    /** A PRICING_PLANS id, e.g. "workshop". */
+    planId: string;
+    billingCycle: BillingCycle;
+    /** ISO date the current billing period ends and the plan renews. */
+    renewsAt: string;
+    /** Cancelled by the manufacturer — the plan stays active until renewsAt, then ends. */
+    cancelAtPeriodEnd: boolean;
+    /** A downgrade waiting to take effect at renewsAt. Null when none is scheduled. */
+    scheduledPlanId: string | null;
+};
+
+export type SavedCard = {
+    id: string;
+    brand: "Visa" | "Mastercard" | "Verve";
+    last4: string;
+    /** "MM/YY" */
+    expiry: string;
+};
+
+export const MANUFACTURER_SUBSCRIPTION: ManufacturerSubscription = {
+    planId: "solo",
+    billingCycle: "monthly",
+    renewsAt: daysFromNow(18),
+    cancelAtPeriodEnd: false,
+    scheduledPlanId: null,
+};
+
+export const MANUFACTURER_SAVED_CARDS: SavedCard[] = [
+    { id: "card-1", brand: "Visa", last4: "4242", expiry: "08/27" },
+];

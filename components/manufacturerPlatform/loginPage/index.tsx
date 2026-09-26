@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
@@ -9,6 +10,7 @@ import { FormFieldConfig } from "@/components/form/types";
 import { validators } from "@/components/form/form.validators";
 import AuthScreenLayout from "../authScreenLayout";
 import { GoogleIcon, FacebookIcon } from "../socialIcons";
+import { loadRegistrationProgress } from "../registrationPage/registrationProgress";
 import {
     ARTISAN_FORGOT_PASSWORD_URL,
     ARTISAN_SIGNUP_URL,
@@ -27,6 +29,7 @@ const LOGIN_DEFAULT_VALUES: LoginFormValues = {
 };
 
 export default function ManufacLoginPage() {
+    const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<LoginFormValues>({
         mode: "onTouched",
@@ -69,12 +72,23 @@ export default function ManufacLoginPage() {
         toast.info(`Sign in with ${provider} isn't available yet.`);
     };
 
-    const handleSubmit = async () => {
+    const handleSubmit = async ({ email }: LoginFormValues) => {
         setIsLoading(true);
         try {
             // No backend is wired up yet — simulate the request so the flow
             // is testable end-to-end.
             await new Promise((resolve) => setTimeout(resolve, 800));
+
+            // Someone who dropped off mid sign-up goes back to finish it, at
+            // the step they'd reached. (The API will say this on login; for
+            // now it's the progress saved in this browser.)
+            const unfinished = loadRegistrationProgress();
+            if (unfinished?.values.email?.toLowerCase() === email.trim().toLowerCase()) {
+                toast.info("Welcome back! Let's finish setting up your account.");
+                router.push(ARTISAN_SIGNUP_URL);
+                return;
+            }
+
             toast.success("Logged in successfully");
         } catch {
             toast.error("Invalid email or password");

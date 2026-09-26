@@ -23,6 +23,11 @@ function ordinalSuffix(day: number): string {
     }
 }
 
+/** "January 2022" */
+export function formatMonthYear(date: Date): string {
+    return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
 /** "Mar 4th, 2022" */
 export function formatOrdinalDate(date: Date): string {
     const day = date.getDate();

@@ -1,14 +1,16 @@
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function EmptyState({
     title = "No Jobs",
     description = "There are no recent jobs to display",
+    icon: Icon = ClipboardList,
     /** Smaller icon/padding — for use inside a single kanban column or the mobile accordion. */
     compact = false,
 }: {
     title?: string;
     description?: string;
+    icon?: LucideIcon;
     compact?: boolean;
 }) {
     return (
@@ -24,7 +26,7 @@ export default function EmptyState({
                     compact ? "size-10" : "size-14",
                 )}
             >
-                <ClipboardList
+                <Icon
                     className={compact ? "size-4.5 text-mist-400" : "size-6 text-mist-400"}
                     strokeWidth={1.5}
                 />

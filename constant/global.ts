@@ -1,4 +1,7 @@
 export const DEFAULT_CURRENCY = "₦"
+// The platform only deals in naira for now
+export const DEFAULT_CURRENCY_CODE = "NGN";
+export const DEFAULT_CURRENCY_NAME = "Nigerian Naira";
 export const DEFAULT_IMAGE = "/images/default-img.png";
 
 export const clientList = [

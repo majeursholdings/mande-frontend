@@ -88,7 +88,7 @@ export default function OtpInput({
     };
 
     return (
-        <div className="flex items-center gap-2.5" role="group" aria-label="Verification code">
+        <div className="flex items-center gap-2 sm:gap-2.5" role="group" aria-label="Verification code">
             {digits.map((digit, index) => (
                 <input
                     key={index}
@@ -107,7 +107,7 @@ export default function OtpInput({
                     onPaste={(e) => handlePaste(index, e)}
                     aria-label={`Digit ${index + 1} of ${length}`}
                     className={cn(
-                        "h-14 w-12.5 rounded-lg border text-center text-lg font-semibold font-text text-[#1F2937] transition-colors outline-none focus-visible:ring-3 focus-visible:ring-secondary-700/50 focus-visible:border-secondary-700 disabled:opacity-50 disabled:cursor-not-allowed",
+                        "h-12 w-10 sm:h-14 sm:w-12.5 rounded-lg border text-center text-lg font-semibold font-text text-[#1F2937] transition-colors outline-none focus-visible:ring-3 focus-visible:ring-secondary-700/50 focus-visible:border-secondary-700 disabled:opacity-50 disabled:cursor-not-allowed",
                         error
                             ? "border-[#EF4444]"
                             : "border-gray-200 placeholder:text-gray-300",

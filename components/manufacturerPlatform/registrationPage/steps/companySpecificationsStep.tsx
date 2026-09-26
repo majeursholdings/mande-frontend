@@ -1,11 +1,11 @@
 "use client";
 
-import { UseFormReturn } from "react-hook-form";
+import { UseFormReturn, useWatch } from "react-hook-form";
 import MainForm from "@/components/form";
 import { FormFieldConfig } from "@/components/form/types";
 import StepFooter from "../stepFooter";
 import StepHeader from "../stepHeader";
-import { RegistrationFormValues } from "../types";
+import { getPricingPlan, RegistrationFormValues } from "../types";
 import {
     COMPANY_SPECIALITY_OPTIONS,
     MATERIALS_INVENTORY_OPTIONS,
@@ -27,12 +27,23 @@ export default function CompanySpecificationsStep({
     onBack,
     isLoading,
 }: CompanySpecificationsStepProps) {
+    const [planId, staffRange] = useWatch({
+        control: methods.control,
+        name: ["plan", "staffRange"],
+    });
+    const plan = getPricingPlan(planId);
+
     const fields: FormFieldConfig[] = [
         {
             name: "staffRange",
             type: "select",
             label: "How many staff members do you have?",
-            placeholder: "Select staff range",
+            placeholder: "e.g. 11 to 20",
+            // Prefilled from the plan when it was chosen (see the plan step)
+            description:
+                plan && staffRange === plan.defaultStaffRange
+                    ? `Filled in from your ${plan.name} plan — change it if it's different.`
+                    : undefined,
             options: STAFF_RANGE_OPTIONS,
             validation: { required: "Please select a staff range" },
         },
@@ -40,7 +51,7 @@ export default function CompanySpecificationsStep({
             name: "specialities",
             type: "multiselect",
             label: `What is your company's speciality? (Select up to ${MAX_COMPANY_SPECIALITIES})`,
-            placeholder: "Select specialities",
+            placeholder: "e.g. Beds, Desks",
             options: COMPANY_SPECIALITY_OPTIONS,
             maxSelections: MAX_COMPANY_SPECIALITIES,
             validation: {
@@ -53,7 +64,7 @@ export default function CompanySpecificationsStep({
             name: "productionLeadTime",
             type: "select",
             label: "Average production lead time",
-            placeholder: "Select production time",
+            placeholder: "e.g. 3 to 4 weeks",
             options: PRODUCTION_LEAD_TIME_OPTIONS,
             validation: { required: "Please select a production lead time" },
         },
@@ -72,8 +83,7 @@ export default function CompanySpecificationsStep({
     return (
         <div className="flex flex-col gap-6">
             <StepHeader
-                step={4}
-                totalSteps={4}
+                step={5}
                 title="Company specifications"
                 description="You're almost done."
             />

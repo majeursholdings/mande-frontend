@@ -1,3 +1,5 @@
+import { ARTISAN_SIGNUP_URL } from "@/constant/navigation";
+
 export type JobSampleData = {
     id: string | number;
     referenceId: string;
@@ -162,7 +164,11 @@ export type PricingPlan = {
     features: PricingFeature[];
     buttonText: string;
     ctaUrl: string;
+    /** The STAFF_RANGE_OPTIONS value that fits this plan's team size — prefills sign-up's staff question. */
+    defaultStaffRange: string;
 };
+
+export type BillingCycle = "monthly" | "annual";
 
 export const PRICING_PLANS: PricingPlan[] = [
     {
@@ -175,11 +181,12 @@ export const PRICING_PLANS: PricingPlan[] = [
         savingsText: "or ₦50,000 a year, saving 17%",
         features: [
             { label: "Concurrent jobs", value: "2" },
-            { label: "Easy access to top machinaries", value: "—" },
+            { label: "Easy access to top machinery", value: "—" },
             { label: "Dedicated officer", value: "—" },
         ],
         buttonText: "Choose solo",
-        ctaUrl: "/artisan/sign-up?plan=solo",
+        defaultStaffRange: "1-10",
+        ctaUrl: `${ARTISAN_SIGNUP_URL}?plan=solo`,
     },
     {
         id: "workshop",
@@ -191,11 +198,12 @@ export const PRICING_PLANS: PricingPlan[] = [
         savingsText: "or ₦150,000 a year, saving 17%",
         features: [
             { label: "Concurrent jobs", value: "6" },
-            { label: "Easy access to top machinaries", value: "10% off" },
+            { label: "Easy access to top machinery", value: "10% off" },
             { label: "Dedicated officer", value: "Yes" },
         ],
         buttonText: "Choose workshop",
-        ctaUrl: "/artisan/sign-up?plan=workshop",
+        defaultStaffRange: "1-10",
+        ctaUrl: `${ARTISAN_SIGNUP_URL}?plan=workshop`,
     },
     {
         id: "studio-enterprise",
@@ -207,10 +215,33 @@ export const PRICING_PLANS: PricingPlan[] = [
         savingsText: "or ₦350,000 a year, saving 17%",
         features: [
             { label: "Concurrent jobs", value: "Unlimited" },
-            { label: "Easy access to top machinaries", value: "20% off" },
+            { label: "Easy access to top machinery", value: "20% off" },
             { label: "Dedicated officer", value: "Yes" },
         ],
         buttonText: "Choose studio",
-        ctaUrl: "/artisan/sign-up?plan=studio",
+        defaultStaffRange: "11-20",
+        ctaUrl: `${ARTISAN_SIGNUP_URL}?plan=studio-enterprise`,
     },
 ];
+
+export function getPricingPlan(planId: string): PricingPlan | undefined {
+    return PRICING_PLANS.find((plan) => plan.id === planId);
+}
+
+export function getPlanPrice(plan: PricingPlan, billingCycle: BillingCycle): number {
+    return billingCycle === "annual" ? plan.annualPrice : plan.monthlyPrice;
+}
+
+export const SOLO_PLAN_ID = "solo";
+
+/**
+ * Solo artisans usually aren't registered businesses, so they can skip the
+ * company tax number and business license number. Every other plan needs them.
+ */
+export function isSoloPlan(planId: string): boolean {
+    return planId === SOLO_PLAN_ID;
+}
+
+export function requiresBusinessDocuments(planId: string): boolean {
+    return !isSoloPlan(planId);
+}

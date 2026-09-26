@@ -1,31 +1,55 @@
+"use client";
+
 import Link from "next/link";
 import { Leaf } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NOTIFICATIONS, type NotificationItem } from "@/constant/manufacturer";
+import type { NotificationItem } from "@/constant/manufacturer";
+import { useNotifications } from "./notificationsContext";
 import UserAvatar from "./userAvatar";
 
-export default function NotificationsPanel({ className }: { className?: string }) {
+export default function NotificationsPanel({
+    onLinkClick,
+    className,
+}: {
+    /** A link in a notification was clicked — close whatever the panel is shown in. */
+    onLinkClick?: () => void;
+    className?: string;
+}) {
+    const { notifications, hasUnread, markAllAsRead } = useNotifications();
+
     return (
         <div className={cn("flex flex-col", className)}>
             <div className="flex items-center justify-between px-1 pb-3">
                 <h2 className="text-sm font-semibold font-text text-mist-950">Notifications</h2>
                 <button
                     type="button"
-                    className="text-xs font-medium font-text text-secondary-600 hover:underline cursor-pointer"
+                    onClick={markAllAsRead}
+                    disabled={!hasUnread}
+                    className="text-xs font-medium font-text text-secondary-600 enabled:hover:underline enabled:cursor-pointer disabled:text-mist-400"
                 >
                     Mark all as read
                 </button>
             </div>
             <ul className="flex flex-col divide-y divide-border">
-                {NOTIFICATIONS.map((notification) => (
-                    <NotificationRow key={notification.id} notification={notification} />
+                {notifications.map((notification) => (
+                    <NotificationRow
+                        key={notification.id}
+                        notification={notification}
+                        onLinkClick={onLinkClick}
+                    />
                 ))}
             </ul>
         </div>
     );
 }
 
-function NotificationRow({ notification }: { notification: NotificationItem }) {
+function NotificationRow({
+    notification,
+    onLinkClick,
+}: {
+    notification: NotificationItem;
+    onLinkClick?: () => void;
+}) {
     return (
         <li className="flex items-start gap-3 px-1 py-3">
             {notification.avatarName ? (
@@ -44,6 +68,7 @@ function NotificationRow({ notification }: { notification: NotificationItem }) {
                             {" "}
                             <Link
                                 href={notification.href}
+                                onClick={onLinkClick}
                                 className="text-secondary-600 hover:underline"
                             >
                                 {notification.linkLabel}

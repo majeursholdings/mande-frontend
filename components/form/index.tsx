@@ -45,9 +45,18 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+    Combobox,
+    ComboboxContent,
+    ComboboxEmpty,
+    ComboboxInput,
+    ComboboxItem,
+    ComboboxList,
+} from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DEFAULT_CURRENCY } from "@/constant/global";
 
-import { FormFieldConfig, MainFormProps } from "./types";
+import { FormFieldConfig, MainFormProps, SelectOption } from "./types";
 import Image from "next/image";
 
 export default function MainForm<T extends FieldValues = FieldValues>({
@@ -258,7 +267,8 @@ export const FormField = <T extends FieldValues = FieldValues>({
                     </Label>
                 )}
                 {children}
-                {field.description && !error && (
+                {/* File/image uploads show their description inside the drop zone */}
+                {field.description && !error && field.type !== "file" && field.type !== "image" && (
                     <span className="text-[#9CA3AF] text-xs font-normal font-text">
                         {field.description}
                     </span>
@@ -293,6 +303,10 @@ export const FormField = <T extends FieldValues = FieldValues>({
         case "select":
             return wrapper(
                 <SelectInput field={field} control={control} error={error} />,
+            );
+        case "combobox":
+            return wrapper(
+                <ComboboxSelectInput field={field} control={control} error={error} />,
             );
         case "multiselect":
             return wrapper(
@@ -329,6 +343,10 @@ export const FormField = <T extends FieldValues = FieldValues>({
             return wrapper(
                 <DollarInput field={field} register={register} error={error} />,
             );
+        case "amount":
+            return wrapper(
+                <AmountInput field={field} control={control} error={error} />,
+            );
         default:
             return wrapper(
                 <TextInput field={field} register={register} error={error} />,
@@ -357,6 +375,11 @@ export const inputClass = (error?: string) =>
         error && "border-red-500 focus-visible:ring-red-700",
     );
 
+// SelectTrigger sizes itself with `data-[size=default]:h-8`, which outranks a
+// plain `h-11` — match that selector so selects are as tall as text inputs.
+const selectTriggerClass = (error?: string) =>
+    cn(inputClass(error), "w-full data-[size=default]:h-11");
+
 // Text / email / tel / number
 export const TextInput = <T extends FieldValues = FieldValues>({
     field,
@@ -377,6 +400,9 @@ export const TextInput = <T extends FieldValues = FieldValues>({
                 type={field.type}
                 placeholder={field.placeholder}
                 autoComplete={field.autoComplete}
+                inputMode={field.inputMode}
+                maxLength={field.maxLength}
+                readOnly={field.readOnly}
                 disabled={field.disabled}
                 min={field.min}
                 max={field.max}
@@ -385,6 +411,7 @@ export const TextInput = <T extends FieldValues = FieldValues>({
                 className={cn(
                     inputClass(error),
                     hasIcon && "pl-9",
+                    field.readOnly && "bg-gray-50 cursor-default focus-visible:ring-0",
                     field.className,
                 )}
                 {...register(
@@ -537,7 +564,7 @@ export const AsyncSelectInput = <T extends FieldValues = FieldValues>({
                 >
                     <SelectTrigger
                         id={field.name}
-                        className={cn(inputClass(error), "w-full")}
+                        className={selectTriggerClass(error)}
                     >
                         <SelectValue
                             placeholder={
@@ -601,7 +628,7 @@ export const SelectInput = <T extends FieldValues = FieldValues>({
                 >
                     <SelectTrigger
                         id={field.name}
-                        className={cn(inputClass(error), "w-full")}
+                        className={selectTriggerClass(error)}
                     >
                         <SelectValue
                             placeholder={
@@ -624,6 +651,81 @@ export const SelectInput = <T extends FieldValues = FieldValues>({
             )}
         />
     );
+};
+
+// Combobox — a select you can type into to filter its options, for long
+// lists. The form value is the chosen option's `value`, like SelectInput.
+type ComboboxControlProps<T extends FieldValues = FieldValues> =
+    ControllerProps<T> & { options: SelectOption[] };
+
+const ComboboxControl = <T extends FieldValues = FieldValues>({
+    field,
+    control,
+    error,
+    options,
+}: ComboboxControlProps<T>) => (
+    <Controller
+        name={field.name as Path<T>}
+        control={control}
+        defaultValue={(field.defaultValue ?? "") as PathValue<T, Path<T>>}
+        rules={field.validation as RegisterOptions<T, Path<T>>}
+        render={({ field: ctrl }) => (
+            <Combobox<SelectOption>
+                items={options}
+                value={options.find((opt) => opt.value === ctrl.value) ?? null}
+                onValueChange={(opt) => ctrl.onChange(opt?.value ?? "")}
+                isItemEqualToValue={(item, value) => item.value === value.value}
+                disabled={field.disabled}
+                autoHighlight
+            >
+                <ComboboxInput
+                    id={field.name}
+                    ref={ctrl.ref}
+                    onBlur={ctrl.onBlur}
+                    placeholder={field.placeholder ?? "Search"}
+                    aria-invalid={!!error}
+                    className={inputClass(error)}
+                />
+                <ComboboxContent>
+                    <ComboboxEmpty>
+                        {field.emptyMessage ?? "No results found"}
+                    </ComboboxEmpty>
+                    <ComboboxList>
+                        {(opt: SelectOption) => (
+                            <ComboboxItem
+                                key={opt.value}
+                                value={opt}
+                                className="font-text"
+                            >
+                                {opt.label}
+                            </ComboboxItem>
+                        )}
+                    </ComboboxList>
+                </ComboboxContent>
+            </Combobox>
+        )}
+    />
+);
+
+const AsyncComboboxSelectInput = <T extends FieldValues = FieldValues>(
+    props: ControllerProps<T>,
+) => {
+    const { loadOptions } = props.field;
+    const optionsPromise = useMemo(() => loadOptions!(), [loadOptions]);
+    return <ComboboxControl {...props} options={use(optionsPromise)} />;
+};
+
+export const ComboboxSelectInput = <T extends FieldValues = FieldValues>(
+    props: ControllerProps<T>,
+) => {
+    if (props.field.loadOptions) {
+        return (
+            <Suspense fallback={<Skeleton className="h-11 w-full rounded-lg" />}>
+                <AsyncComboboxSelectInput {...props} />
+            </Suspense>
+        );
+    }
+    return <ComboboxControl {...props} options={props.field.options ?? []} />;
 };
 
 // Multi-select — caps selections at field.maxSelections and shows a
@@ -660,7 +762,7 @@ export const MultiSelectInput = <T extends FieldValues = FieldValues>({
                     >
                         <SelectTrigger
                             id={field.name}
-                            className={cn(inputClass(error), "w-full")}
+                            className={selectTriggerClass(error)}
                         >
                             <span
                                 className={cn(
@@ -1530,6 +1632,58 @@ export const DollarInput = <T extends FieldValues = FieldValues>({
         />
     </div>
 );
+
+// Amount — whole units only, shown with the currency symbol and thousands
+// separators as you type ("₦300,000"). The form value is the plain digit
+// string ("300000"), or "" when empty.
+const MAX_AMOUNT_DIGITS = 12;
+
+export const AmountInput = <T extends FieldValues = FieldValues>({
+    field,
+    control,
+    error,
+}: ControllerProps<T>) => {
+    const symbol = field.currencySymbol ?? DEFAULT_CURRENCY;
+
+    return (
+        <Controller
+            name={field.name as Path<T>}
+            control={control}
+            defaultValue={(field.defaultValue ?? "") as PathValue<T, Path<T>>}
+            rules={field.validation as RegisterOptions<T, Path<T>>}
+            render={({ field: ctrl }) => {
+                const digits = String(ctrl.value ?? "");
+                return (
+                    <Input
+                        id={field.name}
+                        ref={ctrl.ref}
+                        name={ctrl.name}
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        placeholder={field.placeholder}
+                        disabled={field.disabled}
+                        value={
+                            digits
+                                ? `${symbol}${Number(digits).toLocaleString("en-NG")}`
+                                : ""
+                        }
+                        onChange={(e) =>
+                            ctrl.onChange(
+                                e.target.value
+                                    .replace(/\D/g, "")
+                                    .replace(/^0+(?=\d)/, "")
+                                    .slice(0, MAX_AMOUNT_DIGITS),
+                            )
+                        }
+                        onBlur={ctrl.onBlur}
+                        className={inputClass(error)}
+                    />
+                );
+            }}
+        />
+    );
+};
 
 export const ErrorIcon = () => (
     <TriangleAlert className="size-3 text-[#EF4444]" strokeWidth={2} />
