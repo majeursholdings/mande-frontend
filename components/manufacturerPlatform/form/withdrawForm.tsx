@@ -10,7 +10,7 @@ import type { ManufacturerBankAccount } from "@/constant/manufacturer";
 import {
     WalletTile,
     bankAccountSubtitle,
-} from "@/components/manufacturerPlatform/profilePage/walletTile";
+} from "@/components/manufacturerPlatform/transactionsPage/walletTile";
 import Notice from "@/components/manufacturerPlatform/notice";
 import { FormSubmitButton } from "./formButtons";
 

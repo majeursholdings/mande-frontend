@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { IdCard } from "lucide-react";
 import Notice from "../notice";
+import SettingsSection from "../settingsSection";
 import VerificationBadge from "../verificationBadge";
 import { useManufacturerProfile } from "../dashboardLayout/manufacturerProfileContext";
 
@@ -12,16 +13,14 @@ export default function IdentityVerification() {
     const { imageUrl, isVerified } = profile.ninCard;
 
     return (
-        <section className="flex flex-col gap-4 border-t border-border pt-6">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="flex flex-col gap-1">
-                    <h3 className="text-base font-medium font-text text-mist-950">NIN card</h3>
-                    <p className="text-sm font-text text-mist-500">
-                        The ID you added when you signed up.
-                    </p>
-                </div>
-                <VerificationBadge isVerified={isVerified} />
-            </div>
+        // Follows the Basic Info form, so it always shows its divider
+        <SettingsSection
+            headingLevel="h3"
+            title="NIN card"
+            description="The ID you added when you signed up."
+            action={<VerificationBadge isVerified={isVerified} />}
+            className="first-of-type:border-t first-of-type:pt-6"
+        >
 
             {imageUrl ? (
                 <div className="relative aspect-27/17 w-full max-w-sm overflow-hidden rounded-xl border border-border bg-white">
@@ -48,6 +47,6 @@ export default function IdentityVerification() {
                       ? "Our team is reviewing your NIN card. We'll let you know once you're verified."
                       : "Contact support to add your NIN card and get verified."}
             </Notice>
-        </section>
+        </SettingsSection>
     );
 }

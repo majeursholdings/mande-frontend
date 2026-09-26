@@ -3,7 +3,8 @@ import StatCard from "./statCard";
 
 export default function StatsGrid() {
     return (
-        <div className="flex gap-4 overflow-x-auto pb-1 -mx-4 px-4 lg:mx-0 lg:px-0 lg:flex-wrap lg:overflow-visible">
+        // 2 × 2 on phones; four equal columns that fill the row from desktop up
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             {DASHBOARD_STATS.map((stat) => (
                 <StatCard key={stat.id} stat={stat} />
             ))}

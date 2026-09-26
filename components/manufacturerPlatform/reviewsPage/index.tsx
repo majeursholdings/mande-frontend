@@ -1,13 +1,13 @@
 import { Star } from "lucide-react";
 import { MANUFACTURER_REVIEWS } from "@/constant/manufacturer";
 import EmptyState from "../dashboardPage/emptyState";
-import ProfileSubpageHeader from "../profilePage/profileSubpageHeader";
-import ReviewItem from "../profilePage/reviewItem";
+import PageHeader from "../pageHeader";
+import ReviewItem from "./reviewItem";
 
 export default function ManufacturerReviewsPage() {
     return (
         <div className="flex flex-col gap-6">
-            <ProfileSubpageHeader title="Reviews" />
+            <PageHeader title="Reviews" />
 
             {MANUFACTURER_REVIEWS.length > 0 ? (
                 <ul className="flex flex-col gap-6 lg:gap-0">

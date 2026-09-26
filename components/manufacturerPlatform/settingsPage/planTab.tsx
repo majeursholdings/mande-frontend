@@ -22,6 +22,7 @@ import {
 import PlanUpgradeForm from "@/components/manufacturerPlatform/form/planUpgradeForm";
 import { FormCancelButton } from "@/components/manufacturerPlatform/form/formButtons";
 import Notice from "../notice";
+import SettingsSection from "../settingsSection";
 import { useManufacturerSubscription } from "../dashboardLayout/manufacturerSubscriptionContext";
 
 type PlanDialog = "upgrade" | "downgrade" | "cancel";
@@ -76,7 +77,7 @@ export default function PlanTab() {
 
     return (
         <>
-            <PlanSection title="Current plan">
+            <SettingsSection headingLevel="h3" title="Current plan">
                 <div className="flex flex-col gap-4 rounded-xl border border-border bg-white p-5">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="flex flex-col gap-1">
@@ -123,9 +124,9 @@ export default function PlanTab() {
                         </Notice>
                     )}
                 </div>
-            </PlanSection>
+            </SettingsSection>
 
-            <PlanSection
+            <SettingsSection headingLevel="h3"
                 title="Change plan"
                 description="Upgrades start straight away — you pay the difference for the rest of this billing period. Downgrades start when it ends."
             >
@@ -167,9 +168,9 @@ export default function PlanTab() {
                         );
                     })}
                 </ul>
-            </PlanSection>
+            </SettingsSection>
 
-            <PlanSection
+            <SettingsSection headingLevel="h3"
                 title="Cancel plan"
                 description={`You'll keep ${currentPlan.name} until the end of this billing period, then it won't renew.`}
             >
@@ -183,7 +184,7 @@ export default function PlanTab() {
                         {subscription.cancelAtPeriodEnd ? `Ends on ${periodEnd}` : "Cancel plan"}
                     </button>
                 </div>
-            </PlanSection>
+            </SettingsSection>
 
             <Dialog {...dialogProps("upgrade")}>
                 <DialogContent>
@@ -246,26 +247,6 @@ export default function PlanTab() {
                 </DialogContent>
             </Dialog>
         </>
-    );
-}
-
-function PlanSection({
-    title,
-    description,
-    children,
-}: {
-    title: string;
-    description?: string;
-    children: ReactNode;
-}) {
-    return (
-        <section className="flex flex-col gap-4 border-t border-border pt-6 first-of-type:border-t-0 first-of-type:pt-0">
-            <div className="flex flex-col gap-1">
-                <h3 className="text-base font-medium font-text text-mist-950">{title}</h3>
-                {description && <p className="text-sm font-text text-mist-500">{description}</p>}
-            </div>
-            {children}
-        </section>
     );
 }
 

@@ -12,5 +12,16 @@ export default function nextConfig(phase: string): NextConfig {
       // the router asks the server instead.
       optimisticRouting: phase !== PHASE_DEVELOPMENT_SERVER,
     },
+    redirects() {
+      return [
+        // The manufacturer platform has no page of its own at its root.
+        // Temporary (307), since this may later depend on being logged in.
+        {
+          source: "/manufacturer",
+          destination: "/manufacturer/dashboard",
+          permanent: false,
+        },
+      ];
+    },
   };
 }

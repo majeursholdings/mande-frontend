@@ -2,21 +2,18 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { LogOut, UserRound, UserRoundPen, type LucideIcon } from "lucide-react";
+import { LogOut, Settings, UserRound, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-    MANUFACTURER_EDIT_PROFILE_URL,
-    MANUFACTURER_PROFILE_URL,
-} from "@/constant/manufacturer";
+import { MANUFACTURER_PROFILE_URL, MANUFACTURER_SETTINGS_URL } from "@/constant/manufacturer";
 import { ARTISAN_LOGIN_URL } from "@/constant/navigation";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// UserMenu — the top bars' profile popup: View profile, Edit profile and
+// UserMenu — the top bars' profile popup: View profile, Settings and
 // Logout. `children` is the trigger's content (avatar + name on desktop, just
 // the avatar on mobile). Controlled so clicking a link closes it — the top
 // bars live in the layout, so they stay mounted across navigations.
@@ -24,7 +21,7 @@ import { ARTISAN_LOGIN_URL } from "@/constant/navigation";
 
 const PROFILE_LINKS: { label: string; href: string; icon: LucideIcon }[] = [
     { label: "View profile", href: MANUFACTURER_PROFILE_URL, icon: UserRound },
-    { label: "Edit profile", href: MANUFACTURER_EDIT_PROFILE_URL, icon: UserRoundPen },
+    { label: "Settings", href: MANUFACTURER_SETTINGS_URL, icon: Settings },
 ];
 
 const MENU_LINK_CLASS =

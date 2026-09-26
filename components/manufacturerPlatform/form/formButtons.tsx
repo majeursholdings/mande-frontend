@@ -3,6 +3,10 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
+/** The primary (maroon) button look — for actions that aren't a form's submit. */
+export const PRIMARY_BUTTON_CLASS =
+    "h-11 px-5 bg-secondary-700 hover:bg-secondary-900 text-white font-medium font-text rounded-button cursor-pointer transition-colors duration-300";
+
 /**
  * Submit button shared by the manufacturer forms (profile sections, bank
  * account, withdrawal) — greyed out while disabled, and shows a spinner with
@@ -26,7 +30,7 @@ export function FormSubmitButton({
             type="submit"
             disabled={isLoading || disabled}
             className={cn(
-                "h-11 px-5 bg-secondary-700 hover:bg-secondary-900 text-white font-medium font-text rounded-button cursor-pointer transition-colors duration-300",
+                PRIMARY_BUTTON_CLASS,
                 // Stays red while submitting; only an idle, disabled button turns grey
                 !isLoading && "disabled:bg-mist-200 disabled:opacity-100",
                 className,

@@ -7,6 +7,8 @@ import type { BillingCycle } from "@/constant/sampleData";
 import {
     LayoutGrid,
     ListChecks,
+    ReceiptText,
+    Star,
     UserRound,
     type LucideIcon,
 } from "lucide-react";
@@ -71,10 +73,15 @@ export const MANUFACTURER_DASHBOARD_URL = "/manufacturer/dashboard";
 export const MANUFACTURER_JOBS_URL = "/manufacturer/jobs";
 export const MANUFACTURER_TIMELINE_URL = "/manufacturer/timeline";
 export const MANUFACTURER_FILES_URL = "/manufacturer/files";
+export const MANUFACTURER_TRANSACTIONS_URL = "/manufacturer/transactions";
+export const MANUFACTURER_REVIEWS_URL = "/manufacturer/reviews";
 export const MANUFACTURER_PROFILE_URL = "/manufacturer/profile";
-export const MANUFACTURER_EDIT_PROFILE_URL = "/manufacturer/profile/edit";
-export const MANUFACTURER_TRANSACTIONS_URL = "/manufacturer/profile/transactions";
-export const MANUFACTURER_REVIEWS_URL = "/manufacturer/profile/reviews";
+// Reached from the profile page
+export const MANUFACTURER_SETTINGS_URL = "/manufacturer/profile/settings";
+export const MANUFACTURER_SECURITY_URL = "/manufacturer/profile/security";
+export const MANUFACTURER_COMMUNITY_URL = "/manufacturer/profile/community";
+export const MANUFACTURER_LEGAL_URL = "/manufacturer/profile/legal";
+export const MANUFACTURER_SUPPORT_URL = "/manufacturer/profile/support";
 
 export type ManufacturerNavItem = {
     label: string;
@@ -87,6 +94,8 @@ export type ManufacturerNavItem = {
 export const MANUFACTURER_NAV_ITEMS: ManufacturerNavItem[] = [
     { label: "Dashboard", href: MANUFACTURER_DASHBOARD_URL, icon: LayoutGrid },
     { label: "Jobs", href: MANUFACTURER_JOBS_URL, icon: ListChecks },
+    { label: "Transactions", href: MANUFACTURER_TRANSACTIONS_URL, icon: ReceiptText },
+    { label: "Reviews", href: MANUFACTURER_REVIEWS_URL, icon: Star },
     { label: "Profile", href: MANUFACTURER_PROFILE_URL, icon: UserRound },
 ];
 
@@ -100,16 +109,32 @@ export const MANUFACTURER_PROFILE_BACK_LINK: ManufacturerBackLink = {
     href: MANUFACTURER_PROFILE_URL,
 };
 
-/**
- * Sub-pages, keyed by pathname, whose mobile top bar is just a "Back to …"
- * link in place of the logo, search and notifications. On desktop the same
- * link sits above the page title instead.
- */
-export const MANUFACTURER_SUBPAGE_BACK_LINKS: Record<string, ManufacturerBackLink> = {
-    [MANUFACTURER_EDIT_PROFILE_URL]: MANUFACTURER_PROFILE_BACK_LINK,
-    [MANUFACTURER_TRANSACTIONS_URL]: MANUFACTURER_PROFILE_BACK_LINK,
-    [MANUFACTURER_REVIEWS_URL]: MANUFACTURER_PROFILE_BACK_LINK,
+export const MANUFACTURER_LEGAL_BACK_LINK: ManufacturerBackLink = {
+    label: "Back to Legal information",
+    href: MANUFACTURER_LEGAL_URL,
 };
+
+// Most specific first — a legal document's page goes back to the legal list
+const SUBPAGE_BACK_LINKS: { path: string; matchChildren?: boolean; link: ManufacturerBackLink }[] = [
+    { path: MANUFACTURER_LEGAL_URL, matchChildren: true, link: MANUFACTURER_LEGAL_BACK_LINK },
+    { path: MANUFACTURER_SETTINGS_URL, link: MANUFACTURER_PROFILE_BACK_LINK },
+    { path: MANUFACTURER_SECURITY_URL, link: MANUFACTURER_PROFILE_BACK_LINK },
+    { path: MANUFACTURER_COMMUNITY_URL, link: MANUFACTURER_PROFILE_BACK_LINK },
+    { path: MANUFACTURER_LEGAL_URL, link: MANUFACTURER_PROFILE_BACK_LINK },
+    { path: MANUFACTURER_SUPPORT_URL, link: MANUFACTURER_PROFILE_BACK_LINK },
+];
+
+/**
+ * The "Back to …" link for a sub-page — on mobile it replaces the top bar's
+ * logo, search and notifications; on desktop it sits above the page title.
+ * Null for top-level pages.
+ */
+export function getSubpageBackLink(pathname: string): ManufacturerBackLink | null {
+    const match = SUBPAGE_BACK_LINKS.find(({ path, matchChildren }) =>
+        matchChildren ? pathname.startsWith(`${path}/`) : pathname === path,
+    );
+    return match?.link ?? null;
+}
 
 export type DashboardStat = {
     id: string;

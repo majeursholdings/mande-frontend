@@ -35,3 +35,89 @@ export function FacebookIcon({ className }: SocialIconProps) {
         </svg>
     );
 }
+
+// ─── Community platform glyphs ───────────────────────────────────────────────
+// Simplified single-colour marks (they take `currentColor`), sized for the
+// brand-coloured badges on the community page. Swap for the platforms'
+// official brand assets if needed.
+
+export function WhatsAppIcon({ className }: SocialIconProps) {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+            <path
+                d="M12 3.5a8.5 8.5 0 0 0-7.36 12.75L3.5 20.5l4.35-1.12A8.5 8.5 0 1 0 12 3.5z"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinejoin="round"
+            />
+            <path
+                d="M9.2 8.2c.2-.4.4-.4.6-.4h.4c.2 0 .4.1.5.4l.7 1.7c.1.2 0 .4-.1.6l-.5.6c-.1.2-.1.3 0 .5.5.9 1.2 1.6 2.1 2.1.2.1.3.1.5 0l.6-.5c.2-.1.4-.2.6-.1l1.7.7c.3.1.4.3.4.5v.4c0 .2 0 .4-.4.6-.5.3-1.1.5-1.7.4-1.2-.2-2.5-.9-3.6-2s-1.8-2.4-2-3.6c-.1-.6.1-1.2.4-1.7z"
+                fill="currentColor"
+            />
+        </svg>
+    );
+}
+
+export function TikTokIcon({ className }: SocialIconProps) {
+    return (
+        <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+            <path
+                d="M14.5 3h2.8c.2 1.9 1.6 3.3 3.4 3.5v2.9c-1.3 0-2.5-.4-3.4-1v6.1a5.5 5.5 0 1 1-5.5-5.5c.3 0 .6 0 .9.1v3a2.6 2.6 0 1 0 1.8 2.4z"
+                fill="currentColor"
+            />
+        </svg>
+    );
+}
+
+export function InstagramIcon({ className }: SocialIconProps) {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+            <rect x="3.5" y="3.5" width="17" height="17" rx="5" stroke="currentColor" strokeWidth="1.9" />
+            <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="1.9" />
+            <circle cx="17.2" cy="6.8" r="1.2" fill="currentColor" />
+        </svg>
+    );
+}
+
+export function LinkedInIcon({ className }: SocialIconProps) {
+    return (
+        <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+            <rect x="4" y="9.5" width="3.2" height="10" rx="0.4" />
+            <circle cx="5.6" cy="5.8" r="1.9" />
+            <path d="M10 9.5h3.1v1.4c.5-.9 1.7-1.7 3.4-1.7 2.9 0 3.5 1.9 3.5 4.4v5.9h-3.2v-5.2c0-1.3-.3-2.4-1.6-2.4-1.4 0-2 1-2 2.4v5.2H10z" />
+        </svg>
+    );
+}
+
+export function XIcon({ className }: SocialIconProps) {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+            <path d="M4 4h4.2L20 20h-4.2z" fill="currentColor" />
+            <path d="M19.6 4.2 4.4 19.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+    );
+}
+
+export function YouTubeIcon({ className }: SocialIconProps) {
+    return (
+        <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+            <path
+                fillRule="evenodd"
+                fill="currentColor"
+                d="M21.6 7.2a2.6 2.6 0 0 0-1.8-1.8C18.2 5 12 5 12 5s-6.2 0-7.8.4A2.6 2.6 0 0 0 2.4 7.2 27 27 0 0 0 2 12a27 27 0 0 0 .4 4.8 2.6 2.6 0 0 0 1.8 1.8C5.8 19 12 19 12 19s6.2 0 7.8-.4a2.6 2.6 0 0 0 1.8-1.8A27 27 0 0 0 22 12a27 27 0 0 0-.4-4.8zM10 9v6l5.2-3z"
+            />
+        </svg>
+    );
+}
+
+/** A single-colour Facebook "f" — FacebookIcon above is the full-colour logo. */
+export function FacebookGlyphIcon({ className }: SocialIconProps) {
+    return (
+        <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+            <path
+                d="M13.4 21v-7.6h2.6l.4-3h-3V8.5c0-.9.3-1.5 1.5-1.5h1.6V4.3c-.3 0-1.2-.1-2.3-.1-2.3 0-3.9 1.4-3.9 4v2.2H7.7v3h2.6V21z"
+                fill="currentColor"
+            />
+        </svg>
+    );
+}

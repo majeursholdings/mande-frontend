@@ -4,10 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft, Bell, Search } from "lucide-react";
-import {
-    MANUFACTURER_SUBPAGE_BACK_LINKS,
-    getManufacturerFullName,
-} from "@/constant/manufacturer";
+import { getManufacturerFullName, getSubpageBackLink } from "@/constant/manufacturer";
 import { BlackLogo } from "@/components/mainWebsite/navigations/logo";
 import { useManufacturerProfile } from "./manufacturerProfileContext";
 import { useNotifications } from "./notificationsContext";
@@ -23,7 +20,7 @@ export default function MobileTopbar() {
     const [query, setQuery] = useState("");
     const { hasUnread } = useNotifications();
     const { profile } = useManufacturerProfile();
-    const backLink = MANUFACTURER_SUBPAGE_BACK_LINKS[usePathname()];
+    const backLink = getSubpageBackLink(usePathname());
 
     if (backLink) {
         return (

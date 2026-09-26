@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { formatMonthYear } from "@/lib/date";
 import {
     COMPANY_SPECIALITY_OPTIONS,
-    MANUFACTURER_EDIT_PROFILE_URL,
+    MANUFACTURER_SETTINGS_URL,
     formatAddress,
     getManufacturerFullName,
     getOptionLabel,
@@ -60,7 +60,7 @@ export default function ProfileCard({
             )}
         >
             <Link
-                href={MANUFACTURER_EDIT_PROFILE_URL}
+                href={MANUFACTURER_SETTINGS_URL}
                 className="absolute top-0 right-0 lg:top-5 lg:right-5 flex items-center gap-1 text-sm font-medium font-text text-secondary-600 hover:underline"
             >
                 <Pencil className="size-3.5" />

@@ -20,10 +20,10 @@ export default function StatCard({ stat }: { stat: DashboardStat }) {
     const Icon = STAT_ICON[stat.icon];
 
     return (
-        <div className="flex items-center gap-3.5 rounded-xl border border-border bg-white p-4 shrink-0 w-56 lg:w-auto">
+        <div className="flex h-full min-w-0 flex-col gap-4 rounded-xl border border-border bg-white p-4 lg:p-5">
             <span
                 className={cn(
-                    "flex items-center justify-center size-11 rounded-full shrink-0",
+                    "flex items-center justify-center size-10 lg:size-11 rounded-full shrink-0",
                     STAT_ICON_CLASS[stat.icon],
                 )}
             >
@@ -33,9 +33,9 @@ export default function StatCard({ stat }: { stat: DashboardStat }) {
                     fill={stat.icon === "quality" ? "currentColor" : "none"}
                 />
             </span>
-            <div className="min-w-0">
-                <p className="text-xs font-text text-mist-500 truncate">{stat.label}</p>
-                <p className="text-xl font-semibold font-text text-mist-950">{stat.value}</p>
+            <div className="flex flex-col gap-1">
+                <p className="text-xs lg:text-sm font-text text-mist-500">{stat.label}</p>
+                <p className="text-xl lg:text-2xl font-semibold font-text text-mist-950">{stat.value}</p>
             </div>
         </div>
     );

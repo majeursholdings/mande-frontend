@@ -50,7 +50,7 @@ export function WalletActionCard({
             onClick={onClick}
             disabled={disabled}
             className={cn(
-                "flex w-full items-center rounded-xl border border-border bg-white px-5 py-4 transition-colors duration-200 enabled:cursor-pointer enabled:hover:border-secondary-200 enabled:hover:bg-secondary-50/40 disabled:cursor-not-allowed disabled:opacity-60",
+                "flex h-full w-full items-center rounded-xl border border-border bg-white px-5 py-4 transition-colors duration-200 enabled:cursor-pointer enabled:hover:border-secondary-200 enabled:hover:bg-secondary-50/40 disabled:cursor-not-allowed disabled:opacity-60",
                 className,
             )}
         >

@@ -20,8 +20,10 @@ import {
 import { useManufacturerWallet } from "../dashboardLayout/manufacturerWalletContext";
 import { SortByDropdown } from "../jobsPage/sortByDropdown";
 import EmptyState from "../dashboardPage/emptyState";
-import ProfileSubpageHeader from "../profilePage/profileSubpageHeader";
-import TransactionListItem, { TransactionIcon } from "../profilePage/transactionListItem";
+import PageHeader from "../pageHeader";
+import BalanceCard from "./balanceCard";
+import TransactionListItem, { TransactionIcon } from "./transactionListItem";
+import WalletActions from "./walletActions";
 
 const newestFirst = (a: ManufacturerTransaction, b: ManufacturerTransaction) =>
     new Date(b.date).getTime() - new Date(a.date).getTime();
@@ -58,40 +60,51 @@ export default function ManufacturerTransactionsPage() {
     const hasTransactions = transactions.length > 0;
 
     return (
-        <div className="flex flex-col gap-6">
-            <ProfileSubpageHeader
-                title="Transactions"
-                action={
-                    hasTransactions ? (
+        <div className="flex flex-col gap-8">
+            <PageHeader title="Transactions" />
+
+            {/* Balance, then the bank account and withdraw cards (WalletActions
+                renders those two as one grid cell, plus its dialogs) */}
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-6">
+                <BalanceCard balance={wallet.balance} />
+                <WalletActions />
+            </div>
+
+            <section className="flex flex-col gap-4">
+                <div className="flex items-center justify-between gap-4">
+                    <h2 className="text-base font-semibold font-text text-mist-950">
+                        Transaction history
+                    </h2>
+                    {hasTransactions && (
                         <SortByDropdown
                             items={TRANSACTION_SORT_OPTIONS}
                             value={sortBy}
                             onChange={setSortBy}
                         />
-                    ) : null
-                }
-            />
+                    )}
+                </div>
 
-            {hasTransactions ? (
-                <>
-                    <TransactionsTable transactions={transactions} className="hidden md:block" />
-                    <ul className="flex flex-col gap-6 md:hidden">
-                        {transactions.map((transaction) => (
-                            <TransactionListItem
-                                key={transaction.id}
-                                transaction={transaction}
-                                variant="full"
-                            />
-                        ))}
-                    </ul>
-                </>
-            ) : (
-                <EmptyState
-                    icon={ReceiptText}
-                    title="No Transactions"
-                    description="There are no transactions to display"
-                />
-            )}
+                {hasTransactions ? (
+                    <>
+                        <TransactionsTable transactions={transactions} className="hidden md:block" />
+                        <ul className="flex flex-col gap-6 md:hidden">
+                            {transactions.map((transaction) => (
+                                <TransactionListItem
+                                    key={transaction.id}
+                                    transaction={transaction}
+                                    variant="full"
+                                />
+                            ))}
+                        </ul>
+                    </>
+                ) : (
+                    <EmptyState
+                        icon={ReceiptText}
+                        title="No Transactions"
+                        description="There are no transactions to display"
+                    />
+                )}
+            </section>
         </div>
     );
 }
