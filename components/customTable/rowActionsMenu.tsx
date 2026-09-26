@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, Pencil, Trash2, MoreHorizontal } from "lucide-react";
-import { useOutsideClickRef } from "./useOutsideClickRef";
+import { useOutsideClickRef } from "@/hooks/useOutsideClickRef";
 import type { ViewAction, EditAction, DeleteAction, LinkAction } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -84,7 +84,7 @@ export function RowActionsMenu<TRow extends { id: string }>({
         <div ref={ref} className="relative flex justify-end">
             <button
                 onClick={() => setOpen((o) => !o)}
-                className="p-1.5 rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-button hover:bg-gray-100 transition-colors cursor-pointer"
                 title="Actions"
             >
                 <MoreHorizontal className="size-4 text-gray-500" />

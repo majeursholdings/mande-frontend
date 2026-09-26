@@ -308,7 +308,7 @@ export function DataTable<TRow extends { id: string }>({
                         <button
                             onClick={() => goToPage(page - 1)}
                             disabled={page <= 1}
-                            className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                            className="p-1.5 rounded-button border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                         >
                             <ChevronLeft className="size-4 text-gray-600" />
                         </button>
@@ -325,7 +325,7 @@ export function DataTable<TRow extends { id: string }>({
                                     key={p}
                                     onClick={() => goToPage(p)}
                                     className={[
-                                        "min-w-8 h-8 px-2 rounded-lg text-sm font-text transition-colors cursor-pointer",
+                                        "min-w-8 h-8 px-2 rounded-button text-sm font-text transition-colors cursor-pointer",
                                         p === page
                                             ? "bg-gray-100 text-neutral-900 font-medium"
                                             : "text-gray-500 hover:bg-gray-50",
@@ -338,7 +338,7 @@ export function DataTable<TRow extends { id: string }>({
                         <button
                             onClick={() => goToPage(page + 1)}
                             disabled={page >= totalPages}
-                            className="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                            className="p-1.5 rounded-button border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                         >
                             <ChevronRight className="size-4 text-gray-600" />
                         </button>

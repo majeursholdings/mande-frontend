@@ -14,7 +14,7 @@ export default function JobsListSection() {
                     <SectionHeading>Available furniture jobs.</SectionHeading>
                     <Link
                         href={"/open-jobs"}
-                        className="flex w-fit rounded-xs py-1.5 px-5 border bg-primary-950 border-primary-950 text-mist-100 hover:bg-primary-500 hover:border-primary-500 hover:text-primary-950 duration-300 transition-all"
+                        className="flex w-fit rounded-button py-1.5 px-5 border bg-primary-950 border-primary-950 text-mist-100 hover:bg-primary-500 hover:border-primary-500 hover:text-primary-950 duration-300 transition-all"
                     >
                         Discover more jobs
                     </Link>

@@ -16,7 +16,7 @@ export default function Header() {
     return (
         <header className="sticky top-0 right-0 left-0 z-50 px-2.5 sm:px-6 lg:px-8 py-3 bg-green-950 w-full">
             <div className="container mx-auto flex items-center justify-between gap-5">
-                <div>
+                <div className="w-full max-w-30">
                     <Logo/>
                 </div>
 
@@ -61,7 +61,7 @@ export default function Header() {
                     <Link 
                         href={ARTISAN_SIGNUP_URL}
                         title={'Sign up'}
-                        className="border rounded-xs px-5 py-1.5 text-mist-100 text-base font-normal bg-transparent hover:border-primary-200 hover:text-mist-800 hover:bg-primary-200 transition-colors duration-300"
+                        className="border rounded-button px-5 py-1.5 text-mist-100 text-base font-normal bg-transparent hover:border-primary-200 hover:text-mist-800 hover:bg-primary-200 transition-colors duration-300"
                     >
                         Sign up
                     </Link>

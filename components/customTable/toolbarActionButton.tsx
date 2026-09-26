@@ -21,7 +21,7 @@ export function ToolbarActionButton({
     icon,
 }: ToolbarActionButtonProps) {
     const className =
-        "inline-flex items-center gap-2 px-4 py-2 rounded-md bg-secondary-700 hover:bg-secondary-800 text-white text-sm font-medium font-text transition-colors cursor-pointer whitespace-nowrap";
+        "inline-flex items-center gap-2 px-4 py-2 rounded-button bg-secondary-700 hover:bg-secondary-800 text-white text-sm font-medium font-text transition-colors cursor-pointer whitespace-nowrap";
     const content = (
         <>
             {icon ?? <Plus className="size-4" />}

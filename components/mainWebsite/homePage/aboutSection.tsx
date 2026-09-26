@@ -28,14 +28,14 @@ export default function AboutSection() {
                     <Link
                         href={"/"}
                         title={"Learn how it works"}
-                        className="flex flex-1 justify-center text-nowrap w-fit rounded-xs py-1.5 px-5 border bg-primary-950 border-primary-950 text-mist-100 hover:bg-primary-500 hover:border-primary-500 hover:text-primary-950 duration-300 transition-all"
+                        className="flex flex-1 justify-center text-nowrap w-fit rounded-button py-1.5 px-5 border bg-primary-950 border-primary-950 text-mist-100 hover:bg-primary-500 hover:border-primary-500 hover:text-primary-950 duration-300 transition-all"
                     >
                         Learn how it works
                     </Link>
                     <Link
                         href={ARTISAN_SIGNUP_URL}
                         title="Start registration"
-                        className="flex flex-1 justify-center text-nowrap w-fit border rounded-xs px-5 py-1.5 text-primary-800 border-primary-800 text-base font-normal bg-transparent hover:border-primary-200 hover:text-mist-800 hover:bg-primary-200 transition-colors duration-300"
+                        className="flex flex-1 justify-center text-nowrap w-fit border rounded-button px-5 py-1.5 text-primary-800 border-primary-800 text-base font-normal bg-transparent hover:border-primary-200 hover:text-mist-800 hover:bg-primary-200 transition-colors duration-300"
                     >
                         Start registration
                     </Link>

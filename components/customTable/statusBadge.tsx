@@ -4,7 +4,7 @@
 // `cell` for a status column.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type StatusTone = "green" | "amber" | "red" | "gray" | "blue";
+export type StatusTone = "green" | "amber" | "red" | "gray" | "blue" | "indigo";
 
 export interface StatusBadgeProps {
     label: string;
@@ -19,6 +19,7 @@ const STATUS_DOT_CLASS: Record<StatusTone, string> = {
     red: "bg-secondary-500",
     gray: "bg-gray-400",
     blue: "bg-blue-500",
+    indigo: "bg-indigo-500",
 };
 
 const STATUS_TEXT_CLASS: Record<StatusTone, string> = {
@@ -27,6 +28,7 @@ const STATUS_TEXT_CLASS: Record<StatusTone, string> = {
     red: "text-secondary-700",
     gray: "text-gray-500",
     blue: "text-blue-700",
+    indigo: "text-indigo-700",
 };
 
 const STATUS_PILL_CLASS: Record<StatusTone, string> = {
@@ -35,6 +37,7 @@ const STATUS_PILL_CLASS: Record<StatusTone, string> = {
     red: "bg-secondary-50 text-secondary-700",
     gray: "bg-gray-100 text-gray-600",
     blue: "bg-blue-50 text-blue-700",
+    indigo: "bg-indigo-50 text-indigo-700",
 };
 
 export function StatusBadge({

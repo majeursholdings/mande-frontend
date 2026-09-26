@@ -15,7 +15,7 @@ export const validators = {
 
     // Same shape as email(), but restricted to a single company domain —
     // used for internal-only forms like admin invites, not general signup.
-    companyEmail: (domain = "swingrides.com"): RegisterOptions => ({
+    companyEmail: (domain = "mande.com.ng"): RegisterOptions => ({
         required: "Email address is required",
         pattern: {
             value: /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,8}$/i,

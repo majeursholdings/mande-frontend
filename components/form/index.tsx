@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar } from "@/components/ui/calendar";
 import {
     Select,
@@ -49,7 +50,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { FormFieldConfig, MainFormProps } from "./types";
 import Image from "next/image";
 
-export default function MainForm({
+export default function MainForm<T extends FieldValues = FieldValues>({
     title,
     description,
     fields,
@@ -59,19 +60,47 @@ export default function MainForm({
     className,
     rowPairs = [],
     footerSlot,
-}: MainFormProps) {
+    methods,
+    requireValidToSubmit = true,
+    renderFooter,
+}: MainFormProps<T>) {
+    // Hooks must run unconditionally — when a shared `methods` instance is
+    // passed in (e.g. steps of a wizard), this internal one is simply unused.
+    const internalForm = useForm<T>({ mode: "onTouched" });
     const {
         register,
         handleSubmit,
         control,
         getValues,
         formState: { errors },
-    } = useForm({ mode: "onTouched" });
+    } = methods ?? internalForm;
 
     // Lets a parent read live field values (e.g. for a "preview" action) without
     // needing to submit the form — MainForm owns its own useForm() internally,
     // so this is the only way out for a config-driven form like this one.
     const watchedValues = useWatch({ control });
+
+    const hasValue = (field: FormFieldConfig, value: unknown): boolean => {
+        if (field.type === "checkbox") return value === true;
+        if (field.type === "multiselect") return Array.isArray(value) && value.length > 0;
+        return value !== undefined && value !== null && value !== "";
+    };
+
+    // required/select/radio-style fields are commonly validated with a
+    // `validate` function rather than the `required` key (e.g. "must be
+    // checked", "must pick at least one") — treat those as required too.
+    const isFieldRequired = (field: FormFieldConfig): boolean =>
+        !!field.validation?.required ||
+        ((field.type === "checkbox" ||
+            field.type === "multiselect" ||
+            field.type === "radio") &&
+            !!field.validation);
+
+    const canSubmit =
+        !requireValidToSubmit ||
+        fields
+            .filter(isFieldRequired)
+            .every((field) => hasValue(field, watchedValues?.[field.name]));
 
     const renderedPairs = new Set<string>();
 
@@ -149,20 +178,24 @@ export default function MainForm({
                 ? footerSlot(watchedValues)
                 : footerSlot}
 
-            <Button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-blue-700 hover:bg-blue-950 text-white font-medium font-text rounded-xs cursor-pointer transition-colors duration-300 disabled:opacity-50 disabled:pointer-events-none"
-            >
-                {isLoading ? (
-                    <span className="flex items-center gap-2">
-                        <LoadingSpinner />
-                        {submitLabel}...
-                    </span>
-                ) : (
-                    submitLabel
-                )}
-            </Button>
+            {renderFooter ? (
+                renderFooter({ isLoading, canSubmit })
+            ) : (
+                <Button
+                    type="submit"
+                    disabled={isLoading || !canSubmit}
+                    className="w-full bg-secondary-700 hover:bg-secondary-900 text-white font-medium font-text rounded-button cursor-pointer transition-colors duration-300 disabled:opacity-50 disabled:pointer-events-none"
+                >
+                    {isLoading ? (
+                        <span className="flex items-center gap-2">
+                            <LoadingSpinner />
+                            {submitLabel}...
+                        </span>
+                    ) : (
+                        submitLabel
+                    )}
+                </Button>
+            )}
         </form>
     );
 }
@@ -261,11 +294,20 @@ export const FormField = <T extends FieldValues = FieldValues>({
             return wrapper(
                 <SelectInput field={field} control={control} error={error} />,
             );
+        case "multiselect":
+            return wrapper(
+                <MultiSelectInput field={field} control={control} error={error} />,
+            );
+        case "radio":
+            return wrapper(
+                <RadioInput field={field} control={control} error={error} />,
+            );
         case "textarea":
             return wrapper(
                 <TextareaInput
                     field={field}
                     register={register}
+                    control={control}
                     error={error}
                 />,
             );
@@ -311,7 +353,7 @@ export type ControllerProps<T extends FieldValues = FieldValues> = {
 
 export const inputClass = (error?: string) =>
     cn(
-        "h-11 px-3.5 border-gray-200 focus-visible:ring-blue-700 font-text text-sm text-zinc-700 rounded-lg placeholder:text-gray-400",
+        "h-11 px-3.5 border-gray-200 focus-visible:ring-secondary-700 font-text text-sm text-zinc-700 rounded-lg placeholder:text-gray-400",
         error && "border-red-500 focus-visible:ring-red-700",
     );
 
@@ -392,25 +434,73 @@ const PasswordInput = <T extends FieldValues = FieldValues>({
     );
 };
 
-// Textarea
+// Textarea — shows a character counter when the field's validation sets a
+// minLength and/or maxLength rule (plain number or { value, message }).
+const lengthRuleValue = (rule: unknown): number | undefined => {
+    if (typeof rule === "number") return rule;
+    if (rule && typeof rule === "object" && "value" in rule) {
+        const value = Number(rule.value);
+        return Number.isFinite(value) ? value : undefined;
+    }
+    return undefined;
+};
+
+export type TextareaInputProps<T extends FieldValues = FieldValues> =
+    InputProps<T> & {
+        control: Control<T>;
+    };
+
 export const TextareaInput = <T extends FieldValues = FieldValues>({
     field,
     register,
+    control,
     error,
-}: InputProps<T>) => {
+}: TextareaInputProps<T>) => {
+    const value = useWatch({ control, name: field.name as Path<T> });
+    const minLength = lengthRuleValue(field.validation?.minLength);
+    const maxLength = lengthRuleValue(field.validation?.maxLength);
+    const showCounter = minLength !== undefined || maxLength !== undefined;
+    const count = typeof value === "string" ? value.length : 0;
+    const isOutOfRange =
+        (maxLength !== undefined && count > maxLength) ||
+        (minLength !== undefined && count > 0 && count < minLength);
+
     return (
-        <Textarea
-            id={field.name}
-            placeholder={field.placeholder}
-            disabled={field.disabled}
-            rows={field.rows ?? 8}
-            style={field.height ? { height: `${field.height}px` } : undefined}
-            className={cn(inputClass(error), "resize-none")}
-            {...register(
-                field.name as Path<T>,
-                field.validation as RegisterOptions<T, Path<T>>,
+        <div className="flex flex-col gap-1.5">
+            <Textarea
+                id={field.name}
+                placeholder={field.placeholder}
+                disabled={field.disabled}
+                rows={field.rows ?? 8}
+                style={
+                    field.height ? { height: `${field.height}px` } : undefined
+                }
+                className={cn(inputClass(error), "resize-none")}
+                {...register(
+                    field.name as Path<T>,
+                    field.validation as RegisterOptions<T, Path<T>>,
+                )}
+            />
+            {showCounter && (
+                <div className="flex items-center justify-between gap-3 text-xs font-normal font-text text-[#9CA3AF]">
+                    <span>
+                        {minLength !== undefined &&
+                            `Minimum ${minLength} characters`}
+                    </span>
+                    <span
+                        aria-live="polite"
+                        className={cn(
+                            "tabular-nums",
+                            isOutOfRange && "text-[#EF4444]",
+                        )}
+                    >
+                        {maxLength !== undefined
+                            ? `${count}/${maxLength}`
+                            : count}
+                    </span>
+                </div>
             )}
-        />
+        </div>
     );
 };
 
@@ -531,6 +621,115 @@ export const SelectInput = <T extends FieldValues = FieldValues>({
                         ))}
                     </SelectContent>
                 </Select>
+            )}
+        />
+    );
+};
+
+// Multi-select — caps selections at field.maxSelections and shows a
+// comma-joined summary of the chosen labels in the trigger.
+export const MultiSelectInput = <T extends FieldValues = FieldValues>({
+    field,
+    control,
+    error,
+}: ControllerProps<T>) => {
+    const options = field.options ?? [];
+
+    return (
+        <Controller
+            name={field.name as Path<T>}
+            control={control}
+            defaultValue={([] as string[]) as PathValue<T, Path<T>>}
+            rules={field.validation as RegisterOptions<T, Path<T>>}
+            render={({ field: ctrl }) => {
+                const selected: string[] = Array.isArray(ctrl.value)
+                    ? ctrl.value
+                    : [];
+                const atMax = !!field.maxSelections && selected.length >= field.maxSelections;
+                const selectedLabels = options
+                    .filter((opt) => selected.includes(opt.value))
+                    .map((opt) => opt.label);
+
+                return (
+                    <Select<string, true>
+                        items={options}
+                        multiple
+                        value={selected}
+                        onValueChange={(val) => ctrl.onChange(val)}
+                        disabled={field.disabled}
+                    >
+                        <SelectTrigger
+                            id={field.name}
+                            className={cn(inputClass(error), "w-full")}
+                        >
+                            <span
+                                className={cn(
+                                    "truncate text-left",
+                                    selectedLabels.length === 0 &&
+                                        "text-gray-400",
+                                )}
+                            >
+                                {selectedLabels.length > 0
+                                    ? selectedLabels.join(", ")
+                                    : (field.placeholder ?? "Select options")}
+                            </span>
+                        </SelectTrigger>
+                        <SelectContent alignItemWithTrigger={false}>
+                            {options.map((opt) => {
+                                const isSelected = selected.includes(opt.value);
+                                return (
+                                    <SelectItem
+                                        key={opt.value}
+                                        value={opt.value}
+                                        disabled={atMax && !isSelected}
+                                        className="font-text text-sm"
+                                    >
+                                        {opt.label}
+                                    </SelectItem>
+                                );
+                            })}
+                        </SelectContent>
+                    </Select>
+                );
+            }}
+        />
+    );
+};
+
+// Radio group — a small set of mutually exclusive options rendered inline.
+export const RadioInput = <T extends FieldValues = FieldValues>({
+    field,
+    control,
+    error,
+}: ControllerProps<T>) => {
+    return (
+        <Controller
+            name={field.name as Path<T>}
+            control={control}
+            defaultValue={(field.defaultValue ?? "") as PathValue<T, Path<T>>}
+            rules={field.validation as RegisterOptions<T, Path<T>>}
+            render={({ field: ctrl }) => (
+                <RadioGroup
+                    aria-invalid={!!error}
+                    disabled={field.disabled}
+                    value={ctrl.value}
+                    onValueChange={(value) => ctrl.onChange(value)}
+                >
+                    {(field.options ?? []).map((opt) => (
+                        <label
+                            key={opt.value}
+                            className="flex items-center gap-2 text-sm font-normal font-text text-[#1F2937] cursor-pointer select-none"
+                        >
+                            <RadioGroupItem
+                                value={opt.value}
+                                className={cn(
+                                    error && "border-[#EF4444]",
+                                )}
+                            />
+                            {opt.label}
+                        </label>
+                    ))}
+                </RadioGroup>
             )}
         />
     );
@@ -713,7 +912,7 @@ export const DateTimeInput = <T extends FieldValues = FieldValues>({
                                             type="button"
                                             disabled={!ctrl.value}
                                             onClick={() => setStep("time")}
-                                            className="w-full bg-blue-700 hover:bg-blue-950 text-white text-sm font-medium font-text rounded-xs cursor-pointer transition-colors duration-300 disabled:opacity-50 disabled:pointer-events-none"
+                                            className="w-full bg-secondary-700 hover:bg-secondary-900 text-white text-sm font-medium font-text rounded-button cursor-pointer transition-colors duration-300 disabled:opacity-50 disabled:pointer-events-none"
                                         >
                                             Next: pick a time
                                         </Button>
@@ -728,7 +927,7 @@ export const DateTimeInput = <T extends FieldValues = FieldValues>({
                                         <button
                                             type="button"
                                             onClick={() => setStep("date")}
-                                            className="text-xs font-text text-blue-700 hover:underline cursor-pointer"
+                                            className="text-xs font-text text-secondary-700 hover:underline cursor-pointer"
                                         >
                                             Back to date
                                         </button>
@@ -766,7 +965,7 @@ export const DateTimeInput = <T extends FieldValues = FieldValues>({
                                                             period,
                                                         );
                                                     }}
-                                                    className="w-full border border-[#E5E7EB] rounded-md px-2 py-2 text-sm font-text text-[#1F2937] focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-transparent"
+                                                    className="w-full border border-[#E5E7EB] rounded-md px-2 py-2 text-sm font-text text-[#1F2937] focus:outline-none focus:ring-2 focus:ring-secondary-700 focus:border-transparent"
                                                 />
                                                 <datalist
                                                     id={`${field.name}-hour-list`}
@@ -814,7 +1013,7 @@ export const DateTimeInput = <T extends FieldValues = FieldValues>({
                                                             period,
                                                         );
                                                     }}
-                                                    className="w-full border border-[#E5E7EB] rounded-md px-2 py-2 text-sm font-text text-[#1F2937] focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-transparent"
+                                                    className="w-full border border-[#E5E7EB] rounded-md px-2 py-2 text-sm font-text text-[#1F2937] focus:outline-none focus:ring-2 focus:ring-secondary-700 focus:border-transparent"
                                                 />
                                                 <datalist
                                                     id={`${field.name}-minute-list`}
@@ -850,7 +1049,7 @@ export const DateTimeInput = <T extends FieldValues = FieldValues>({
                                                             className={cn(
                                                                 "px-3 py-2 text-xs font-semibold font-text cursor-pointer transition-colors",
                                                                 period === p
-                                                                    ? "bg-blue-700 text-white"
+                                                                    ? "bg-secondary-700 text-white"
                                                                     : "bg-white text-[#6B7280] hover:bg-[#F9FAFB]",
                                                             )}
                                                         >
@@ -865,7 +1064,7 @@ export const DateTimeInput = <T extends FieldValues = FieldValues>({
                                     <Button
                                         type="button"
                                         onClick={() => setOpen(false)}
-                                        className="w-full bg-blue-700 hover:bg-blue-950 text-white text-sm font-medium font-text rounded-xs cursor-pointer transition-colors duration-300 mt-2"
+                                        className="w-full bg-secondary-700 hover:bg-secondary-900 text-white text-sm font-medium font-text rounded-button cursor-pointer transition-colors duration-300 mt-2"
                                     >
                                         Done
                                     </Button>
@@ -1079,10 +1278,10 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                 }}
                 className={cn(
                     "flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-lg p-5 cursor-pointer transition-colors duration-200 group",
-                    isDragging && "border-blue-700 bg-blue-50/50",
+                    isDragging && "border-secondary-700 bg-secondary-50/50",
                     activeError
                         ? "border-[#EF4444] bg-[#FFF5F5]"
-                        : "border-[#E5E7EB] hover:border-blue-700",
+                        : "border-[#E5E7EB] hover:border-secondary-700",
                 )}
             >
                 {icon}
@@ -1093,7 +1292,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                             "text-sm font-medium font-text",
                             activeError
                                 ? "text-[#EF4444]"
-                                : "text-blue-700 group-hover:underline",
+                                : "text-secondary-700 group-hover:underline",
                         )}
                     >
                         Click to upload
@@ -1281,7 +1480,7 @@ export const CheckboxInput = <T extends FieldValues = FieldValues>({
                                 : ctrl.onChange(value)
                         }
                         className={cn(
-                            "border-[#E5E7EB] data-[state=checked]:bg-blue-700 data-[state=checked]:border-blue-700",
+                            "border-[#E5E7EB] data-[state=checked]:bg-secondary-700 data-[state=checked]:border-secondary-700",
                             error && "border-[#EF4444]",
                             field.disabled && "opacity-50 cursor-not-allowed",
                         )}

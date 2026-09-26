@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { RegisterOptions } from "react-hook-form";
+import { FieldValues, RegisterOptions, UseFormReturn } from "react-hook-form";
 
 export type FieldType =
     | "text"
@@ -10,6 +10,8 @@ export type FieldType =
     | "number-dollar"
     | "textarea"
     | "select"
+    | "multiselect"
+    | "radio"
     | "date"
     | "datetime"
     | "file"
@@ -31,7 +33,8 @@ export type FormFieldConfig = {
     uploadIcon?: ReactNode; // custom icon for file/image upload
     accept?: string; // for file/image — e.g. "image/png, image/jpeg"
     multiple?: boolean; // for file upload
-    options?: SelectOption[]; // for select fields
+    options?: SelectOption[]; // for select / multiselect / radio fields
+    maxSelections?: number; // for multiselect — caps how many options can be chosen
     loadOptions?: () => Promise<SelectOption[]>; // ← add this for async selects
     rows?: number; // for textarea
     height?: number;
@@ -52,14 +55,26 @@ export type FormFieldConfig = {
     trailingSlot?: ReactNode; // e.g. a "Forgot password?" link next to a checkbox
 };
 
-export type MainFormProps = {
+export type MainFormProps<T extends FieldValues = FieldValues> = {
     title?: string;
     description?: string;
     fields: FormFieldConfig[];
-    onSubmit: (values: Record<string, unknown>) => void | Promise<void>;
+    onSubmit: (values: T) => void | Promise<void>;
     submitLabel?: string;
     isLoading?: boolean;
     className?: string;
     rowPairs?: [string, string][];
-    footerSlot?: ReactNode | ((values: Record<string, unknown>) => ReactNode);
+    footerSlot?: ReactNode | ((values: Partial<T>) => ReactNode);
+    /** Bring your own react-hook-form instance — lets several MainForm/field
+     * groups (e.g. steps of a wizard) share one form so values and validation
+     * persist as steps mount/unmount. Falls back to an internal instance. */
+    methods?: UseFormReturn<T>;
+    /** Disable the submit button until every required field currently holds a
+     * value (checked on each render from live field values, not on submit).
+     * @default true */
+    requireValidToSubmit?: boolean;
+    /** Replace the default full-width submit button with custom footer
+     * actions (e.g. a Back + Continue row). Receives the same loading/submit
+     * readiness state the default button would use. */
+    renderFooter?: (state: { isLoading: boolean; canSubmit: boolean }) => ReactNode;
 };

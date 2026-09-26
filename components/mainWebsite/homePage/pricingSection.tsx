@@ -72,7 +72,7 @@ export default function PricingSection() {
                             <Link
                                 href={plan.ctaUrl}
                                 title={plan.buttonText}
-                                className="block w-full text-center py-3.5 px-4 bg-primary-500 hover:bg-primary-400 active:bg-primary-600 text-primary-950 font-semibold text-xs md:text-sm rounded-xs transition-colors duration-300"
+                                className="block w-full text-center py-3.5 px-4 bg-primary-500 hover:bg-primary-400 active:bg-primary-600 text-primary-950 font-semibold text-xs md:text-sm rounded-button transition-colors duration-300"
                             >
                                 {plan.buttonText}
                             </Link>

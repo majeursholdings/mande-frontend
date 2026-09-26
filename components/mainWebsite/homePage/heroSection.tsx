@@ -20,7 +20,7 @@ export default function HomeHeroSection() {
                 <Link
                     href={ARTISAN_SIGNUP_URL}
                     title="Create your profile"
-                    className="flex w-fit mt-3 rounded-xs py-1.5 px-5 border bg-primary-950 border-primary-950 text-mist-100 hover:bg-primary-500 hover:border-primary-500 hover:text-primary-950 duration-300 transition-all"
+                    className="flex w-fit mt-3 rounded-button py-1.5 px-5 border bg-primary-950 border-primary-950 text-mist-100 hover:bg-primary-500 hover:border-primary-500 hover:text-primary-950 duration-300 transition-all"
                 >
                     Create your profile
                 </Link>

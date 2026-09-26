@@ -1,0 +1,97 @@
+"use client";
+
+import { UseFormReturn } from "react-hook-form";
+import MainForm from "@/components/form";
+import { FormFieldConfig } from "@/components/form/types";
+import StepFooter from "../stepFooter";
+import StepHeader from "../stepHeader";
+import { RegistrationFormValues } from "../types";
+import {
+    COMPANY_SPECIALITY_OPTIONS,
+    MATERIALS_INVENTORY_OPTIONS,
+    MAX_COMPANY_SPECIALITIES,
+    PRODUCTION_LEAD_TIME_OPTIONS,
+    STAFF_RANGE_OPTIONS,
+} from "@/constant/manufacturer";
+
+export type CompanySpecificationsStepProps = {
+    methods: UseFormReturn<RegistrationFormValues>;
+    onSubmit: (values: RegistrationFormValues) => void;
+    onBack: () => void;
+    isLoading: boolean;
+};
+
+export default function CompanySpecificationsStep({
+    methods,
+    onSubmit,
+    onBack,
+    isLoading,
+}: CompanySpecificationsStepProps) {
+    const fields: FormFieldConfig[] = [
+        {
+            name: "staffRange",
+            type: "select",
+            label: "How many staff members do you have?",
+            placeholder: "Select staff range",
+            options: STAFF_RANGE_OPTIONS,
+            validation: { required: "Please select a staff range" },
+        },
+        {
+            name: "specialities",
+            type: "multiselect",
+            label: `What is your company's speciality? (Select up to ${MAX_COMPANY_SPECIALITIES})`,
+            placeholder: "Select specialities",
+            options: COMPANY_SPECIALITY_OPTIONS,
+            maxSelections: MAX_COMPANY_SPECIALITIES,
+            validation: {
+                validate: (value: string[]) =>
+                    (Array.isArray(value) && value.length > 0) ||
+                    "Select at least one speciality",
+            },
+        },
+        {
+            name: "productionLeadTime",
+            type: "select",
+            label: "Average production lead time",
+            placeholder: "Select production time",
+            options: PRODUCTION_LEAD_TIME_OPTIONS,
+            validation: { required: "Please select a production lead time" },
+        },
+        {
+            name: "materialsInventory",
+            type: "radio",
+            label: "Do you have your own materials inventory available?",
+            options: MATERIALS_INVENTORY_OPTIONS,
+            validation: {
+                validate: (value: string) =>
+                    !!value || "Please select an option",
+            },
+        },
+    ];
+
+    return (
+        <div className="flex flex-col gap-6">
+            <StepHeader
+                step={4}
+                totalSteps={4}
+                title="Company specifications"
+                description="You're almost done."
+            />
+
+            <MainForm<RegistrationFormValues>
+                methods={methods}
+                fields={fields}
+                onSubmit={onSubmit}
+                isLoading={isLoading}
+                renderFooter={({ isLoading, canSubmit }) => (
+                    <StepFooter
+                        isLoading={isLoading}
+                        canSubmit={canSubmit}
+                        submitLabel="Create account"
+                        onBack={onBack}
+                    />
+                )}
+            />
+        </div>
+    );
+}

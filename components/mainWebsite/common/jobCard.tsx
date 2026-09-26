@@ -21,7 +21,7 @@ export default function JobCard({
     referenceId,
 }: JobCardProps) {
     return (
-        <div className="border rounded-[10px] overflow-hidden group">
+        <div className="border rounded-[10px] overflow-hidden group hover:bg-mist-100 transition-all duration-300">
             <div className="aspect-3/2 overflow-clip">
                 <Image
                     src={imageSrc || DEFAULT_IMAGE}
@@ -32,7 +32,7 @@ export default function JobCard({
                     className="w-full aspect-3/2 object-center object-cover group-hover:scale-110 transition-all duration-300"
                 />
             </div>
-            <div className="p-2.5 md:p-5 space-y-3 group-hover:bg-mist-100 transition-all duration-300">
+            <div className="p-2.5 md:p-5 space-y-3">
                 <h4 className="text-lg font-medium">{title}</h4>
                 <div className="flex gap-3 items-center justify-start flex-wrap">
                     <div className="flex-1 flex gap-1 items-center">
@@ -56,9 +56,12 @@ export default function JobCard({
                     </div>
                 </div>
                 <div>
-                    <Link href={`/open-jobs/${referenceId}`} className="flex items-center justify-start gap-1 text-xs text-secondary-500 hover:text-secondary-900 duration-300 transition-colors">
+                    <Link
+                        href={`/open-jobs/${referenceId}`}
+                        className="flex items-center justify-start gap-1 text-xs text-secondary-500 hover:text-secondary-900 duration-300 transition-colors"
+                    >
                         Apply now
-                        <ExternalLink className="size-3"/>
+                        <ExternalLink className="size-3" />
                     </Link>
                 </div>
             </div>

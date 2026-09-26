@@ -59,8 +59,9 @@ export const footerMenu: Mainmenu[] = [
     },
 ];
 
-export const ARTISAN_LOGIN_URL = "/artisan/login"
-export const ARTISAN_SIGNUP_URL = "/artisan/sign-up"
+export const ARTISAN_LOGIN_URL = "/manufacturer/login";
+export const ARTISAN_SIGNUP_URL = "/manufacturer/registration";
+export const ARTISAN_FORGOT_PASSWORD_URL = "/manufacturer/forgot-password";
 
 export const ADMIN_LOGIN_URL = "/admin/login"
 export const ADMIN_SIGNUP_URL = "/admin/sign-up"

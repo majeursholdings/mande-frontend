@@ -3,7 +3,7 @@
 import { useState, useCallback, useContext } from "react";
 import { ChevronDown } from "lucide-react";
 import { TableIdContext, useTableParam } from "./tableContext";
-import { useOutsideClickRef } from "./useOutsideClickRef";
+import { useOutsideClickRef } from "@/hooks/useOutsideClickRef";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DateSortFilter
@@ -37,7 +37,7 @@ export function DateSortFilter() {
             <button
                 onClick={() => setOpen((o) => !o)}
                 className={[
-                    "flex items-center gap-2 px-3 py-2 rounded-xs text-xs font-medium font-text cursor-pointer",
+                    "flex items-center gap-2 px-3 py-2 rounded-button text-xs font-medium font-text cursor-pointer",
                     "border transition-all duration-300 whitespace-nowrap",
                     active
                         ? "bg-blue-50 border-blue-500 text-blue-700"
