@@ -35,6 +35,7 @@ import ReasonForm from "@/components/adminPlatform/form/reasonForm";
 import RejectJobForm from "@/components/adminPlatform/form/rejectJobForm";
 import ReassignJobForm from "@/components/adminPlatform/form/reassignJobForm";
 import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
+import { useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
 import { JobStatusBadge, PersonLabel } from "../jobsPage/jobPeople";
 import AssignmentHistory from "./assignmentHistory";
 import { AttachmentList, ContactManufacturerDialog, DetailSection, ImagePreviewGrid } from "./detailParts";
@@ -76,10 +77,13 @@ export default function JobDetailSheet({
                 if (!open) onClose();
             }}
         >
+            {/* Full screen on phones and docked on tablets — both stopping above the
+                bottom bar, which stays in view and usable — and full height from lg */}
             <SheetContent
                 side="right"
                 showCloseButton={false}
-                className="gap-0 bg-white p-0 data-[side=right]:inset-0 data-[side=right]:w-full data-[side=right]:max-w-full data-[side=right]:border-l-0 md:data-[side=right]:inset-y-0 md:data-[side=right]:left-auto md:data-[side=right]:max-w-120 md:data-[side=right]:border-l md:data-[side=right]:border-border"
+                overlayClassName="bottom-(--mobile-bottom-nav-height) lg:bottom-0"
+                className="gap-0 bg-white p-0 data-[side=right]:inset-x-0 data-[side=right]:top-0 data-[side=right]:bottom-(--mobile-bottom-nav-height) data-[side=right]:h-auto data-[side=right]:w-full data-[side=right]:max-w-full data-[side=right]:border-l-0 md:data-[side=right]:left-auto md:data-[side=right]:max-w-120 md:data-[side=right]:border-l md:data-[side=right]:border-border lg:data-[side=right]:bottom-0"
             >
                 {job && <JobDetail key={job.id} job={job} onEdit={() => onEdit(job.id)} />}
             </SheetContent>
@@ -101,7 +105,9 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
         declineApplication,
         reportFault,
     } = useAdminJobs();
+    const { getAssignBlocker } = useAdminManufacturers();
     const [dialog, setDialog] = useState<JobDialog>(null);
+    const [isScrolled, setIsScrolled] = useState(false);
     /** The step whose proof is being sent back, while its dialog is open. */
     const [sendingBack, setSendingBack] = useState<ProductionStepKey | null>(null);
     const closeDialog = () => setDialog(null);
@@ -164,8 +170,17 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
     };
 
     return (
-        <div className="flex h-full flex-col overflow-y-auto">
-            <div className="flex flex-col gap-2 px-5 pt-6 pb-4 md:px-10 md:pt-10">
+        <div
+            className="flex h-full flex-col overflow-y-auto"
+            onScroll={(event) => setIsScrolled(event.currentTarget.scrollTop > 0)}
+        >
+            {/* Stays at the top so Close is always in reach — with a line under it once the details scroll beneath */}
+            <div
+                className={cn(
+                    "sticky top-0 z-10 flex flex-col gap-2 bg-white px-5 pt-4 pb-4 transition-shadow md:px-10 md:pt-10",
+                    isScrolled && "shadow-[0_1px_0_0_var(--color-border)]",
+                )}
+            >
                 <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
                         <button
@@ -344,6 +359,7 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
                         history={job.assignmentHistory}
                         applications={job.applications}
                         canReassign={canReassign}
+                        getAcceptBlocker={getAssignBlocker}
                         onReassign={() => setDialog("reassign")}
                         onDecideApplication={(applicationId, decision) =>
                             run(

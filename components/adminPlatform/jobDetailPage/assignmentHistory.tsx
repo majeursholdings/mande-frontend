@@ -31,6 +31,7 @@ export default function AssignmentHistory({
     canReassign,
     onReassign,
     onDecideApplication,
+    getAcceptBlocker,
 }: {
     history: AdminJobAssignment[];
     applications: AdminJobApplication[];
@@ -38,6 +39,8 @@ export default function AssignmentHistory({
     canReassign: boolean;
     onReassign: () => void;
     onDecideApplication: (applicationId: string, decision: "accepted" | "declined") => void;
+    /** Why a manufacturer's application can't be accepted — suspended, or flagged with a job already. */
+    getAcceptBlocker: (manufacturerId: string) => string | null;
 }) {
     const current = history.find((assignment) => assignment.outcome === "awaiting");
     const waitingApplications = applications.filter((application) => application.status === "pending").length;
@@ -78,6 +81,7 @@ export default function AssignmentHistory({
                                 key={application.id}
                                 application={application}
                                 canDecide={canReassign}
+                                acceptBlocker={getAcceptBlocker(application.manufacturerId)}
                                 onDecide={(decision) => onDecideApplication(application.id, decision)}
                             />
                         ))}
@@ -137,10 +141,12 @@ export default function AssignmentHistory({
 function ApplicationRow({
     application,
     canDecide,
+    acceptBlocker,
     onDecide,
 }: {
     application: AdminJobApplication;
     canDecide: boolean;
+    acceptBlocker: string | null;
     onDecide: (decision: "accepted" | "declined") => void;
 }) {
     const manufacturer = getAdminManufacturer(application.manufacturerId);
@@ -157,6 +163,9 @@ function ApplicationRow({
                     {manufacturer ? `${manufacturer.contactName} · ` : ""}Applied{" "}
                     {getRelativeTimeLabel(new Date(application.appliedAt))}
                 </span>
+                {isPending && acceptBlocker && (
+                    <span className="text-xs font-text text-warning-700">{acceptBlocker}</span>
+                )}
             </div>
             {isPending && canDecide ? (
                 <div className="flex gap-2">
@@ -169,8 +178,10 @@ function ApplicationRow({
                     </button>
                     <button
                         type="button"
+                        disabled={!!acceptBlocker}
+                        title={acceptBlocker ?? undefined}
                         onClick={() => onDecide("accepted")}
-                        className="rounded-md bg-secondary-700 px-3 py-1.5 text-xs font-medium font-text text-white transition-colors hover:bg-secondary-900 cursor-pointer"
+                        className="rounded-md bg-secondary-700 px-3 py-1.5 text-xs font-medium font-text text-white transition-colors enabled:hover:bg-secondary-900 enabled:cursor-pointer disabled:bg-mist-200 disabled:text-mist-500"
                     >
                         Accept
                     </button>

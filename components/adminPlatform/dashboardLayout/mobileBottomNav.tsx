@@ -5,17 +5,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Ellipsis } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { BlackLogo } from "@/components/mainWebsite/navigations/logo";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ADMIN_NAV_ITEMS, isAdminNavItemActive } from "@/constant/admin";
 import NavLinks from "./navLinks";
 
 const TAB_CLASS =
-    "flex flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium font-text transition-colors duration-200";
+    "flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[11px] font-medium font-text transition-colors duration-200";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MobileBottomNav — the phone nav: the four main sections, then Menu, which
-// slides the full nav (Transactions, Profile, Logout too) in from the left.
+// slides the full nav (Profile and Logout too) in from the left.
 // Menu shows as active on a page that's only in the drawer.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -29,7 +28,7 @@ export default function MobileBottomNav() {
 
     return (
         <>
-            <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-border bg-white px-1 pb-[env(safe-area-inset-bottom)] lg:hidden">
+            <nav className="fixed inset-x-0 bottom-0 z-40 flex h-(--mobile-bottom-nav-height) items-stretch border-t border-border bg-white px-1 pb-[env(safe-area-inset-bottom)] lg:hidden">
                 {bottomBarItems.map((item) => {
                     const isActive = isAdminNavItemActive(item, pathname);
                     return (
@@ -64,14 +63,9 @@ export default function MobileBottomNav() {
                 <SheetContent
                     side="left"
                     showCloseButton={false}
-                    className="gap-12 border-r-0 bg-white pt-10 pb-16 data-[side=left]:w-62 lg:hidden"
+                    className="gap-0 overflow-y-auto border-r-0 bg-white data-[side=left]:w-62 lg:hidden"
                 >
                     <SheetTitle className="sr-only">Menu</SheetTitle>
-                    <div className="px-10">
-                        <div className="max-w-30">
-                            <BlackLogo />
-                        </div>
-                    </div>
                     <NavLinks onNavigate={() => setIsMenuOpen(false)} />
                 </SheetContent>
             </Sheet>

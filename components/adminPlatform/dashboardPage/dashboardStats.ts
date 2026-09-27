@@ -2,7 +2,7 @@ import { formatCompactPrice, formatPrice } from "@/lib/currency";
 import {
     ADMIN_JOB_STATUS_CONFIG,
     getAdminManufacturer,
-    getJobPayouts,
+    getAdminTransactions,
     isRejectionFinal,
     type AdminJob,
     type AdminJobStatus,
@@ -11,6 +11,7 @@ import {
     type PendingProgressReview,
 } from "@/constant/admin";
 import { JOB_PRODUCTION_STEPS } from "@/constant/jobWorkflow";
+import { getJobRecordPayouts } from "@/constant/sampleDb";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The dashboard's numbers, worked out from the jobs (and manufacturers), so
@@ -67,8 +68,8 @@ function getSnapshot(jobs: AdminJob[], manufacturers: AdminManufacturer[], at: D
     return {
         manufacturers: joined.length,
         payouts: jobs
-            .flatMap((job) => getJobPayouts(job, at))
-            .filter((payout) => isBy(payout.date, at))
+            .flatMap((job) => getJobRecordPayouts(job, at))
+            .filter((payout) => isBy(payout.paidAt, at))
             .reduce((sum, payout) => sum + payout.amount, 0),
         successRate:
             completed.length + closedCount === 0 ? null : (completed.length / (completed.length + closedCount)) * 100,
@@ -212,12 +213,13 @@ export function getJobStatusCounts(jobs: AdminJob[]): JobStatusCount[] {
 
 // ─── Recent transactions ─────────────────────────────────────────────────────
 
-/** The latest installments paid out, newest first. */
-export function getRecentTransactions(jobs: AdminJob[], limit = 4, now: Date = new Date()): AdminTransaction[] {
-    return jobs
-        .flatMap((job) => getJobPayouts(job, now))
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, limit);
+/** The latest transactions across every manufacturer, newest first — the top of the Transactions page. */
+export function getRecentTransactions(
+    manufacturers: AdminManufacturer[],
+    jobs: AdminJob[],
+    limit = 4,
+): AdminTransaction[] {
+    return getAdminTransactions(manufacturers, jobs).slice(0, limit);
 }
 
 // ─── Pending progress reviews ────────────────────────────────────────────────

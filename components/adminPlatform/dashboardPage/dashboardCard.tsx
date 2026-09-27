@@ -24,7 +24,12 @@ export default function DashboardCard({
     className?: string;
 }) {
     return (
-        <section className={cn("flex min-w-0 flex-col gap-5 md:rounded-xl md:border md:border-border md:p-5", className)}>
+        <section
+            className={cn(
+                "flex min-w-0 flex-col gap-5 md:rounded-xl md:border md:border-border md:bg-white md:p-5",
+                className,
+            )}
+        >
             <div className={cn("flex items-start justify-between gap-4", titleHidden && "sr-only")}>
                 <h2 className="text-lg font-medium font-text text-mist-950">{title}</h2>
                 {viewAllHref && (

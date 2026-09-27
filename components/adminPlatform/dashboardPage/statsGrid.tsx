@@ -4,6 +4,7 @@ import { HandCoins, Hammer, Percent, UserRoundCheck, type LucideIcon } from "luc
 import { cn } from "@/lib/utils";
 import { ADMIN_MANUFACTURERS } from "@/constant/admin";
 import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
+import { StatCard, StatCardRow } from "../statCard";
 import { getDashboardStats, type AdminDashboardStat } from "./dashboardStats";
 
 const STAT_ICONS: Record<AdminDashboardStat["icon"], { icon: LucideIcon; className: string }> = {
@@ -19,59 +20,44 @@ export default function StatsGrid() {
     const stats = getDashboardStats(jobs, ADMIN_MANUFACTURERS);
 
     return (
-        <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 xl:grid-cols-4">
-            {stats.map((stat) => (
-                <StatCard key={stat.id} stat={stat} />
-            ))}
-        </div>
+        <StatCardRow>
+            {stats.map((stat) => {
+                const { icon, className } = STAT_ICONS[stat.icon];
+                return (
+                    <StatCard
+                        key={stat.id}
+                        label={stat.label}
+                        value={stat.value}
+                        fullValue={stat.fullValue}
+                        valueSuffix={stat.valueSuffix}
+                        icon={icon}
+                        iconClassName={className}
+                        footer={<ChangeSinceLastMonth changePercent={stat.changePercent} />}
+                    />
+                );
+            })}
+        </StatCardRow>
     );
 }
 
-function StatCard({ stat }: { stat: AdminDashboardStat }) {
-    const { icon: Icon, className: iconClassName } = STAT_ICONS[stat.icon];
+function ChangeSinceLastMonth({ changePercent }: { changePercent: number | null }) {
     // Nothing a month ago to compare with reads as new, like a rise
-    const change = stat.changePercent === null ? 1 : Math.sign(stat.changePercent);
+    const change = changePercent === null ? 1 : Math.sign(changePercent);
 
     return (
-        <div className="flex w-65 shrink-0 snap-start flex-col justify-between gap-4 rounded-xl border border-border bg-white p-5 sm:w-auto">
-            <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 flex-col gap-1">
-                    <p className="text-sm font-text leading-tight text-mist-500">{stat.label}</p>
-                    <p
-                        title={stat.fullValue}
-                        className="text-[28px] font-semibold font-text leading-tight text-mist-950"
-                    >
-                        {stat.value}
-                        {stat.valueSuffix && (
-                            <span className="ml-1 text-sm font-normal text-mist-500">{stat.valueSuffix}</span>
-                        )}
-                    </p>
-                </div>
-                <span
-                    className={cn(
-                        "flex size-12 shrink-0 items-center justify-center rounded-full text-white",
-                        iconClassName,
-                    )}
-                >
-                    <Icon className="size-6" strokeWidth={2} aria-hidden />
-                </span>
-            </div>
-            <p className="flex items-center gap-2 text-xs font-text text-mist-400">
-                <span
-                    className={cn(
-                        "rounded px-1.5 py-0.5 font-semibold",
-                        change > 0 && "bg-primary-50 text-primary-700",
-                        change < 0 && "bg-error-50 text-error-600",
-                        // No change reads neutral, as in the empty dashboard design
-                        change === 0 && "bg-mist-100 text-mist-700",
-                    )}
-                >
-                    {stat.changePercent === null
-                        ? "New"
-                        : `${change < 0 ? "−" : "+"}${Math.abs(stat.changePercent)}%`}
-                </span>
-                since last month
-            </p>
-        </div>
+        <>
+            <span
+                className={cn(
+                    "rounded px-1.5 py-0.5 font-semibold",
+                    change > 0 && "bg-primary-50 text-primary-700",
+                    change < 0 && "bg-error-50 text-error-600",
+                    // No change reads neutral, as in the empty dashboard design
+                    change === 0 && "bg-mist-100 text-mist-700",
+                )}
+            >
+                {changePercent === null ? "New" : `${change < 0 ? "−" : "+"}${Math.abs(changePercent)}%`}
+            </span>
+            since last month
+        </>
     );
 }

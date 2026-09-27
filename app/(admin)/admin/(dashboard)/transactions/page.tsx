@@ -1,6 +1,11 @@
-import { ReceiptText } from "lucide-react";
-import ComingSoon from "@/components/ui/comingSoon";
+import { Suspense } from "react";
+import AdminTransactionsPage from "@/components/adminPlatform/transactionsPage";
 
-export default function AdminTransactionsPage() {
-    return <ComingSoon icon={ReceiptText} title="Transactions" />;
+export default function AdminTransactionsRoute() {
+    // The table keeps its search, filter, sort and page in the URL — read on the client
+    return (
+        <Suspense>
+            <AdminTransactionsPage />
+        </Suspense>
+    );
 }

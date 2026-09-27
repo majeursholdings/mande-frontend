@@ -2,21 +2,21 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { LogOut, UserRound } from "lucide-react";
+import { LogOut, Settings, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-import { ADMIN_PROFILE_URL } from "@/constant/admin";
+import { ADMIN_PROFILE_URL, ADMIN_SETTINGS_URL } from "@/constant/admin";
 import { useLogout } from "./logoutContext";
 
 const MENU_ITEM_CLASS =
     "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium font-text transition-colors duration-200 cursor-pointer";
 
 /**
- * The top bars' profile popup: View profile and Logout. `children` is the
+ * The top bars' profile popup: View profile, Settings and Logout. `children` is the
  * trigger's content (avatar + name on desktop, just the avatar on mobile).
  */
 export default function UserMenu({
@@ -45,6 +45,14 @@ export default function UserMenu({
                     <UserRound className="size-4 shrink-0" strokeWidth={1.75} />
                     View profile
                 </Link>
+                <Link
+                    href={ADMIN_SETTINGS_URL}
+                    onClick={() => setIsOpen(false)}
+                    className={cn(MENU_ITEM_CLASS, "text-mist-700 hover:bg-mist-50 hover:text-mist-950")}
+                >
+                    <Settings className="size-4 shrink-0" strokeWidth={1.75} />
+                    Settings
+                </Link>
                 <div className="my-1 h-px bg-border" />
                 <button
                     type="button"
@@ -52,7 +60,7 @@ export default function UserMenu({
                         setIsOpen(false);
                         requestLogout();
                     }}
-                    className={cn(MENU_ITEM_CLASS, "text-error-600 hover:bg-error-50")}
+                    className={cn(MENU_ITEM_CLASS, "text-secondary-600 hover:bg-secondary-50")}
                 >
                     <LogOut className="size-4 shrink-0" strokeWidth={1.75} />
                     Logout

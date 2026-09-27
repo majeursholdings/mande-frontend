@@ -1,5 +1,6 @@
 import Image from "next/image";
-import Logo from "@/components/mainWebsite/navigations/logo";
+import LogoLink from "@/components/ui/logoLink";
+import { MANDE_WEBSITE_URL } from "@/constant/navigation";
 import { AUTH_HEADLINE, AUTH_HERO_IMAGE } from "@/constant/global";
 
 /** The photo half of the admin auth screens — headline on top, logo at the bottom. Hidden on phones. */
@@ -23,9 +24,7 @@ export default function AuthSidePanel() {
                 {AUTH_HEADLINE}
             </p>
 
-            <div className="max-w-45">
-                <Logo />
-            </div>
+            <LogoLink href={MANDE_WEBSITE_URL} label="MANDE — go to the Mande website" tone="light" className="max-w-45" />
         </div>
     );
 }

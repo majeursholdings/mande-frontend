@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import { BlackLogo } from "@/components/mainWebsite/navigations/logo";
+import LogoLink from "@/components/ui/logoLink";
+import { MANDE_WEBSITE_URL } from "@/constant/navigation";
 import AuthSidePanel from "./authSidePanel";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -33,9 +34,11 @@ export default function AuthScreenLayout({
 
             <div className="flex flex-1 flex-col px-4 pt-6 pb-10 sm:px-10 md:items-center md:pt-20">
                 <div className="flex w-full flex-1 flex-col md:max-w-104 md:flex-none">
-                    <div className="mb-11 w-32 md:hidden">
-                        <BlackLogo />
-                    </div>
+                    <LogoLink
+                        href={MANDE_WEBSITE_URL}
+                        label="MANDE — go to the Mande website"
+                        className="mb-11 w-32 md:hidden"
+                    />
 
                     <div className="mb-8 flex flex-col md:mb-12">
                         <span className="mb-4 text-xs font-medium font-text uppercase text-primary-700">
