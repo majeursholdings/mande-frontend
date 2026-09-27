@@ -21,6 +21,18 @@ export default function nextConfig(phase: string): NextConfig {
           destination: "/manufacturer/dashboard",
           permanent: false,
         },
+        // Nor does the admin platform — same reasoning
+        {
+          source: "/admin",
+          destination: "/admin/dashboard",
+          permanent: false,
+        },
+        // Links to the FAQs page have used both spellings
+        {
+          source: "/faqs",
+          destination: "/faq",
+          permanent: true,
+        },
       ];
     },
   };
