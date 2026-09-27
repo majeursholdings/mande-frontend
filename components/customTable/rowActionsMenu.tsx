@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Menu } from "@base-ui/react/menu";
 import { Eye, Pencil, Trash2, MoreHorizontal } from "lucide-react";
-import { useOutsideClickRef } from "@/hooks/useOutsideClickRef";
-import type { ViewAction, EditAction, DeleteAction, LinkAction } from "./types";
+import type { ViewAction, EditAction, DeleteAction, LinkAction, RowAction } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LinkActionMenuItem
@@ -17,14 +16,16 @@ import type { ViewAction, EditAction, DeleteAction, LinkAction } from "./types";
 export const MENU_ITEM_CLASS =
     "w-full flex items-center gap-2 px-3 py-2 text-xs font-text text-left text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer whitespace-nowrap";
 
+// The menu's items also light up when reached with the arrow keys
+const ITEM_CLASS = `${MENU_ITEM_CLASS} outline-none data-highlighted:bg-gray-50`;
+const DANGER_ITEM_CLASS = `${ITEM_CLASS} text-red-600 hover:bg-red-50 data-highlighted:bg-red-50`;
+
 function LinkActionMenuItem<TRow extends { id: string }>({
     row,
     action,
-    onNavigate,
 }: {
     row: TRow;
     action: LinkAction<TRow>;
-    onNavigate: () => void;
 }) {
     const searchParams = useSearchParams();
     const { mergeParams = true, linkIcon } = action;
@@ -44,17 +45,19 @@ function LinkActionMenuItem<TRow extends { id: string }>({
     })();
 
     return (
-        <Link href={finalHref} onClick={onNavigate} className={MENU_ITEM_CLASS}>
+        <Menu.LinkItem render={<Link href={finalHref} />} closeOnClick className={ITEM_CLASS}>
             {linkIcon ?? <Eye className="size-3.5 text-gray-400" />}
             {action.label}
-        </Link>
+        </Menu.LinkItem>
     );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RowActionsMenu — the "..." kebab menu used in every table variant. Groups
-// the view/edit/delete/link actions into a single dropdown instead of a row
-// of separate icon buttons.
+// the view/edit/delete/link actions, and any custom row actions, into a
+// single dropdown instead of a row of separate icon buttons. The dropdown is
+// placed against the button, outside the table, so the table's edges don't
+// cut it off — on the last row it opens upwards.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function RowActionsMenu<TRow extends { id: string }>({
@@ -63,6 +66,7 @@ export function RowActionsMenu<TRow extends { id: string }>({
     editAction,
     deleteAction,
     linkAction,
+    rowActions = [],
     onOpenSheet,
     onOpenEdit,
     onOpenDelete,
@@ -72,98 +76,95 @@ export function RowActionsMenu<TRow extends { id: string }>({
     editAction?: EditAction<TRow>;
     deleteAction?: DeleteAction<TRow>;
     linkAction?: LinkAction<TRow>;
+    rowActions?: RowAction<TRow>[];
     onOpenSheet: () => void;
     onOpenEdit: () => void;
     onOpenDelete: () => void;
 }) {
-    const [open, setOpen] = useState(false);
-    const close = useCallback(() => setOpen(false), []);
-    const ref = useOutsideClickRef<HTMLDivElement>(close);
-
     return (
-        <div ref={ref} className="relative flex justify-end">
-            <button
-                onClick={() => setOpen((o) => !o)}
-                className="p-1.5 rounded-button hover:bg-gray-100 transition-colors cursor-pointer"
-                title="Actions"
-            >
-                <MoreHorizontal className="size-4 text-gray-500" />
-            </button>
+        <div className="flex justify-end">
+            <Menu.Root modal={false}>
+                <Menu.Trigger
+                    className="p-1.5 rounded-button hover:bg-gray-100 data-popup-open:bg-gray-100 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
+                    title="Actions"
+                >
+                    <MoreHorizontal className="size-4 text-gray-500" />
+                    <span className="sr-only">Actions</span>
+                </Menu.Trigger>
+                <Menu.Portal>
+                    <Menu.Positioner side="bottom" align="end" sideOffset={4} collisionPadding={16} className="z-50 outline-none">
+                        <Menu.Popup className="min-w-40 origin-(--transform-origin) overflow-hidden rounded-lg border border-gray-200 bg-white py-1 shadow-lg outline-none transition-[opacity,scale] duration-100 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0">
+                            {viewAction &&
+                                (viewAction.type === "link" ? (
+                                    <Menu.LinkItem render={<Link href={viewAction.href(row)} />} closeOnClick className={ITEM_CLASS}>
+                                        <Eye className="size-3.5 text-gray-400" />
+                                        View
+                                    </Menu.LinkItem>
+                                ) : (
+                                    <Menu.Item
+                                        onClick={() => {
+                                            if (viewAction.type === "sheet") {
+                                                onOpenSheet();
+                                            } else {
+                                                viewAction.onClick(row);
+                                            }
+                                        }}
+                                        className={ITEM_CLASS}
+                                    >
+                                        <Eye className="size-3.5 text-gray-400" />
+                                        View
+                                    </Menu.Item>
+                                ))}
 
-            {open && (
-                <div className="absolute top-full right-0 mt-1 z-40 min-w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1 overflow-hidden">
-                    {viewAction &&
-                        (viewAction.type === "link" ? (
-                            <Link
-                                href={viewAction.href(row)}
-                                onClick={() => setOpen(false)}
-                                className={MENU_ITEM_CLASS}
-                            >
-                                <Eye className="size-3.5 text-gray-400" />
-                                View
-                            </Link>
-                        ) : (
-                            <button
-                                onClick={() => {
-                                    setOpen(false);
-                                    if (viewAction.type === "sheet") {
-                                        onOpenSheet();
-                                    } else {
-                                        viewAction.onClick(row);
-                                    }
-                                }}
-                                className={MENU_ITEM_CLASS}
-                            >
-                                <Eye className="size-3.5 text-gray-400" />
-                                View
-                            </button>
-                        ))}
+                            {editAction &&
+                                (editAction.type === "link" ? (
+                                    <Menu.LinkItem render={<Link href={editAction.href(row)} />} closeOnClick className={ITEM_CLASS}>
+                                        <Pencil className="size-3.5 text-gray-400" />
+                                        Edit
+                                    </Menu.LinkItem>
+                                ) : (
+                                    <Menu.Item onClick={onOpenEdit} className={ITEM_CLASS}>
+                                        <Pencil className="size-3.5 text-gray-400" />
+                                        Edit
+                                    </Menu.Item>
+                                ))}
 
-                    {editAction &&
-                        (editAction.type === "link" ? (
-                            <Link
-                                href={editAction.href(row)}
-                                onClick={() => setOpen(false)}
-                                className={MENU_ITEM_CLASS}
-                            >
-                                <Pencil className="size-3.5 text-gray-400" />
-                                Edit
-                            </Link>
-                        ) : (
-                            <button
-                                onClick={() => {
-                                    setOpen(false);
-                                    onOpenEdit();
-                                }}
-                                className={MENU_ITEM_CLASS}
-                            >
-                                <Pencil className="size-3.5 text-gray-400" />
-                                Edit
-                            </button>
-                        ))}
+                            {linkAction && <LinkActionMenuItem row={row} action={linkAction} />}
 
-                    {linkAction && (
-                        <LinkActionMenuItem
-                            row={row}
-                            action={linkAction}
-                            onNavigate={() => setOpen(false)}
-                        />
-                    )}
+                            {rowActions
+                                .filter((action) => !action.hidden?.(row))
+                                .map((action) => {
+                                    const disabledReason = action.disabledReason?.(row) ?? null;
+                                    return (
+                                        <Menu.Item
+                                            key={action.label}
+                                            disabled={!!disabledReason}
+                                            title={disabledReason ?? undefined}
+                                            onClick={() => action.onSelect(row)}
+                                            className={
+                                                disabledReason
+                                                    ? `${ITEM_CLASS} cursor-not-allowed text-gray-300 hover:bg-transparent data-highlighted:bg-transparent`
+                                                    : action.tone === "danger"
+                                                      ? DANGER_ITEM_CLASS
+                                                      : ITEM_CLASS
+                                            }
+                                        >
+                                            {action.icon}
+                                            {action.label}
+                                        </Menu.Item>
+                                    );
+                                })}
 
-                    {deleteAction && (
-                        <button
-                            onClick={() => {
-                                setOpen(false);
-                                onOpenDelete();
-                            }}
-                            className={`${MENU_ITEM_CLASS} text-red-600 hover:bg-red-50`}
-                        >
-                            <Trash2 className="size-3.5 text-red-400" />
-                            Delete
-                        </button>
-                    )}
-                </div>
-            )}
+                            {deleteAction && (
+                                <Menu.Item onClick={onOpenDelete} className={DANGER_ITEM_CLASS}>
+                                    <Trash2 className="size-3.5 text-red-400" />
+                                    Delete
+                                </Menu.Item>
+                            )}
+                        </Menu.Popup>
+                    </Menu.Positioner>
+                </Menu.Portal>
+            </Menu.Root>
         </div>
     );
 }

@@ -20,6 +20,7 @@ export type {
     EditAction,
     DeleteAction,
     LinkAction,
+    RowAction,
 } from "./types";
 
 export type { UseTableRowsOptions } from "./useTableRows";
@@ -30,6 +31,8 @@ export { exportToCSV } from "./exportToCsv";
 
 export type { SearchInputProps } from "./searchInput";
 export { SearchInput } from "./searchInput";
+
+export { OptionsMenu } from "./optionsMenu";
 
 export type { SelectFilterProps } from "./selectFilter";
 export { SelectFilter } from "./selectFilter";

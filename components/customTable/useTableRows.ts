@@ -84,6 +84,10 @@ export function useTableRows<TRow extends { id: string }>({
         const value = getParam(paramKey) ?? "";
         if (!value) continue;
         result = result.filter((row) => {
+            if (matchMode === "includes") {
+                const list = row[field];
+                return Array.isArray(list) && list.map(String).includes(value);
+            }
             const raw = String(row[field] ?? "");
             if (matchMode === "floor") {
                 return String(Math.floor(parseFloat(raw))) === value;

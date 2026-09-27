@@ -35,8 +35,10 @@ export interface FilterDef<TRow> {
      * - "exact" (default) — full string equality: "active" === "active"
      * - "floor" — Math.floor the row value then compare: Math.floor(4.8) === 4
      *             Use this for numeric ratings stored as decimal strings ("4.8").
+     * - "includes" — the row field is a list; matches if it contains the value,
+     *             e.g. a manufacturer's specialities.
      */
-    matchMode?: "exact" | "floor";
+    matchMode?: "exact" | "floor" | "includes";
 }
 
 /**
@@ -109,6 +111,23 @@ export interface DeleteAction<TRow> {
     /** Body rendered inside the dialog. */
     dialogContent: (row: TRow) => ReactNode;
     onConfirm: (row: TRow) => void;
+}
+
+/**
+ * A custom item in the row's "..." menu — e.g. "Suspend" or "Flag". Use for
+ * actions the view / edit / delete / link ones don't cover; the parent owns
+ * what happens (usually opening its own dialog).
+ */
+export interface RowAction<TRow> {
+    label: string;
+    icon?: ReactNode;
+    /** "danger" shows it in red. */
+    tone?: "danger";
+    onSelect: (row: TRow) => void;
+    /** Leaves it out of the menu for rows it doesn't apply to. */
+    hidden?: (row: TRow) => boolean;
+    /** Shows it greyed out, with this as the reason, for rows it can't run on. */
+    disabledReason?: (row: TRow) => string | null;
 }
 
 /**

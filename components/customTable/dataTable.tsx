@@ -33,6 +33,7 @@ import type {
     EditAction,
     DeleteAction,
     LinkAction,
+    RowAction,
 } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -152,6 +153,8 @@ export interface DataTableProps<TRow extends { id: string }> {
     deleteAction?: DeleteAction<TRow>;
     /** Plain text link in the actions cell — no icon */
     linkAction?: LinkAction<TRow>;
+    /** Custom items in the row's "..." menu, e.g. "Suspend" */
+    rowActions?: RowAction<TRow>[];
     /** Adds a leading "#" column numbered from the current page's offset */
     showIndex?: boolean;
     /** Adds a leading checkbox column for row selection */
@@ -207,6 +210,7 @@ function DataTableContent<TRow extends { id: string }>({
     editAction,
     deleteAction,
     linkAction,
+    rowActions,
     showIndex = false,
     selectable = false,
     selectedIds,
@@ -291,7 +295,7 @@ function DataTableContent<TRow extends { id: string }>({
     };
 
     const hasActions = Boolean(
-        viewAction || editAction || deleteAction || linkAction,
+        viewAction || editAction || deleteAction || linkAction || rowActions?.length,
     );
 
     const colCount =
@@ -412,6 +416,7 @@ function DataTableContent<TRow extends { id: string }>({
                                                 editAction={editAction}
                                                 deleteAction={deleteAction}
                                                 linkAction={linkAction}
+                                                rowActions={rowActions}
                                                 onOpenSheet={() =>
                                                     openPanel("sheet", row)
                                                 }
