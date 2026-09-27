@@ -1,6 +1,15 @@
 import { RegisterOptions } from "react-hook-form";
 import { DEFAULT_MAX_FILE_SIZE_MB } from "./fileRules";
 
+/**
+ * A phone number once spaces and dashes are stripped: digits with an optional
+ * leading "+" — covers "0801 234 5678" as well as "+234 801 234 5678".
+ */
+export const PHONE_NUMBER_PATTERN = /^\+?\d{10,15}$/;
+
+/** Whether `value` is a phone number, spaces and dashes allowed (see PHONE_NUMBER_PATTERN). */
+export const isPhoneNumber = (value: string) => PHONE_NUMBER_PATTERN.test(value.replace(/[\s-]/g, ""));
+
 export const validators = {
     required: (label = "This field"): RegisterOptions => ({
         required: `${label} is required`,

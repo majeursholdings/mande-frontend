@@ -168,6 +168,8 @@
   --sidebar-accent-foreground: #08783e;
   --sidebar-border: #e2e8f0;
   --sidebar-ring: #08783e;
+  /* The phone bottom bar (admin): its row, the line over it, and the home-indicator inset. A sheet that stops above it uses this too */
+  --mobile-bottom-nav-height: calc(4rem + 1px + env(safe-area-inset-bottom));
 }
 
 .dark {
