@@ -21,6 +21,28 @@ export function getTimeAgoLabel(date: Date, from: Date = new Date()): string {
     return `${weeks} week${weeks === 1 ? "" : "s"} ago`;
 }
 
+/** "just now" / "5 mins ago" / "2 hrs ago" / "yesterday" / "3 days ago" — for recent activity, down to the minute. */
+export function getRelativeTimeLabel(date: Date, from: Date = new Date()): string {
+    const diffMinutes = Math.floor((from.getTime() - date.getTime()) / (1000 * 60));
+
+    if (diffMinutes < 1) return "just now";
+    if (diffMinutes < 60) return `${diffMinutes} min${diffMinutes === 1 ? "" : "s"} ago`;
+
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours} hr${diffHours === 1 ? "" : "s"} ago`;
+
+    return getTimeAgoLabel(date, from);
+}
+
+/** "Today • 2:04 PM" / "Yesterday • 1:20 PM" / "Mar 4th, 2022 • 11:26 AM" — when a note or message was posted. */
+export function formatDayAndTime(date: Date, now: Date = new Date()): string {
+    const startOfDay = (value: Date) => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
+    const daysAgo = Math.round((startOfDay(now) - startOfDay(date)) / (1000 * 60 * 60 * 24));
+    const day = daysAgo === 0 ? "Today" : daysAgo === 1 ? "Yesterday" : formatOrdinalDate(date);
+    const time = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return `${day} • ${time}`;
+}
+
 function ordinalSuffix(day: number): string {
     if (day % 100 >= 11 && day % 100 <= 13) return "th";
     switch (day % 10) {

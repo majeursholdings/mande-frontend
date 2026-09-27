@@ -4,6 +4,14 @@ export const DEFAULT_CURRENCY_CODE = "NGN";
 export const DEFAULT_CURRENCY_NAME = "Nigerian Naira";
 export const DEFAULT_IMAGE = "/images/default-img.png";
 
+// The hero on the manufacturer and admin auth screens
+export const AUTH_HEADLINE = "Top quality furniture delivered to your doorstep.";
+export const AUTH_HERO_IMAGE = "/images/carpenter_working.png";
+
+// One-time codes sent to verify an email or confirm a sensitive action
+export const OTP_LENGTH = 6;
+export const OTP_RESEND_SECONDS = 59;
+
 export const clientList = [
     {
         id: `1`,

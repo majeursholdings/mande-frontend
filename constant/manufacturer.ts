@@ -26,8 +26,6 @@ export const REGISTRATION_STEPS: RegistrationStep[] = [
     { label: "Company specifications" },
 ];
 
-export const OTP_LENGTH = 6;
-export const OTP_RESEND_SECONDS = 59;
 
 export const STAFF_RANGE_OPTIONS: SelectOption[] = [
     { label: "1 to 10", value: "1-10" },
@@ -63,8 +61,6 @@ export const MATERIALS_INVENTORY_OPTIONS: SelectOption[] = [
     { label: "No", value: "no" },
 ];
 
-export const AUTH_HEADLINE = "Top quality furniture delivered to your doorstep.";
-export const AUTH_HERO_IMAGE = "/images/carpenter_working.png";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Manufacturer dashboard

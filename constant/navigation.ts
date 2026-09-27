@@ -65,4 +65,5 @@ export const ARTISAN_FORGOT_PASSWORD_URL = "/manufacturer/forgot-password";
 
 export const ADMIN_LOGIN_URL = "/admin/login"
 export const ADMIN_SIGNUP_URL = "/admin/sign-up"
+export const ADMIN_FORGOT_PASSWORD_URL = "/admin/forgot-password"
     
