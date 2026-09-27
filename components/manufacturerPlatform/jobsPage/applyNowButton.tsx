@@ -41,7 +41,11 @@ export default function ApplyNowButton({ jobId, jobTitle }: { jobId: string; job
                 aria-disabled
                 aria-label={`Apply now for ${jobTitle} — all job slots are in use`}
                 onClick={() =>
-                    toast.warning(
+                    slots.accountHold === "flagged"
+                          ? toast.warning("Your account is flagged", {
+                                description: "You can hold one job at a time until the flag is lifted.",
+                            })
+                          : toast.warning(
                         `All ${slots.limit} job slots on your ${plan?.name ?? "current"} plan are in use`,
                         {
                             description:

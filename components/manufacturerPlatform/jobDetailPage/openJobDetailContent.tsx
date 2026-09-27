@@ -171,6 +171,10 @@ export default function OpenJobDetailContent({
                             )}
                         </Button>
                     </>
+                ) : slots.accountHold ? (
+                    <Notice tone="warning">
+                        Your account is flagged — you can hold one job at a time until the flag is lifted.
+                    </Notice>
                 ) : (
                     <>
                         <Notice tone="warning">

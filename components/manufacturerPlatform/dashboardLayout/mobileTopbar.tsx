@@ -3,14 +3,15 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, Bell, Search } from "lucide-react";
-import { getManufacturerFullName, getSubpageBackLink } from "@/constant/manufacturer";
-import { BlackLogo } from "@/components/mainWebsite/navigations/logo";
+import { ArrowLeft, Search } from "lucide-react";
+import { MANUFACTURER_DASHBOARD_URL, getManufacturerFullName, getSubpageBackLink } from "@/constant/manufacturer";
+import LogoLink from "@/components/ui/logoLink";
 import { useManufacturerProfile } from "./manufacturerProfileContext";
 import { useNotifications } from "./notificationsContext";
 import NotificationsPanel from "./notificationsPanel";
 import SearchPanel, { SEARCH_PLACEHOLDERS, type SearchScope } from "./searchPanel";
 import UserAvatar from "@/components/ui/userAvatar";
+import { BellIcon, MOBILE_TOPBAR_CLASS } from "@/components/ui/topbarControls";
 import UserMenu from "./userMenu";
 
 type MobileOverlay = "search" | "notifications" | null;
@@ -41,10 +42,8 @@ export default function MobileTopbar() {
 
     return (
         <>
-            <header className="lg:hidden sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border bg-white px-4 py-3">
-                <div className="w-25">
-                    <BlackLogo />
-                </div>
+            <header className={MOBILE_TOPBAR_CLASS}>
+                <LogoLink href={MANUFACTURER_DASHBOARD_URL} className="w-25" />
 
                 <div className="flex items-center gap-4">
                     <button
@@ -58,13 +57,10 @@ export default function MobileTopbar() {
                     <button
                         type="button"
                         onClick={() => setOverlay("notifications")}
-                        aria-label="Notifications"
+                        aria-label={hasUnread ? "Notifications, unread" : "Notifications"}
                         className="relative cursor-pointer"
                     >
-                        <Bell className="size-5 text-mist-700" strokeWidth={1.75} />
-                        {hasUnread && (
-                            <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-secondary-500" />
-                        )}
+                        <BellIcon hasUnread={hasUnread} size="sm" />
                     </button>
                     <UserMenu aria-label="Profile menu" className="rounded-full cursor-pointer">
                         <UserAvatar

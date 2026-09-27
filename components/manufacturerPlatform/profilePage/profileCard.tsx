@@ -10,12 +10,13 @@ import {
     getManufacturerFullName,
     getOptionLabel,
     type ManufacturerProfile,
+    type VerificationStatus,
 } from "@/constant/manufacturer";
 import UserAvatar from "@/components/ui/userAvatar";
 import VerificationBadge from "../verificationBadge";
 
 /** Lets an email wrap after the "@" in a narrow column instead of mid-word. */
-function breakableEmail(email: string): ReactNode {
+export function breakableEmail(email: string): ReactNode {
     const at = email.indexOf("@");
     if (at === -1) return email;
     return (
@@ -27,31 +28,83 @@ function breakableEmail(email: string): ReactNode {
     );
 }
 
-/** Avatar, name and company details — a card on desktop, a centered header on mobile. */
+/**
+ * Avatar, name and company details — a card on desktop, a centered header on
+ * mobile. Also the admin's view of a manufacturer, without the Edit link and
+ * with their overall verification in the badge.
+ */
 export default function ProfileCard({
     profile,
     className,
+    editHref = MANUFACTURER_SETTINGS_URL,
+    verificationStatus,
 }: {
     profile: ManufacturerProfile;
     className?: string;
+    /** Where "Edit" goes — null leaves it out. */
+    editHref?: string | null;
+    /** The badge beside the name — defaults to the NIN card's status. */
+    verificationStatus?: VerificationStatus;
 }) {
-    const fullName = getManufacturerFullName(profile);
     const specialities = profile.specialities
         .map((value) => getOptionLabel(COMPANY_SPECIALITY_OPTIONS, value))
         .join(", ");
 
-    const details: {
-        label: string;
-        value: string;
-        icon: LucideIcon;
-        format?: (value: string) => ReactNode;
-    }[] = [
-        { label: "Company", value: profile.companyName, icon: Building2 },
-        { label: "Email", value: profile.email, icon: Mail, format: breakableEmail },
-        { label: "Speciality", value: specialities, icon: Award },
-        { label: "Location", value: formatAddress(profile.companyAddress), icon: MapPin },
-    ];
+    return (
+        <ProfileDetailsCard
+            name={getManufacturerFullName(profile)}
+            avatarUrl={profile.avatarUrl}
+            joinedAt={profile.joinedAt}
+            badge={
+                verificationStatus ? (
+                    <VerificationBadge status={verificationStatus} />
+                ) : (
+                    <VerificationBadge status={profile.ninCard.status} rejectedLabel="ID rejected" />
+                )
+            }
+            details={[
+                { label: "Company", value: profile.companyName, icon: Building2 },
+                { label: "Email", value: profile.email, icon: Mail, format: breakableEmail },
+                { label: "Speciality", value: specialities, icon: Award },
+                { label: "Location", value: formatAddress(profile.companyAddress), icon: MapPin },
+            ]}
+            editHref={editHref}
+            className={className}
+        />
+    );
+}
 
+export type ProfileDetail = {
+    label: string;
+    /** "" shows `emptyLabel`. */
+    value: string;
+    icon: LucideIcon;
+    format?: (value: string) => ReactNode;
+    /** Shown while `value` is empty. Defaults to "Not provided". */
+    emptyLabel?: string;
+};
+
+/** ProfileCard's layout for any account — e.g. an admin's, with their own details. */
+export function ProfileDetailsCard({
+    name,
+    avatarUrl,
+    joinedAt,
+    badge,
+    details,
+    editHref,
+    className,
+}: {
+    name: string;
+    avatarUrl: string | null;
+    /** ISO date. Null hides the "Joined" line. */
+    joinedAt: string | null;
+    /** Beside the name, e.g. a verification badge. */
+    badge?: ReactNode;
+    details: ProfileDetail[];
+    /** Where "Edit" goes — null leaves it out. */
+    editHref: string | null;
+    className?: string;
+}) {
     return (
         <section
             className={cn(
@@ -59,31 +112,33 @@ export default function ProfileCard({
                 className,
             )}
         >
-            <Link
-                href={MANUFACTURER_SETTINGS_URL}
-                className="absolute top-0 right-0 lg:top-5 lg:right-5 flex items-center gap-1 text-sm font-medium font-text text-secondary-600 hover:underline"
-            >
-                <Pencil className="size-3.5" />
-                Edit
-            </Link>
+            {editHref && (
+                <Link
+                    href={editHref}
+                    className="absolute top-0 right-0 lg:top-5 lg:right-5 flex items-center gap-1 text-sm font-medium font-text text-secondary-600 hover:underline"
+                >
+                    <Pencil className="size-3.5" />
+                    Edit
+                </Link>
+            )}
 
             <div className="flex flex-col items-center gap-3 text-center lg:items-start lg:text-left">
-                <UserAvatar name={fullName} src={profile.avatarUrl} className="size-22 text-2xl" />
+                <UserAvatar name={name} src={avatarUrl} className="size-22 text-2xl" />
                 <div className="flex flex-col items-center gap-1 lg:items-start">
                     <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
                         <h2
                             className={cn(
                                 "text-lg font-semibold font-text",
-                                fullName ? "text-mist-950" : "text-mist-400",
+                                name ? "text-mist-950" : "text-mist-400",
                             )}
                         >
-                            {fullName || "Name not provided"}
+                            {name || "Name not provided"}
                         </h2>
-                        <VerificationBadge status={profile.ninCard.status} rejectedLabel="ID rejected" />
+                        {badge}
                     </div>
-                    {profile.joinedAt && (
+                    {joinedAt && (
                         <p className="text-xs font-text text-mist-400">
-                            Joined {formatMonthYear(new Date(profile.joinedAt))}
+                            Joined {formatMonthYear(new Date(joinedAt))}
                         </p>
                     )}
                 </div>
@@ -105,7 +160,7 @@ export default function ProfileCard({
                             >
                                 {detail.value
                                     ? (detail.format?.(detail.value) ?? detail.value)
-                                    : "Not provided"}
+                                    : (detail.emptyLabel ?? "Not provided")}
                             </p>
                         </div>
                     </li>

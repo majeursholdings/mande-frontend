@@ -15,14 +15,17 @@ import JobDetailCompletionUpload from "@/components/manufacturerPlatform/form/jo
 import CancelJobForm from "@/components/manufacturerPlatform/form/cancelJobForm";
 import ReportDelayForm from "@/components/manufacturerPlatform/form/reportDelayForm";
 import { useJobDetailState } from "./useJobDetailState";
+import { useManufacturerAccount } from "../dashboardLayout/manufacturerAccountContext";
 import { JOB_DETAIL_PRIMARY_BUTTON_CLASS } from "./styles";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { formatDuration, formatOrdinalDate, getCountdownLabel } from "@/lib/date";
 import { formatPrice } from "@/lib/currency";
 import {
+    JOBS,
     JOB_STATUS_CONFIG,
     MAX_JOB_REJECTIONS,
+    isActiveJob,
     getJobCategoryLabel,
     getJobPaymentInput,
     getJobSteps,
@@ -74,6 +77,14 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
         (completedStepCount / productionSteps.length) * 100,
     );
     const completionImageUrls = state.completionImageUrls ?? [];
+    // Flagged: one job at a time, so an offer can't be accepted while another
+    // job is underway (a suspended account doesn't get this far — AccountGate)
+    const { isFlagged } = useManufacturerAccount();
+    const hasOtherJob = JOBS.some((other) => other.id !== job.id && other.status !== "pending" && isActiveJob(other));
+    const acceptBlocker =
+        isFlagged && hasOtherJob
+            ? "Your account is flagged — you can hold one job at a time. Finish your current job to accept this one."
+            : null;
     const canMarkAsDone =
         state.status === "in-progress" && allStepsComplete && completionImageUrls.length === 0;
     const isPending = state.status === "pending";
@@ -103,6 +114,7 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                     {state.banner}
                 </div>
             )}
+
 
             <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3 border-b border-border">
                 {showHeaderActions ? (
@@ -333,20 +345,20 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
             </div>
 
             {isPending && (
-                <div className="flex items-center gap-3 border-t border-border px-4 py-4">
-                    <Button
-                        className={`flex-1 ${JOB_DETAIL_PRIMARY_BUTTON_CLASS}`}
-                        onClick={acceptJob}
-                    >
-                        Accept job
-                    </Button>
-                    <Button
-                        variant="outline"
-                        className="flex-1"
-                        onClick={declineJob}
-                    >
-                        Decline
-                    </Button>
+                <div className="flex flex-col gap-3 border-t border-border px-4 py-4">
+                    {acceptBlocker && <p className="text-xs font-text text-mist-600">{acceptBlocker}</p>}
+                    <div className="flex items-center gap-3">
+                        <Button
+                            className={`flex-1 ${JOB_DETAIL_PRIMARY_BUTTON_CLASS}`}
+                            disabled={!!acceptBlocker}
+                            onClick={acceptJob}
+                        >
+                            Accept job
+                        </Button>
+                        <Button variant="outline" className="flex-1" onClick={declineJob}>
+                            Decline
+                        </Button>
+                    </div>
                 </div>
             )}
 

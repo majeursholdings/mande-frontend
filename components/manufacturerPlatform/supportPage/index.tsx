@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Headset } from "lucide-react";
 import {
     Accordion,
@@ -10,13 +11,22 @@ import {
 import SupportFeedbackForm from "@/components/manufacturerPlatform/form/supportFeedbackForm";
 import { Button } from "@/components/ui/button";
 import { PRIMARY_BUTTON_CLASS } from "@/components/manufacturerPlatform/form/formButtons";
-import { MANUFACTURER_PROFILE_BACK_LINK } from "@/constant/manufacturer";
+import {
+    MANUFACTURER_FEEDBACK,
+    MANUFACTURER_PROFILE_BACK_LINK,
+    type ManufacturerFeedback,
+} from "@/constant/manufacturer";
 import { SUPPORT_FAQS, SUPPORT_HOURS } from "@/constant/support";
 import PageHeader from "../pageHeader";
 import SettingsSection from "../settingsSection";
+import FeedbackHistory from "./feedbackHistory";
 import { openSupportChat } from "./supportChat";
 
 export default function ManufacturerSupportPage() {
+    // Seeded from sample data and kept locally for now — once the backend is
+    // connected, load it from the API, and add what the API returns on send
+    const [feedback, setFeedback] = useState<ManufacturerFeedback[]>(MANUFACTURER_FEEDBACK);
+
     return (
         <div className="flex flex-col gap-8">
             <PageHeader
@@ -62,8 +72,17 @@ export default function ManufacturerSupportPage() {
                     title="Share feedback"
                     description="Tell us what's working, what isn't, or what you'd like to see. We read every message."
                 >
-                    <SupportFeedbackForm />
+                    <SupportFeedbackForm
+                        onSend={(sent) =>
+                            setFeedback((current) => [
+                                { id: `feedback-${Date.now()}`, sentAt: new Date().toISOString(), ...sent },
+                                ...current,
+                            ])
+                        }
+                    />
                 </SettingsSection>
+
+                <FeedbackHistory feedback={feedback} />
             </div>
         </div>
     );

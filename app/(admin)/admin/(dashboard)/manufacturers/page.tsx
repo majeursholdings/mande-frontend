@@ -1,6 +1,11 @@
-import { Wrench } from "lucide-react";
-import ComingSoon from "@/components/ui/comingSoon";
+import { Suspense } from "react";
+import AdminManufacturersPage from "@/components/adminPlatform/manufacturersPage";
 
-export default function AdminManufacturersPage() {
-    return <ComingSoon icon={Wrench} title="Manufacturers" />;
+export default function AdminManufacturersRoute() {
+    // The table keeps its search, filter, sort and page in the URL — read on the client
+    return (
+        <Suspense>
+            <AdminManufacturersPage />
+        </Suspense>
+    );
 }

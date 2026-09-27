@@ -1,7 +1,8 @@
 import Image from "next/image";
 import { CheckIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import Logo from "@/components/mainWebsite/navigations/logo";
+import LogoLink from "@/components/ui/logoLink";
+import { MANDE_WEBSITE_URL } from "@/constant/navigation";
 import { AUTH_HEADLINE, AUTH_HERO_IMAGE } from "@/constant/global";
 import type { RegistrationStep } from "@/constant/manufacturer";
 
@@ -83,9 +84,7 @@ export default function AuthSidePanel({
                 </div>
             )}
 
-            <div className="max-w-35">
-                <Logo />
-            </div>
+            <LogoLink href={MANDE_WEBSITE_URL} label="MANDE — go to the Mande website" tone="light" className="max-w-35" />
         </div>
     );
 }

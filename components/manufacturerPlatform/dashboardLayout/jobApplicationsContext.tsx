@@ -10,6 +10,7 @@ import {
 } from "@/constant/manufacturer";
 import { getPricingPlan, type PricingPlan } from "@/constant/sampleData";
 import { useManufacturerSubscription } from "./manufacturerSubscriptionContext";
+import { useManufacturerAccount } from "./manufacturerAccountContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // JobApplicationsProvider — the open jobs the manufacturer has applied for,
@@ -30,10 +31,12 @@ export type JobSlots = {
     applicationCount: number;
     /** activeJobCount + applicationCount — can be over the limit, e.g. after a downgrade. */
     used: number;
-    /** Null when the plan has no limit. */
+    /** Null when the plan has no limit. One while the account is flagged. */
     limit: number | null;
     /** Whether there's a free slot for another application. */
     canApply: boolean;
+    /** Why the limit is lower than the plan's — null when it's just the plan. */
+    accountHold: "flagged" | null;
 };
 
 type JobApplicationsContextValue = {
@@ -51,11 +54,14 @@ const JobApplicationsContext = createContext<JobApplicationsContextValue | null>
 
 export function JobApplicationsProvider({ children }: { children: ReactNode }) {
     const { subscription } = useManufacturerSubscription();
+    const { isFlagged } = useManufacturerAccount();
     const [applications, setApplications] = useState(MANUFACTURER_JOB_APPLICATIONS);
 
     const plan = getPricingPlan(subscription.planId);
-    // An unknown plan gets no slots rather than unlimited ones
-    const limit = plan ? plan.maxConcurrentJobs : 0;
+    // An unknown plan gets no slots rather than unlimited ones; a flagged
+    // account gets one, whatever the plan
+    const planLimit = plan ? plan.maxConcurrentJobs : 0;
+    const limit = isFlagged ? Math.min(planLimit ?? 1, 1) : planLimit;
     const hasFreeSlot = (applicationCount: number) =>
         limit === null || ACTIVE_JOB_COUNT + applicationCount < limit;
 
@@ -65,6 +71,7 @@ export function JobApplicationsProvider({ children }: { children: ReactNode }) {
         used: ACTIVE_JOB_COUNT + applications.length,
         limit,
         canApply: hasFreeSlot(applications.length),
+        accountHold: isFlagged ? "flagged" : null,
     };
 
     const value: JobApplicationsContextValue = {

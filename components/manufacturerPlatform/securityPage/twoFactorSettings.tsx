@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import OtpVerificationForm from "@/components/manufacturerPlatform/form/otpVerificationForm";
 import type { TwoFactorMethod } from "@/constant/manufacturer";
-import OtpVerificationDialog from "../otpVerificationDialog";
+import { OtpCodeDialog } from "../otpVerificationDialog";
 import { useManufacturerProfile } from "../dashboardLayout/manufacturerProfileContext";
 
 // Sample secret until the API issues one per manufacturer (along with the
@@ -51,9 +51,30 @@ type PendingChange =
 // turning it off verifies a code from the current method.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** The signed-in manufacturer's two-factor settings. */
 export default function TwoFactorSettings() {
     const { profile, updateSecurity } = useManufacturerProfile();
-    const activeMethod = profile.security.twoFactorMethod;
+    return (
+        <TwoFactorMethods
+            email={profile.email}
+            activeMethod={profile.security.twoFactorMethod}
+            onChange={(method) => updateSecurity((security) => ({ ...security, twoFactorMethod: method }))}
+        />
+    );
+}
+
+/** TwoFactorSettings for any account — e.g. an admin's. */
+export function TwoFactorMethods({
+    email,
+    activeMethod,
+    onChange,
+}: {
+    /** Where emailed codes go. */
+    email: string;
+    /** Null while two-factor authentication is off. */
+    activeMethod: TwoFactorMethod | null;
+    onChange: (method: TwoFactorMethod | null) => void;
+}) {
     const [pending, setPending] = useState<PendingChange>(null);
 
     const closeDialog = (open: boolean) => {
@@ -61,7 +82,7 @@ export default function TwoFactorSettings() {
     };
 
     const applyMethod = (method: TwoFactorMethod | null) => {
-        updateSecurity((security) => ({ ...security, twoFactorMethod: method }));
+        onChange(method);
         setPending(null);
         toast.success(
             method ? "Two-factor authentication is on" : "Two-factor authentication is off",
@@ -95,7 +116,7 @@ export default function TwoFactorSettings() {
                                     )}
                                 </p>
                                 <p className="text-xs font-text text-mist-500">
-                                    {description(profile.email)}
+                                    {description(email)}
                                 </p>
                             </div>
                             <button
@@ -117,7 +138,8 @@ export default function TwoFactorSettings() {
                 })}
             </ul>
 
-            <OtpVerificationDialog
+            <OtpCodeDialog
+                email={email}
                 open={pending?.action === "enable" && pending.method === "email"}
                 onOpenChange={closeDialog}
                 title="Turn on email verification"
@@ -133,7 +155,8 @@ export default function TwoFactorSettings() {
                 onVerified={() => applyMethod("app")}
             />
 
-            <OtpVerificationDialog
+            <OtpCodeDialog
+                email={email}
                 open={pending?.action === "disable"}
                 onOpenChange={closeDialog}
                 title="Turn off two-factor authentication"

@@ -11,6 +11,7 @@ import {
 } from "@/constant/manufacturer";
 import {
     canCancelJob,
+    getCurrentStep,
     getJobPayments,
     getStepProgress,
     type ProductionStepKey,
@@ -101,6 +102,7 @@ export function useJobDetailState(job: Job) {
             requestedAt: new Date().toISOString(),
             status: "pending",
             decidedAt: null,
+            step: getCurrentStep(state.stepSubmissions),
         };
         setState((s) => ({ ...s, extensionRequests: [request, ...s.extensionRequests] }));
         showBanner("Delay reported — waiting for your project lead");

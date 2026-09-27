@@ -14,8 +14,9 @@ import {
 const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ? "" : "s"}`;
 
 /** One line on how many more jobs the manufacturer can apply for — for the dashboard. */
-export function getJobSlotsHint({ used, limit, canApply }: JobSlots, plan?: PricingPlan): string {
+export function getJobSlotsHint({ used, limit, canApply, accountHold }: JobSlots, plan?: PricingPlan): string {
     const planName = plan?.name ?? "current";
+    if (accountHold === "flagged" && !canApply) return "Your account is flagged — you can hold one job at a time";
     if (limit === null) return `No limit on jobs with your ${planName} plan`;
     if (!canApply) return `All ${limit} job slots on your ${planName} plan are in use`;
     return `You can apply for ${plural(limit - used, "more job")} on your ${planName} plan`;
@@ -31,9 +32,21 @@ export function getJobSlotsHint({ used, limit, canApply }: JobSlots, plan?: Pric
 
 export default function JobSlotsSummary() {
     const { slots, plan } = useJobApplications();
-    const { used, limit, canApply, activeJobCount, applicationCount } = slots;
+    const { used, limit, canApply, activeJobCount, applicationCount, accountHold } = slots;
     const planName = plan?.name ?? "current";
     const breakdown = `${plural(activeJobCount, "active job")} · ${plural(applicationCount, "application")}`;
+
+    // A flag, not the plan, is what's holding them back — an upgrade won't help
+    if (accountHold && !canApply) {
+        return (
+            <div className="flex flex-col gap-1 rounded-xl border border-warning-200 bg-warning-50 p-4">
+                <p className="text-sm font-semibold font-text text-mist-950">One job at a time</p>
+                <p className="text-xs leading-5 font-text text-mist-600">
+                    Your account is flagged, so you can hold one job at a time until it&apos;s lifted · {breakdown}
+                </p>
+            </div>
+        );
+    }
 
     if (limit === null) {
         return (

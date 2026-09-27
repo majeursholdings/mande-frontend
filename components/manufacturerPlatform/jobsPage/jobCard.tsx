@@ -14,13 +14,13 @@ import ApplyNowButton from "./applyNowButton";
 // website's open jobs), with a status for their own jobs and "Apply now" on
 // open ones.
 
-/** A job assigned to the manufacturer, with its status. */
-export default function JobCard({ job }: { job: Job }) {
+/** A job assigned to the manufacturer, with its status — opening it in the manufacturer's jobs unless `href` says otherwise. */
+export default function JobCard({ job, href }: { job: Job; href?: string }) {
     const config = JOB_STATUS_CONFIG[job.status];
 
     return (
         <JobCardFrame
-            href={`${MANUFACTURER_JOBS_URL}/${job.id}`}
+            href={href ?? `${MANUFACTURER_JOBS_URL}/${job.id}`}
             title={job.title}
             meta={`${getJobCategoryLabel(job.category)} · ${job.assignedLabel}`}
             description={job.description}

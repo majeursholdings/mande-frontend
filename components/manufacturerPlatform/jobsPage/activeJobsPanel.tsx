@@ -43,14 +43,24 @@ function sortJobs(jobs: Job[], sortBy: string): Job[] {
 
 /**
  * Jobs assigned to the manufacturer, filtered by status — chips from md up,
- * a dropdown on phones.
+ * a dropdown on phones. Also the admin's view of a manufacturer's jobs,
+ * given their `jobs` and where each card opens.
  */
-export default function ActiveJobsPanel() {
+export default function ActiveJobsPanel({
+    jobs: allJobs = JOBS,
+    getJobHref,
+    emptyDescription = "Jobs you're assigned will show up here. Apply for open jobs to get started.",
+}: {
+    jobs?: Job[];
+    /** Where a card opens — the manufacturer's own job page by default. */
+    getJobHref?: (job: Job) => string;
+    emptyDescription?: string;
+} = {}) {
     const [filter, setFilter] = useState<JobsFilter>("all");
     const [sortBy, setSortBy] = useState("");
 
     const jobsByFilter = useMemo(() => {
-        const sorted = sortJobs(JOBS, sortBy);
+        const sorted = sortJobs(allJobs, sortBy);
         return JOB_STATUS_ORDER.reduce(
             (acc, status) => {
                 acc[status] = sorted.filter((job) => job.status === status);
@@ -58,15 +68,10 @@ export default function ActiveJobsPanel() {
             },
             { all: sorted } as Record<JobsFilter, Job[]>,
         );
-    }, [sortBy]);
+    }, [allJobs, sortBy]);
 
-    if (JOBS.length === 0) {
-        return (
-            <EmptyState
-                title="No active jobs"
-                description="Jobs you're assigned will show up here. Apply for open jobs to get started."
-            />
-        );
+    if (allJobs.length === 0) {
+        return <EmptyState title="No active jobs" description={emptyDescription} />;
     }
 
     const jobs = jobsByFilter[filter];
@@ -105,7 +110,7 @@ export default function ActiveJobsPanel() {
             ) : (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {jobs.map((job) => (
-                        <JobCard key={job.id} job={job} />
+                        <JobCard key={job.id} job={job} href={getJobHref?.(job)} />
                     ))}
                 </div>
             )}

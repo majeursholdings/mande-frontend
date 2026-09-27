@@ -1,9 +1,13 @@
 import { ReactNode } from "react";
+import DashboardFrame from "@/components/ui/dashboardFrame";
 import DashboardSidebar from "./sidebar";
 import DesktopTopbar from "./desktopTopbar";
 import MobileTopbar from "./mobileTopbar";
 import MobileBottomNav from "./mobileBottomNav";
+import AccountGate from "./accountGate";
+import AccountStatusBanner from "./accountStatusBanner";
 import BusinessDocumentsGate from "./businessDocumentsGate";
+import { ManufacturerAccountProvider } from "./manufacturerAccountContext";
 import { ManufacturerProfileProvider } from "./manufacturerProfileContext";
 import { ManufacturerSubscriptionProvider } from "./manufacturerSubscriptionContext";
 import { JobApplicationsProvider } from "./jobApplicationsContext";
@@ -13,29 +17,32 @@ import { RecentSearchesProvider } from "./recentSearchesContext";
 
 export default function DashboardShell({ children }: { children: ReactNode }) {
     return (
-        <ManufacturerProfileProvider>
-            <ManufacturerWalletProvider>
-                <ManufacturerSubscriptionProvider>
-                    <JobApplicationsProvider>
-                        <NotificationsProvider>
-                            <RecentSearchesProvider>
-                                <div className="flex bg-mist-50">
-                                    <DashboardSidebar />
-                                    <div className="flex flex-1 flex-col min-w-0 h-dvh overflow-x-hidden overflow-y-auto">
-                                        <DesktopTopbar />
-                                        <MobileTopbar />
-                                        <main className="flex-1 px-4 py-6 pb-24 lg:px-8 lg:py-8 lg:pb-8">
+        <ManufacturerAccountProvider>
+            {/* Suspended: only the appeal screen, in place of the whole dashboard */}
+            <AccountGate>
+                <ManufacturerProfileProvider>
+                    <ManufacturerWalletProvider>
+                        <ManufacturerSubscriptionProvider>
+                            <JobApplicationsProvider>
+                                <NotificationsProvider>
+                                    <RecentSearchesProvider>
+                                        <DashboardFrame
+                                            sidebar={<DashboardSidebar />}
+                                            desktopTopbar={<DesktopTopbar />}
+                                            mobileTopbar={<MobileTopbar />}
+                                            bottomNav={<MobileBottomNav />}
+                                            beforeContent={<AccountStatusBanner />}
+                                        >
                                             {children}
-                                        </main>
-                                        <MobileBottomNav />
-                                    </div>
-                                </div>
-                                <BusinessDocumentsGate />
-                            </RecentSearchesProvider>
-                        </NotificationsProvider>
-                    </JobApplicationsProvider>
-                </ManufacturerSubscriptionProvider>
-            </ManufacturerWalletProvider>
-        </ManufacturerProfileProvider>
+                                        </DashboardFrame>
+                                        <BusinessDocumentsGate />
+                                    </RecentSearchesProvider>
+                                </NotificationsProvider>
+                            </JobApplicationsProvider>
+                        </ManufacturerSubscriptionProvider>
+                    </ManufacturerWalletProvider>
+                </ManufacturerProfileProvider>
+            </AccountGate>
+        </ManufacturerAccountProvider>
     );
 }
