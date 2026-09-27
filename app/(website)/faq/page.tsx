@@ -1,7 +1,11 @@
-export default function FAQPage() {
-  return (
-    <div className="container mx-auto px-4 py-12">
-      <h1 className="text-3xl font-bold text-gray-900">Frequently Asked Questions</h1>
-    </div>
-  );
+import type { Metadata } from "next";
+import FAQsPage from "@/components/mainWebsite/FAQsPage";
+
+export const metadata: Metadata = {
+    title: "FAQs | MANDE",
+    description: "Answers about joining MANDE, taking on furniture jobs, getting paid in stages and choosing a plan.",
+};
+
+export default function FAQRoute() {
+    return <FAQsPage />;
 }

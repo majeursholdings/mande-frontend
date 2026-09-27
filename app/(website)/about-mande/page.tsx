@@ -1,7 +1,11 @@
-export default function AboutMandePage() {
-  return (
-    <div className="container mx-auto px-4 py-12">
-      <h1 className="text-3xl font-bold text-gray-900">About Mande</h1>
-    </div>
-  );
+import type { Metadata } from "next";
+import AboutPage from "@/components/mainWebsite/aboutPage";
+
+export const metadata: Metadata = {
+    title: "About MANDE",
+    description: "MANDE is a platform for furniture makers — find real jobs, get paid in stages as you build, and grow your business.",
+};
+
+export default function AboutMandeRoute() {
+    return <AboutPage />;
 }

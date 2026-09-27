@@ -1,7 +1,11 @@
-export default function ContactMandePage() {
-  return (
-    <div className="container mx-auto px-4 py-12">
-      <h1 className="text-3xl font-bold text-gray-900">Contact Mande</h1>
-    </div>
-  );
+import type { Metadata } from "next";
+import ContactPage from "@/components/mainWebsite/contactPage";
+
+export const metadata: Metadata = {
+    title: "Contact MANDE",
+    description: "Get in touch with the MANDE team — about joining as a furniture maker, a project for our makers, or a partnership.",
+};
+
+export default function ContactMandeRoute() {
+    return <ContactPage />;
 }

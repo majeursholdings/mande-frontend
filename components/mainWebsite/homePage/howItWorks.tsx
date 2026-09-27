@@ -89,7 +89,7 @@ const Card = ({ number, title, description, imageSrc }: CardProps) => {
                 title={title}
                 fill
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                className="object-cover object-center group-hover:scale-110 duration-300 transition-transform ease-in-out"
+                className="object-cover object-center group-hover:scale-110 duration-1000 transition-transform ease-in-out"
             />
             <div className="absolute inset-0 bg-mist-950/50 p-4 md:p-6 group-hover:backdrop-blur-sm group-hover:bg-mist-950/70 duration-300 transition-all ease-in-out">
                 <span className="text-4xl font-bold text-mist-100">
