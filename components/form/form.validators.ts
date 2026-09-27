@@ -1,4 +1,5 @@
 import { RegisterOptions } from "react-hook-form";
+import { DEFAULT_MAX_FILE_SIZE_MB } from "./fileRules";
 
 export const validators = {
     required: (label = "This field"): RegisterOptions => ({
@@ -98,7 +99,7 @@ export const validators = {
 
     file: ({
         required = true,
-        maxSizeMB = 5,
+        maxSizeMB = DEFAULT_MAX_FILE_SIZE_MB,
         maxTotalSizeMB,
         maxFiles,
         accept,

@@ -33,7 +33,7 @@ export type FormFieldConfig = {
     description?: string; // helper text below the field
     icon?: ReactNode; // optional leading icon for text inputs
     uploadIcon?: ReactNode; // custom icon for file/image upload
-    accept?: string; // for file/image — e.g. "image/png, image/jpeg"
+    accept?: string; // for file/image — narrows what the field takes, e.g. "image/png, image/jpeg" (see fileRules.ts)
     multiple?: boolean; // for file upload
     options?: SelectOption[]; // for select / combobox / multiselect / radio fields
     maxSelections?: number; // for multiselect — caps how many options can be chosen
@@ -48,6 +48,7 @@ export type FormFieldConfig = {
     max?: number | string;
     step?: number;
     minDate?: Date | string; // for date/datetime — disables earlier dates
+    maxDate?: Date | string; // for date — disables later dates
     isDateDisabled?: (date: Date) => boolean;
     autoComplete?: string;
     inputMode?: HTMLAttributes<HTMLInputElement>["inputMode"]; // e.g. "numeric" for an account number
@@ -59,7 +60,7 @@ export type FormFieldConfig = {
     disabled?: boolean;
     capture?: "user" | "environment";
     maxFiles?: number;
-    maxSizeMB?: number;
+    maxSizeMB?: number; // per file — defaults to DEFAULT_MAX_FILE_SIZE_MB (5MB)
     showPreview?: boolean;
     clearable?: boolean; // for select — an × in the field clears the choice
     trailingSlot?: ReactNode; // e.g. a "Forgot password?" link next to a checkbox

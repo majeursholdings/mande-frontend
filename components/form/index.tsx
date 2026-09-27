@@ -59,6 +59,7 @@ import { DEFAULT_CURRENCY } from "@/constant/global";
 
 import { FormFieldConfig, MainFormProps, SelectOption } from "./types";
 import Image from "next/image";
+import { DEFAULT_MAX_FILE_SIZE_MB, DOCUMENT_ACCEPT, IMAGE_ACCEPT, getFileKindError } from "./fileRules";
 
 export default function MainForm<T extends FieldValues = FieldValues>({
     title,
@@ -875,6 +876,7 @@ export const DateInput = <T extends FieldValues = FieldValues>({
     error,
 }: ControllerProps<T>) => {
     const minDate = field.minDate ? new Date(field.minDate) : undefined;
+    const maxDate = field.maxDate ? new Date(field.maxDate) : undefined;
     // Controlled so picking a day closes it, instead of leaving the calendar
     // over whatever's below
     const [isOpen, setIsOpen] = useState(false);
@@ -882,8 +884,10 @@ export const DateInput = <T extends FieldValues = FieldValues>({
     const isDateDisabled = (date: Date) => {
         if (field.disabled) return true;
         if (field.isDateDisabled && field.isDateDisabled(date)) return true;
-        if (minDate)
-            return date < new Date(new Date(minDate).setHours(0, 0, 0, 0));
+        if (minDate && date < new Date(new Date(minDate).setHours(0, 0, 0, 0)))
+            return true;
+        if (maxDate && date > new Date(new Date(maxDate).setHours(23, 59, 59, 999)))
+            return true;
         return false;
     };
 
@@ -926,6 +930,10 @@ export const DateInput = <T extends FieldValues = FieldValues>({
                             }
                             selected={
                                 ctrl.value ? new Date(ctrl.value) : undefined
+                            }
+                            // Opens on the choice, or the first day that can be picked
+                            defaultMonth={
+                                ctrl.value ? new Date(ctrl.value) : minDate
                             }
                             onSelect={(date: Date | undefined) => {
                                 ctrl.onChange(date?.toISOString() ?? "");
@@ -1284,14 +1292,18 @@ export const FileInput = <T extends FieldValues = FieldValues>({
         `${file.name}-${file.size}-${file.lastModified}`;
 
     const validateFile = (file: File): string | null => {
-        const maxSizeMB = field.maxSizeMB ?? 5;
+        const maxSizeMB = field.maxSizeMB ?? DEFAULT_MAX_FILE_SIZE_MB;
         const sizeMB = file.size / (1024 * 1024);
         if (sizeMB > maxSizeMB) {
             return `Exceeds ${maxSizeMB}MB limit (${sizeMB.toFixed(1)}MB)`;
         }
 
-        const acceptStr =
-            field.accept ?? (field.type === "image" ? "image/*" : undefined);
+        // Images only in an image field, PDF or Word only in a file field —
+        // whatever the field's own `accept` says
+        const kindError = getFileKindError(file, field.type === "image" ? "image" : "file");
+        if (kindError) return kindError;
+
+        const acceptStr = field.accept;
         if (acceptStr) {
             const tokens = acceptStr
                 .split(",")
@@ -1456,7 +1468,9 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                 <input
                     id={field.name}
                     type="file"
-                    accept={field.accept}
+                    accept={
+                        field.accept ?? (field.type === "image" ? IMAGE_ACCEPT : DOCUMENT_ACCEPT)
+                    }
                     capture={field.capture}
                     multiple={field.multiple}
                     disabled={field.disabled}
