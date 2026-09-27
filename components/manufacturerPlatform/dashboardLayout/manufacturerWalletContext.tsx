@@ -24,6 +24,8 @@ type ManufacturerWalletContextValue = {
     withdraw: (amount: number) => void;
     /** Takes `amount` off the balance to pay for a plan, recorded as `label`. */
     payFromBalance: (amount: number, label: string) => void;
+    /** Adds a job payment to the balance — once per `id`, however often it's released again. */
+    receivePayment: (payment: { id: string; amount: number; label: string; projectName: string }) => void;
 };
 
 const ManufacturerWalletContext = createContext<ManufacturerWalletContextValue | null>(null);
@@ -50,13 +52,27 @@ export function ManufacturerWalletProvider({ children }: { children: ReactNode }
         }));
     };
 
+    const receivePayment = ({ id, amount, label, projectName }: { id: string; amount: number; label: string; projectName: string }) =>
+        setWallet((current) =>
+            current.transactions.some((transaction) => transaction.id === id)
+                ? current
+                : {
+                      ...current,
+                      balance: current.balance + amount,
+                      transactions: [
+                          { id, type: "payment", label, projectName, date: new Date().toISOString(), amount },
+                          ...current.transactions,
+                      ],
+                  },
+        );
+
     const withdraw = (amount: number) => debit(amount, "withdrawal", "Withdrawal");
     const payFromBalance = (amount: number, label: string) =>
         debit(amount, "subscription", label);
 
     return (
         <ManufacturerWalletContext.Provider
-            value={{ wallet, setBankAccount, withdraw, payFromBalance }}
+            value={{ wallet, setBankAccount, withdraw, payFromBalance, receivePayment }}
         >
             {children}
         </ManufacturerWalletContext.Provider>
