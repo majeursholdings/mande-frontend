@@ -7,9 +7,10 @@ import { cn } from "@/lib/utils";
 import UserAvatar from "@/components/ui/userAvatar";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
 import { getManufacturerFullName } from "@/constant/manufacturer";
+import { DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fileRules";
 
 const AVATAR_ACCEPT = "image/png, image/jpeg, image/webp";
-const AVATAR_MAX_SIZE_MB = 5;
+const AVATAR_MAX_SIZE_MB = DEFAULT_MAX_FILE_SIZE_MB;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ProfileAvatarUploadForm — the edit page's "click image to upload" avatar.

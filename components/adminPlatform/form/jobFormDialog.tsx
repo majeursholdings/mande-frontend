@@ -6,6 +6,7 @@ import { ArrowLeft, FileText, ImageIcon, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
+import { DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fileRules";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -53,11 +54,6 @@ const MANUFACTURER_OPTIONS = ADMIN_MANUFACTURERS.map((manufacturer) => ({
     label: manufacturer.companyName,
     value: manufacturer.id,
 }));
-
-// Extensions as well as types: browsers often leave HEIC's type blank
-const DOCUMENT_ACCEPT = ".pdf, application/pdf";
-const IMAGE_ACCEPT =
-    ".jpg, .jpeg, .png, .webp, .avif, .heic, image/jpeg, image/png, image/webp, image/avif, image/heic";
 
 // Trimmed so a value made of only spaces doesn't pass
 const notBlank = (message: string) => (value: string) => value.trim().length > 0 || message;
@@ -223,21 +219,17 @@ export default function JobFormDialog({
             name: "documents",
             type: "file",
             label: "Documents",
-            description: "PDF only, up to 10MB each",
-            accept: DOCUMENT_ACCEPT,
+            description: `PDF or Word, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
             multiple: true,
             maxFiles: 5,
-            maxSizeMB: 10,
         },
         {
             name: "images",
             type: "image",
             label: "Images",
-            description: "JPG, JPEG, PNG, WEBP, AVIF or HEIC, up to 10MB each",
-            accept: IMAGE_ACCEPT,
+            description: `Images only, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
             multiple: true,
             maxFiles: 10,
-            maxSizeMB: 10,
         },
     ];
 
