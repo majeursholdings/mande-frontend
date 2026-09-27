@@ -5,7 +5,7 @@ import { Check, CircleAlert, Copy, Ellipsis, PhoneCall, Pencil, Repeat, X, XIcon
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
-import { formatOrdinalDate } from "@/lib/date";
+import { formatDuration, formatOrdinalDate, getTimeUntilLabel } from "@/lib/date";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -30,6 +30,8 @@ import {
     type AdminJob,
 } from "@/constant/admin";
 import { COMPANY_SPECIALITY_OPTIONS, getOptionLabel } from "@/constant/manufacturer";
+import { JOB_PRODUCTION_STEPS, getAutoApproveAt, type ProductionStepKey } from "@/constant/jobWorkflow";
+import ReasonForm from "@/components/adminPlatform/form/reasonForm";
 import RejectJobForm from "@/components/adminPlatform/form/rejectJobForm";
 import ReassignJobForm from "@/components/adminPlatform/form/reassignJobForm";
 import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
@@ -38,20 +40,23 @@ import AssignmentHistory from "./assignmentHistory";
 import { AttachmentList, ContactManufacturerDialog, DetailSection, ImagePreviewGrid } from "./detailParts";
 import { ExtensionHistory, PendingExtensionRequest } from "./extensionRequests";
 import JobNotes from "./jobNotes";
+import JobPayments from "./jobPayments";
 import ManufacturerRating from "./manufacturerRating";
 import ProductionSteps from "./productionSteps";
 import { FinishedFurniture, RejectionHistory, photoItems } from "./workReview";
 
-type JobDialog = "approve" | "reject" | "reassign" | "contact" | null;
+type JobDialog = "approve" | "reject" | "reassign" | "contact" | "fault" | null;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // JobDetailSheet — one job, docked on the right (full screen on phones).
 // What shows and what can be done follow the job's status (see the jobs
 // section of constant/admin.ts): pending jobs can be edited and reassigned,
-// with their assignment history; in-progress jobs show the production steps
-// and any request for more time; work in review can be approved (after
-// seeing the photos) or rejected with a review; completed jobs close their
-// notes and take a rating instead. Only the job's project lead acts; anyone
+// with their assignment history and anyone who applied for them; in-progress
+// jobs show the production steps, whose proof the lead approves or sends
+// back, and any request for more time; work in review can be approved
+// (after seeing the photos) or rejected with a review; completed jobs close
+// their notes and take a rating instead — and, for a few days, a fault
+// report. The payments show what the manufacturer has been paid so far. Only the job's project lead acts; anyone
 // else can read it all, and is told why the actions are off.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -83,8 +88,22 @@ export default function JobDetailSheet({
 }
 
 function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
-    const { approveJob, rejectJob, decideExtension, reassignJob, rateManufacturer, addNote } = useAdminJobs();
+    const {
+        approveJob,
+        rejectJob,
+        decideExtension,
+        reassignJob,
+        rateManufacturer,
+        addNote,
+        approveStep,
+        sendBackStep,
+        acceptApplication,
+        declineApplication,
+        reportFault,
+    } = useAdminJobs();
     const [dialog, setDialog] = useState<JobDialog>(null);
+    /** The step whose proof is being sent back, while its dialog is open. */
+    const [sendingBack, setSendingBack] = useState<ProductionStepKey | null>(null);
     const closeDialog = () => setDialog(null);
 
     const leads = job.projectLeadIds.map(getProjectLead).filter((lead) => !!lead);
@@ -100,6 +119,7 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
     const canEdit = isLead && status === "pending";
     const canReassign = isLead && status === "pending";
     const canReview = isLead && status === "in-review";
+    const canReviewSteps = isLead && status === "in-progress";
     const canDecideExtensions = isLead && status === "in-progress";
     const canPostNotes = isLead && status !== "completed";
     const canRate = isLead && status === "completed" && !job.manufacturerReview;
@@ -117,6 +137,8 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
               ? `Only ${leadNames} can review this job.`
               : status === "pending" || status === "in-progress"
                 ? "You can mark it as completed once the manufacturer submits it for review."
+                : status === "in-review" && job.submittedForReviewAt
+                  ? `If no one reviews it, it's approved automatically ${getTimeUntilLabel(getAutoApproveAt(job.submittedForReviewAt))}.`
                 : isFinal
                   ? `Closed after ${MAX_ADMIN_JOB_REJECTIONS} rejections.`
                   : status === "rejected"
@@ -285,13 +307,31 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
                             )}
                         </span>
                     </DetailRow>
+                    <DetailRow label="Project duration">
+                        {/* From the planned start — or, without one, when it was accepted or created */}
+                        {formatDuration(new Date(job.startDate ?? job.dateAssigned ?? job.createdAt), new Date(job.dueDate))}
+                    </DetailRow>
                     <DetailRow label="Status">
                         <JobStatusBadge status={status} />
                     </DetailRow>
                     <DetailRow label="Description">{job.description}</DetailRow>
                 </dl>
 
-                {status === "in-progress" && <ProductionSteps completedStepKeys={job.completedStepKeys} />}
+                {status === "in-progress" && (
+                    <ProductionSteps
+                        job={job}
+                        canReview={canReviewSteps}
+                        leadNames={leadNames}
+                        onApprove={(step) =>
+                            run(
+                                () => approveStep(job.id, step),
+                                "Step approved — payment released",
+                                "Couldn't approve the step. Please try again.",
+                            )
+                        }
+                        onSendBack={setSendingBack}
+                    />
+                )}
 
                 {(status === "in-review" || status === "rejected" || status === "completed") && (
                     <FinishedFurniture job={job} />
@@ -299,13 +339,26 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
 
                 <RejectionHistory job={job} onContact={() => setDialog("contact")} />
 
-                {(status === "pending" || job.assignmentHistory.length > 1) && (
+                {(status === "pending" || job.assignmentHistory.length > 1 || job.applications.length > 0) && (
                     <AssignmentHistory
                         history={job.assignmentHistory}
+                        applications={job.applications}
                         canReassign={canReassign}
                         onReassign={() => setDialog("reassign")}
+                        onDecideApplication={(applicationId, decision) =>
+                            run(
+                                () =>
+                                    decision === "accepted"
+                                        ? acceptApplication(job.id, applicationId)
+                                        : declineApplication(job.id, applicationId),
+                                decision === "accepted" ? "Application accepted — the job is theirs" : "Application declined",
+                                "Couldn't save your decision. Please try again.",
+                            )
+                        }
                     />
                 )}
+
+                <JobPayments job={job} isLead={isLead} onReportFault={() => setDialog("fault")} />
 
                 {decidedExtensions.length > 0 && <ExtensionHistory requests={decidedExtensions} />}
 
@@ -436,6 +489,65 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
                                 () => reassignJob(job.id, manufacturerIds),
                                 isFirst ? "Job assigned" : "Job reassigned",
                                 "Couldn't save the assignment. Please try again.",
+                            );
+                            closeDialog();
+                        }}
+                    />
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={sendingBack !== null} onOpenChange={(open) => !open && setSendingBack(null)}>
+                <DialogContent className="max-w-110">
+                    <div className="flex flex-col gap-1">
+                        <DialogTitle>
+                            Send back the {JOB_PRODUCTION_STEPS.find((step) => step.key === sendingBack)?.label.toLowerCase()} proof?
+                        </DialogTitle>
+                        <DialogDescription>
+                            {manufacturerNames} will see why and send new photos. A stage sent back means no on-time bonus
+                            for this job.
+                        </DialogDescription>
+                    </div>
+                    <ReasonForm
+                        label="What needs fixing"
+                        placeholder="What's wrong with the proof, and what should the new photos show?"
+                        submitLabel="Send back"
+                        loadingLabel="Sending back..."
+                        errorMessage="Couldn't send the proof back. Please try again."
+                        onCancel={() => setSendingBack(null)}
+                        onSubmit={(reason) => {
+                            if (sendingBack) {
+                                run(
+                                    () => sendBackStep(job.id, sendingBack, reason),
+                                    "Proof sent back — the manufacturer has your reason",
+                                    "Couldn't send the proof back. Please try again.",
+                                );
+                            }
+                            setSendingBack(null);
+                        }}
+                    />
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={dialog === "fault"} onOpenChange={(open) => !open && closeDialog()}>
+                <DialogContent className="max-w-110">
+                    <div className="flex flex-col gap-1">
+                        <DialogTitle>Report a fault?</DialogTitle>
+                        <DialogDescription>
+                            {manufacturerNames} will see what you found, and won&apos;t get the on-time bonus for {job.title}.
+                        </DialogDescription>
+                    </div>
+                    <ReasonForm
+                        label="The fault"
+                        placeholder="What's wrong with the delivered furniture?"
+                        submitLabel="Report fault"
+                        loadingLabel="Reporting..."
+                        errorMessage="Couldn't report the fault. Please try again."
+                        onCancel={closeDialog}
+                        onSubmit={(reason) => {
+                            run(
+                                () => reportFault(job.id, reason),
+                                "Fault reported — the bonus won't be paid",
+                                "Couldn't report the fault. Please try again.",
                             );
                             closeDialog();
                         }}
