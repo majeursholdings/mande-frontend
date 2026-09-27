@@ -6,18 +6,23 @@ import {
     ADMIN_ME_ID,
     ADMIN_PROFILE,
     MAX_ADMIN_JOB_REJECTIONS,
+    getSampleCategoryPhoto,
+    settleAdminJob,
     type AdminJob,
     type AdminJobAttachment,
     type AdminJobNote,
     type AdminManufacturerReview,
 } from "@/constant/admin";
+import { canReportFault, type ProductionStepKey, type StepReview } from "@/constant/jobWorkflow";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AdminJobsProvider — every job, shared across the admin dashboard so a job
 // created, edited, reviewed or reassigned (or a note left on one) stays put
-// while the admin moves between pages. Seeded from sample data and kept in
-// memory for now; once the backend is connected, load jobs from the API and
-// send each change there.
+// while the admin moves between pages. Anything left unreviewed past its
+// deadline reads as approved automatically (see settleAdminJob). Seeded from
+// sample data and kept in memory for now; once the backend is connected,
+// load jobs from the API (which does the auto-approving) and send each
+// change there.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** What the create/edit job form fills in — the rest is set by the platform. */
@@ -47,6 +52,15 @@ type AdminJobsContextValue = {
     reassignJob: (id: string, manufacturerIds: string[]) => void;
     /** Signs off work that's in review. */
     approveJob: (id: string) => void;
+    /** Approves the proof waiting for review on `step` — the next step opens and its payment is released. */
+    approveStep: (id: string, step: ProductionStepKey) => void;
+    /** Sends the proof waiting for review on `step` back, with why — the manufacturer sends new proof. */
+    sendBackStep: (id: string, step: ProductionStepKey, reason: string) => void;
+    /** Gives a pending job to the manufacturer who applied, and turns the other applications down. */
+    acceptApplication: (id: string, applicationId: string) => void;
+    declineApplication: (id: string, applicationId: string) => void;
+    /** A fault in completed work, within FAULT_REPORT_DAYS of sign-off — it cancels the bonus. */
+    reportFault: (id: string, reason: string) => void;
     /** Sends work that's in review back, with the lead's review. */
     rejectJob: (id: string, review: { reason: string; attachments: AdminJobAttachment[] }) => void;
     /** Approving moves the due date to the requested one. */
@@ -88,10 +102,68 @@ function withAssignment(job: AdminJob, manufacturerIds: string[], now: string): 
 }
 
 export function AdminJobsProvider({ children }: { children: ReactNode }) {
-    const [jobs, setJobs] = useState(ADMIN_JOBS);
+    const [storedJobs, setJobs] = useState(ADMIN_JOBS);
+    const jobs = storedJobs.map((job) => settleAdminJob(job));
 
     const patchJob = (id: string, patch: (job: AdminJob) => AdminJob) =>
         setJobs((current) => current.map((job) => (job.id === id ? patch(job) : job)));
+
+    /** Reviews the proof waiting on `step` — its latest submission, if no one has yet. */
+    const reviewStep = (id: string, step: ProductionStepKey, review: StepReview) =>
+        patchJob(id, (job) => {
+            const index = job.stepSubmissions.findLastIndex((submission) => submission.step === step);
+            if (index === -1 || job.stepSubmissions[index].review) return job;
+            return {
+                ...job,
+                stepSubmissions: job.stepSubmissions.map((submission, position) =>
+                    position === index ? { ...submission, review } : submission,
+                ),
+            };
+        });
+
+    const decideApplication = (id: string, applicationId: string, decision: "accepted" | "declined") =>
+        patchJob(id, (job) => {
+            const application = job.applications.find((candidate) => candidate.id === applicationId);
+            if (job.status !== "pending" || application?.status !== "pending") return job;
+            const now = new Date().toISOString();
+            if (decision === "declined") {
+                return {
+                    ...job,
+                    applications: job.applications.map((candidate) =>
+                        candidate.id === applicationId ? { ...candidate, status: "declined", decidedAt: now } : candidate,
+                    ),
+                };
+            }
+            // They asked for it, so it's theirs straight away — any open offer is withdrawn
+            return {
+                ...job,
+                status: "in-progress",
+                manufacturerIds: [application.manufacturerId],
+                dateAssigned: now,
+                assignmentHistory: [
+                    {
+                        id: `asg-${Date.now()}`,
+                        manufacturerIds: [application.manufacturerId],
+                        assignedBy: MY_NAME,
+                        assignedAt: now,
+                        outcome: "accepted",
+                        outcomeAt: now,
+                    },
+                    ...job.assignmentHistory.map((assignment) =>
+                        assignment.outcome === "awaiting"
+                            ? { ...assignment, outcome: "reassigned" as const, outcomeAt: now }
+                            : assignment,
+                    ),
+                ],
+                applications: job.applications.map((candidate) =>
+                    candidate.id === applicationId
+                        ? { ...candidate, status: "accepted", decidedAt: now }
+                        : candidate.status === "pending"
+                          ? { ...candidate, status: "declined", decidedAt: now }
+                          : candidate,
+                ),
+            };
+        });
 
     const createJob = (draft: AdminJobDraft, code: string): AdminJob => {
         const now = new Date().toISOString();
@@ -103,15 +175,21 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
             projectLeadIds: [ADMIN_ME_ID],
             status: "pending",
             dateAssigned: null,
+            // No photo upload yet — a stand-in for its category
+            imageUrl: getSampleCategoryPhoto(draft.category),
             notes: [],
             createdAt: now,
-            completedStepKeys: [],
+            stepSubmissions: [],
             completionImageUrls: [],
             submittedForReviewAt: null,
             rejections: [],
             extensionRequests: [],
             assignmentHistory: [],
             manufacturerReview: null,
+            completedAt: null,
+            completedBy: null,
+            faultReport: null,
+            applications: [],
         };
         const job = withAssignment(blank, draft.manufacturerIds, now);
         setJobs((current) => [job, ...current]);
@@ -131,7 +209,29 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
             }),
         reassignJob: (id, manufacturerIds) =>
             patchJob(id, (job) => withAssignment(job, manufacturerIds, new Date().toISOString())),
-        approveJob: (id) => patchJob(id, (job) => ({ ...job, status: "completed" })),
+        approveJob: (id) =>
+            patchJob(id, (job) =>
+                job.status === "in-review"
+                    ? { ...job, status: "completed", completedAt: new Date().toISOString(), completedBy: MY_NAME }
+                    : job,
+            ),
+        approveStep: (id, step) =>
+            reviewStep(id, step, { outcome: "approved", at: new Date().toISOString(), by: MY_NAME }),
+        sendBackStep: (id, step, reason) =>
+            reviewStep(id, step, { outcome: "sent-back", at: new Date().toISOString(), by: MY_NAME, reason }),
+        acceptApplication: (id, applicationId) => decideApplication(id, applicationId, "accepted"),
+        declineApplication: (id, applicationId) => decideApplication(id, applicationId, "declined"),
+        reportFault: (id, reason) =>
+            patchJob(id, (job) => {
+                // The stored job may not show an auto sign-off yet, so check the settled one
+                const settled = settleAdminJob(job);
+                const check = { signedOffAt: settled.completedAt, faultReport: settled.faultReport };
+                if (!canReportFault(check)) return job;
+                return {
+                    ...settled,
+                    faultReport: { reason, reportedAt: new Date().toISOString(), reportedBy: MY_NAME },
+                };
+            }),
         rejectJob: (id, review) =>
             patchJob(id, (job) =>
                 job.rejections.length >= MAX_ADMIN_JOB_REJECTIONS
