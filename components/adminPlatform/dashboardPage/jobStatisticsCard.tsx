@@ -14,8 +14,9 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { useOutsideClickRef } from "@/hooks/useOutsideClickRef";
-import { JOB_STATISTICS, type JobStatisticsRange } from "@/constant/admin";
+import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
 import DashboardCard from "./dashboardCard";
+import { getJobStatistics, type JobStatisticsRange } from "./dashboardStats";
 import {
     CHART_AXIS_TEXT_COLOR,
     CHART_GRID_COLOR,
@@ -33,10 +34,14 @@ const SERIES = [
     { key: "unsuccessful", label: "Unsuccessful jobs", color: UNSUCCESSFUL_JOBS_COLOR },
 ] as const;
 
-/** Successful vs unsuccessful jobs per month (or day), with a range switch. */
+/**
+ * Successful (completed) vs unsuccessful (closed) jobs per month over the
+ * last year, or per day over the last week.
+ */
 export default function JobStatisticsCard() {
+    const { jobs } = useAdminJobs();
     const [range, setRange] = useState<JobStatisticsRange>("monthly");
-    const { data, axisMax, axisStep } = JOB_STATISTICS[range];
+    const { data, axisMax, axisStep } = getJobStatistics(jobs, range);
     const ticks = Array.from({ length: axisMax / axisStep + 1 }, (_, index) => index * axisStep);
 
     return (

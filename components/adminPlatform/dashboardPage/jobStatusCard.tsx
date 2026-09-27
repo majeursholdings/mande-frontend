@@ -1,11 +1,10 @@
 "use client";
 
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip, type TooltipContentProps } from "recharts";
-import { JOB_STATUS_COUNTS, type JobStatusCount } from "@/constant/admin";
+import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
 import DashboardCard from "./dashboardCard";
 import { CHART_GRID_COLOR, JOB_STATUS_COLORS } from "./chartColors";
-
-const TOTAL_JOBS = JOB_STATUS_COUNTS.reduce((sum, status) => sum + status.count, 0);
+import { getJobStatusCounts, type JobStatusCount } from "./dashboardStats";
 
 /**
  * Every job by status — a donut with the total in the middle, and a legend
@@ -13,6 +12,12 @@ const TOTAL_JOBS = JOB_STATUS_COUNTS.reduce((sum, status) => sum + status.count,
  * Beside the legend on phones and tablets; above it in the desktop column.
  */
 export default function JobStatusCard() {
+    const { jobs } = useAdminJobs();
+    const counts = getJobStatusCounts(jobs);
+    // Statuses with no jobs stay in the legend, but get no slice
+    const slices = counts.filter((status) => status.count > 0);
+    const total = jobs.length;
+
     return (
         <DashboardCard title="Jobs by status" titleHidden className="justify-center">
             <div className="flex items-center gap-6 sm:gap-10 lg:flex-col lg:gap-6">
@@ -21,7 +26,7 @@ export default function JobStatusCard() {
                         <ResponsiveContainer width="100%" height="100%">
                             {/* Hidden from screen readers (the legend has the counts), so no keyboard stop either */}
                             <PieChart accessibilityLayer={false}>
-                                {TOTAL_JOBS === 0 ? (
+                                {total === 0 ? (
                                     <Pie
                                         data={[{ label: "No jobs", count: 1 }]}
                                         dataKey="count"
@@ -33,7 +38,7 @@ export default function JobStatusCard() {
                                     />
                                 ) : (
                                     <Pie
-                                        data={JOB_STATUS_COUNTS}
+                                        data={slices}
                                         dataKey="count"
                                         nameKey="label"
                                         innerRadius="76%"
@@ -46,25 +51,28 @@ export default function JobStatusCard() {
                                         strokeWidth={2}
                                         isAnimationActive={false}
                                     >
-                                        {JOB_STATUS_COUNTS.map((status) => (
+                                        {slices.map((status) => (
                                             <Cell key={status.status} fill={JOB_STATUS_COLORS[status.status]} />
                                         ))}
                                     </Pie>
                                 )}
-                                {TOTAL_JOBS > 0 && (
-                                    <Tooltip content={<StatusTooltip />} wrapperStyle={{ outline: "none", zIndex: 10 }} />
+                                {total > 0 && (
+                                    <Tooltip
+                                        content={<StatusTooltip total={total} />}
+                                        wrapperStyle={{ outline: "none", zIndex: 10 }}
+                                    />
                                 )}
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
                     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                        <span className="text-3xl sm:text-4xl font-semibold font-text text-mist-950">{TOTAL_JOBS}</span>
+                        <span className="text-3xl sm:text-4xl font-semibold font-text text-mist-950">{total}</span>
                         <span className="text-xs sm:text-sm font-text text-mist-700">Cumulative Jobs</span>
                     </div>
                 </div>
 
                 <ul className="grid gap-x-6 gap-y-3 lg:grid-cols-2">
-                    {JOB_STATUS_COUNTS.map((status) => (
+                    {counts.map((status) => (
                         <li key={status.status} className="flex items-center gap-2 text-sm font-text text-mist-700">
                             <span
                                 className="size-3.5 shrink-0 rounded"
@@ -80,10 +88,14 @@ export default function JobStatusCard() {
     );
 }
 
-function StatusTooltip({ active, payload }: Partial<TooltipContentProps<number, string>>) {
+function StatusTooltip({
+    active,
+    payload,
+    total,
+}: Partial<TooltipContentProps<number, string>> & { total: number }) {
     if (!active || !payload || payload.length === 0) return null;
     const status = payload[0].payload as JobStatusCount;
-    const share = Math.round((status.count / TOTAL_JOBS) * 100);
+    const share = Math.round((status.count / total) * 100);
 
     return (
         <div className="rounded-lg border border-border bg-white px-3.5 py-2 shadow-lg">

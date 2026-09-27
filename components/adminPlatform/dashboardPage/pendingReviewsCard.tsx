@@ -1,16 +1,19 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { ClipboardCheck } from "lucide-react";
 import { getRelativeTimeLabel } from "@/lib/date";
 import {
     ADMIN_JOBS_URL,
-    PENDING_PROGRESS_REVIEWS,
     TOTAL_PRODUCTION_STEPS,
     getReviewStage,
     type PendingProgressReview,
 } from "@/constant/admin";
+import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
 import DashboardCard from "./dashboardCard";
 import EmptyState from "../emptyState";
+import { getPendingProgressReviews } from "./dashboardStats";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PendingReviewsCard — manufacturers' progress updates waiting for an admin
@@ -21,7 +24,8 @@ import EmptyState from "../emptyState";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function PendingReviewsCard() {
-    const reviews = PENDING_PROGRESS_REVIEWS;
+    const { jobs } = useAdminJobs();
+    const reviews = getPendingProgressReviews(jobs);
 
     return (
         <DashboardCard

@@ -1,18 +1,45 @@
+"use client";
+
 import { ArrowDown, ArrowUp, ReceiptText } from "lucide-react";
+import { DataTable, type ColumnDef } from "@/components/customTable";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
 import { formatOrdinalDate } from "@/lib/date";
-import {
-    ADMIN_TRANSACTIONS_URL,
-    RECENT_ADMIN_TRANSACTIONS,
-    type AdminTransaction,
-} from "@/constant/admin";
+import { ADMIN_TRANSACTIONS_URL, type AdminTransaction } from "@/constant/admin";
+import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
 import DashboardCard from "./dashboardCard";
 import EmptyState from "../emptyState";
+import { getRecentTransactions } from "./dashboardStats";
 
-/** The latest money in and out — a table from md up, a stacked list on phones. */
+const COLUMNS: ColumnDef<AdminTransaction>[] = [
+    {
+        key: "account",
+        header: "Account",
+        className: "whitespace-normal",
+        cell: (transaction) => <AccountCell transaction={transaction} />,
+    },
+    {
+        key: "amount",
+        header: "Amount paid",
+        cell: (transaction) => formatPrice(transaction.amount),
+    },
+    {
+        key: "date",
+        header: "Date",
+        cell: (transaction) => formatOrdinalDate(new Date(transaction.date)),
+    },
+    {
+        key: "status",
+        header: "Status",
+        className: "text-center",
+        cell: (transaction) => <ReconciledBadge isReconciled={transaction.isReconciled} />,
+    },
+];
+
+/** The latest installments paid out on jobs — a table from md up, a stacked list on phones. */
 export default function RecentTransactionsCard() {
-    const transactions = RECENT_ADMIN_TRANSACTIONS;
+    const { jobs } = useAdminJobs();
+    const transactions = getRecentTransactions(jobs);
 
     return (
         <DashboardCard
@@ -27,34 +54,9 @@ export default function RecentTransactionsCard() {
                 />
             ) : (
                 <>
-                    <table className="hidden w-full text-left md:table">
-                        <thead>
-                            <tr className="text-xs font-medium font-text uppercase text-mist-500">
-                                <th scope="col" className="pb-3 font-medium">Account</th>
-                                <th scope="col" className="pb-3 font-medium">Amount paid</th>
-                                <th scope="col" className="pb-3 font-medium">Date</th>
-                                <th scope="col" className="pb-3 text-center font-medium">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                            {transactions.map((transaction) => (
-                                <tr key={transaction.id} className="align-middle">
-                                    <td className="py-3.5 pr-4">
-                                        <AccountCell transaction={transaction} />
-                                    </td>
-                                    <td className="py-3.5 pr-4 text-base font-text whitespace-nowrap text-mist-950">
-                                        {formatPrice(transaction.amount)}
-                                    </td>
-                                    <td className="py-3.5 pr-4 text-base font-text whitespace-nowrap text-mist-500">
-                                        {formatOrdinalDate(new Date(transaction.date))}
-                                    </td>
-                                    <td className="py-3.5 text-center">
-                                        <ReconciledBadge isReconciled={transaction.isReconciled} />
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                    <div className="hidden md:block">
+                        <DataTable tableId="recent-transactions" columns={COLUMNS} rows={transactions} compact />
+                    </div>
 
                     <ul className="flex flex-col gap-6 md:hidden">
                         {transactions.map((transaction) => (
