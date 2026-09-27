@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { formatBalance } from "@/lib/currency";
 
+/** The balance — the page's headline, in a maroon card. */
 export default function BalanceCard({
     balance,
     className,
@@ -11,13 +12,14 @@ export default function BalanceCard({
     return (
         <div
             className={cn(
-                "relative flex flex-col justify-center gap-1 overflow-hidden rounded-xl bg-secondary-600 p-5 text-white",
+                "relative flex flex-col justify-center gap-1 overflow-hidden rounded-xl bg-secondary-600 p-5 text-white lg:p-6",
                 className,
             )}
         >
-            <MandeMark className="absolute -top-1 right-2 size-16 text-white/15" />
+            <MandeMark className="absolute -top-1 right-2 size-16 text-white/15 lg:size-20" />
             <p className="text-sm font-text text-white/75">Your balance</p>
-            <p className="text-2xl font-semibold font-text">{formatBalance(balance)}</p>
+            <p className="text-2xl font-semibold font-text lg:text-3xl">{formatBalance(balance)}</p>
+            <p className="text-xs font-text text-white/60">Available to withdraw</p>
         </div>
     );
 }

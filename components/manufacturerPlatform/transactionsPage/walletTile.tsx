@@ -7,26 +7,43 @@ export function bankAccountSubtitle(bankAccount: ManufacturerBankAccount): strin
     return `${bankAccount.accountName} • ${bankAccount.accountNumber}`;
 }
 
-/** Icon in a soft red circle, with a title and an optional muted line under it. */
+/** Icon in a soft red circle, with a title and an optional muted line under it — "sm" for a compact row. */
 export function WalletTile({
     icon: Icon,
     title,
     subtitle,
+    size = "md",
 }: {
     icon: LucideIcon;
     title: string;
     subtitle?: string;
+    size?: "sm" | "md";
 }) {
+    const isSmall = size === "sm";
     return (
-        <div className="flex min-w-0 items-center gap-4">
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-secondary-50 text-secondary-600">
-                <Icon className="size-5" strokeWidth={1.75} />
+        <div className={cn("flex min-w-0 items-center", isSmall ? "gap-3" : "gap-4")}>
+            <span
+                className={cn(
+                    "flex shrink-0 items-center justify-center rounded-full bg-secondary-50 text-secondary-600",
+                    isSmall ? "size-9" : "size-12",
+                )}
+            >
+                <Icon className={isSmall ? "size-4" : "size-5"} strokeWidth={1.75} />
             </span>
             {/* Wraps rather than truncates — the account number is what people check before a payout */}
             <div className="min-w-0 text-left">
-                <p className="wrap-break-word text-base font-medium font-text text-mist-950">{title}</p>
+                <p
+                    className={cn(
+                        "wrap-break-word font-medium font-text text-mist-950",
+                        isSmall ? "text-sm" : "text-base",
+                    )}
+                >
+                    {title}
+                </p>
                 {subtitle && (
-                    <p className="wrap-break-word text-sm font-text text-mist-500">{subtitle}</p>
+                    <p className={cn("wrap-break-word font-text text-mist-500", isSmall ? "text-xs" : "text-sm")}>
+                        {subtitle}
+                    </p>
                 )}
             </div>
         </div>
@@ -50,7 +67,8 @@ export function WalletActionCard({
             onClick={onClick}
             disabled={disabled}
             className={cn(
-                "flex h-full w-full items-center rounded-xl border border-border bg-white px-5 py-4 transition-colors duration-200 enabled:cursor-pointer enabled:hover:border-secondary-200 enabled:hover:bg-secondary-50/40 disabled:cursor-not-allowed disabled:opacity-60",
+                "flex h-full w-full items-center rounded-xl border border-border bg-white transition-colors duration-200 enabled:cursor-pointer enabled:hover:border-secondary-200 enabled:hover:bg-secondary-50/40 disabled:cursor-not-allowed disabled:opacity-60",
+                tile.size === "sm" ? "px-4 py-2.5" : "px-5 py-4",
                 className,
             )}
         >

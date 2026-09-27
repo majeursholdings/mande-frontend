@@ -29,6 +29,11 @@ export function TransactionIcon({
     );
 }
 
+/** After a plan's name when it was paid by card — not from the wallet, so the balance didn't change. */
+export function PaidByCardNote() {
+    return <span className="ml-1.5 text-xs font-normal text-mist-400">by card</span>;
+}
+
 /**
  * One transaction as a list row. "preview" (the profile card) shows the
  * label and date; "full" (the mobile transactions page, where there's no
@@ -54,6 +59,7 @@ export default function TransactionListItem({
                     )}
                 >
                     {transaction.label}
+                    {transaction.paidByCard && <PaidByCardNote />}
                 </p>
                 {isFull && transaction.projectName && (
                     <p className="text-sm font-text text-mist-600">{transaction.projectName}</p>

@@ -56,9 +56,10 @@ export default function WalletActions() {
 
     return (
         <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:gap-6">
+            <div className="grid gap-3 sm:grid-cols-2 lg:gap-4">
                 {bankAccount ? (
                     <WalletActionCard
+                        size="sm"
                         icon={Landmark}
                         title={bankAccount.bankName}
                         subtitle={bankAccountSubtitle(bankAccount)}
@@ -66,12 +67,14 @@ export default function WalletActions() {
                     />
                 ) : (
                     <WalletActionCard
+                        size="sm"
                         icon={Landmark}
                         title="Add your bank account"
                         onClick={() => setDialog("add-bank")}
                     />
                 )}
                 <WalletActionCard
+                    size="sm"
                     icon={ArrowRightLeft}
                     title="Withdraw to your bank"
                     subtitle={bankAccount ? undefined : "Add a bank account first"}
