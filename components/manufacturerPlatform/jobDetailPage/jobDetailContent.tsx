@@ -10,6 +10,7 @@ import JobDetailHeaderActions from "./jobDetailHeaderActions";
 import JobDetailStepRecorder from "./jobDetailStepRecorder";
 import JobDetailRejections from "./jobDetailRejections";
 import JobDetailCallAssignee from "./jobDetailCallAssignee";
+import JobDetailPayments from "./jobDetailPayments";
 import JobDetailCompletionUpload from "@/components/manufacturerPlatform/form/jobDetailCompletionUploadForm";
 import CancelJobForm from "@/components/manufacturerPlatform/form/cancelJobForm";
 import ReportDelayForm from "@/components/manufacturerPlatform/form/reportDelayForm";
@@ -17,16 +18,24 @@ import { useJobDetailState } from "./useJobDetailState";
 import { JOB_DETAIL_PRIMARY_BUTTON_CLASS } from "./styles";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { formatOrdinalDate, getCountdownLabel } from "@/lib/date";
+import { formatDuration, formatOrdinalDate, getCountdownLabel } from "@/lib/date";
 import { formatPrice } from "@/lib/currency";
 import {
-    JOB_PRODUCTION_STEPS,
     JOB_STATUS_CONFIG,
     MAX_JOB_REJECTIONS,
     getJobCategoryLabel,
+    getJobPaymentInput,
     getJobSteps,
     type Job,
 } from "@/constant/manufacturer";
+import {
+    MAX_EXTENSION_PERCENT,
+    canCancelJob,
+    getJobPayments,
+    getLatestAllowedDueDate,
+    getOriginalDueDate,
+    getStepProgress,
+} from "@/constant/jobWorkflow";
 
 type DialogKind = "reportDelay" | "purchaseMaterials" | "cancelJob" | null;
 
@@ -49,7 +58,7 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
         cancelJob,
         reportDelay,
         purchaseMaterials,
-        completeStep,
+        submitStepProof,
         uploadCompletionPhoto,
         resubmitForReview,
     } = useJobDetailState(job);
@@ -58,9 +67,9 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
 
     const statusConfig = JOB_STATUS_CONFIG[state.status];
     const { steps: productionSteps, completedCount: completedStepCount } = getJobSteps(state);
-    const allStepsComplete = JOB_PRODUCTION_STEPS.every((step) =>
-        state.completedStepKeys.includes(step.key),
-    );
+    const stepProgress = getStepProgress(state.stepSubmissions);
+    const allStepsComplete = stepProgress.every((step) => step.state === "approved");
+    const { payments, bonus } = getJobPayments(getJobPaymentInput({ ...job, ...state }));
     const progressPercent = Math.round(
         (completedStepCount / productionSteps.length) * 100,
     );
@@ -73,6 +82,14 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
     const canResubmit = isRejected && state.rejections.length < MAX_JOB_REJECTIONS;
     const showHeaderActions = state.status === "in-progress";
     const dueDate = new Date(job.dueDate);
+    // The job's length runs from its planned start (or when they accepted) to the due date
+    const start = job.startDate ?? state.dateAssigned;
+    const originalDueDate = getOriginalDueDate(job.dueDate, state.extensionRequests);
+    const latestDueDate = start ? getLatestAllowedDueDate(start, originalDueDate) : dueDate;
+    const pendingExtension = state.extensionRequests.find((request) => request.status === "pending");
+    const latestApprovedExtension = state.extensionRequests.find((request) => request.status === "approved");
+    // Room for a later date only if the limit falls on a later day
+    const canExtend = new Date(latestDueDate.toDateString()) > new Date(dueDate.toDateString());
 
     const closeDialog = () => {
         setDialog(null);
@@ -104,6 +121,7 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                             setDialog("purchaseMaterials")
                         }
                         onCancelJob={() => setDialog("cancelJob")}
+                        canCancel={canCancelJob(state.stepSubmissions)}
                     />
                 ) : (
                     <span />
@@ -172,8 +190,29 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                     />
                     <DetailRow
                         label="Due date"
-                        value={formatOrdinalDate(dueDate)}
+                        value={
+                            <span className="flex flex-col items-end gap-1">
+                                {formatOrdinalDate(dueDate)}
+                                {latestApprovedExtension && (
+                                    <span className="text-xs font-normal text-mist-500">
+                                        Extended from{" "}
+                                        {formatOrdinalDate(new Date(latestApprovedExtension.previousDueDate))}
+                                    </span>
+                                )}
+                                {pendingExtension && (
+                                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-normal text-amber-700">
+                                        {formatOrdinalDate(new Date(pendingExtension.requestedDueDate))} requested
+                                    </span>
+                                )}
+                            </span>
+                        }
                     />
+                    {start && (
+                        <DetailRow
+                            label="Project duration"
+                            value={formatDuration(new Date(start), dueDate)}
+                        />
+                    )}
                     <DetailRow
                         label="Status"
                         value={
@@ -224,7 +263,9 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                     <JobDetailStepRecorder
                         steps={productionSteps}
                         completedCount={completedStepCount}
-                        onCompleteStep={completeStep}
+                        progress={stepProgress}
+                        payments={payments}
+                        onSubmitProof={submitStepProof}
                         readOnly={state.status !== "in-progress"}
                     />
                 )}
@@ -276,6 +317,17 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                 )}
 
                 {!isCancelled && (
+                    <JobDetailPayments
+                        amount={job.price}
+                        dueDate={job.dueDate}
+                        payments={payments}
+                        bonus={bonus}
+                        progress={stepProgress}
+                        faultReport={job.faultReport ?? null}
+                    />
+                )}
+
+                {!isCancelled && (
                     <JobDetailCallAssignee assignee={job.assignee} />
                 )}
             </div>
@@ -304,10 +356,28 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                 title="Report Delay"
                 variant="edit"
             >
-                <ReportDelayForm
-                    reportDelay={reportDelay}
-                    closeDialog={closeDialog}
-                />
+                {pendingExtension ? (
+                    <p className="text-sm text-mist-600">
+                        You&apos;ve asked to move the due date to{" "}
+                        {formatOrdinalDate(new Date(pendingExtension.requestedDueDate))}. Your project lead will
+                        approve or reject it — you can ask again once they have.
+                    </p>
+                ) : !start || !canExtend ? (
+                    <p className="text-sm text-mist-600">
+                        The due date can&apos;t move any further — it&apos;s already been pushed back by the most
+                        allowed, {MAX_EXTENSION_PERCENT}% of the job&apos;s original length. Call your project
+                        assistant if you need to talk it through.
+                    </p>
+                ) : (
+                    <ReportDelayForm
+                        dueDate={job.dueDate}
+                        latestDueDate={latestDueDate}
+                        start={start}
+                        originalDueDate={originalDueDate}
+                        reportDelay={reportDelay}
+                        closeDialog={closeDialog}
+                    />
+                )}
             </TableDialog>
 
             <TableDialog

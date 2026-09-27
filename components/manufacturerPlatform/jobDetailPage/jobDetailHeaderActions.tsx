@@ -10,8 +10,9 @@ const MENU_ITEM_CLASS =
 
 // ─────────────────────────────────────────────────────────────────────────────
 // JobDetailHeaderActions — "Mark as done" + the "..." kebab (Report Delay /
-// Purchase materials / Cancel Job). Hidden entirely for pending jobs, which
-// use Accept/Decline instead (see jobDetailContent.tsx).
+// Purchase materials / Cancel Job). Cancel Job is off once they're past the
+// Materials step. Hidden entirely for pending jobs, which use Accept/Decline
+// instead (see jobDetailContent.tsx).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function JobDetailHeaderActions({
@@ -20,8 +21,11 @@ export default function JobDetailHeaderActions({
     onReportDelay,
     onPurchaseMaterials,
     onCancelJob,
+    canCancel,
 }: {
     canMarkAsDone: boolean;
+    /** False once they're past the Materials step. */
+    canCancel: boolean;
     onMarkAsDoneClick: () => void;
     onReportDelay: () => void;
     onPurchaseMaterials: () => void;
@@ -83,13 +87,23 @@ export default function JobDetailHeaderActions({
                         </button>
                         <button
                             type="button"
+                            disabled={!canCancel}
                             onClick={() => {
                                 setMenuOpen(false);
                                 onCancelJob();
                             }}
-                            className={cn(MENU_ITEM_CLASS, "text-secondary-600")}
+                            className={cn(
+                                MENU_ITEM_CLASS,
+                                "flex-col items-start",
+                                canCancel ? "text-secondary-600" : "cursor-not-allowed text-mist-300 hover:bg-transparent",
+                            )}
                         >
                             Cancel Job
+                            {!canCancel && (
+                                <span className="text-[11px] font-normal text-mist-400">
+                                    Not after the Materials step
+                                </span>
+                            )}
                         </button>
                     </div>
                 )}
