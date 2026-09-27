@@ -11,7 +11,7 @@ import {
     getOptionLabel,
     type ManufacturerProfile,
 } from "@/constant/manufacturer";
-import UserAvatar from "../dashboardLayout/userAvatar";
+import UserAvatar from "@/components/ui/userAvatar";
 import VerificationBadge from "../verificationBadge";
 
 /** Lets an email wrap after the "@" in a narrow column instead of mid-word. */

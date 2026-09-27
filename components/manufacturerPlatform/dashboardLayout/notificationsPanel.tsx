@@ -5,7 +5,7 @@ import { Leaf } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NotificationItem } from "@/constant/manufacturer";
 import { useNotifications } from "./notificationsContext";
-import UserAvatar from "./userAvatar";
+import UserAvatar from "@/components/ui/userAvatar";
 
 export default function NotificationsPanel({
     onLinkClick,

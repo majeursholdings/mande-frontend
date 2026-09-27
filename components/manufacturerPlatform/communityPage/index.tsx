@@ -8,7 +8,7 @@ import {
     type CommunityTestimonial,
 } from "@/constant/community";
 import { MANUFACTURER_PROFILE_BACK_LINK } from "@/constant/manufacturer";
-import UserAvatar from "../dashboardLayout/userAvatar";
+import UserAvatar from "@/components/ui/userAvatar";
 import PageHeader from "../pageHeader";
 import { PLATFORMS } from "./platforms";
 

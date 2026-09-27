@@ -13,7 +13,7 @@ import { useManufacturerProfile } from "./manufacturerProfileContext";
 import { useNotifications } from "./notificationsContext";
 import NotificationsPanel from "./notificationsPanel";
 import SearchPanel, { SEARCH_PLACEHOLDERS, type SearchScope } from "./searchPanel";
-import UserAvatar from "./userAvatar";
+import UserAvatar from "@/components/ui/userAvatar";
 import UserMenu from "./userMenu";
 
 export default function DesktopTopbar() {

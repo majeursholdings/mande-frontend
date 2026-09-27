@@ -4,9 +4,9 @@ import { useState, type ReactNode } from "react";
 import { useController, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
-import OtpInput from "@/components/manufacturerPlatform/otpInput";
-import { useCountdown } from "@/components/manufacturerPlatform/useCountdown";
-import { OTP_LENGTH, OTP_RESEND_SECONDS } from "@/constant/manufacturer";
+import OtpInput from "@/components/form/otpInput";
+import { useCountdown } from "@/hooks/useCountdown";
+import { OTP_LENGTH, OTP_RESEND_SECONDS } from "@/constant/global";
 import { FormCancelButton, FormSubmitButton } from "./formButtons";
 
 type OtpFormValues = {

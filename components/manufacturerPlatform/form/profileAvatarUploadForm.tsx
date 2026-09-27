@@ -4,7 +4,7 @@ import { useState, type ChangeEvent } from "react";
 import { Camera, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import UserAvatar from "@/components/manufacturerPlatform/dashboardLayout/userAvatar";
+import UserAvatar from "@/components/ui/userAvatar";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
 import { getManufacturerFullName } from "@/constant/manufacturer";
 

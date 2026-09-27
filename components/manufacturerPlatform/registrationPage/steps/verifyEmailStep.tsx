@@ -3,12 +3,12 @@
 import { useController, UseFormReturn } from "react-hook-form";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
-import OtpInput from "../../otpInput";
-import { useCountdown } from "../../useCountdown";
+import OtpInput from "@/components/form/otpInput";
+import { useCountdown } from "@/hooks/useCountdown";
 import StepFooter from "../stepFooter";
 import StepHeader from "../stepHeader";
 import { RegistrationFormValues } from "../types";
-import { OTP_LENGTH, OTP_RESEND_SECONDS } from "@/constant/manufacturer";
+import { OTP_LENGTH, OTP_RESEND_SECONDS } from "@/constant/global";
 
 export type VerifyEmailStepProps = {
     methods: UseFormReturn<RegistrationFormValues>;

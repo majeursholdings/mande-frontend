@@ -2,7 +2,8 @@ import Image from "next/image";
 import { CheckIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Logo from "@/components/mainWebsite/navigations/logo";
-import { AUTH_HEADLINE, AUTH_HERO_IMAGE, RegistrationStep } from "@/constant/manufacturer";
+import { AUTH_HEADLINE, AUTH_HERO_IMAGE } from "@/constant/global";
+import type { RegistrationStep } from "@/constant/manufacturer";
 
 export type AuthSidePanelProps = {
     steps?: RegistrationStep[];

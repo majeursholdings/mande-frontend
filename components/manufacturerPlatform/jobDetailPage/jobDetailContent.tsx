@@ -5,7 +5,7 @@ import { CheckCircle2, Paperclip } from "lucide-react";
 import { StatusBadge } from "@/components/customTable/statusBadge";
 import { TableDialog } from "@/components/customTable/tableDialog";
 import { Button } from "@/components/ui/button";
-import UserAvatar from "@/components/manufacturerPlatform/dashboardLayout/userAvatar";
+import UserAvatar from "@/components/ui/userAvatar";
 import JobDetailHeaderActions from "./jobDetailHeaderActions";
 import JobDetailStepRecorder from "./jobDetailStepRecorder";
 import JobDetailRejections from "./jobDetailRejections";

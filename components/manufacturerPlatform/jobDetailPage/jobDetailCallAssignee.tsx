@@ -1,6 +1,6 @@
 import { Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import UserAvatar from "@/components/manufacturerPlatform/dashboardLayout/userAvatar";
+import UserAvatar from "@/components/ui/userAvatar";
 import type { JobAssignee } from "@/constant/manufacturer";
 import { JOB_DETAIL_PRIMARY_BUTTON_CLASS } from "./styles";
 
