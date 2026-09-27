@@ -61,6 +61,7 @@ export type FormFieldConfig = {
     maxFiles?: number;
     maxSizeMB?: number;
     showPreview?: boolean;
+    clearable?: boolean; // for select — an × in the field clears the choice
     trailingSlot?: ReactNode; // e.g. a "Forgot password?" link next to a checkbox
 };
 
@@ -86,4 +87,11 @@ export type MainFormProps<T extends FieldValues = FieldValues> = {
      * actions (e.g. a Back + Continue row). Receives the same loading/submit
      * readiness state the default button would use. */
     renderFooter?: (state: { isLoading: boolean; canSubmit: boolean }) => ReactNode;
+    /** gap-* classes for the space between fields, and between the two fields of a
+     * row pair — e.g. "gap-6 md:gap-y-8 md:gap-x-6" for a roomier form.
+     * @default "gap-4" */
+    fieldGapClassName?: string;
+    /** Leave the red asterisk off required fields' labels — e.g. a login form, where every field is required.
+     * @default false */
+    hideRequiredMarks?: boolean;
 };

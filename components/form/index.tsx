@@ -23,6 +23,7 @@ import {
     ImageIcon,
     TriangleAlert,
     Loader2,
+    XIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -72,6 +73,8 @@ export default function MainForm<T extends FieldValues = FieldValues>({
     methods,
     requireValidToSubmit = true,
     renderFooter,
+    fieldGapClassName,
+    hideRequiredMarks = false,
 }: MainFormProps<T>) {
     // Hooks must run unconditionally — when a shared `methods` instance is
     // passed in (e.g. steps of a wizard), this internal one is simply unused.
@@ -134,7 +137,7 @@ export default function MainForm<T extends FieldValues = FieldValues>({
                 </div>
             )}
 
-            <div className="flex flex-col gap-4">
+            <div className={cn("flex flex-col gap-4", fieldGapClassName)}>
                 {fields.map((field) => {
                     const pair = rowPairs.find((p) => p.includes(field.name));
 
@@ -150,7 +153,7 @@ export default function MainForm<T extends FieldValues = FieldValues>({
                         return (
                             <div
                                 key={pair.join("-")}
-                                className="flex flex-col md:flex-row gap-4"
+                                className={cn("flex flex-col md:flex-row gap-4", fieldGapClassName)}
                             >
                                 <FormField
                                     field={field}
@@ -158,6 +161,7 @@ export default function MainForm<T extends FieldValues = FieldValues>({
                                     control={control}
                                     getValues={getValues}
                                     errors={errors}
+                                    hideRequiredMark={hideRequiredMarks}
                                 />
                                 <FormField
                                     field={secondField}
@@ -165,6 +169,7 @@ export default function MainForm<T extends FieldValues = FieldValues>({
                                     control={control}
                                     getValues={getValues}
                                     errors={errors}
+                                    hideRequiredMark={hideRequiredMarks}
                                 />
                             </div>
                         );
@@ -178,6 +183,7 @@ export default function MainForm<T extends FieldValues = FieldValues>({
                             control={control}
                             getValues={getValues}
                             errors={errors}
+                            hideRequiredMark={hideRequiredMarks}
                         />
                     );
                 })}
@@ -217,6 +223,8 @@ export type FormFieldProps<T extends FieldValues = FieldValues> = {
     control: Control<T>;
     getValues: () => T;
     errors: FieldErrors<T>;
+    /** Leave the red asterisk off the label even if the field is required. */
+    hideRequiredMark?: boolean;
 };
 
 export const FormField = <T extends FieldValues = FieldValues>({
@@ -225,6 +233,7 @@ export const FormField = <T extends FieldValues = FieldValues>({
     control,
     getValues,
     errors,
+    hideRequiredMark = false,
 }: FormFieldProps<T>) => {
     const error = errors[field.name as Path<T>]?.message as string | undefined;
 
@@ -261,7 +270,7 @@ export const FormField = <T extends FieldValues = FieldValues>({
                         className="text-[#1F2937] text-sm font-medium font-text"
                     >
                         {field.label}
-                        {field.validation?.required && (
+                        {field.validation?.required && !hideRequiredMark && (
                             <span className="text-[#EF4444] ml-1">*</span>
                         )}
                     </Label>
@@ -377,6 +386,8 @@ export const inputClass = (error?: string) =>
 
 // SelectTrigger sizes itself with `data-[size=default]:h-8`, which outranks a
 // plain `h-11` — match that selector so selects are as tall as text inputs.
+const PREVIEWABLE_IMAGE_TYPE = /^image\/(jpeg|png|gif|webp|avif|svg\+xml|bmp)$/;
+
 const selectTriggerClass = (error?: string) =>
     cn(inputClass(error), "w-full data-[size=default]:h-11");
 
@@ -616,39 +627,59 @@ export const SelectInput = <T extends FieldValues = FieldValues>({
             control={control}
             defaultValue={(field.defaultValue ?? "") as PathValue<T, Path<T>>}
             rules={field.validation as RegisterOptions<T, Path<T>>}
-            render={({ field: ctrl }) => (
-                <Select<string, false>
-                    items={field.options ?? []}
-                    onValueChange={(val) => {
-                        ctrl.onChange(val);
-                        onValueChange?.(val ?? "");
-                    }}
-                    value={ctrl.value}
-                    disabled={field.disabled}
-                >
-                    <SelectTrigger
-                        id={field.name}
-                        className={selectTriggerClass(error)}
-                    >
-                        <SelectValue
-                            placeholder={
-                                field.placeholder ?? "Select an option"
-                            }
-                        />
-                    </SelectTrigger>
-                    <SelectContent alignItemWithTrigger={false}>
-                        {(field.options ?? []).map((opt) => (
-                            <SelectItem
-                                key={opt.value}
-                                value={opt.value}
-                                className="font-text text-sm"
+            render={({ field: ctrl }) => {
+                const canClear = !!field.clearable && !!ctrl.value && !field.disabled;
+                return (
+                    <div className="relative">
+                        <Select<string, false>
+                            items={field.options ?? []}
+                            onValueChange={(val) => {
+                                ctrl.onChange(val);
+                                onValueChange?.(val ?? "");
+                            }}
+                            value={ctrl.value}
+                            disabled={field.disabled}
+                        >
+                            <SelectTrigger
+                                id={field.name}
+                                // Room between the value and the arrow for the clear button
+                                className={cn(selectTriggerClass(error), field.clearable && "gap-9")}
                             >
-                                {opt.label}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            )}
+                                <SelectValue
+                                    placeholder={
+                                        field.placeholder ?? "Select an option"
+                                    }
+                                />
+                            </SelectTrigger>
+                            <SelectContent alignItemWithTrigger={false}>
+                                {(field.options ?? []).map((opt) => (
+                                    <SelectItem
+                                        key={opt.value}
+                                        value={opt.value}
+                                        className="font-text text-sm"
+                                    >
+                                        {opt.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        {/* Beside the trigger, not in it — a button can't sit inside a button */}
+                        {canClear && (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    ctrl.onChange("");
+                                    onValueChange?.("");
+                                }}
+                                aria-label="Clear selection"
+                                className="absolute top-1/2 right-9 flex size-6 -translate-y-1/2 items-center justify-center rounded-full text-[#9CA3AF] transition-colors hover:bg-gray-100 hover:text-[#4B5563] cursor-pointer"
+                            >
+                                <XIcon className="size-3.5" />
+                            </button>
+                        )}
+                    </div>
+                );
+            }}
         />
     );
 };
@@ -844,6 +875,9 @@ export const DateInput = <T extends FieldValues = FieldValues>({
     error,
 }: ControllerProps<T>) => {
     const minDate = field.minDate ? new Date(field.minDate) : undefined;
+    // Controlled so picking a day closes it, instead of leaving the calendar
+    // over whatever's below
+    const [isOpen, setIsOpen] = useState(false);
 
     const isDateDisabled = (date: Date) => {
         if (field.disabled) return true;
@@ -860,7 +894,7 @@ export const DateInput = <T extends FieldValues = FieldValues>({
             defaultValue={(field.defaultValue ?? "") as PathValue<T, Path<T>>}
             rules={field.validation as RegisterOptions<T, Path<T>>}
             render={({ field: ctrl }) => (
-                <Popover>
+                <Popover open={isOpen} onOpenChange={setIsOpen}>
                     <PopoverTrigger
                         render={
                             <Button
@@ -893,9 +927,10 @@ export const DateInput = <T extends FieldValues = FieldValues>({
                             selected={
                                 ctrl.value ? new Date(ctrl.value) : undefined
                             }
-                            onSelect={(date: Date | undefined) =>
-                                ctrl.onChange(date?.toISOString() ?? "")
-                            }
+                            onSelect={(date: Date | undefined) => {
+                                ctrl.onChange(date?.toISOString() ?? "");
+                                if (date) setIsOpen(false);
+                            }}
                             disabled={isDateDisabled}
                             autoFocus
                         />
@@ -1463,7 +1498,8 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                     {files.map((file, index) => {
                         const fileKey = getFileKey(file);
                         const fileErr = fileErrors[fileKey];
-                        const isImage = file.type.startsWith("image/");
+                        // Only formats browsers can draw get a thumbnail — HEIC, say, shows the icon
+                        const isImage = PREVIEWABLE_IMAGE_TYPE.test(file.type);
                         const preview = isImage
                             ? URL.createObjectURL(file)
                             : null;
