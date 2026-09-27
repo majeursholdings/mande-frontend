@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
-    ADMIN_MANUFACTURERS,
     JOB_DESCRIPTION_MAX_LENGTH,
     MAX_JOB_MANUFACTURERS,
     formatJobCodeTimestamp,
@@ -26,6 +25,7 @@ import {
     type AdminJobAttachment,
 } from "@/constant/admin";
 import { COMPANY_SPECIALITY_OPTIONS } from "@/constant/manufacturer";
+import { useAdminManufacturers } from "@/components/adminPlatform/dashboardLayout/adminManufacturersContext";
 import { useAdminJobs } from "@/components/adminPlatform/dashboardLayout/adminJobsContext";
 import { FormSubmitButton } from "./formButtons";
 
@@ -49,11 +49,6 @@ type AttachmentsValues = {
 };
 
 const STEP_COUNT = 3;
-
-const MANUFACTURER_OPTIONS = ADMIN_MANUFACTURERS.map((manufacturer) => ({
-    label: manufacturer.companyName,
-    value: manufacturer.id,
-}));
 
 // Trimmed so a value made of only spaces doesn't pass
 const notBlank = (message: string) => (value: string) => value.trim().length > 0 || message;
@@ -86,6 +81,14 @@ export default function JobFormDialog({
 }) {
     const { createJob, updateJob } = useAdminJobs();
     const isEditing = !!job;
+    const { manufacturers, getAssignBlocker } = useAdminManufacturers();
+    // Suspended manufacturers, and flagged ones with a job already, can't take this one
+    const manufacturerOptions = manufacturers
+        .filter(
+            (manufacturer) =>
+                job?.manufacturerIds.includes(manufacturer.id) || !getAssignBlocker(manufacturer.id),
+        )
+        .map((manufacturer) => ({ label: manufacturer.companyName, value: manufacturer.id }));
     const [step, setStep] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
     const [isDiscardOpen, setIsDiscardOpen] = useState(false);
@@ -163,7 +166,7 @@ export default function JobFormDialog({
             type: "multiselect",
             label: labelWithNote("Manufacturer", `optional, max. of ${MAX_JOB_MANUFACTURERS}`),
             placeholder: "Select manufacturer",
-            options: MANUFACTURER_OPTIONS,
+            options: manufacturerOptions,
             maxSelections: MAX_JOB_MANUFACTURERS,
         },
         {
@@ -194,7 +197,9 @@ export default function JobFormDialog({
             validation: {
                 required: "End date is required",
                 validate: (value: string) =>
-                    !startDate || new Date(value) >= new Date(startDate) || "End date can't be before the start date",
+                    !startDate ||
+                    new Date(value) >= new Date(startDate) ||
+                    "End date can't be before the start date",
             },
         },
         {
@@ -202,7 +207,7 @@ export default function JobFormDialog({
             type: "textarea",
             label: "Description",
             placeholder: "Enter job description",
-            rows: 3,
+            height: 120,
             validation: {
                 required: "Description is required",
                 validate: notBlank("Description is required"),

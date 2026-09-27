@@ -19,8 +19,29 @@ const AVATAR_MAX_SIZE_MB = DEFAULT_MAX_FILE_SIZE_MB;
 // a single round avatar, so this is a plain file input behind the photo.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** The signed-in manufacturer's profile photo. */
 export default function ProfileAvatarUploadForm() {
     const { profile, updateProfile } = useManufacturerProfile();
+    return (
+        <AvatarUploadForm
+            name={getManufacturerFullName(profile)}
+            avatarUrl={profile.avatarUrl}
+            onUploaded={(avatarUrl) => updateProfile({ avatarUrl })}
+        />
+    );
+}
+
+/** ProfileAvatarUploadForm for any account — e.g. an admin's. */
+export function AvatarUploadForm({
+    name,
+    avatarUrl,
+    onUploaded,
+}: {
+    /** For the initials avatar while there's no photo. */
+    name: string;
+    avatarUrl: string | null;
+    onUploaded: (avatarUrl: string) => void;
+}) {
     const [isUploading, setIsUploading] = useState(false);
 
     const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -43,8 +64,8 @@ export default function ProfileAvatarUploadForm() {
             // No backend is wired up yet — simulate the upload and show the
             // chosen file from a local object URL until the API returns one.
             await new Promise((resolve) => setTimeout(resolve, 800));
-            const previousUrl = profile.avatarUrl;
-            updateProfile({ avatarUrl: URL.createObjectURL(file) });
+            const previousUrl = avatarUrl;
+            onUploaded(URL.createObjectURL(file));
             if (previousUrl?.startsWith("blob:")) URL.revokeObjectURL(previousUrl);
             toast.success("Profile photo updated successfully");
         } catch {
@@ -62,11 +83,7 @@ export default function ProfileAvatarUploadForm() {
                     isUploading ? "cursor-wait" : "cursor-pointer",
                 )}
             >
-                <UserAvatar
-                    name={getManufacturerFullName(profile)}
-                    src={profile.avatarUrl}
-                    className="size-32 text-3xl"
-                />
+                <UserAvatar name={name} src={avatarUrl} className="size-32 text-3xl" />
                 <span className="absolute right-0 bottom-0 flex size-10 items-center justify-center rounded-full bg-white text-secondary-600 shadow-md">
                     <Camera className="size-5" strokeWidth={1.75} />
                 </span>

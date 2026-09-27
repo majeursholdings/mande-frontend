@@ -6,12 +6,13 @@ import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { FEEDBACK_CATEGORY_OPTIONS } from "@/constant/support";
+import type { ManufacturerFeedback } from "@/constant/manufacturer";
 import { FormSubmitButton } from "./formButtons";
 
 type SupportFeedbackFormValues = {
-    category: string;
+    category: ManufacturerFeedback["category"] | "";
     message: string;
-    screenshot: FileList | null;
+    screenshot: FileList | File[] | null;
 };
 
 const SUPPORT_FEEDBACK_DEFAULT_VALUES: SupportFeedbackFormValues = {
@@ -55,7 +56,12 @@ const FIELDS: FormFieldConfig[] = [
     },
 ];
 
-export default function SupportFeedbackForm() {
+/** Sending feedback to support — `onSend` gets it once it's gone, to show in their history. */
+export default function SupportFeedbackForm({
+    onSend,
+}: {
+    onSend: (feedback: Pick<ManufacturerFeedback, "category" | "message" | "screenshotUrl">) => void;
+}) {
     const [isLoading, setIsLoading] = useState(false);
     // Bumped after sending to remount the form — the upload field keeps its
     // preview in its own state, which a form reset doesn't clear
@@ -65,12 +71,19 @@ export default function SupportFeedbackForm() {
         defaultValues: SUPPORT_FEEDBACK_DEFAULT_VALUES,
     });
 
-    const handleSubmit = async () => {
+    const handleSubmit = async ({ category, message, screenshot }: SupportFeedbackFormValues) => {
         setIsLoading(true);
         try {
             // No backend is wired up yet — simulate the request so the flow
-            // is testable end-to-end.
+            // is testable end-to-end. The screenshot shows from a local
+            // object URL until the API returns the uploaded one.
             await new Promise((resolve) => setTimeout(resolve, 800));
+            const [file] = Array.from(screenshot ?? []);
+            onSend({
+                category: category as ManufacturerFeedback["category"],
+                message: message.trim(),
+                screenshotUrl: file ? URL.createObjectURL(file) : null,
+            });
             methods.reset(SUPPORT_FEEDBACK_DEFAULT_VALUES);
             setFormKey((key) => key + 1);
             toast.success("Thanks — we've received your feedback");

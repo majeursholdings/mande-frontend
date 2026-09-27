@@ -12,20 +12,7 @@ import type { TwoFactorMethod } from "@/constant/manufacturer";
 import OtpVerificationForm from "@/components/manufacturerPlatform/form/otpVerificationForm";
 import { useManufacturerProfile } from "./dashboardLayout/manufacturerProfileContext";
 
-/**
- * "Enter the code" dialog in front of a sensitive action. `channel` says where
- * the code comes from — emailed to the manufacturer, or their authenticator
- * app (see getOtpChannel).
- */
-export default function OtpVerificationDialog({
-    open,
-    onOpenChange,
-    title,
-    intro,
-    channel,
-    confirmLabel,
-    onVerified,
-}: {
+type OtpDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     title: string;
@@ -34,9 +21,30 @@ export default function OtpVerificationDialog({
     channel: TwoFactorMethod;
     confirmLabel?: string;
     onVerified: (code: string) => void | Promise<void>;
-}) {
+};
+
+/**
+ * "Enter the code" dialog in front of a sensitive action, for the signed-in
+ * manufacturer. `channel` says where the code comes from — emailed to them,
+ * or their authenticator app (see getOtpChannel).
+ */
+export default function OtpVerificationDialog(props: OtpDialogProps) {
     const { profile } = useManufacturerProfile();
-    const sentTo = maskEmail(profile.email);
+    return <OtpCodeDialog {...props} email={profile.email} />;
+}
+
+/** OtpVerificationDialog for any account — `email` is where an emailed code goes (e.g. an admin's). */
+export function OtpCodeDialog({
+    open,
+    onOpenChange,
+    title,
+    intro,
+    channel,
+    confirmLabel,
+    onVerified,
+    email,
+}: OtpDialogProps & { email: string }) {
+    const sentTo = maskEmail(email);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>

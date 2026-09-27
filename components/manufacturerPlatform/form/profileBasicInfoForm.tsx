@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
-import { validators } from "@/components/form/form.validators";
+import { isPhoneNumber, validators } from "@/components/form/form.validators";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
 import { FormSubmitButton } from "./formButtons";
 
@@ -17,10 +17,6 @@ type BasicInfoFormValues = {
     /** ISO date string, "" when not set. */
     dateOfBirth: string;
 };
-
-// Digits with an optional leading "+", once spaces and dashes are stripped —
-// covers "0801 234 5678" as well as "+234 801 234 5678"
-const PHONE_NUMBER_PATTERN = /^\+?\d{10,15}$/;
 
 const FIELDS: FormFieldConfig[] = [
     {
@@ -65,8 +61,7 @@ const FIELDS: FormFieldConfig[] = [
         validation: {
             required: "Phone number is required",
             validate: (value: string) =>
-                PHONE_NUMBER_PATTERN.test(value.replace(/[\s-]/g, "")) ||
-                "Enter a valid phone number, e.g. +234 801 234 5678",
+                isPhoneNumber(value) || "Enter a valid phone number, e.g. +234 801 234 5678",
         },
     },
     {

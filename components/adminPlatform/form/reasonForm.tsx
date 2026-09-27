@@ -44,12 +44,16 @@ export default function ReasonForm({
             type: "textarea",
             label,
             placeholder,
-            rows: 4,
+            height: 120,
             validation: {
                 required: "Tell the manufacturer why",
                 validate: (value: string) =>
-                    value.trim().length >= REASON_MIN_LENGTH || `Write at least ${REASON_MIN_LENGTH} characters`,
-                maxLength: { value: REASON_MAX_LENGTH, message: `Keep it under ${REASON_MAX_LENGTH} characters` },
+                    value.trim().length >= REASON_MIN_LENGTH ||
+                    `Write at least ${REASON_MIN_LENGTH} characters`,
+                maxLength: {
+                    value: REASON_MAX_LENGTH,
+                    message: `Keep it under ${REASON_MAX_LENGTH} characters`,
+                },
             },
         },
     ];

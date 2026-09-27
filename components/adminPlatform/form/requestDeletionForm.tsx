@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import type { AdminJobAttachment } from "@/constant/admin";
 import { FormSubmitButton } from "./formButtons";
 
-type RejectJobValues = {
+type RequestDeletionValues = {
     reason: string;
     photos: FileList | File[] | null;
     documents: FileList | File[] | null;
@@ -19,68 +19,62 @@ type RejectJobValues = {
 const REASON_MIN_LENGTH = 10;
 const REASON_MAX_LENGTH = 500;
 
+const optional = (label: string) => (
+    <>
+        {label} <span className="font-normal text-mist-400">(optional)</span>
+    </>
+);
+
 const FIELDS: FormFieldConfig[] = [
     {
         name: "reason",
         type: "textarea",
-        label: "Your review",
-        placeholder:
-            "What's wrong, and what does the manufacturer need to fix?",
+        label: "Reason",
+        placeholder: "Why should this account be deleted?",
         height: 120,
         validation: {
-            required: "Tell the manufacturer why",
+            required: "Give the super admin a reason",
             validate: (value: string) =>
-                value.trim().length >= REASON_MIN_LENGTH ||
-                `Write at least ${REASON_MIN_LENGTH} characters`,
-            maxLength: {
-                value: REASON_MAX_LENGTH,
-                message: `Keep it under ${REASON_MAX_LENGTH} characters`,
-            },
+                value.trim().length >= REASON_MIN_LENGTH || `Write at least ${REASON_MIN_LENGTH} characters`,
+            maxLength: { value: REASON_MAX_LENGTH, message: `Keep it under ${REASON_MAX_LENGTH} characters` },
         },
     },
     {
         name: "photos",
         type: "image",
-        label: (
-            <>
-                Photos{" "}
-                <span className="font-normal text-mist-400">(optional)</span>
-            </>
-        ),
-        description: `Photos that show the problems — images only, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+        label: optional("Photos"),
+        description: `Screenshots or photos that back it up — images only, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
         multiple: true,
         maxFiles: 5,
     },
     {
         name: "documents",
         type: "file",
-        label: (
-            <>
-                Documents{" "}
-                <span className="font-normal text-mist-400">(optional)</span>
-            </>
-        ),
-        description: `Marked-up drawings or notes — PDF or Word, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+        label: optional("Documents"),
+        description: `PDF or Word, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
         multiple: true,
         maxFiles: 5,
     },
 ];
 
-/** A lead turning down work that's in review — a written review, and optional photos and documents. */
-export default function RejectJobForm({
-    onReject,
+/**
+ * An admin asking a super admin to delete a manufacturer's account — admins
+ * can't delete it themselves. A reason, and optional files to back it up.
+ */
+export default function RequestDeletionForm({
+    onRequest,
     onCancel,
 }: {
-    onReject: (review: { reason: string; attachments: AdminJobAttachment[] }) => void;
+    onRequest: (request: { reason: string; attachments: AdminJobAttachment[] }) => void;
     onCancel: () => void;
 }) {
     const [isLoading, setIsLoading] = useState(false);
-    const methods = useForm<RejectJobValues>({
+    const methods = useForm<RequestDeletionValues>({
         mode: "onTouched",
         defaultValues: { reason: "", photos: null, documents: null },
     });
 
-    const handleSubmit = async ({ reason, photos, documents }: RejectJobValues) => {
+    const handleSubmit = async ({ reason, photos, documents }: RequestDeletionValues) => {
         setIsLoading(true);
         try {
             // No backend is wired up yet — simulate the upload. Files show
@@ -88,19 +82,19 @@ export default function RejectJobForm({
             await new Promise((resolve) => setTimeout(resolve, 800));
             const upload = (files: FileList | File[] | null, kind: AdminJobAttachment["kind"]) =>
                 Array.from(files ?? []).map((file) => ({ name: file.name, url: URL.createObjectURL(file), kind }));
-            onReject({
+            onRequest({
                 reason: reason.trim(),
                 attachments: [...upload(photos, "image"), ...upload(documents, "document")],
             });
         } catch {
-            toast.error("Couldn't reject the job. Please try again.");
+            toast.error("Couldn't send the deletion request. Please try again.");
         } finally {
             setIsLoading(false);
         }
     };
 
     return (
-        <MainForm<RejectJobValues>
+        <MainForm<RequestDeletionValues>
             methods={methods}
             fields={FIELDS}
             onSubmit={handleSubmit}
@@ -117,8 +111,8 @@ export default function RejectJobForm({
                         Cancel
                     </Button>
                     <FormSubmitButton
-                        label="Reject job"
-                        loadingLabel="Rejecting..."
+                        label="Send request"
+                        loadingLabel="Sending..."
                         isLoading={isLoading}
                         disabled={!canSubmit}
                         className="w-auto bg-error-600 px-5 hover:bg-error-700"

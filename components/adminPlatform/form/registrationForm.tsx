@@ -6,7 +6,7 @@ import { ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
-import { validators } from "@/components/form/form.validators";
+import { isPhoneNumber, validators } from "@/components/form/form.validators";
 import { ADMIN_EMAIL_DOMAIN, ADMIN_POSITION_OPTIONS } from "@/constant/admin";
 import { FormSubmitButton } from "./formButtons";
 import { AUTH_FORM_FIELD_GAP } from "./styles";
@@ -15,6 +15,7 @@ type AdminRegistrationFormValues = {
     firstName: string;
     lastName: string;
     email: string;
+    phone: string;
     position: string;
     password: string;
     confirmPassword: string;
@@ -24,6 +25,7 @@ const ADMIN_REGISTRATION_DEFAULT_VALUES: AdminRegistrationFormValues = {
     firstName: "",
     lastName: "",
     email: "",
+    phone: "",
     position: "",
     password: "",
     confirmPassword: "",
@@ -72,6 +74,18 @@ export default function AdminRegistrationForm({
             placeholder: `you@${ADMIN_EMAIL_DOMAIN}`,
             autoComplete: "email",
             validation: validators.companyEmail(ADMIN_EMAIL_DOMAIN),
+        },
+        {
+            name: "phone",
+            type: "tel",
+            label: "Phone number",
+            placeholder: "e.g. +234 801 234 5678",
+            autoComplete: "tel",
+            validation: {
+                required: "Phone number is required",
+                validate: (value: string) =>
+                    isPhoneNumber(value) || "Enter a valid phone number, e.g. +234 801 234 5678",
+            },
         },
         {
             name: "position",

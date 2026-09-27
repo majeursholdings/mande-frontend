@@ -7,8 +7,8 @@ import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { validators } from "@/components/form/form.validators";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
-import OtpVerificationDialog from "@/components/manufacturerPlatform/otpVerificationDialog";
-import { getOtpChannel } from "@/constant/manufacturer";
+import { OtpCodeDialog } from "@/components/manufacturerPlatform/otpVerificationDialog";
+import { getOtpChannel, type TwoFactorMethod } from "@/constant/manufacturer";
 import { FormSubmitButton } from "./formButtons";
 
 type ChangePasswordFormValues = {
@@ -59,10 +59,24 @@ const FIELDS: FormFieldConfig[] = [
     },
 ];
 
-// Saving doesn't change the password straight away — it asks for a one-time
-// code first, and the change happens once that's verified.
+/** The signed-in manufacturer's password change. */
 export default function ProfileChangePasswordForm() {
     const { profile } = useManufacturerProfile();
+    return <ChangePasswordForm email={profile.email} codeChannel={getOtpChannel(profile)} />;
+}
+
+// Saving doesn't change the password straight away — it asks for a one-time
+// code first, and the change happens once that's verified. For any account,
+// e.g. an admin's.
+export function ChangePasswordForm({
+    email,
+    codeChannel,
+}: {
+    /** Where an emailed code goes. */
+    email: string;
+    /** Where the code comes from — their authenticator app if that's their two-factor method, else email. */
+    codeChannel: TwoFactorMethod;
+}) {
     const [isAwaitingCode, setIsAwaitingCode] = useState(false);
     const methods = useForm<ChangePasswordFormValues>({
         mode: "onTouched",
@@ -103,12 +117,13 @@ export default function ProfileChangePasswordForm() {
                     </div>
                 )}
             />
-            <OtpVerificationDialog
+            <OtpCodeDialog
+                email={email}
                 open={isAwaitingCode}
                 onOpenChange={setIsAwaitingCode}
                 title="Confirm password change"
                 intro="To keep your account safe, confirm it's you before changing your password."
-                channel={getOtpChannel(profile)}
+                channel={codeChannel}
                 confirmLabel="Change password"
                 onVerified={handleVerified}
             />

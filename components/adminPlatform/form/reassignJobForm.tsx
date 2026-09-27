@@ -6,14 +6,15 @@ import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { Button } from "@/components/ui/button";
-import { ADMIN_MANUFACTURERS, MAX_JOB_MANUFACTURERS } from "@/constant/admin";
+import { MAX_JOB_MANUFACTURERS } from "@/constant/admin";
+import { useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
 import { FormSubmitButton } from "./formButtons";
 
 type ReassignJobValues = {
     manufacturerIds: string[];
 };
 
-const FIELDS: FormFieldConfig[] = [
+const getFields = (options: { label: string; value: string }[]): FormFieldConfig[] => [
     {
         name: "manufacturerIds",
         type: "multiselect",
@@ -23,7 +24,7 @@ const FIELDS: FormFieldConfig[] = [
             </>
         ),
         placeholder: "Select manufacturer",
-        options: ADMIN_MANUFACTURERS.map((manufacturer) => ({ label: manufacturer.companyName, value: manufacturer.id })),
+        options,
         maxSelections: MAX_JOB_MANUFACTURERS,
         validation: {
             validate: (value: string[]) => value.length > 0 || "Select at least one manufacturer",
@@ -42,7 +43,12 @@ export default function ReassignJobForm({
     onCancel: () => void;
 }) {
     const [isLoading, setIsLoading] = useState(false);
+    const { manufacturers, getAssignBlocker } = useAdminManufacturers();
     const isFirstAssignment = currentManufacturerIds.length === 0;
+    // Suspended manufacturers, and flagged ones with a job already, can't take this one
+    const options = manufacturers
+        .filter((manufacturer) => currentManufacturerIds.includes(manufacturer.id) || !getAssignBlocker(manufacturer.id))
+        .map((manufacturer) => ({ label: manufacturer.companyName, value: manufacturer.id }));
     const methods = useForm<ReassignJobValues>({ defaultValues: { manufacturerIds: currentManufacturerIds } });
 
     const handleSubmit = async ({ manufacturerIds }: ReassignJobValues) => {
@@ -61,7 +67,7 @@ export default function ReassignJobForm({
     return (
         <MainForm<ReassignJobValues>
             methods={methods}
-            fields={FIELDS}
+            fields={getFields(options)}
             onSubmit={handleSubmit}
             isLoading={isLoading}
             hideRequiredMarks

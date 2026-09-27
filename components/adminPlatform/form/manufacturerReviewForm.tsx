@@ -22,11 +22,13 @@ const FIELDS: FormFieldConfig[] = [
         name: "comment",
         type: "textarea",
         label: "Your review",
-        placeholder: "How did the manufacturer do — quality, timing, communication?",
-        rows: 3,
+        placeholder:
+            "How did the manufacturer do — quality, timing, communication?",
+        height: 120,
         validation: {
             required: "Write a short review",
-            validate: (value: string) => value.trim().length > 0 || "Write a short review",
+            validate: (value: string) =>
+                value.trim().length > 0 || "Write a short review",
             maxLength: { value: 500, message: "Keep it under 500 characters" },
         },
     },

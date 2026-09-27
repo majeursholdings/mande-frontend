@@ -20,12 +20,16 @@ const FIELDS: FormFieldConfig[] = [
         // The Notes heading says what this is; the label is for screen readers
         label: <span className="sr-only">Add a note</span>,
         placeholder: "Post an update, comment or feedback…",
-        rows: 2,
+        height: 120,
         validation: {
             required: "Write a note first",
             // Trimmed so a note made of only spaces doesn't post
-            validate: (value: string) => value.trim().length > 0 || "Write a note first",
-            maxLength: { value: NOTE_MAX_LENGTH, message: `Keep it under ${NOTE_MAX_LENGTH} characters` },
+            validate: (value: string) =>
+                value.trim().length > 0 || "Write a note first",
+            maxLength: {
+                value: NOTE_MAX_LENGTH,
+                message: `Keep it under ${NOTE_MAX_LENGTH} characters`,
+            },
         },
     },
 ];
