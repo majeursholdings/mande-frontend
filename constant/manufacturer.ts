@@ -4,7 +4,29 @@ import type { StatusTone } from "@/components/customTable/statusBadge";
 import { DEFAULT_CURRENCY_CODE } from "@/constant/global";
 import { getCountryName } from "@/constant/africanCountries";
 import { formatCompactPrice } from "@/lib/currency";
+import { getTimeAgoLabel } from "@/lib/date";
 import type { BillingCycle } from "@/constant/sampleData";
+import {
+    JOB_PRODUCTION_STEPS,
+    MAX_JOB_REJECTIONS,
+    getApprovedStepKeys,
+    getAutoApproveAt,
+    settleStepSubmissions,
+    type JobFaultReport,
+    type JobPaymentInput,
+    type StepSubmission,
+} from "@/constant/jobWorkflow";
+import {
+    SAMPLE_JOBS as JOB_RECORDS,
+    SAMPLE_WALLET_DEBITS,
+    SIGNED_IN_MANUFACTURER_ID,
+    getJobRecordPayouts,
+    getManufacturerShare,
+    isOpenJobRecord,
+    settleJobRecord,
+    type JobRecord,
+    type TimelineExtensionRecord,
+} from "@/constant/sampleDb";
 import {
     LayoutGrid,
     ListChecks,
@@ -142,12 +164,36 @@ export type DashboardStat = {
     icon: "jobs" | "amount" | "delivery" | "quality";
 };
 
-export const DASHBOARD_STATS: DashboardStat[] = [
-    { id: "jobs-completed", label: "Total Jobs Completed", value: "24", icon: "jobs" },
-    { id: "amount-made", label: "Total Amount Made", value: formatCompactPrice(1_800_000), icon: "amount" },
-    { id: "delivery-rate", label: "Delivery Success Rate", value: "92%", icon: "delivery" },
-    { id: "quality-rating", label: "Quality Control Rating", value: "4 /5", icon: "quality" },
-];
+/**
+ * The dashboard's headline numbers: jobs completed, everything paid into
+ * the wallet for jobs, completed jobs out of every one finished (completed
+ * or rejected for the last time), and the average rating from their leads.
+ */
+export function getDashboardStats(jobs: Job[], totalPaid: number): DashboardStat[] {
+    const completed = jobs.filter((job) => job.status === "completed").length;
+    const closed = jobs.filter(
+        (job) => job.status === "rejected" && (job.rejections?.length ?? 0) >= MAX_JOB_REJECTIONS,
+    ).length;
+    const ratings = MANUFACTURER_REVIEWS.map((review) => review.rating);
+    const averageRating = ratings.length > 0 ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length : 0;
+
+    return [
+        { id: "jobs-completed", label: "Total Jobs Completed", value: String(completed), icon: "jobs" },
+        { id: "amount-made", label: "Total Amount Made", value: formatCompactPrice(totalPaid), icon: "amount" },
+        {
+            id: "delivery-rate",
+            label: "Delivery Success Rate",
+            value: `${completed + closed > 0 ? Math.round((completed / (completed + closed)) * 100) : 0}%`,
+            icon: "delivery",
+        },
+        {
+            id: "quality-rating",
+            label: "Quality Control Rating",
+            value: `${Math.round(averageRating * 10) / 10} /5`,
+            icon: "quality",
+        },
+    ];
+}
 
 export type JobStatus =
     | "pending"
@@ -159,9 +205,10 @@ export type JobStatus =
     | "rejected";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Job production steps — the manufacturer ticks these off, in order, from the
-// job detail panel. Completing every step unlocks the finished-furniture
-// photo upload, which is what actually marks the job as done.
+// Job production steps (see constant/jobWorkflow.ts) — the manufacturer sends
+// photo proof of each one, in order, from the job detail panel, and the
+// project lead approves it or sends it back. Once every step is approved,
+// they upload the finished furniture, which sends the job for review.
 //
 // Each time an admin rejects the finished work, a "Rejected" step (recorded by
 // the admin) and a "Redeliver" step (completed when the manufacturer resubmits
@@ -171,13 +218,8 @@ export type JobStatus =
 // resubmitted, so no "Redeliver" step follows it.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ProductionStepKey =
-    | "design"
-    | "materials"
-    | "frame"
-    | "assembly"
-    | "finishing"
-    | "delivery";
+export { JOB_PRODUCTION_STEPS };
+export type { ProductionStepKey } from "@/constant/jobWorkflow";
 
 export type ProductionStep = {
     /** A ProductionStepKey, or a derived rejection step key like "rejected-2". */
@@ -187,16 +229,7 @@ export type ProductionStep = {
     tone?: "danger";
 };
 
-export const MAX_JOB_REJECTIONS = 3;
-
-export const JOB_PRODUCTION_STEPS: { key: ProductionStepKey; label: string }[] = [
-    { key: "design", label: "Design" },
-    { key: "materials", label: "Materials" },
-    { key: "frame", label: "Frame" },
-    { key: "assembly", label: "Assembly" },
-    { key: "finishing", label: "Finishing" },
-    { key: "delivery", label: "Delivery" },
-];
+export { MAX_JOB_REJECTIONS };
 
 
 export type JobAssignee = {
@@ -237,16 +270,16 @@ export type JobRejection = {
  * done (steps are always completed in order, so that's a prefix).
  */
 export function getJobSteps({
-    completedStepKeys,
+    stepSubmissions,
     rejections,
     status,
 }: {
-    completedStepKeys: ProductionStepKey[];
+    stepSubmissions: StepSubmission[];
     rejections: JobRejection[];
     status: JobStatus;
 }): { steps: ProductionStep[]; completedCount: number } {
     const steps: ProductionStep[] = [...JOB_PRODUCTION_STEPS];
-    let completedCount = completedStepKeys.length;
+    let completedCount = getApprovedStepKeys(stepSubmissions).length;
     const numbered = rejections.length > 1;
 
     rejections.forEach((_, index) => {
@@ -277,6 +310,8 @@ export type Job = {
     assignedDaysAgo: number | null;
     /** ISO date string, null for jobs yet to be assigned a start date. */
     dateAssigned: string | null;
+    /** ISO date the work is planned to start. Null if none was set. */
+    startDate: string | null;
     /** ISO date string the job is due. */
     dueDate: string;
     commentCount: number;
@@ -287,13 +322,51 @@ export type Job = {
     status: JobStatus;
     assignee: JobAssignee | null;
     attachments: JobAttachment[];
-    /** Production steps completed so far, in `JOB_PRODUCTION_STEPS` order. */
-    completedStepKeys: ProductionStepKey[];
+    /** Proof sent of each production step, and how it was reviewed — oldest first. */
+    stepSubmissions: StepSubmission[];
     /** The latest finished-furniture photo(s) the manufacturer submitted. */
     completionImageUrls?: string[];
+    /** ISO date the finished furniture was last sent for review. */
+    submittedForReviewAt?: string | null;
     /** Every time an admin rejected the work, oldest first (max MAX_JOB_REJECTIONS). */
     rejections?: JobRejection[];
+    /** ISO date the job was signed off. */
+    completedAt?: string | null;
+    /** A fault found in the days after sign-off, which cancels the bonus. */
+    faultReport?: JobFaultReport | null;
+    /** Their requests for a later due date, newest first. */
+    extensionRequests: TimelineExtensionRecord[];
 };
+
+/** What a job's payments are worked out from (see constant/jobWorkflow.ts). */
+export function getJobPaymentInput(
+    job: Pick<Job, "price" | "dueDate" | "dateAssigned" | "stepSubmissions" | "completedAt" | "rejections" | "faultReport">,
+): JobPaymentInput {
+    return {
+        amount: job.price,
+        dueDate: job.dueDate,
+        acceptedAt: job.dateAssigned,
+        stepSubmissions: job.stepSubmissions,
+        signedOffAt: job.completedAt ?? null,
+        rejectionCount: job.rejections?.length ?? 0,
+        faultReport: job.faultReport ?? null,
+    };
+}
+
+/**
+ * The job with every auto-approval that's come due by `now` applied — step
+ * proof, and finished work, left unreviewed for a day (not counting Sundays).
+ */
+export function settleJob<T extends Pick<Job, "status" | "stepSubmissions" | "submittedForReviewAt" | "completedAt">>(
+    job: T,
+    now: Date = new Date(),
+): T {
+    const settled = { ...job, stepSubmissions: settleStepSubmissions(job.stepSubmissions, now) };
+    if (job.status !== "in-review" || !job.submittedForReviewAt) return settled;
+    const approveAt = getAutoApproveAt(job.submittedForReviewAt);
+    return approveAt <= now ? { ...settled, status: "completed", completedAt: approveAt.toISOString() } : settled;
+}
+
 
 export const JOB_STATUS_ORDER: JobStatus[] = [
     "pending",
@@ -362,328 +435,66 @@ export const JOB_SORT_OPTIONS: SelectFilterItem[] = [
     { label: "Category", value: "category" },
 ];
 
-export const JOBS: Job[] = [
-    {
-        id: "job-1",
-        code: "MD00133",
-        title: "4 Cushions & Seating Fabric",
-        description: "A short description of this job goes here.",
-        assignedLabel: "Yet to be assigned",
-        assignedDaysAgo: null,
-        dateAssigned: null,
-        dueDate: daysFromNow(49),
-        commentCount: 0,
-        price: 180000,
-        category: "upholstery",
-        status: "pending",
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** The sample records, with every auto-approval that's come due applied. */
+const RECORDS = JOB_RECORDS.map((record) => settleJobRecord(record));
+
+/**
+ * The signed-in manufacturer's latest offer of a job — null if it was never
+ * offered to them, or was withdrawn before they answered.
+ */
+function getOwnAssignment(record: JobRecord) {
+    const assignment = record.assignmentHistory.find((candidate) =>
+        candidate.manufacturerIds.includes(SIGNED_IN_MANUFACTURER_ID),
+    );
+    return assignment && assignment.outcome !== "reassigned" ? assignment : null;
+}
+
+/**
+ * A job as the signed-in manufacturer sees it: offered to them (pending),
+ * taken on (its status and progress), or turned down (cancelled).
+ */
+function toManufacturerJob(record: JobRecord, outcome: "awaiting" | "accepted" | "declined"): Job {
+    const isTheirs = outcome === "accepted";
+    const dateAssigned = isTheirs ? record.dateAssigned : null;
+    return {
+        id: record.id,
+        code: record.code,
+        title: record.title,
+        description: record.description,
+        assignedLabel: dateAssigned ? `Assigned ${getTimeAgoLabel(new Date(dateAssigned))}` : "Yet to be assigned",
+        assignedDaysAgo: dateAssigned ? Math.floor((Date.now() - new Date(dateAssigned).getTime()) / DAY_MS) : null,
+        dateAssigned,
+        startDate: record.startDate,
+        dueDate: record.dueDate,
+        commentCount: record.notes.length,
+        price: getManufacturerShare(record, SIGNED_IN_MANUFACTURER_ID),
+        category: record.category,
+        status: outcome === "awaiting" ? "pending" : isTheirs ? record.status : "cancelled",
         assignee: DEFAULT_JOB_ASSIGNEE,
-        attachments: [
-            {
-                name: "Blueprint DEMO.pdf",
-                url: "/blueprint-DEMO.pdf",
-            },
-        ],
-        completedStepKeys: [],
-    },
-    {
-        id: "job-2",
-        code: "MD00125",
-        title: "Metal Fabrication",
-        description: "A short description of this job goes here.",
-        assignedLabel: "Assigned 2 days ago",
-        assignedDaysAgo: 2,
-        dateAssigned: daysFromNow(-2),
-        dueDate: daysFromNow(7),
-        commentCount: 1,
-        price: 450000,
-        category: "outdoor-furniture",
-        status: "in-progress",
-        assignee: DEFAULT_JOB_ASSIGNEE,
-        attachments: [
-            { name: "M.F Blueprint.pdf", url: "/mf-blueprint.pdf" },
-            { name: "Blueprint DEMO.pdf", url: "/blueprint-DEMO.pdf" },
-        ],
-        completedStepKeys: ["design", "materials"],
-    },
-    {
-        id: "job-3",
-        code: "MD00126",
-        title: "2 Beds & 1 Desk",
-        description: "A short description of this job goes here.",
-        assignedLabel: "Assigned 4 days ago",
-        assignedDaysAgo: 4,
-        dateAssigned: daysFromNow(-4),
-        dueDate: daysFromNow(21),
-        commentCount: 6,
-        price: 620000,
-        category: "beds",
-        status: "in-progress",
-        assignee: DEFAULT_JOB_ASSIGNEE,
-        attachments: [{ name: "Bed Design.pdf", url: "/bed-design.pdf" }],
-        completedStepKeys: ["design"],
-    },
-    {
-        id: "job-4",
-        code: "MD00127",
-        title: "3 Tables & Carver Chairs",
-        description: "A short description of this job goes here.",
-        assignedLabel: "Assigned 1 week ago",
-        assignedDaysAgo: 7,
-        dateAssigned: daysFromNow(-7),
-        dueDate: daysFromNow(14),
-        commentCount: 3,
-        price: 540000,
-        category: "chairs-seating",
-        status: "in-progress",
-        assignee: DEFAULT_JOB_ASSIGNEE,
-        attachments: [
-            { name: "Table Blueprint.pdf", url: "/table-design.pdf" },
-        ],
-        completedStepKeys: ["design", "materials", "frame"],
-    },
-    {
-        id: "job-5",
-        code: "MD00128",
-        title: "4 Desks",
-        description: "A short description of this job goes here.",
-        assignedLabel: "Assigned 2 weeks ago",
-        assignedDaysAgo: 14,
-        dateAssigned: daysFromNow(-14),
-        dueDate: daysFromNow(3),
-        commentCount: 1,
-        price: 380000,
-        category: "desks",
-        status: "in-review",
-        assignee: DEFAULT_JOB_ASSIGNEE,
-        attachments: [{ name: "Desk Blueprint.pdf", url: "/desk-design.pdf" }],
-        completedStepKeys: JOB_PRODUCTION_STEPS.map((step) => step.key),
-        completionImageUrls: ["/images/image1.png"],
-    },
-    {
-        id: "job-6",
-        code: "MD00129",
-        title: "3 Chairs & Seating",
-        description: "A short description of this job goes here.",
-        assignedLabel: "Assigned 6 weeks ago",
-        assignedDaysAgo: 42,
-        dateAssigned: daysFromNow(-42),
-        dueDate: daysFromNow(-14),
-        commentCount: 9,
-        price: 300000,
-        category: "chairs-seating",
-        status: "completed",
-        assignee: DEFAULT_JOB_ASSIGNEE,
-        attachments: [
-            { name: "Chair Blueprint.pdf", url: "/chair-design.pdf" },
-        ],
-        completedStepKeys: JOB_PRODUCTION_STEPS.map((step) => step.key),
-        completionImageUrls: ["/images/image1.png"],
-    },
-    {
-        id: "job-7",
-        code: "MD00130",
-        title: "2 Leather Seats",
-        description: "A short description of this job goes here.",
-        assignedLabel: "Assigned 8 weeks ago",
-        assignedDaysAgo: 56,
-        dateAssigned: daysFromNow(-56),
-        dueDate: daysFromNow(-28),
-        commentCount: 6,
-        price: 420000,
-        category: "leather",
-        status: "completed",
-        assignee: DEFAULT_JOB_ASSIGNEE,
-        attachments: [
-            {
-                name: "Leather Seat Blueprint.pdf",
-                url: "/leather-seat-design.pdf",
-            },
-        ],
-        completedStepKeys: JOB_PRODUCTION_STEPS.map((step) => step.key),
-        completionImageUrls: ["/images/default-img.png"],
-    },
-    {
-        id: "job-8",
-        code: "MD00131",
-        title: "Metal Fabrication",
-        description: "A short description of this job goes here.",
-        assignedLabel: "Assigned 8 weeks ago",
-        assignedDaysAgo: 56,
-        dateAssigned: daysFromNow(-56),
-        dueDate: daysFromNow(-30),
-        commentCount: 4,
-        price: 450000,
-        category: "outdoor-furniture",
-        status: "completed",
-        assignee: DEFAULT_JOB_ASSIGNEE,
-        attachments: [{ name: "M.F Blueprint.pdf", url: "/MF-Blueprint.pdf" }],
-        completedStepKeys: JOB_PRODUCTION_STEPS.map((step) => step.key),
-        completionImageUrls: ["/images/image1.png"],
-    },
-    {
-        id: "job-9",
-        code: "MD00132",
-        title: "8 Throw Pillows",
-        description: "A short description of this job goes here.",
-        assignedLabel: "Assigned 10 weeks ago",
-        assignedDaysAgo: 70,
-        dateAssigned: daysFromNow(-70),
-        dueDate: daysFromNow(-45),
-        commentCount: 12,
-        price: 96000,
-        category: "upholstery",
-        status: "completed",
-        assignee: DEFAULT_JOB_ASSIGNEE,
-        attachments: [{ name: "Pillow Spec.pdf", url: "/pillow-spec.pdf" }],
-        completedStepKeys: JOB_PRODUCTION_STEPS.map((step) => step.key),
-        completionImageUrls: ["/images/default-img.png"],
-    },
-    {
-        id: "job-10",
-        code: "MD00134",
-        title: "Oak Dining Table",
-        description: "A short description of this job goes here.",
-        assignedLabel: "Assigned 3 weeks ago",
-        assignedDaysAgo: 21,
-        dateAssigned: daysFromNow(-21),
-        dueDate: daysFromNow(10),
-        commentCount: 2,
-        price: 350000,
-        category: "wood",
-        status: "cancelled",
-        assignee: DEFAULT_JOB_ASSIGNEE,
-        attachments: [
-            { name: "Dining Table Blueprint.pdf", url: "/dining-table-design.pdf" },
-        ],
-        completedStepKeys: ["design", "materials"],
-    },
-    {
-        id: "job-11",
-        code: "MD00135",
-        title: "Upholstered Headboard",
-        description: "A short description of this job goes here.",
-        assignedLabel: "Assigned 5 weeks ago",
-        assignedDaysAgo: 35,
-        dateAssigned: daysFromNow(-35),
-        dueDate: daysFromNow(-2),
-        commentCount: 5,
-        price: 275000,
-        category: "upholstery",
-        status: "rejected",
-        assignee: DEFAULT_JOB_ASSIGNEE,
-        attachments: [
-            { name: "Headboard Spec.pdf", url: "/headboard-spec.pdf" },
-        ],
-        completedStepKeys: JOB_PRODUCTION_STEPS.map((step) => step.key),
-        completionImageUrls: ["/images/image1.png", "/images/default-img.png"],
-        rejections: [
-            {
-                reason: "The fabric colour doesn't match the approved sample and the stitching along the top edge is uneven. Please redo the upholstery using the approved fabric.",
-                rejectedAt: daysFromNow(-1),
-                imageUrls: ["/images/image1.png", "/images/default-img.png"],
-            },
-        ],
-    },
-    // Rejected twice — one resubmission left
-    {
-        id: "job-12",
-        code: "MD00136",
-        title: "Walnut Bookshelf",
-        description: "A short description of this job goes here.",
-        assignedLabel: "Assigned 6 weeks ago",
-        assignedDaysAgo: 42,
-        dateAssigned: daysFromNow(-42),
-        dueDate: daysFromNow(-5),
-        commentCount: 8,
-        price: 310000,
-        category: "cabinetry",
-        status: "rejected",
-        assignee: DEFAULT_JOB_ASSIGNEE,
-        attachments: [
-            { name: "Bookshelf Blueprint.pdf", url: "/bookshelf-design.pdf" },
-        ],
-        completedStepKeys: JOB_PRODUCTION_STEPS.map((step) => step.key),
-        completionImageUrls: ["/images/default-img.png", "/images/image1.png"],
-        rejections: [
-            {
-                reason: "Two of the shelves are visibly warped and don't sit level. Please replace them with properly dried walnut.",
-                rejectedAt: daysFromNow(-10),
-                imageUrls: ["/images/image1.png"],
-            },
-            {
-                reason: "The shelves are fixed, but the finish has drip marks along the left side panel. Please sand it back and refinish.",
-                rejectedAt: daysFromNow(-2),
-                imageUrls: ["/images/default-img.png", "/images/image1.png"],
-            },
-        ],
-    },
-    // Rejected the maximum number of times — can no longer be resubmitted
-    {
-        id: "job-13",
-        code: "MD00137",
-        title: "Leather Recliner",
-        description: "A short description of this job goes here.",
-        assignedLabel: "Assigned 9 weeks ago",
-        assignedDaysAgo: 63,
-        dateAssigned: daysFromNow(-63),
-        dueDate: daysFromNow(-12),
-        commentCount: 14,
-        price: 520000,
-        category: "leather",
-        status: "rejected",
-        assignee: DEFAULT_JOB_ASSIGNEE,
-        attachments: [
-            { name: "Recliner Spec.pdf", url: "/recliner-spec.pdf" },
-        ],
-        completedStepKeys: JOB_PRODUCTION_STEPS.map((step) => step.key),
-        completionImageUrls: ["/images/image1.png"],
-        rejections: [
-            {
-                reason: "The recline mechanism sticks halfway and the leather is creased across the seat.",
-                rejectedAt: daysFromNow(-20),
-                imageUrls: ["/images/default-img.png"],
-            },
-            {
-                reason: "The mechanism now works, but the leather colour is noticeably lighter than the approved swatch.",
-                rejectedAt: daysFromNow(-11),
-                imageUrls: ["/images/image1.png", "/images/default-img.png"],
-            },
-            {
-                reason: "The replacement leather still doesn't match the approved swatch, and there is a tear near the left armrest seam.",
-                rejectedAt: daysFromNow(-3),
-                imageUrls: ["/images/image1.png"],
-            },
-        ],
-    },
-    // Rejected once, then resubmitted — back in review
-    {
-        id: "job-14",
-        code: "MD00138",
-        title: "Rattan Patio Set",
-        description: "A short description of this job goes here.",
-        assignedLabel: "Assigned 4 weeks ago",
-        assignedDaysAgo: 28,
-        dateAssigned: daysFromNow(-28),
-        dueDate: daysFromNow(4),
-        commentCount: 3,
-        price: 690000,
-        category: "outdoor-furniture",
-        status: "in-review",
-        assignee: DEFAULT_JOB_ASSIGNEE,
-        attachments: [
-            { name: "Patio Set Spec.pdf", url: "/patio-set-spec.pdf" },
-        ],
-        completedStepKeys: JOB_PRODUCTION_STEPS.map((step) => step.key),
-        completionImageUrls: ["/images/image1.png"],
-        rejections: [
-            {
-                reason: "One of the chair legs is shorter than the others, so the chair rocks. Please level all four legs.",
-                rejectedAt: daysFromNow(-4),
-                imageUrls: ["/images/default-img.png"],
-            },
-        ],
-    },
-];
+        attachments: record.attachments.map(({ name, url }) => ({ name, url })),
+        stepSubmissions: isTheirs ? record.stepSubmissions : [],
+        completionImageUrls: isTheirs ? record.completionImageUrls : [],
+        submittedForReviewAt: isTheirs ? record.submittedForReviewAt : null,
+        rejections: isTheirs
+            ? record.rejections.map(({ reason, rejectedAt, submissionImageUrls }) => ({
+                  reason,
+                  rejectedAt,
+                  imageUrls: submissionImageUrls,
+              }))
+            : [],
+        completedAt: isTheirs ? record.completedAt : null,
+        faultReport: isTheirs ? record.faultReport : null,
+        extensionRequests: isTheirs ? record.extensionRequests : [],
+    };
+}
+
+/** Every job offered to the signed-in manufacturer, from the sample database. */
+export const JOBS: Job[] = RECORDS.flatMap((record) => {
+    const assignment = getOwnAssignment(record);
+    return assignment && assignment.outcome !== "reassigned" ? [toManufacturerJob(record, assignment.outcome)] : [];
+});
 
 /** Dashboard "Recent Jobs": active jobs, newest assignment first (unassigned count as newest). */
 export const RECENT_JOBS: Job[] = JOBS.filter(
@@ -730,6 +541,8 @@ export type OpenJob = {
     category: string;
     /** What the manufacturer is paid for the job, in naira. */
     price: number;
+    /** ISO date the work is planned to start. */
+    startDate: string;
     /** ISO date the finished furniture is due. */
     dueDate: string;
     /** ISO date the job was posted. */
@@ -747,86 +560,20 @@ export const OPEN_JOB_SORT_OPTIONS: SelectFilterItem[] = [
     { label: "Pay", value: "price" },
 ];
 
-export const OPEN_JOBS: OpenJob[] = [
-    {
-        id: "open-1",
-        code: "MD00139",
-        title: "Modular Sectional Sofa",
-        description:
-            "A three-piece modular sectional in oatmeal bouclé, with loose back cushions and hidden plinth legs. Each module needs to work on its own and together.",
-        category: "sofas",
-        price: 850000,
-        dueDate: daysFromNow(42),
-        postedAt: daysFromNow(0),
-        imageUrl: "/sample-image/sectional-sofa.png",
-        attachments: [{ name: "Sectional Spec.pdf", url: "/sectional-spec.pdf" }],
-    },
-    {
-        id: "open-2",
-        code: "MD00140",
-        title: "Carved Oak Executive Desk",
-        description:
-            "A solid oak executive desk with a hand-carved diamond pattern across the front and sides, sitting on two block plinths. Oiled, not lacquered.",
-        category: "desks",
-        price: 720000,
-        dueDate: daysFromNow(35),
-        postedAt: daysFromNow(-1),
-        imageUrl: "/sample-image/table.webp",
-        attachments: [{ name: "Desk Drawings.pdf", url: "/desk-drawings.pdf" }],
-    },
-    {
-        id: "open-3",
-        code: "MD00141",
-        title: "Upholstered King Bed Frame",
-        description:
-            "A king-size bed frame fully upholstered in teal performance velvet, with a curved headboard that wraps into the side rails.",
-        category: "beds",
-        price: 540000,
-        dueDate: daysFromNow(28),
-        postedAt: daysFromNow(-2),
-        imageUrl: "/sample-image/bed.webp",
-        attachments: [{ name: "Bed Frame Spec.pdf", url: "/bed-frame-spec.pdf" }],
-    },
-    {
-        id: "open-4",
-        code: "MD00142",
-        title: "4 Leather Lounge Chairs",
-        description:
-            "Four lounge chairs in tan leather with open wooden arms and tapered dark legs, for a hotel lobby. All four need to match exactly.",
-        category: "chairs-seating",
-        price: 960000,
-        dueDate: daysFromNow(49),
-        postedAt: daysFromNow(-4),
-        imageUrl: "/sample-image/sarki-chair.webp",
-        attachments: [{ name: "Lounge Chair Spec.pdf", url: "/lounge-chair-spec.pdf" }],
-    },
-    {
-        id: "open-5",
-        code: "MD00143",
-        title: "Low Slate TV Console",
-        description:
-            "A long, low TV console with a honed slate top on two blackened steel slab legs. Cable routing through the back of the legs.",
-        category: "cabinetry",
-        price: 390000,
-        dueDate: daysFromNow(21),
-        postedAt: daysFromNow(-6),
-        imageUrl: "/sample-image/tv-console.webp",
-        attachments: [],
-    },
-    {
-        id: "open-6",
-        code: "MD00144",
-        title: "Chesterfield Leather Sofa",
-        description:
-            "A classic three-seat Chesterfield in oxblood leather, with deep button tufting, rolled arms and turned wooden feet.",
-        category: "leather",
-        price: 1100000,
-        dueDate: daysFromNow(56),
-        postedAt: daysFromNow(-9),
-        imageUrl: "/images/image1.png",
-        attachments: [{ name: "Chesterfield Spec.pdf", url: "/chesterfield-spec.pdf" }],
-    },
-];
+/** Jobs with no manufacturer yet — any manufacturer can apply. */
+export const OPEN_JOBS: OpenJob[] = RECORDS.filter(isOpenJobRecord).map((record) => ({
+    id: record.id,
+    code: record.code,
+    title: record.title,
+    description: record.description,
+    category: record.category,
+    price: record.amount,
+    startDate: record.startDate ?? record.createdAt,
+    dueDate: record.dueDate,
+    postedAt: record.createdAt,
+    imageUrl: record.imageUrl,
+    attachments: record.attachments.map(({ name, url }) => ({ name, url })),
+}));
 
 export type JobApplication = {
     /** An OPEN_JOBS id. */
@@ -835,9 +582,12 @@ export type JobApplication = {
     appliedAt: string;
 };
 
-export const MANUFACTURER_JOB_APPLICATIONS: JobApplication[] = [
-    { jobId: "open-3", appliedAt: daysFromNow(-1) },
-];
+/** The signed-in manufacturer's applications still waiting for an answer. */
+export const MANUFACTURER_JOB_APPLICATIONS: JobApplication[] = RECORDS.flatMap((record) =>
+    record.applications
+        .filter((application) => application.manufacturerId === SIGNED_IN_MANUFACTURER_ID && application.status === "pending")
+        .map((application) => ({ jobId: record.id, appliedAt: application.appliedAt })),
+);
 
 export type NotificationItem = {
     id: string;
@@ -1114,81 +864,41 @@ export const TRANSACTION_SORT_OPTIONS: SelectFilterItem[] = [
     { label: "Amount", value: "amount" },
 ];
 
-/** Newest first — the order the profile preview and "All" sort show. */
+/**
+ * Newest first — the order the profile preview and "All" sort show. Every
+ * payment made to the signed-in manufacturer for a job, and what they took
+ * out, from the sample database.
+ */
 const SAMPLE_TRANSACTIONS: ManufacturerTransaction[] = [
-    {
-        id: "txn-1",
-        type: "payment",
-        label: "First installment",
-        projectName: "Metal Fabrication",
-        date: "2022-03-04T12:00:00.000Z",
-        amount: 100000,
-    },
-    {
-        id: "txn-2",
-        type: "payment",
-        label: "Second installment",
-        projectName: "Metal Fabrication",
-        date: "2022-02-24T12:00:00.000Z",
-        amount: 80000,
-    },
-    {
-        id: "txn-3",
-        type: "payment",
-        label: "Third installment",
-        projectName: "4 Cushions & Seating Fabric",
-        date: "2022-02-01T12:00:00.000Z",
-        amount: 300000,
-    },
-    {
-        id: "txn-4",
-        type: "payment",
-        label: "First installment",
-        projectName: "3 Tables & Carver Chairs",
-        date: "2022-01-13T12:00:00.000Z",
-        amount: 250000,
-    },
-    {
-        id: "txn-5",
-        type: "payment",
-        label: "Second installment",
-        projectName: "2 Leather Seats",
-        date: "2022-01-10T12:00:00.000Z",
-        amount: 250000,
-    },
-    {
-        id: "txn-6",
-        type: "payment",
-        label: "Third installment",
-        projectName: "3 Tables & Carver Chairs",
-        date: "2022-01-04T12:00:00.000Z",
-        amount: 250000,
-    },
-    {
-        id: "txn-7",
-        type: "withdrawal",
-        label: "Withdrawal",
-        projectName: null,
-        date: "2021-12-28T12:00:00.000Z",
-        amount: 300000,
-    },
-    {
-        id: "txn-8",
-        type: "payment",
-        label: "Third installment",
-        projectName: "Cushion Arm Rests",
-        date: "2021-12-23T12:00:00.000Z",
-        amount: 250000,
-    },
-    {
-        id: "txn-9",
-        type: "payment",
-        label: "First installment",
-        projectName: "8 Throw Pillows",
-        date: "2021-12-15T12:00:00.000Z",
-        amount: 250000,
-    },
-];
+    ...RECORDS.flatMap((record) => getJobRecordPayouts(record))
+        .filter((payout) => payout.manufacturerId === SIGNED_IN_MANUFACTURER_ID)
+        .map(
+            (payout): ManufacturerTransaction => ({
+                id: payout.id,
+                type: "payment",
+                label: payout.label,
+                projectName: payout.jobTitle,
+                date: payout.paidAt,
+                amount: payout.amount,
+            }),
+        ),
+    ...SAMPLE_WALLET_DEBITS.filter((debit) => debit.manufacturerId === SIGNED_IN_MANUFACTURER_ID).map(
+        (debit): ManufacturerTransaction => ({
+            id: debit.id,
+            type: debit.type,
+            label: debit.label,
+            projectName: null,
+            date: debit.date,
+            amount: debit.amount,
+        }),
+    ),
+].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+/** Payments in, less withdrawals and plans paid from the balance. */
+const SAMPLE_BALANCE = SAMPLE_TRANSACTIONS.reduce(
+    (balance, transaction) => balance + (transaction.type === "payment" ? transaction.amount : -transaction.amount),
+    0,
+);
 
 /** Account numbers are 10-digit NUBANs. */
 export const BANK_ACCOUNT_NUMBER_LENGTH = 10;
@@ -1220,7 +930,7 @@ export const EMPTY_MANUFACTURER_WALLET: ManufacturerWallet = {
 };
 
 export const MANUFACTURER_WALLET: ManufacturerWallet = {
-    balance: 400000,
+    balance: SAMPLE_BALANCE,
     bankAccount: null,
     transactions: SAMPLE_TRANSACTIONS,
 };
@@ -1258,53 +968,29 @@ export const NIGERIAN_BANKS: SelectOption[] = [
 
 export type ManufacturerReview = {
     id: string;
+    /** Who left it — the job's project lead. */
     customerName: string;
     /** 1–5 stars. */
     rating: number;
     comment: string;
 };
 
-/** Newest first — the order the profile preview and reviews page show. */
-export const MANUFACTURER_REVIEWS: ManufacturerReview[] = [
-    {
-        id: "review-1",
-        customerName: "Latade Dipe",
-        rating: 4,
-        comment:
-            "The office table I ordered from Mande actually exceeded my expectation, the specifications were 100% accurate! 👍🏽",
-    },
-    {
-        id: "review-2",
-        customerName: "James O.",
-        rating: 4,
-        comment:
-            "The throw pillows came right on time, the attention to detail is second to none. 🙌🏽🙌🏽",
-    },
-    {
-        id: "review-3",
-        customerName: "Priscilla Adams",
-        rating: 3,
-        comment: "Would have preferred a deeper shade of brown for my cushions. 🤔",
-    },
-    {
-        id: "review-4",
-        customerName: "Vanessa Jacobs",
-        rating: 3,
-        comment: "Would have preferred a deeper shade of brown for my cushions. 🤔",
-    },
-    {
-        id: "review-5",
-        customerName: "Christian Adams",
-        rating: 3,
-        comment: "Would have preferred a deeper shade of brown for my cushions. 🤔",
-    },
-    {
-        id: "review-6",
-        customerName: "Ebun Bento",
-        rating: 3,
-        comment: "Would have preferred a deeper shade of brown for my cushions. 🤔",
-    },
-];
+/**
+ * Newest first — the order the profile preview and reviews page show. The
+ * ratings leads left on the signed-in manufacturer's completed jobs.
+ */
+export const MANUFACTURER_REVIEWS: ManufacturerReview[] = RECORDS.flatMap((record) =>
+    record.status === "completed" && record.manufacturerReview && getOwnAssignment(record)?.outcome === "accepted"
+        ? [{ jobId: record.id, ...record.manufacturerReview }]
+        : [],
+)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .map((review) => ({
+        id: `review-${review.jobId}`,
+        customerName: review.authorName,
+        rating: review.rating,
+        comment: review.comment,
+    }));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Subscription — the manufacturer's plan (a PRICING_PLANS id) and the cards
