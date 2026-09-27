@@ -1,6 +1,11 @@
 "use client";
 
-import { useState, useCallback, type ReactNode } from "react";
+import {
+    useState,
+    useCallback,
+    type MouseEvent,
+    type ReactNode,
+} from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
     Table,
@@ -56,6 +61,73 @@ function getPageNumbers(current: number, total: number): (number | "…")[] {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PaginationBar — "Showing 1 - 10 of 24" and the page buttons
+// ─────────────────────────────────────────────────────────────────────────────
+
+function PaginationBar({
+    page,
+    pagination,
+    onPageChange,
+}: {
+    page: number;
+    pagination: PaginationMeta;
+    onPageChange: (page: number) => void;
+}) {
+    const totalPages = Math.max(1, pagination.totalPages);
+    const { rowsPerPage, total } = pagination;
+
+    const label =
+        total === 0
+            ? "0 results"
+            : `Showing ${(page - 1) * rowsPerPage + 1} - ${Math.min(page * rowsPerPage, total)} of ${total}`;
+
+    return (
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-gray-200">
+            <span className="text-sm text-gray-500 font-text">{label}</span>
+            <div className="flex items-center gap-1">
+                <button
+                    onClick={() => onPageChange(page - 1)}
+                    disabled={page <= 1}
+                    className="p-1.5 rounded-button border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                >
+                    <ChevronLeft className="size-4 text-gray-600" />
+                </button>
+                {getPageNumbers(page, totalPages).map((p, i) =>
+                    p === "…" ? (
+                        <span
+                            key={`ellipsis-${i}`}
+                            className="px-2 text-sm text-gray-400 select-none"
+                        >
+                            …
+                        </span>
+                    ) : (
+                        <button
+                            key={p}
+                            onClick={() => onPageChange(p)}
+                            className={[
+                                "min-w-8 h-8 px-2 rounded-button text-sm font-text transition-colors cursor-pointer",
+                                p === page
+                                    ? "bg-gray-100 text-neutral-900 font-medium"
+                                    : "text-gray-500 hover:bg-gray-50",
+                            ].join(" ")}
+                        >
+                            {p}
+                        </button>
+                    ),
+                )}
+                <button
+                    onClick={() => onPageChange(page + 1)}
+                    disabled={page >= totalPages}
+                    className="p-1.5 rounded-button border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                >
+                    <ChevronRight className="size-4 text-gray-600" />
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // DataTable
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -63,7 +135,12 @@ export interface DataTableProps<TRow extends { id: string }> {
     tableId: string;
     columns: ColumnDef<TRow>[];
     rows: TRow[];
-    pagination: PaginationMeta;
+    /**
+     * Omit for a short, fixed list (e.g. a dashboard preview): no pagination
+     * bar, and the table never reads the URL — so it needs no Suspense
+     * boundary on a static page.
+     */
+    pagination?: PaginationMeta;
     toolbar?: ReactNode;
     loading?: boolean;
     emptyMessage?: string;
@@ -82,9 +159,45 @@ export interface DataTableProps<TRow extends { id: string }> {
     /** Controlled selection — pass together with onSelectionChange */
     selectedIds?: string[];
     onSelectionChange?: (ids: string[]) => void;
+    /**
+     * Controlled page — pass together with onPageChange when the page lives
+     * in the parent's state. Otherwise it's read from the `<tableId>_page`
+     * URL param.
+     */
+    page?: number;
+    onPageChange?: (page: number) => void;
+    /** Makes the whole row clickable. Checkbox and actions cells don't trigger it. */
+    onRowClick?: (row: TRow) => void;
+    /** Tighter cell padding, for a table inside a card (e.g. a dashboard preview). */
+    compact?: boolean;
 }
 
-export function DataTable<TRow extends { id: string }>({
+export function DataTable<TRow extends { id: string }>(
+    props: DataTableProps<TRow>,
+) {
+    // Only a paginated table that doesn't control its own page reads the
+    // URL (useSearchParams), so the others work on static pages as-is
+    return props.pagination && !props.onPageChange ? (
+        <UrlPagedDataTable {...props} />
+    ) : (
+        <DataTableContent {...props} />
+    );
+}
+
+function UrlPagedDataTable<TRow extends { id: string }>(
+    props: DataTableProps<TRow>,
+) {
+    const { getParam, setParam } = useTableParam(props.tableId);
+    return (
+        <DataTableContent
+            {...props}
+            page={Number(getParam("page") ?? 1)}
+            onPageChange={(p) => setParam("page", String(p))}
+        />
+    );
+}
+
+function DataTableContent<TRow extends { id: string }>({
     tableId,
     columns,
     rows,
@@ -98,21 +211,21 @@ export function DataTable<TRow extends { id: string }>({
     selectable = false,
     selectedIds,
     onSelectionChange,
+    page: rawPage = 1,
+    onPageChange,
+    onRowClick,
+    compact = false,
     loading = false,
     emptyMessage = "No results match your filters.",
 }: DataTableProps<TRow>) {
-    const { getParam, setParam } = useTableParam(tableId);
+    const page = Math.max(1, rawPage);
+    // Horizontal cell padding
+    const px = compact ? "px-3" : "px-3 md:px-6";
+    // Index of the first row on this page, for the "#" column
+    const offset = pagination ? (page - 1) * pagination.rowsPerPage : 0;
 
-    const page = Math.max(1, Number(getParam("page") ?? 1));
-    const totalPages = Math.max(1, pagination.totalPages);
-    const { rowsPerPage, total } = pagination;
-
-    const goToPage = (p: number) => setParam("page", String(p));
-
-    const paginationLabel =
-        total === 0
-            ? "0 results"
-            : `Showing ${(page - 1) * rowsPerPage + 1} - ${Math.min(page * rowsPerPage, total)} of ${total}`;
+    // Keeps checkbox / actions clicks from also firing onRowClick
+    const stopRowClick = (event: MouseEvent) => event.stopPropagation();
 
     // ── Dialog state ────────────────────────────────────────────────────────
     type PanelKind = "edit" | "delete" | "sheet" | null;
@@ -196,7 +309,7 @@ export function DataTable<TRow extends { id: string }>({
                     <TableHeader>
                         <TableRow className="bg-gray-50">
                             {selectable && (
-                                <TableHead className="w-10 px-3 md:px-6">
+                                <TableHead className={`w-10 ${px}`}>
                                     <Checkbox
                                         checked={allSelectedOnPage}
                                         indeterminate={someSelectedOnPage}
@@ -206,20 +319,22 @@ export function DataTable<TRow extends { id: string }>({
                                 </TableHead>
                             )}
                             {showIndex && (
-                                <TableHead className="w-10 px-3 md:px-6 text-gray-500 text-xs font-semibold font-text uppercase">
+                                <TableHead
+                                    className={`w-10 ${px} text-gray-500 text-xs font-semibold font-text uppercase`}
+                                >
                                     #
                                 </TableHead>
                             )}
                             {columns.map((col) => (
                                 <TableHead
                                     key={col.key}
-                                    className={`px-3 md:px-6 text-gray-500 text-xs font-semibold font-text uppercase ${col.className}`}
+                                    className={`${px} text-gray-500 text-xs font-semibold font-text uppercase ${col.className}`}
                                 >
                                     {col.header ?? col.key}
                                 </TableHead>
                             ))}
                             {hasActions && (
-                                <TableHead className="w-14 px-3 md:px-6" />
+                                <TableHead className={`w-14 ${px}`} />
                             )}
                         </TableRow>
                     </TableHeader>
@@ -231,16 +346,29 @@ export function DataTable<TRow extends { id: string }>({
                             <TableRow>
                                 <TableCell
                                     colSpan={colCount}
-                                    className="text-center px-3 md:px-6 py-8 md:py-16 text-gray-400 text-sm"
+                                    className={`text-center ${px} py-8 md:py-16 text-gray-400 text-sm`}
                                 >
                                     {emptyMessage}
                                 </TableCell>
                             </TableRow>
                         ) : (
                             rows.map((row, i) => (
-                                <TableRow key={row.id}>
+                                <TableRow
+                                    key={row.id}
+                                    onClick={
+                                        onRowClick
+                                            ? () => onRowClick(row)
+                                            : undefined
+                                    }
+                                    className={
+                                        onRowClick ? "cursor-pointer" : undefined
+                                    }
+                                >
                                     {selectable && (
-                                        <TableCell className="w-10 px-3 md:px-6">
+                                        <TableCell
+                                            className={`w-10 ${px}`}
+                                            onClick={stopRowClick}
+                                        >
                                             <Checkbox
                                                 checked={selected.has(row.id)}
                                                 onCheckedChange={() =>
@@ -251,14 +379,14 @@ export function DataTable<TRow extends { id: string }>({
                                         </TableCell>
                                     )}
                                     {showIndex && (
-                                        <TableCell className="w-10 px-3 md:px-6 text-sm font-text text-gray-500">
-                                            {(page - 1) * rowsPerPage + i + 1}
+                                        <TableCell className={`w-10 ${px} text-sm font-text text-gray-500`}>
+                                            {offset + i + 1}
                                         </TableCell>
                                     )}
                                     {columns.map((col) => (
                                         <TableCell
                                             key={col.key}
-                                            className={`px-3 md:px-6 py-4 text-sm font-text leading-5 ${col.className}`}
+                                            className={`${px} py-4 text-sm font-text leading-5 ${col.className}`}
                                         >
                                             {col.cell
                                                 ? col.cell(row)
@@ -274,7 +402,10 @@ export function DataTable<TRow extends { id: string }>({
                                     ))}
                                     {/* ── Actions cell — single "..." kebab menu ─────────── */}
                                     {hasActions && (
-                                        <TableCell className="px-3 md:px-6">
+                                        <TableCell
+                                            className={px}
+                                            onClick={stopRowClick}
+                                        >
                                             <RowActionsMenu
                                                 row={row}
                                                 viewAction={viewAction}
@@ -299,51 +430,13 @@ export function DataTable<TRow extends { id: string }>({
                     </TableBody>
                 </Table>
 
-                {/* Pagination */}
-                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-gray-200">
-                    <span className="text-sm text-gray-500 font-text">
-                        {paginationLabel}
-                    </span>
-                    <div className="flex items-center gap-1">
-                        <button
-                            onClick={() => goToPage(page - 1)}
-                            disabled={page <= 1}
-                            className="p-1.5 rounded-button border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                        >
-                            <ChevronLeft className="size-4 text-gray-600" />
-                        </button>
-                        {getPageNumbers(page, totalPages).map((p, i) =>
-                            p === "…" ? (
-                                <span
-                                    key={`ellipsis-${i}`}
-                                    className="px-2 text-sm text-gray-400 select-none"
-                                >
-                                    …
-                                </span>
-                            ) : (
-                                <button
-                                    key={p}
-                                    onClick={() => goToPage(p)}
-                                    className={[
-                                        "min-w-8 h-8 px-2 rounded-button text-sm font-text transition-colors cursor-pointer",
-                                        p === page
-                                            ? "bg-gray-100 text-neutral-900 font-medium"
-                                            : "text-gray-500 hover:bg-gray-50",
-                                    ].join(" ")}
-                                >
-                                    {p}
-                                </button>
-                            ),
-                        )}
-                        <button
-                            onClick={() => goToPage(page + 1)}
-                            disabled={page >= totalPages}
-                            className="p-1.5 rounded-button border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                        >
-                            <ChevronRight className="size-4 text-gray-600" />
-                        </button>
-                    </div>
-                </div>
+                {pagination && (
+                    <PaginationBar
+                        page={page}
+                        pagination={pagination}
+                        onPageChange={(p) => onPageChange?.(p)}
+                    />
+                )}
             </div>
 
             {/* Edit dialog — only rendered when editAction is the dialog variant */}

@@ -14,7 +14,6 @@ import EmptyState from "../emptyState";
 import JobDetailSheet from "../jobDetailPage/jobDetailSheet";
 import JobsTable from "./jobsTable";
 import JobsToolbar, { type JobsFilters } from "./jobsToolbar";
-import TablePagination from "./tablePagination";
 
 const DEFAULT_FILTERS: JobsFilters = { search: "", assignedToMe: false, leadId: null, view: "all" };
 
@@ -114,15 +113,17 @@ export default function AdminJobsPage({ initialJobId }: { initialJobId?: string 
                         }
                     />
                 ) : (
-                    <div className="flex flex-col gap-8">
-                        <JobsTable jobs={pageJobs} firstIndex={firstOnPage + 1} onOpenJob={openJob} />
-                        <TablePagination
-                            page={currentPage}
-                            pageSize={ADMIN_JOBS_PAGE_SIZE}
-                            total={filteredJobs.length}
-                            onPageChange={setPage}
-                        />
-                    </div>
+                    <JobsTable
+                        jobs={pageJobs}
+                        pagination={{
+                            total: filteredJobs.length,
+                            totalPages: pageCount,
+                            rowsPerPage: ADMIN_JOBS_PAGE_SIZE,
+                        }}
+                        page={currentPage}
+                        onPageChange={setPage}
+                        onOpenJob={openJob}
+                    />
                 )}
             </div>
 
