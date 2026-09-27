@@ -21,19 +21,35 @@ import {
     type JobFaultReport,
     type JobPaymentInput,
     type JobPaymentMilestone,
+    type ProductionStepKey,
     type StepSubmission,
 } from "@/constant/jobWorkflow";
+import type { DEFAULT_CURRENCY_CODE } from "@/constant/global";
+import { getPlanPrice, getPricingPlan, requiresBusinessDocuments, type BillingCycle } from "@/constant/sampleData";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Midnight `days` from today. Anchored to the day, not the moment, so the
+ * server and the browser work out the same dates whenever each loads the
+ * sample data — and dates on the same day tie the same way on both.
+ */
 function daysFromNow(days: number): string {
     const date = new Date();
+    date.setHours(0, 0, 0, 0);
     date.setDate(date.getDate() + days);
     return date.toISOString();
 }
 
 function hoursAgo(hours: number): string {
     return new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+}
+
+/** `days` from today (in the past, for these) at a time of day — "14:05" reads better than midnight in a log. */
+function dayAt(days: number, hour: number, minute = 0): string {
+    const date = new Date(daysFromNow(days));
+    date.setHours(hour, minute);
+    return date.toISOString();
 }
 
 // ─── Jobs ─────────────────────────────────────────────────────────────────────
@@ -49,11 +65,26 @@ function hoursAgo(hours: number): string {
 // A rejected job goes back to the manufacturer to fix and resubmit — up to
 // MAX_JOB_REJECTIONS times; after the last rejection it stays rejected.
 
+/** An admin — every admin can lead jobs. */
 export type ProjectLeadRecord = {
     id: string;
+    /** Set at sign-up — only a super admin can change it, as with the email. */
+    firstName: string;
+    lastName: string;
+    /** firstName and lastName. */
     name: string;
+    /** Their sign-in email, on the Mande domain (ADMIN_EMAIL_DOMAIN). */
+    email: string;
+    /** Asked for at sign-up; they can change it in Settings. */
+    phone: string;
+    /** An ADMIN_POSITION_OPTIONS value, chosen at sign-up. */
+    position: string;
     /** Null shows a generated avatar. */
     avatarUrl: string | null;
+    /** ISO date the account was created. */
+    joinedAt: string;
+    /** Null when two-factor authentication is off. */
+    twoFactorMethod: TwoFactorMethod | null;
 };
 
 /** The signed-in admin, among the project leads. */
@@ -61,40 +92,522 @@ export const SIGNED_IN_LEAD_ID = "lead-latade";
 /** The signed-in manufacturer — the manufacturer platform shows their jobs, pay and reviews. */
 export const SIGNED_IN_MANUFACTURER_ID = "mfr-majeurs";
 
+function projectLead({
+    joined,
+    ...seed
+}: Pick<ProjectLeadRecord, "id" | "firstName" | "lastName" | "position" | "phone"> &
+    Partial<Pick<ProjectLeadRecord, "twoFactorMethod">> & {
+        /** Days from today. */
+        joined: number;
+    }): ProjectLeadRecord {
+    return {
+        avatarUrl: null,
+        twoFactorMethod: null,
+        ...seed,
+        name: `${seed.firstName} ${seed.lastName}`,
+        email: `${seed.firstName.toLowerCase()}@mande.com.ng`,
+        joinedAt: daysFromNow(joined),
+    };
+}
+
 export const PROJECT_LEADS: ProjectLeadRecord[] = [
-    { id: "lead-latade", name: "Latade Dipe", avatarUrl: null },
-    { id: "lead-mark", name: "Mark Wilson", avatarUrl: null },
-    { id: "lead-austin", name: "Austin Campbell", avatarUrl: null },
-    { id: "lead-joke", name: "Joke Phillips", avatarUrl: null },
-    { id: "lead-ted", name: "Ted Lasso", avatarUrl: null },
-    { id: "lead-mercury", name: "Mercury Jones", avatarUrl: null },
+    projectLead({ id: "lead-latade", firstName: "Latade", lastName: "Dipe", position: "quality-assurance-manager", joined: -540, phone: "+234 812 555 0163", twoFactorMethod: "email" }),
+    projectLead({ id: "lead-mark", firstName: "Mark", lastName: "Wilson", position: "inventory-manager", joined: -480, phone: "+234 813 555 0142", twoFactorMethod: "app" }),
+    projectLead({ id: "lead-austin", firstName: "Austin", lastName: "Campbell", position: "furniture-surveyor", joined: -400, phone: "+234 814 555 0187" }),
+    projectLead({ id: "lead-joke", firstName: "Joke", lastName: "Phillips", position: "quality-assurance-manager", joined: -310, phone: "+234 816 555 0129", twoFactorMethod: "email" }),
+    projectLead({ id: "lead-ted", firstName: "Ted", lastName: "Lasso", position: "furniture-surveyor", joined: -200, phone: "+234 815 555 0110" }),
+    projectLead({ id: "lead-mercury", firstName: "Mercury", lastName: "Jones", position: "inventory-manager", joined: -95, phone: "+234 817 555 0175" }),
 ];
 
 export function getProjectLead(id: string): ProjectLeadRecord | undefined {
     return PROJECT_LEADS.find((lead) => lead.id === id);
 }
 
+// ─── Manufacturers ───────────────────────────────────────────────────────────
+
+export type ManufacturerAddress = {
+    streetAddress: string;
+    city: string;
+    state: string;
+    /** ISO country code, e.g. "NG" — African countries only (see AFRICAN_COUNTRIES). */
+    country: string;
+};
+
+/** Where a submitted document (NIN card, tax number, business license number) is in verification. */
+export type VerificationStatus = "pending" | "processing" | "verified" | "rejected" | "manual_review";
+
+export type DocumentVerification = {
+    /**
+     * "pending" once submitted, "processing" while it's being checked, and
+     * "manual_review" when it needs a person to look at it — then "verified"
+     * or "rejected". Submitting it again after a rejection puts it back to
+     * "pending".
+     */
+    status: VerificationStatus;
+    /** Why it was rejected, e.g. "The photo is too blurry to read." Null unless rejected. */
+    rejectionReason: string | null;
+};
+
+export type ManufacturerNinCard = DocumentVerification & {
+    /** Null when no photo has been uploaded. */
+    imageUrl: string | null;
+};
+
+export type ManufacturerBankAccount = {
+    /** The bank's code from the banking API's bank list, e.g. "058". */
+    bankCode: string;
+    bankName: string;
+    accountNumber: string;
+    /** The name the account is registered to, as returned by the bank lookup. */
+    accountName: string;
+    /** Only naira accounts are supported for now. */
+    currency: typeof DEFAULT_CURRENCY_CODE;
+};
+
+/**
+ * "flagged" — they can hold one job at a time; "suspended" — everything is
+ * paused, and all they can do is send an appeal.
+ */
+export type ManufacturerAccountStatus = "active" | "flagged" | "suspended";
+
+/**
+ * An admin changing the account's status — flagging or suspending it, or
+ * lifting a flag or suspension ("active" again).
+ */
+export type AccountStatusEventRecord = {
+    status: ManufacturerAccountStatus;
+    /** Why — the manufacturer sees it. */
+    reason: string | null;
+    by: string;
+    /** ISO date. */
+    at: string;
+};
+
+/**
+ * A suspended manufacturer asking for the suspension to be lifted. Approving
+ * it lifts the suspension; turning it down keeps it, and they can appeal
+ * again.
+ */
+export type AccountAppealRecord = {
+    id: string;
+    message: string;
+    attachments: JobAttachmentRecord[];
+    /** ISO date. */
+    sentAt: string;
+    status: "pending" | "approved" | "declined";
+    /** The admin's reply — why it was turned down, or a note with the approval. */
+    response: string | null;
+    decidedBy: string | null;
+    /** ISO date. Null while pending. */
+    decidedAt: string | null;
+};
+
+export type SocialLoginProvider = "google" | "facebook";
+
+/** How the second step of two-factor authentication is done. */
+export type TwoFactorMethod = "email" | "app";
+
+export type ManufacturerSecurity = {
+    /** Accounts linked for one-click login — the linked account's email, null when not linked. */
+    linkedAccounts: Record<SocialLoginProvider, string | null>;
+    /** Null when two-factor authentication is off. */
+    twoFactorMethod: TwoFactorMethod | null;
+};
+
+/**
+ * Something the manufacturer did to how they sign in, keep the account safe
+ * or get paid — what admins see as the account's activity history.
+ */
+export type AccountActivityRecord = {
+    id: string;
+    /** ISO date. */
+    at: string;
+    /** Where it was done from, e.g. "Chrome on macOS · Lekki, Lagos". */
+    device: string;
+} & (
+    | { type: "account-created" | "signed-in-new-device" | "password-changed" | "password-reset" | "phone-changed" }
+    | { type: "social-linked" | "social-unlinked"; provider: SocialLoginProvider }
+    /** "two-factor-changed" switches from one method to another. */
+    | { type: "two-factor-enabled" | "two-factor-changed" | "two-factor-disabled"; method: TwoFactorMethod }
+    | { type: "bank-added" | "bank-removed"; bankName: string; accountNumber: string }
+);
+
+/** An admin asking a super admin to delete the account — admins can't delete it themselves. */
+export type DeletionRequestRecord = {
+    reason: string;
+    attachments: JobAttachmentRecord[];
+    requestedBy: string;
+    /** ISO date. */
+    requestedAt: string;
+};
+
 export type ManufacturerRecord = {
     id: string;
     companyName: string;
-    /** The person at the company who posts on jobs. */
+    firstName: string;
+    lastName: string;
+    /** The person who runs the account — firstName and lastName. */
     contactName: string;
-    phone: string;
     email: string;
+    phone: string;
+    /** ISO date. Null until set. */
+    dateOfBirth: string | null;
+    /** Null shows the initials avatar. */
+    avatarUrl: string | null;
     /** ISO date the account was created. */
     joinedAt: string;
+    address: ManufacturerAddress;
+    /** COMPANY_SPECIALITY_OPTIONS values, e.g. "beds". */
+    specialities: string[];
+    /** A STAFF_RANGE_OPTIONS value, e.g. "21-30". */
+    staffRange: string;
+    /** A PRODUCTION_LEAD_TIME_OPTIONS value, e.g. "5-8-weeks". */
+    productionLeadTime: string;
+    /** A MATERIALS_INVENTORY_OPTIONS value — whether they keep their own materials. */
+    materialsInventory: string;
+    ninCard: ManufacturerNinCard;
+    /** Empty until submitted (optional on the Solo plan). */
+    companyTaxNumber: string;
+    companyTaxNumberVerification: DocumentVerification;
+    /** Empty until submitted (optional on the Solo plan). */
+    businessLicenseNumber: string;
+    businessLicenseNumberVerification: DocumentVerification;
+    subscription: {
+        /** A PRICING_PLANS id. */
+        planId: string;
+        billingCycle: BillingCycle;
+        /** ISO date the plan renews. */
+        renewsAt: string;
+        /** How renewals are paid — a saved card, or the wallet balance. The first payment, at sign-up, is always by card. */
+        renewalsPaidFrom: "card" | "wallet";
+    };
+    /** Where withdrawals go. Null until one is added. */
+    bankAccount: ManufacturerBankAccount | null;
+    /** Sign-in settings — as the latest activity left them. */
+    security: ManufacturerSecurity;
+    /** Sign-ins, password, linked-account, two-factor and bank account changes — newest first. */
+    activity: AccountActivityRecord[];
+    accountStatus: ManufacturerAccountStatus;
+    /** Every flag, suspension and lifting of one — newest first. */
+    statusHistory: AccountStatusEventRecord[];
+    /** Their appeals against a suspension — newest first. */
+    appeals: AccountAppealRecord[];
+    /** Waiting for a super admin. Null unless an admin has asked for it. */
+    deletionRequest: DeletionRequestRecord | null;
 };
 
+const VERIFIED: DocumentVerification = { status: "verified", rejectionReason: null };
+const NOT_SUBMITTED: DocumentVerification = { status: "pending", rejectionReason: null };
+
+type ManufacturerSeed = Pick<ManufacturerRecord, "id" | "companyName" | "firstName" | "lastName" | "email" | "phone" | "specialities"> & {
+    /** Days from today. */
+    joined: number;
+    city: string;
+    state: string;
+    streetAddress?: string;
+    planId?: string;
+    subscription?: Partial<ManufacturerRecord["subscription"]>;
+    /** Their activity after signing up, oldest first — see withAccountActivity. */
+    activity?: ActivitySeed[];
+    /** The device they signed up on. */
+    signUpDevice?: string;
+} & Partial<Omit<ManufacturerRecord, "address" | "joinedAt" | "contactName" | "subscription" | "activity" | "security">>;
+
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
+type ActivitySeed = DistributiveOmit<AccountActivityRecord, "id">;
+
+/**
+ * A manufacturer's activity log, newest first: signing up, adding the bank
+ * account they have now (unless the seed says when), then the seed's own
+ * events. Their sign-in settings are what the log leaves them with, so the
+ * two never disagree.
+ */
+function withAccountActivity(
+    record: Omit<ManufacturerRecord, "activity" | "security">,
+    seeds: ActivitySeed[],
+    signUpDevice: string,
+): Pick<ManufacturerRecord, "activity" | "security"> {
+    const events: ActivitySeed[] = [{ type: "account-created", at: shiftHours(record.joinedAt, 9), device: signUpDevice }];
+    const { bankAccount } = record;
+    const seedsAddBank = seeds.some((seed) => seed.type === "bank-added" && seed.accountNumber === bankAccount?.accountNumber);
+    if (bankAccount && !seedsAddBank) {
+        events.push({
+            type: "bank-added",
+            bankName: bankAccount.bankName,
+            accountNumber: bankAccount.accountNumber,
+            at: shiftHours(record.joinedAt, 3 * 24 + 11),
+            device: signUpDevice,
+        });
+    }
+    events.push(...seeds);
+    const ordered = events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+
+    const security: ManufacturerSecurity = { linkedAccounts: { google: null, facebook: null }, twoFactorMethod: null };
+    for (const event of ordered) {
+        if (event.type === "social-linked") security.linkedAccounts[event.provider] = record.email;
+        if (event.type === "social-unlinked") security.linkedAccounts[event.provider] = null;
+        if (event.type === "two-factor-enabled" || event.type === "two-factor-changed") security.twoFactorMethod = event.method;
+        if (event.type === "two-factor-disabled") security.twoFactorMethod = null;
+    }
+    return {
+        security,
+        activity: ordered.map((event, index) => ({ ...event, id: `activity-${record.id}-${index + 1}` })).reverse(),
+    };
+}
+
+function shiftHours(iso: string, hours: number): string {
+    return new Date(new Date(iso).getTime() + hours * 60 * 60 * 1000).toISOString();
+}
+
+/** When the plan renews — the first billing-period boundary after today, counted from the day they joined. */
+function nextRenewal(joinedAt: string, billingCycle: BillingCycle): string {
+    const now = new Date();
+    for (let period = 1; ; period++) {
+        const renewsAt = addBillingPeriods(joinedAt, billingCycle, period);
+        if (renewsAt > now) return renewsAt.toISOString();
+    }
+}
+
+function manufacturer({
+    joined,
+    city,
+    state,
+    streetAddress,
+    planId = "solo",
+    subscription,
+    activity = [],
+    signUpDevice = `Chrome on Android · ${city}, ${state}`,
+    ...seed
+}: ManufacturerSeed): ManufacturerRecord {
+    const joinedAt = daysFromNow(joined);
+    const billingCycle = subscription?.billingCycle ?? "monthly";
+    const record: Omit<ManufacturerRecord, "activity" | "security"> = {
+        dateOfBirth: null,
+        avatarUrl: null,
+        staffRange: "6-10",
+        productionLeadTime: "2-4-weeks",
+        materialsInventory: "yes",
+        ninCard: { imageUrl: "/sample-image/nin-card-sample.svg", ...VERIFIED },
+        companyTaxNumber: "",
+        companyTaxNumberVerification: NOT_SUBMITTED,
+        businessLicenseNumber: "",
+        businessLicenseNumberVerification: NOT_SUBMITTED,
+        bankAccount: null,
+        accountStatus: "active",
+        statusHistory: [],
+        appeals: [],
+        deletionRequest: null,
+        ...seed,
+        contactName: `${seed.firstName} ${seed.lastName}`,
+        joinedAt,
+        address: { streetAddress: streetAddress ?? "12, Allen Avenue", city, state, country: "NG" },
+        subscription: {
+            planId,
+            billingCycle,
+            renewsAt: nextRenewal(joinedAt, billingCycle),
+            renewalsPaidFrom: "card",
+            ...subscription,
+        },
+    };
+    return { ...record, ...withAccountActivity(record, activity, signUpDevice) };
+}
+
 export const MANUFACTURERS: ManufacturerRecord[] = [
-    { id: "mfr-majeurs", companyName: "Majeurs Chesterfield", contactName: "Demi Semande", phone: "+2348012345678", email: "demi@majeurs.ng", joinedAt: daysFromNow(-420) },
-    { id: "mfr-vava", companyName: "Vava Furniture Nig. Ltd", contactName: "Samuel Vava", phone: "+2348023456789", email: "samuel@vavafurniture.ng", joinedAt: daysFromNow(-300) },
-    { id: "mfr-kesino", companyName: "Kesino Furnitures", contactName: "Kesi Nwosu", phone: "+2348034567890", email: "kesi@kesino.ng", joinedAt: daysFromNow(-210) },
-    { id: "mfr-oak", companyName: "Oak & Iron Works", contactName: "Tunde Bakare", phone: "+2348045678901", email: "tunde@oakandiron.ng", joinedAt: daysFromNow(-150) },
-    { id: "mfr-leather", companyName: "Lagos Leather Co.", contactName: "Amaka Obi", phone: "+2348056789012", email: "amaka@lagosleather.ng", joinedAt: daysFromNow(-90) },
+    manufacturer({
+        id: "mfr-majeurs", companyName: "Majeurs Chesterfield", firstName: "Demi", lastName: "Semande",
+        email: "demi@majeurs.ng", phone: "+234 801 234 5678", joined: -420, dateOfBirth: "1990-05-14T12:00:00.000Z",
+        streetAddress: "20, Peacock Drive", city: "Lekki", state: "Lagos",
+        specialities: ["beds", "desks", "chairs-seating"], staffRange: "21-30", productionLeadTime: "5-8-weeks",
+        // A person needs to look at the ID — admins can verify or reject it
+        ninCard: { imageUrl: "/sample-image/nin-card-sample.svg", status: "manual_review", rejectionReason: null },
+        bankAccount: { bankCode: "058", bankName: "Guaranty Trust Bank", accountNumber: "0233000994", accountName: "Demi Semande", currency: "NGN" },
+        signUpDevice: "Chrome on macOS · Lekki, Lagos",
+        activity: [
+            { type: "bank-added", bankName: "Access Bank", accountNumber: "0012345678", at: dayAt(-405, 10, 12), device: "Chrome on macOS · Lekki, Lagos" },
+            { type: "social-linked", provider: "google", at: dayAt(-380, 19, 40), device: "Chrome on macOS · Lekki, Lagos" },
+            { type: "two-factor-enabled", method: "app", at: dayAt(-300, 8, 55), device: "Chrome on macOS · Lekki, Lagos" },
+            { type: "bank-added", bankName: "Guaranty Trust Bank", accountNumber: "0233000994", at: dayAt(-201, 13, 20), device: "Chrome on macOS · Lekki, Lagos" },
+            { type: "bank-removed", bankName: "Access Bank", accountNumber: "0012345678", at: dayAt(-201, 13, 24), device: "Chrome on macOS · Lekki, Lagos" },
+            { type: "signed-in-new-device", at: dayAt(-120, 7, 30), device: "Safari on iPhone · Lekki, Lagos" },
+            { type: "two-factor-changed", method: "email", at: dayAt(-119, 21, 5), device: "Safari on iPhone · Lekki, Lagos" },
+            { type: "password-changed", at: dayAt(-60, 16, 45), device: "Chrome on macOS · Lekki, Lagos" },
+            { type: "social-linked", provider: "facebook", at: dayAt(-45, 11, 2), device: "Safari on iPhone · Lekki, Lagos" },
+            { type: "social-unlinked", provider: "facebook", at: dayAt(-31, 9, 18), device: "Chrome on macOS · Lekki, Lagos" },
+            { type: "phone-changed", at: dayAt(-14, 15, 10), device: "Safari on iPhone · Lekki, Lagos" },
+            { type: "password-changed", at: dayAt(-3, 10, 26), device: "Chrome on macOS · Lekki, Lagos" },
+        ],
+    }),
+    manufacturer({
+        id: "mfr-vava", companyName: "Vava Furniture Nig. Ltd", firstName: "Samuel", lastName: "Vava",
+        email: "samuel@vavafurniture.ng", phone: "+234 802 345 6789", joined: -300, city: "Ikeja", state: "Lagos",
+        specialities: ["chairs-seating", "upholstery"], planId: "workshop", staffRange: "11-20",
+        activity: [
+            { type: "social-linked", provider: "google", at: dayAt(-280, 12, 0), device: "Chrome on Android · Ikeja, Lagos" },
+            { type: "password-reset", at: dayAt(-150, 22, 41), device: "Chrome on Android · Ikeja, Lagos" },
+            { type: "signed-in-new-device", at: dayAt(-66, 8, 14), device: "Edge on Windows · Ikeja, Lagos" },
+        ],
+        statusHistory: [
+            { status: "active", reason: "Both late jobs were delivered and signed off.", by: "Latade Dipe", at: daysFromNow(-40) },
+            { status: "flagged", reason: "Two missed due dates in a row.", by: "Austin Campbell", at: daysFromNow(-65) },
+        ],
+        companyTaxNumber: "TIN-20448871", companyTaxNumberVerification: VERIFIED,
+        businessLicenseNumber: "RC-3389201", businessLicenseNumberVerification: VERIFIED,
+    }),
+    manufacturer({
+        id: "mfr-kesino", companyName: "Kesino Furnitures", firstName: "Kesi", lastName: "Nwosu",
+        email: "kesi@kesino.ng", phone: "+234 803 456 7890", joined: -210, city: "Enugu", state: "Enugu",
+        specialities: ["desks", "wood", "cabinetry"], planId: "workshop",
+        subscription: { renewalsPaidFrom: "wallet" },
+        bankAccount: { bankCode: "044", bankName: "Access Bank", accountNumber: "0690000031", accountName: "Kesi Nwosu", currency: "NGN" },
+        activity: [
+            { type: "two-factor-enabled", method: "app", at: dayAt(-150, 9, 30), device: "Chrome on Android · Enugu, Enugu" },
+            { type: "social-linked", provider: "facebook", at: dayAt(-100, 18, 12), device: "Chrome on Android · Enugu, Enugu" },
+            { type: "password-changed", at: dayAt(-8, 7, 50), device: "Chrome on Android · Enugu, Enugu" },
+        ],
+        companyTaxNumber: "TIN-11843092", companyTaxNumberVerification: VERIFIED,
+        businessLicenseNumber: "RC-1928374", businessLicenseNumberVerification: { status: "processing", rejectionReason: null },
+    }),
+    manufacturer({
+        id: "mfr-oak", companyName: "Oak & Iron Works", firstName: "Tunde", lastName: "Bakare",
+        email: "tunde@oakandiron.ng", phone: "+234 804 567 8901", joined: -150, city: "Ibadan", state: "Oyo",
+        specialities: ["wood", "outdoor-furniture"], planId: "studio-enterprise", staffRange: "31-50",
+        subscription: { billingCycle: "annual" },
+        bankAccount: { bankCode: "057", bankName: "Zenith Bank", accountNumber: "2081234567", accountName: "Oak & Iron Works", currency: "NGN" },
+        signUpDevice: "Firefox on Windows · Ibadan, Oyo",
+        activity: [
+            { type: "two-factor-enabled", method: "email", at: dayAt(-140, 10, 5), device: "Firefox on Windows · Ibadan, Oyo" },
+            { type: "password-changed", at: dayAt(-20, 17, 33), device: "Firefox on Windows · Ibadan, Oyo" },
+        ],
+        companyTaxNumber: "TIN-55012983", companyTaxNumberVerification: VERIFIED,
+        businessLicenseNumber: "RC-7730915", businessLicenseNumberVerification: VERIFIED,
+    }),
+    manufacturer({
+        id: "mfr-leather", companyName: "Lagos Leather Co.", firstName: "Amaka", lastName: "Obi",
+        email: "amaka@lagosleather.ng", phone: "+234 805 678 9012", joined: -90, city: "Yaba", state: "Lagos",
+        specialities: ["leather", "sofas"], planId: "workshop",
+        subscription: { renewalsPaidFrom: "wallet" },
+        bankAccount: { bankCode: "033", bankName: "United Bank for Africa", accountNumber: "1023456789", accountName: "Amaka Obi", currency: "NGN" },
+        activity: [
+            { type: "social-linked", provider: "google", at: dayAt(-80, 14, 22), device: "Chrome on Android · Yaba, Lagos" },
+            { type: "social-unlinked", provider: "google", at: dayAt(-10, 9, 3), device: "Safari on iPhone · Yaba, Lagos" },
+        ],
+        companyTaxNumber: "TIN-30918274", companyTaxNumberVerification: VERIFIED,
+        businessLicenseNumber: "RC-4418290", businessLicenseNumberVerification: VERIFIED,
+        accountStatus: "flagged",
+        statusHistory: [{ status: "flagged", reason: "Two jobs delivered late this quarter.", by: "Mark Wilson", at: daysFromNow(-6) }],
+    }),
+    manufacturer({
+        id: "mfr-shavings", companyName: "Shavings Furnitures", firstName: "Dansteve", lastName: "Kanbi",
+        email: "dansteve@shavings.ng", phone: "+234 806 789 0123", joined: -60, city: "Port Harcourt", state: "Rivers",
+        specialities: ["beds", "desks"],
+        ninCard: { imageUrl: "/sample-image/nin-card-sample.svg", status: "pending", rejectionReason: null },
+    }),
+    manufacturer({
+        id: "mfr-makeshift", companyName: "Makeshift Global", firstName: "Ajit", lastName: "Johnson",
+        email: "ajit@makeshift.ng", phone: "+234 807 890 1234", joined: -240, city: "Wuse", state: "FCT",
+        specialities: ["desks", "upholstery"], planId: "workshop",
+        companyTaxNumber: "TIN-88120034", companyTaxNumberVerification: { status: "rejected", rejectionReason: "The tax number doesn't match the company name on record." },
+        businessLicenseNumber: "RC-6621039", businessLicenseNumberVerification: VERIFIED,
+    }),
+    manufacturer({
+        id: "mfr-brown", companyName: "Brown Furnitures", firstName: "Bidemi", lastName: "Brown",
+        email: "bidemi@brownfurnitures.ng", phone: "+234 808 901 2345", joined: -760, city: "Surulere", state: "Lagos",
+        specialities: ["upholstery"],
+        activity: [
+            { type: "bank-added", bankName: "First Bank of Nigeria", accountNumber: "3012345678", at: dayAt(-700, 11, 40), device: "Chrome on Android · Surulere, Lagos" },
+            { type: "two-factor-enabled", method: "email", at: dayAt(-500, 20, 15), device: "Chrome on Android · Surulere, Lagos" },
+            { type: "password-changed", at: dayAt(-200, 8, 5), device: "Chrome on Android · Surulere, Lagos" },
+            { type: "bank-removed", bankName: "First Bank of Nigeria", accountNumber: "3012345678", at: dayAt(-30, 13, 52), device: "Chrome on Android · Surulere, Lagos" },
+        ],
+        accountStatus: "suspended",
+        statusHistory: [
+            { status: "suspended", reason: "Materials money for one job was spent on another. The finance team is looking into it.", by: "Latade Dipe", at: daysFromNow(-12) },
+        ],
+        // One turned down, then a second waiting for an admin
+        appeals: [
+            {
+                id: "appeal-brown-2",
+                message: "The materials were bought for this job — the supplier put the wrong job code on the invoice. I've attached the corrected one.",
+                attachments: [{ name: "Corrected invoice.pdf", url: "/corrected-invoice.pdf", kind: "document" }],
+                sentAt: daysFromNow(-7), status: "pending", response: null, decidedBy: null, decidedAt: null,
+            },
+            {
+                id: "appeal-brown-1",
+                message: "I didn't spend the materials money on another job.",
+                attachments: [],
+                sentAt: daysFromNow(-11), status: "declined",
+                response: "We need to see the supplier's invoice for this job before we can lift the suspension.",
+                decidedBy: "Latade Dipe", decidedAt: daysFromNow(-10),
+            },
+        ],
+    }),
+    manufacturer({
+        id: "mfr-layan", companyName: "Layan Furnitures", firstName: "Kunle", lastName: "Layan",
+        email: "kunle@layan.ng", phone: "+234 809 012 3456", joined: -45, city: "Abeokuta", state: "Ogun",
+        specialities: ["beds", "chairs-seating"],
+    }),
+    manufacturer({
+        id: "mfr-williams", companyName: "Williams Chesterfield", firstName: "Tiambi", lastName: "Williams",
+        email: "tiambi@williamschesterfield.ng", phone: "+234 810 123 4567", joined: -20, city: "Lekki", state: "Lagos",
+        specialities: ["sofas", "leather"], planId: "workshop",
+        ninCard: { imageUrl: "/sample-image/nin-card-sample.svg", status: "processing", rejectionReason: null },
+        companyTaxNumber: "TIN-40291187", companyTaxNumberVerification: NOT_SUBMITTED,
+        businessLicenseNumber: "RC-9981320", businessLicenseNumberVerification: NOT_SUBMITTED,
+    }),
+    manufacturer({
+        id: "mfr-boney", companyName: "Boney Furnitures", firstName: "John", lastName: "Jones",
+        email: "john@boney.ng", phone: "+234 811 234 5678", joined: -130, city: "Kano", state: "Kano",
+        specialities: ["wood"],
+    }),
+    manufacturer({
+        id: "mfr-metalworks", companyName: "Metal Works Ltd", firstName: "Kemi", lastName: "Adeyemi",
+        email: "kemi@metalworks.ng", phone: "+234 812 345 6789", joined: -35, city: "Ilorin", state: "Kwara",
+        specialities: ["outdoor-furniture"],
+        ninCard: { imageUrl: "/sample-image/nin-card-sample.svg", status: "rejected", rejectionReason: "The photo is too blurry to read." },
+    }),
 ];
 
 export function getManufacturer(id: string): ManufacturerRecord | undefined {
     return MANUFACTURERS.find((manufacturer) => manufacturer.id === id);
+}
+
+/** The flag or suspension the account is under now — null while it's active. */
+export function getAccountHold(
+    manufacturer: Pick<ManufacturerRecord, "accountStatus" | "statusHistory">,
+): AccountStatusEventRecord | null {
+    if (manufacturer.accountStatus === "active") return null;
+    return manufacturer.statusHistory.find((event) => event.status === manufacturer.accountStatus) ?? null;
+}
+
+/**
+ * Where a manufacturer's documents stand as a whole: rejected if any one
+ * is, verified only once every one their plan needs is, otherwise the least
+ * far along. The Solo plan doesn't need the tax or business license number.
+ */
+export function getManufacturerVerification(
+    manufacturer: Pick<
+        ManufacturerRecord,
+        | "ninCard"
+        | "subscription"
+        | "companyTaxNumber"
+        | "companyTaxNumberVerification"
+        | "businessLicenseNumber"
+        | "businessLicenseNumberVerification"
+    >,
+): VerificationStatus {
+    const needsBusinessDocuments = requiresBusinessDocuments(manufacturer.subscription.planId);
+    const statuses: VerificationStatus[] = [manufacturer.ninCard.status];
+    if (manufacturer.companyTaxNumber || needsBusinessDocuments) {
+        statuses.push(manufacturer.companyTaxNumberVerification.status);
+    }
+    if (manufacturer.businessLicenseNumber || needsBusinessDocuments) {
+        statuses.push(manufacturer.businessLicenseNumberVerification.status);
+    }
+    if (statuses.includes("rejected")) return "rejected";
+    if (statuses.every((status) => status === "verified")) return "verified";
+    if (statuses.includes("manual_review")) return "manual_review";
+    if (statuses.includes("processing")) return "processing";
+    return "pending";
 }
 
 /** Short codes for each category, used in job codes — "upholstery" → "UPH". */
@@ -187,6 +700,8 @@ export type TimelineExtensionRecord = {
     /** "pending" until the lead approves (the due date moves) or rejects it. */
     status: "pending" | "approved" | "rejected";
     decidedAt: string | null;
+    /** The production step the job was on when the delay was reported. */
+    step: ProductionStepKey | null;
 };
 
 /** One offer of the job to manufacturer(s). */
@@ -439,7 +954,10 @@ const JOB_SEEDS: JobSeed[] = [
         rejections: [rejection("rej-1-1", 4, "The powder coat is glossy, but the spec calls for matte black. The weld on the back left leg also needs grinding smooth.", true)] },
     { title: "4 Cushions & Seating Fabric", specialities: ["upholstery", "leather"], manufacturerIds: ["mfr-majeurs"], amount: 1500000, projectLeadIds: ["lead-mark"], status: "in-progress", start: -10, due: 35, assigned: -10, attachments: BLUEPRINTS, notes: MARK_WILSON_NOTES, stepsDone: 2,
         // Proof of the Frame and the Assembly both waiting — sent without waiting for the first review
-        waitingHours: [6, 1] },
+        waitingHours: [6, 1],
+        extensionRequests: [
+            { id: "ext-2-1", previousDueDate: daysFromNow(35), requestedDueDate: daysFromNow(42), reason: "The fabric supplier is out of the oatmeal weave until next week.", requestedAt: hoursAgo(20), status: "pending", decidedAt: null, step: "finishing" },
+        ] },
     { title: "2 Beds & 1 Desk", specialities: ["beds", "desks"], manufacturerIds: ["mfr-vava"], amount: 620000, projectLeadIds: ["lead-austin"], status: "in-progress", start: -30, due: 4, assigned: -30, stepsDone: 3, waitingHours: [5] },
     // Pending, after the first manufacturer (Majeurs) turned it down
     { title: "3 Tables & Carver Chairs", specialities: ["wood", "chairs-seating"], manufacturerIds: ["mfr-kesino"], amount: 540000, projectLeadIds: ["lead-latade"], status: "pending", start: 3, due: 45,
@@ -453,7 +971,7 @@ const JOB_SEEDS: JobSeed[] = [
     // In progress, asking for more time
     { title: "2 Leather Seats", specialities: ["leather"], manufacturerIds: ["mfr-leather"], amount: 420000, projectLeadIds: ["lead-latade"], status: "in-progress", start: -25, due: 7, assigned: -25, stepsDone: 3,
         extensionRequests: [
-            { id: "ext-7-1", previousDueDate: daysFromNow(7), requestedDueDate: daysFromNow(13), reason: "Our leather supplier delayed the hides by about a week, so upholstery can't start until they arrive.", requestedAt: daysFromNow(-1), status: "pending", decidedAt: null },
+            { id: "ext-7-1", previousDueDate: daysFromNow(7), requestedDueDate: daysFromNow(13), reason: "Our leather supplier delayed the hides by about a week, so upholstery can't start until they arrive.", requestedAt: daysFromNow(-1), status: "pending", decidedAt: null, step: "assembly" },
         ] },
     { title: "8 Throw Pillows", specialities: ["upholstery"], manufacturerIds: ["mfr-majeurs"], amount: 96000, projectLeadIds: ["lead-joke"], status: "in-progress", start: -18, due: 3, assigned: -18, stepsDone: 4 },
     { title: "8 Office Desks & Chairs", specialities: ["desks", "chairs-seating"], manufacturerIds: ["mfr-oak", "mfr-kesino"], amount: 2400000, projectLeadIds: ["lead-ted", "lead-latade"], status: "completed", start: -70, due: -5, assigned: -70, completed: -5,
@@ -473,7 +991,10 @@ const JOB_SEEDS: JobSeed[] = [
     { title: "Oak Dining Table", specialities: ["wood"], manufacturerIds: ["mfr-majeurs"], amount: 350000, projectLeadIds: ["lead-joke"], status: "pending", start: 5, due: 50 },
     // Rejected once — back with the manufacturer to fix
     { title: "Upholstered Headboard", specialities: ["upholstery", "beds"], manufacturerIds: ["mfr-majeurs"], amount: 275000, projectLeadIds: ["lead-latade"], status: "rejected", start: -50, due: 9, assigned: -50,
-        rejections: [rejection("rej-15-1", 1, "The fabric colour doesn't match the approved sample and the stitching along the top edge is uneven. Please redo the upholstery with the approved fabric.")] },
+        rejections: [rejection("rej-15-1", 1, "The fabric colour doesn't match the approved sample and the stitching along the top edge is uneven. Please redo the upholstery with the approved fabric.")],
+        extensionRequests: [
+            { id: "ext-15-1", previousDueDate: daysFromNow(4), requestedDueDate: daysFromNow(9), reason: "The approved fabric was back-ordered for five days.", requestedAt: daysFromNow(-22), status: "approved", decidedAt: daysFromNow(-21), step: "assembly" },
+        ] },
     { title: "4 Leather Lounge Chairs", specialities: ["leather", "chairs-seating"], manufacturerIds: ["mfr-leather", "mfr-majeurs"], amount: 960000, projectLeadIds: ["lead-latade", "lead-mercury"], status: "in-progress", start: -8, due: 42, assigned: -8, stepsDone: 2, waitingHours: [3], attachments: [{ name: "Lounge Chair Spec.pdf", url: "/lounge-chair-spec.pdf", kind: "document" }, { name: "Lounge chair.webp", url: "/sample-image/sarki-chair.webp", kind: "image" }] },
     // Pending with no manufacturer yet
     { title: "Modular Sectional Sofa", specialities: ["sofas", "upholstery"], manufacturerIds: [], amount: 850000, projectLeadIds: ["lead-latade"], status: "pending", start: 7, due: 67, created: -1,
@@ -484,7 +1005,10 @@ const JOB_SEEDS: JobSeed[] = [
             { id: "app-17-1", manufacturerId: "mfr-leather", appliedAt: daysFromNow(-3), status: "declined", decidedAt: daysFromNow(-2) },
         ] },
     { title: "Carved Oak Executive Desk", specialities: ["desks", "wood"], manufacturerIds: ["mfr-kesino"], amount: 720000, projectLeadIds: ["lead-austin"], status: "in-progress", start: -9, due: 26, assigned: -9, stepsDone: 2 },
-    { title: "Chesterfield Leather Sofa", specialities: ["leather", "sofas"], manufacturerIds: ["mfr-majeurs"], amount: 1100000, projectLeadIds: ["lead-mark"], status: "in-progress", start: -14, due: 42, assigned: -14, stepsDone: 2 },
+    { title: "Chesterfield Leather Sofa", specialities: ["leather", "sofas"], manufacturerIds: ["mfr-majeurs"], amount: 1100000, projectLeadIds: ["lead-mark"], status: "in-progress", start: -14, due: 42, assigned: -14, stepsDone: 2,
+        extensionRequests: [
+            { id: "ext-19-1", previousDueDate: daysFromNow(42), requestedDueDate: daysFromNow(50), reason: "The oxblood leather batch arrived with blemishes, and the tannery needs a week to replace it.", requestedAt: daysFromNow(-5), status: "rejected", decidedAt: daysFromNow(-4), step: "frame" },
+        ] },
     { title: "Low Slate TV Console", specialities: ["cabinetry"], manufacturerIds: ["mfr-majeurs"], amount: 390000, projectLeadIds: ["lead-joke"], status: "completed", start: -40, due: -8, assigned: -40, completed: -33,
         manufacturerReview: { rating: 3, comment: "Looks great, but the steel legs weren't sealed against rust as the spec asked.", authorName: "Joke Phillips", createdAt: daysFromNow(-31) },
         faultReport: { reason: "One of the steel legs has started to rust at the base, and the slate top rocks slightly.", reportedAt: daysFromNow(-30), reportedBy: "Joke Phillips" } },
@@ -492,7 +1016,7 @@ const JOB_SEEDS: JobSeed[] = [
     // In progress, after an approved extension
     { title: "Kids' Bunk Bed", specialities: ["beds", "wood"], manufacturerIds: ["mfr-kesino"], amount: 330000, projectLeadIds: ["lead-latade"], status: "in-progress", start: -11, due: 21, assigned: -11, stepsDone: 2,
         extensionRequests: [
-            { id: "ext-22-1", previousDueDate: daysFromNow(16), requestedDueDate: daysFromNow(21), reason: "The client changed the ladder to a staircase with storage, which adds about five days.", requestedAt: daysFromNow(-6), status: "approved", decidedAt: daysFromNow(-5) },
+            { id: "ext-22-1", previousDueDate: daysFromNow(16), requestedDueDate: daysFromNow(21), reason: "The client changed the ladder to a staircase with storage, which adds about five days.", requestedAt: daysFromNow(-6), status: "approved", decidedAt: daysFromNow(-5), step: "frame" },
         ] },
     { title: "Reception Counter", specialities: ["cabinetry", "wood"], manufacturerIds: ["mfr-oak"], amount: 880000, projectLeadIds: ["lead-mercury"], status: "pending", start: 10, due: 60,
         applications: [{ id: "app-23-1", manufacturerId: "mfr-kesino", appliedAt: hoursAgo(5), status: "pending", decidedAt: null }] },
@@ -698,12 +1222,142 @@ export type WalletDebitRecord = {
 };
 
 export const SAMPLE_WALLET_DEBITS: WalletDebitRecord[] = [
+    { id: "debit-1", manufacturerId: "mfr-majeurs", type: "withdrawal", label: "Withdrawal", amount: 300000, date: daysFromNow(-20) },
+    { id: "debit-2", manufacturerId: "mfr-kesino", type: "withdrawal", label: "Withdrawal", amount: 500000, date: daysFromNow(-45) },
+    { id: "debit-3", manufacturerId: "mfr-oak", type: "withdrawal", label: "Withdrawal", amount: 800000, date: daysFromNow(-30) },
+    { id: "debit-4", manufacturerId: "mfr-leather", type: "withdrawal", label: "Withdrawal", amount: 200000, date: daysFromNow(-12) },
+];
+
+// ─── Support ─────────────────────────────────────────────────────────────────
+
+/** What a manufacturer shared from Talk to support › Share feedback. */
+export type SupportFeedbackRecord = {
+    id: string;
+    manufacturerId: string;
+    /** A FEEDBACK_CATEGORY_OPTIONS value. */
+    category: "feedback" | "suggestion" | "problem";
+    message: string;
+    /** Null when none was attached. */
+    screenshotUrl: string | null;
+    /** ISO date. */
+    sentAt: string;
+};
+
+const SAMPLE_SCREENSHOT = "/sample-image/feedback-screenshot-sample.svg";
+
+/** Newest first. */
+export const SAMPLE_SUPPORT_FEEDBACK: SupportFeedbackRecord[] = [
     {
-        id: "debit-1",
+        id: "feedback-1",
         manufacturerId: "mfr-majeurs",
-        type: "withdrawal",
-        label: "Withdrawal",
-        amount: 300000,
-        date: daysFromNow(-20),
+        category: "problem",
+        message: "When I upload proof for the Frame step from my phone, the second photo doesn't show until I refresh the page. It happened on two jobs this week.",
+        screenshotUrl: SAMPLE_SCREENSHOT,
+        sentAt: dayAt(-9, 18, 22),
+    },
+    {
+        id: "feedback-2",
+        manufacturerId: "mfr-oak",
+        category: "suggestion",
+        message: "Please add a downloadable invoice for the yearly plan — our accountant needs one for the books.",
+        screenshotUrl: null,
+        sentAt: dayAt(-15, 10, 40),
+    },
+    {
+        id: "feedback-3",
+        manufacturerId: "mfr-kesino",
+        category: "problem",
+        message: "My last withdrawal took almost two hours to reach my Access Bank account. The app said a few minutes.",
+        screenshotUrl: null,
+        sentAt: dayAt(-22, 16, 5),
+    },
+    {
+        id: "feedback-4",
+        manufacturerId: "mfr-majeurs",
+        category: "suggestion",
+        message: "It would help to see all my payments for a job in one place, with what's still to come after each step.",
+        screenshotUrl: null,
+        sentAt: dayAt(-40, 9, 12),
+    },
+    {
+        id: "feedback-5",
+        manufacturerId: "mfr-vava",
+        category: "suggestion",
+        message: "Let us message the project lead from the job page instead of having to call. Calls are hard to take on the workshop floor.",
+        screenshotUrl: null,
+        sentAt: dayAt(-55, 13, 30),
+    },
+    {
+        id: "feedback-6",
+        manufacturerId: "mfr-majeurs",
+        category: "feedback",
+        message: "The new job cards are much easier to read. Seeing how long a job runs before applying helps me plan the workshop.",
+        screenshotUrl: null,
+        sentAt: dayAt(-70, 20, 48),
+    },
+    {
+        id: "feedback-7",
+        manufacturerId: "mfr-brown",
+        category: "feedback",
+        message: "Getting paid at each step has made buying materials much easier for us. Thank you.",
+        screenshotUrl: null,
+        sentAt: dayAt(-95, 11, 15),
     },
 ];
+
+// ─── Subscriptions ───────────────────────────────────────────────────────────
+
+/**
+ * A payment for a manufacturer's plan — one per billing period. Paid from
+ * the wallet it's a wallet transaction too; paid by card it isn't, and
+ * doesn't touch their balance.
+ */
+export type SubscriptionPaymentRecord = {
+    id: string;
+    manufacturerId: string;
+    /** A PRICING_PLANS id. */
+    planId: string;
+    billingCycle: BillingCycle;
+    /** In naira. */
+    amount: number;
+    /** ISO date. */
+    paidAt: string;
+    paidFrom: "card" | "wallet";
+};
+
+/** `periods` billing periods on from `from` — calendar months, or years. */
+function addBillingPeriods(from: string, billingCycle: BillingCycle, periods: number): Date {
+    const date = new Date(from);
+    if (billingCycle === "annual") date.setFullYear(date.getFullYear() + periods);
+    else date.setMonth(date.getMonth() + periods);
+    return date;
+}
+
+/**
+ * Every plan payment a manufacturer has made, oldest first — one at the
+ * start of each billing period since they joined, at their plan's price.
+ * Sample data doesn't track plan changes, so all are for the plan they're
+ * on now.
+ */
+export function getSubscriptionPayments(
+    manufacturer: ManufacturerRecord,
+    now: Date = new Date(),
+): SubscriptionPaymentRecord[] {
+    const { planId, billingCycle, renewalsPaidFrom } = manufacturer.subscription;
+    const plan = getPricingPlan(planId);
+    if (!plan) return [];
+    const payments: SubscriptionPaymentRecord[] = [];
+    for (let period = 0; ; period++) {
+        const paidAt = addBillingPeriods(manufacturer.joinedAt, billingCycle, period);
+        if (paidAt > now) return payments;
+        payments.push({
+            id: `sub-${manufacturer.id}-${period + 1}`,
+            manufacturerId: manufacturer.id,
+            planId,
+            billingCycle,
+            amount: getPlanPrice(plan, billingCycle),
+            paidAt: paidAt.toISOString(),
+            paidFrom: period === 0 ? "card" : renewalsPaidFrom,
+        });
+    }
+}

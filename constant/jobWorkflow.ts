@@ -97,6 +97,20 @@ export function getStepProgress(submissions: StepSubmission[]): StepProgress[] {
 }
 
 /**
+ * The step the manufacturer is working on — the first one waiting for proof
+ * (or new proof, after being sent back), else the latest one in review.
+ * Null once every step is approved.
+ */
+export function getCurrentStep(submissions: StepSubmission[]): ProductionStepKey | null {
+    const steps = getStepProgress(submissions);
+    return (
+        steps.find((step) => step.state === "current" || step.state === "sent-back")?.key ??
+        steps.filter((step) => step.state === "in-review").at(-1)?.key ??
+        null
+    );
+}
+
+/**
  * Whether the manufacturer can still cancel — only until they're past the
  * Materials step (its proof sent, and not sent back), when the materials
  * money has been spent on the job.

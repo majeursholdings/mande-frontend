@@ -1,3 +1,10 @@
+// The website's pages
+export const OPEN_JOBS_URL = "/open-jobs";
+export const ABOUT_URL = "/about-mande";
+export const CONTACT_URL = "/contact-mande";
+export const FAQ_URL = "/faq";
+export const PRIVACY_POLICY_URL = "/privacy-policy";
+
 type Mainmenu = {
     label: string;
     href?: string;
@@ -11,31 +18,31 @@ export const mainmenu:Mainmenu[] = [
     },
     {
         label: "Open Jobs",
-        href: "/open-jobs",
+        href: OPEN_JOBS_URL,
     },
     {
         label: "Help Center",
         subMenu: [
             {
                 label: "Contact",
-                href: "/contact-mande",
+                href: CONTACT_URL,
             },
             {
                 label: "Frequently Asked Questions",
-                href: "/faq",
+                href: FAQ_URL,
             },
         ],
     },
     {
         label: "About",
-        href: "/about-mande",
+        href: ABOUT_URL,
     },
 ]
 
 export const footerMenu: Mainmenu[] = [
     {
         label: "About",
-        href: "/about-mande",
+        href: ABOUT_URL,
     },
     {
         label: "Services",
@@ -43,11 +50,11 @@ export const footerMenu: Mainmenu[] = [
     },
     {
         label: "Contact",
-        href: "/contact-mande",
+        href: CONTACT_URL,
     },
     {
         label: "FAQs",
-        href: "/faqs",
+        href: FAQ_URL,
     },
     {
         label: "Terms",
@@ -58,6 +65,9 @@ export const footerMenu: Mainmenu[] = [
         href: "/legals",
     },
 ];
+
+/** The Mande website's homepage — where the sign-in screens' logo goes. */
+export const MANDE_WEBSITE_URL = "/";
 
 export const ARTISAN_LOGIN_URL = "/manufacturer/login";
 export const ARTISAN_SIGNUP_URL = "/manufacturer/registration";
