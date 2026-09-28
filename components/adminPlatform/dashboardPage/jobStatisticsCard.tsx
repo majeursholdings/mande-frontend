@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { useState } from "react";
 import {
     Bar,
     BarChart,
@@ -12,10 +11,9 @@ import {
     YAxis,
     type TooltipContentProps,
 } from "recharts";
-import { cn } from "@/lib/utils";
-import { useOutsideClickRef } from "@/hooks/useOutsideClickRef";
 import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
 import DashboardCard from "./dashboardCard";
+import PillSelect from "./pillSelect";
 import { getJobStatistics, type JobStatisticsRange } from "./dashboardStats";
 import {
     CHART_AXIS_TEXT_COLOR,
@@ -24,10 +22,10 @@ import {
     UNSUCCESSFUL_JOBS_COLOR,
 } from "./chartColors";
 
-const RANGE_LABELS: Record<JobStatisticsRange, string> = {
-    monthly: "Monthly",
-    weekly: "Weekly",
-};
+const RANGE_OPTIONS: { value: JobStatisticsRange; label: string }[] = [
+    { value: "monthly", label: "Monthly" },
+    { value: "weekly", label: "Weekly" },
+];
 
 const SERIES = [
     { key: "successful", label: "Successful jobs", color: SUCCESSFUL_JOBS_COLOR },
@@ -45,7 +43,7 @@ export default function JobStatisticsCard() {
     const ticks = Array.from({ length: axisMax / axisStep + 1 }, (_, index) => index * axisStep);
 
     return (
-        <DashboardCard title="Job Statistics" action={<RangeSelect value={range} onChange={setRange} />}>
+        <DashboardCard title="Job Statistics" action={<PillSelect label="Range" value={range} options={RANGE_OPTIONS} onChange={setRange} />}>
             <div aria-hidden>
                 <ResponsiveContainer width="100%" height={220}>
                     <BarChart
@@ -104,7 +102,7 @@ export default function JobStatisticsCard() {
 
             {/* The chart's numbers for screen readers — the chart itself is hidden from them */}
             <table className="sr-only">
-                <caption>Job statistics, {RANGE_LABELS[range].toLowerCase()}</caption>
+                <caption>Job statistics, {range}</caption>
                 <thead>
                     <tr>
                         <th scope="col">{range === "monthly" ? "Month" : "Day"}</th>
@@ -123,54 +121,6 @@ export default function JobStatisticsCard() {
                 </tbody>
             </table>
         </DashboardCard>
-    );
-}
-
-function RangeSelect({
-    value,
-    onChange,
-}: {
-    value: JobStatisticsRange;
-    onChange: (range: JobStatisticsRange) => void;
-}) {
-    const [isOpen, setIsOpen] = useState(false);
-    const close = useCallback(() => setIsOpen(false), []);
-    const ref = useOutsideClickRef<HTMLDivElement>(close);
-
-    return (
-        <div ref={ref} className="relative">
-            <button
-                type="button"
-                aria-label={`Range: ${RANGE_LABELS[value]}`}
-                aria-expanded={isOpen}
-                onClick={() => setIsOpen((open) => !open)}
-                className="flex items-center gap-1.5 rounded-full bg-secondary-50 px-3.5 py-1.5 text-sm font-medium font-text text-secondary-700 cursor-pointer"
-            >
-                {RANGE_LABELS[value]}
-                <ChevronDown className={cn("size-4 transition-transform duration-200", isOpen && "rotate-180")} />
-            </button>
-
-            {isOpen && (
-                <div className="absolute top-full right-0 z-10 mt-1.5 min-w-32 rounded-lg border border-border bg-white py-1 shadow-lg">
-                    {(Object.keys(RANGE_LABELS) as JobStatisticsRange[]).map((range) => (
-                        <button
-                            key={range}
-                            type="button"
-                            onClick={() => {
-                                onChange(range);
-                                setIsOpen(false);
-                            }}
-                            className={cn(
-                                "block w-full px-3.5 py-2 text-left text-sm font-text cursor-pointer",
-                                range === value ? "bg-secondary-50 text-secondary-700" : "text-mist-600 hover:bg-mist-50",
-                            )}
-                        >
-                            {RANGE_LABELS[range]}
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
     );
 }
 

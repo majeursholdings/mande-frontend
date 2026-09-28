@@ -8,10 +8,11 @@ import {
     type SelectFilterItem,
     type SortOptionDef,
 } from "@/components/customTable";
-import { getAdminManufacturerUrl, getAdminTransactions, type AdminTransaction } from "@/constant/admin";
+import { getAdminTransactions, type AdminTransaction } from "@/constant/admin";
 import { getTransactionSummary } from "@/constant/manufacturer";
 import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
 import { useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
+import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import { getAdminTransactionColumns } from "./adminTransactionParts";
 import TransactionSummaryCards from "./transactionSummaryCards";
 
@@ -22,6 +23,7 @@ const TYPE_ITEMS: SelectFilterItem[] = [
     { label: "Job payments", value: "payment" },
     { label: "Withdrawals", value: "withdrawal" },
     { label: "Subscriptions", value: "subscription" },
+    { label: "Rejection charges", value: "charge" },
 ];
 
 const SORT_ITEMS: SelectFilterItem[] = [
@@ -48,6 +50,7 @@ export default function AdminTransactionsPage() {
     const router = useRouter();
     const { manufacturers } = useAdminManufacturers();
     const { jobs } = useAdminJobs();
+    const { getManufacturerUrl } = useStaffPlatform();
 
     // Newest first across everyone — the order before a sort is picked
     const allRows = getAdminTransactions(manufacturers, jobs);
@@ -73,7 +76,7 @@ export default function AdminTransactionsPage() {
                 rows={rows}
                 pagination={pagination}
                 emptyMessage="No transactions match your search."
-                onRowClick={(row) => router.push(getAdminManufacturerUrl(row.manufacturerId))}
+                onRowClick={(row) => router.push(getManufacturerUrl(row.manufacturerId))}
                 toolbar={
                     <TableToolbar
                         search={{ placeholder: "Search by manufacturer, company or project" }}

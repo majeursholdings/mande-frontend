@@ -1,5 +1,7 @@
 import { OctagonX, PhoneCall } from "lucide-react";
 import { formatDayAndTime, getRelativeTimeLabel } from "@/lib/date";
+import { formatPrice } from "@/lib/currency";
+import { getRejectionCharge } from "@/constant/jobWorkflow";
 import {
     MAX_ADMIN_JOB_REJECTIONS,
     getAdminManufacturer,
@@ -86,8 +88,13 @@ export function RejectionHistory({ job, onContact }: { job: AdminJob; onContact:
                     return (
                         <li key={rejection.id} className="flex flex-col gap-3 rounded-lg border border-border p-4">
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                                <span className="rounded-full bg-error-50 px-2 py-0.5 text-xs font-medium font-text text-error-600">
-                                    Rejection {number} of {MAX_ADMIN_JOB_REJECTIONS}
+                                <span className="flex flex-wrap items-center gap-2">
+                                    <span className="rounded-full bg-error-50 px-2 py-0.5 text-xs font-medium font-text text-error-600">
+                                        Rejection {number} of {MAX_ADMIN_JOB_REJECTIONS}
+                                    </span>
+                                    <span className="text-xs font-text text-mist-500">
+                                        {formatPrice(getRejectionCharge(job.amount))} charged
+                                    </span>
                                 </span>
                                 <span className="text-xs font-text text-mist-400">
                                     {rejection.rejectedBy} · {formatDayAndTime(new Date(rejection.rejectedAt))}

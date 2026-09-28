@@ -2,6 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { ArrowLeft, ChevronDown, Flag, Hourglass, MailQuestion, OctagonPause, ReceiptText, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatOrdinalDate, getRelativeTimeLabel } from "@/lib/date";
@@ -11,7 +13,6 @@ import ResponsiveTabs from "@/components/ui/responsiveTabs";
 import ActiveJobsPanel from "@/components/manufacturerPlatform/jobsPage/activeJobsPanel";
 import { SortByDropdown } from "@/components/manufacturerPlatform/jobsPage/sortByDropdown";
 import TransactionsList, { sortTransactions } from "@/components/manufacturerPlatform/transactionsPage/transactionsList";
-import { ADMIN_JOBS_URL, ADMIN_MANUFACTURERS_URL } from "@/constant/admin";
 import {
     TRANSACTION_SORT_OPTIONS,
     getManufacturerJobs,
@@ -28,36 +29,40 @@ import {
 } from "@/constant/sampleDb";
 import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
 import { useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
+import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import { AttachmentList } from "../jobDetailPage/detailParts";
 import EmptyState from "../emptyState";
 import {
     AppealDecisionDialog,
-    MANUFACTURER_ACTIONS,
     ManufacturerActionDialog,
-    getActionBlocker,
     isActionHidden,
+    useManufacturerActions,
     type ManufacturerAction,
 } from "../manufacturersPage/manufacturerActions";
 import TransactionSummaryCards from "../transactionsPage/transactionSummaryCards";
 import AccountHistory from "./accountHistory";
 import ManufacturerInfo from "./manufacturerInfo";
+import ManufacturerPlanCard from "./manufacturerPlanCard";
 import ManufacturerReports from "./manufacturerReports";
 
 type DetailTab = "jobs" | "transactions" | "reports" | "info" | "history";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AdminManufacturerDetailPage — one manufacturer, as their own profile page
-// lays it out: their card beside their jobs, transactions, job reports and
-// support feedback, everything they told Mande, and the account's history —
+// lays it out: their card and the plan they're on, beside their jobs,
+// transactions, job reports and support feedback, everything they told
+// Mande, and the account's history —
 // what they changed on it, and its flags and suspensions. From here an
 // admin flags or suspends them, lifts a flag or suspension, answers their
 // appeal, or asks a super admin to delete the account — but doesn't hand out
-// jobs.
+// jobs. A super admin deletes the account, or turns an admin's request down.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AdminManufacturerDetailPage({ manufacturerId }: { manufacturerId: string }) {
+    const router = useRouter();
     const { getManufacturer } = useAdminManufacturers();
     const { jobs: allJobs } = useAdminJobs();
+    const { jobsUrl, manufacturersUrl } = useStaffPlatform();
     const [action, setAction] = useState<ManufacturerAction | null>(null);
     const [appealDecision, setAppealDecision] = useState<{
         appeal: AccountAppealRecord;
@@ -97,12 +102,14 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
             />
 
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-                <ProfileCard
-                    profile={toManufacturerProfile(manufacturer)}
-                    editHref={null}
-                    verificationStatus={getManufacturerVerification(manufacturer)}
-                    className="lg:w-65 lg:shrink-0"
-                />
+                <div className="flex flex-col gap-6 lg:w-65 lg:shrink-0">
+                    <ProfileCard
+                        profile={toManufacturerProfile(manufacturer)}
+                        editHref={null}
+                        verificationStatus={getManufacturerVerification(manufacturer)}
+                    />
+                    <ManufacturerPlanCard subscription={manufacturer.subscription} />
+                </div>
 
                 <div className="min-w-0 flex-1">
                     <ResponsiveTabs<DetailTab>
@@ -115,7 +122,7 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
                                 panel: (
                                     <ActiveJobsPanel
                                         jobs={jobs}
-                                        getJobHref={(job) => `${ADMIN_JOBS_URL}?job=${job.id}`}
+                                        getJobHref={(job) => `${jobsUrl}?job=${job.id}`}
                                         emptyDescription="Jobs offered to this manufacturer will show up here."
                                     />
                                 ),
@@ -148,7 +155,12 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
                 </div>
             </div>
 
-            <ManufacturerActionDialog manufacturer={manufacturer} action={action} onClose={() => setAction(null)} />
+            <ManufacturerActionDialog
+                manufacturer={manufacturer}
+                action={action}
+                onClose={() => setAction(null)}
+                onDeleted={() => router.push(manufacturersUrl)}
+            />
             <AppealDecisionDialog
                 manufacturer={manufacturer}
                 appeal={appealDecision?.appeal}
@@ -160,9 +172,11 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
 }
 
 function BackLink() {
+    const { manufacturersUrl } = useStaffPlatform();
+
     return (
         <Link
-            href={ADMIN_MANUFACTURERS_URL}
+            href={manufacturersUrl}
             className="inline-flex w-fit items-center gap-1.5 text-sm font-medium font-text text-secondary-700 hover:underline"
         >
             <ArrowLeft className="size-4" />
@@ -196,7 +210,7 @@ function Transactions({ transactions }: { transactions: ReturnType<typeof getMan
     );
 }
 
-/** Flag, Suspend and Request deletion — each off, with why, when it can't be taken. */
+/** Flag, Suspend and Request deletion (Delete account, for a super admin) — each off, with why, when it can't be taken. */
 function ActionsMenu({
     manufacturer,
     onSelect,
@@ -205,6 +219,7 @@ function ActionsMenu({
     onSelect: (action: ManufacturerAction) => void;
 }) {
     const [isOpen, setIsOpen] = useState(false);
+    const { actions, getBlocker } = useManufacturerActions();
 
     return (
         <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -213,8 +228,8 @@ function ActionsMenu({
                 <ChevronDown className={cn("size-4 transition-transform", isOpen && "rotate-180")} />
             </PopoverTrigger>
             <PopoverContent align="end" sideOffset={6} className="w-56 gap-0.5 p-1.5">
-                {MANUFACTURER_ACTIONS.filter(({ value }) => !isActionHidden(manufacturer, value)).map(({ value, label, icon: Icon, tone }) => {
-                    const blocker = getActionBlocker(manufacturer, value);
+                {actions.filter(({ value }) => !isActionHidden(manufacturer, value)).map(({ value, label, icon: Icon, tone }) => {
+                    const blocker = getBlocker(manufacturer, value);
                     return (
                         <button
                             key={value}
@@ -252,7 +267,8 @@ const NOTICE_BUTTON_CLASS =
 /**
  * What's going on with the account now — a flag or suspension (with a way
  * to lift it), an appeal waiting for an answer, a deletion waiting for a
- * super admin. What happened before is under Account history › Issue history.
+ * super admin (who deletes the account or turns the request down here).
+ * What happened before is under Account history › Issue history.
  */
 function AccountNotices({
     manufacturer,
@@ -264,6 +280,17 @@ function AccountNotices({
     onDecideAppeal: (appeal: AccountAppealRecord, decision: "approved" | "declined") => void;
 }) {
     const { accountStatus, deletionRequest } = manufacturer;
+    const { permissions } = useStaffPlatform();
+    const { declineDeletionRequest } = useAdminManufacturers();
+
+    const turnDownDeletion = () => {
+        try {
+            declineDeletionRequest(manufacturer.id);
+            toast.success("Deletion request turned down. The account stays");
+        } catch {
+            toast.error("Couldn't turn the request down. Please try again.");
+        }
+    };
     const hold = getAccountHold(manufacturer);
     const pendingAppeal = manufacturer.appeals.find((appeal) => appeal.status === "pending");
     if (!hold && !pendingAppeal && !deletionRequest) return null;
@@ -288,7 +315,7 @@ function AccountNotices({
                     {hold.reason && <p className="text-mist-800">{hold.reason}</p>}
                     <p>
                         {accountStatus === "suspended"
-                            ? "Everything on their account is paused — all they can do is send an appeal."
+                            ? "Everything on their account is paused. All they can do is send an appeal."
                             : "They can hold one job at a time."}
                     </p>
                 </Notice>
@@ -325,7 +352,23 @@ function AccountNotices({
                 <Notice
                     tone="neutral"
                     icon={Hourglass}
-                    title={`Deletion requested by ${deletionRequest.requestedBy} on ${formatOrdinalDate(new Date(deletionRequest.requestedAt))} — waiting for a super admin`}
+                    title={`Deletion requested by ${deletionRequest.requestedBy} on ${formatOrdinalDate(new Date(deletionRequest.requestedAt))}${permissions.deletes ? "" : ", waiting for a super admin"}`}
+                    action={
+                        permissions.deletes && (
+                            <div className="flex gap-2">
+                                <button type="button" onClick={turnDownDeletion} className={NOTICE_BUTTON_CLASS}>
+                                    Turn down
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onAction("delete")}
+                                    className="rounded-md bg-error-600 px-3 py-1.5 text-xs font-medium font-text text-white transition-colors hover:bg-error-700 cursor-pointer"
+                                >
+                                    Delete account
+                                </button>
+                            </div>
+                        )
+                    }
                 >
                     <p className="whitespace-pre-line text-mist-800">{deletionRequest.reason}</p>
                     {deletionRequest.attachments.length > 0 && <AttachmentList attachments={deletionRequest.attachments} />}

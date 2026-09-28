@@ -11,7 +11,7 @@ import {
     type PendingProgressReview,
 } from "@/constant/admin";
 import { JOB_PRODUCTION_STEPS } from "@/constant/jobWorkflow";
-import { getJobRecordPayouts } from "@/constant/sampleDb";
+import { getJobRecordPayouts, getSubscriptionPayments } from "@/constant/sampleDb";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The dashboard's numbers, worked out from the jobs (and manufacturers), so
@@ -30,8 +30,21 @@ const isBy = (date: string | null, at: Date) => date !== null && new Date(date) 
 
 // ─── Headline stats ──────────────────────────────────────────────────────────
 
+/** Each headline number a staff dashboard can show — the admin's four, and the super admin's. */
+export type DashboardStatId = "manufacturers" | "payouts" | "subscription-revenue" | "success-rate" | "active-accounts";
+
+export const ADMIN_DASHBOARD_STAT_IDS: DashboardStatId[] = ["manufacturers", "payouts", "success-rate", "active-accounts"];
+
+/** Money in before money out: what the platform earns, where the admin sees what manufacturers are paid. */
+export const SUPER_ADMIN_DASHBOARD_STAT_IDS: DashboardStatId[] = [
+    "manufacturers",
+    "subscription-revenue",
+    "success-rate",
+    "active-accounts",
+];
+
 export type AdminDashboardStat = {
-    id: string;
+    id: DashboardStatId;
     label: string;
     value: string;
     /** Small, after the value — e.g. "/68" out of all accounts. */
@@ -43,13 +56,14 @@ export type AdminDashboardStat = {
      * for a rate. Null when there was nothing a month ago to compare with.
      */
     changePercent: number | null;
-    icon: "manufacturers" | "payouts" | "success-rate" | "active-accounts";
 };
 
 type Snapshot = {
     manufacturers: number;
     /** Installments paid out to manufacturers, in naira. */
     payouts: number;
+    /** What manufacturers have paid for their plans, in naira — the platform's revenue. */
+    subscriptionRevenue: number;
     /** Completed jobs out of every completed or closed one. Null before any finish. */
     successRate: number | null;
     /** Manufacturers with a job underway — accepted, not yet completed or closed. */
@@ -71,6 +85,9 @@ function getSnapshot(jobs: AdminJob[], manufacturers: AdminManufacturer[], at: D
             .flatMap((job) => getJobRecordPayouts(job, at))
             .filter((payout) => isBy(payout.paidAt, at))
             .reduce((sum, payout) => sum + payout.amount, 0),
+        subscriptionRevenue: joined
+            .flatMap((manufacturer) => getSubscriptionPayments(manufacturer, at))
+            .reduce((sum, payment) => sum + payment.amount, 0),
         successRate:
             completed.length + closedCount === 0 ? null : (completed.length / (completed.length + closedCount)) * 100,
         activeManufacturers: joined.filter((manufacturer) =>
@@ -90,9 +107,11 @@ function pointChange(now: number | null, before: number | null): number | null {
     return Math.round((now ?? 0) - before);
 }
 
+/** The `statIds` headline numbers, in that order, each with its change since a month ago. */
 export function getDashboardStats(
     jobs: AdminJob[],
     manufacturers: AdminManufacturer[],
+    statIds: DashboardStatId[] = ADMIN_DASHBOARD_STAT_IDS,
     now: Date = new Date(),
 ): AdminDashboardStat[] {
     const monthAgo = new Date(now);
@@ -100,38 +119,42 @@ export function getDashboardStats(
     const current = getSnapshot(jobs, manufacturers, now);
     const previous = getSnapshot(jobs, manufacturers, monthAgo);
 
-    return [
-        {
+    const stats: Record<DashboardStatId, AdminDashboardStat> = {
+        manufacturers: {
             id: "manufacturers",
             label: "Total Number of Manufacturers",
             value: String(current.manufacturers),
             changePercent: percentChange(current.manufacturers, previous.manufacturers),
-            icon: "manufacturers",
         },
-        {
+        payouts: {
             id: "payouts",
             label: "Total Manufacturer Payouts",
             value: formatCompactPrice(current.payouts),
             fullValue: formatPrice(current.payouts),
             changePercent: percentChange(current.payouts, previous.payouts),
-            icon: "payouts",
         },
-        {
+        "subscription-revenue": {
+            id: "subscription-revenue",
+            label: "Total Subscription Revenue",
+            value: formatCompactPrice(current.subscriptionRevenue),
+            fullValue: formatPrice(current.subscriptionRevenue),
+            changePercent: percentChange(current.subscriptionRevenue, previous.subscriptionRevenue),
+        },
+        "success-rate": {
             id: "success-rate",
             label: "Production Success Rate",
             value: `${Math.round(current.successRate ?? 0)}%`,
             changePercent: pointChange(current.successRate, previous.successRate),
-            icon: "success-rate",
         },
-        {
+        "active-accounts": {
             id: "active-accounts",
             label: "Active Manufacturer Accounts",
             value: String(current.activeManufacturers),
             valueSuffix: `/${current.manufacturers}`,
             changePercent: percentChange(current.activeManufacturers, previous.activeManufacturers),
-            icon: "active-accounts",
         },
-    ];
+    };
+    return statIds.map((id) => stats[id]);
 }
 
 // ─── Job statistics ──────────────────────────────────────────────────────────
@@ -234,6 +257,8 @@ export function getPendingProgressReviews(jobs: AdminJob[]): PendingProgressRevi
 
     return jobs
         .flatMap((job): PendingProgressReview[] => {
+            // Held for further review: with a super admin now, not the lead
+            if (job.status === "in-review" && job.furtherReview) return [];
             if (job.status === "in-review" && job.submittedForReviewAt && job.completionImageUrls[0]) {
                 return [
                     {

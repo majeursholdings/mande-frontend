@@ -1,8 +1,11 @@
 "use client";
 
-import { Flag, FlagOff, OctagonPause, ShieldCheck, Trash2, type LucideIcon } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { CircleAlert, Flag, FlagOff, OctagonPause, ShieldCheck, Trash2, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { formatPrice } from "@/lib/currency";
+import { Button } from "@/components/ui/button";
 import {
     Dialog,
     DialogContent,
@@ -12,10 +15,12 @@ import {
 import AccountActionForm from "@/components/adminPlatform/form/accountActionForm";
 import ReasonForm from "@/components/adminPlatform/form/reasonForm";
 import RequestDeletionForm from "@/components/adminPlatform/form/requestDeletionForm";
+import TypeToConfirmForm from "@/components/adminPlatform/form/typeToConfirmForm";
 import type { AccountAppealRecord, ManufacturerAccountStatus, ManufacturerRecord } from "@/constant/sampleDb";
-import { useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
+import { hasDeleteWarnings, useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
+import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 
-export type ManufacturerAction = "flag" | "suspend" | "lift-flag" | "lift-suspension" | "request-deletion";
+export type ManufacturerAction = "flag" | "suspend" | "lift-flag" | "lift-suspension" | "request-deletion" | "delete";
 
 export const MANUFACTURER_ACTIONS: {
     value: ManufacturerAction;
@@ -28,7 +33,27 @@ export const MANUFACTURER_ACTIONS: {
     { value: "flag", label: "Flag", icon: Flag },
     { value: "suspend", label: "Suspend", icon: OctagonPause },
     { value: "request-deletion", label: "Request deletion", icon: Trash2, tone: "danger" },
+    { value: "delete", label: "Delete account", icon: Trash2, tone: "danger" },
 ];
+
+/**
+ * The actions the signed-in person can take on a manufacturer — an admin
+ * asks for a deletion, a super admin deletes (never blocked: anything still
+ * going on is a warning in the dialog) — and why one can't be taken now
+ * (null when it can).
+ */
+export function useManufacturerActions() {
+    const { permissions } = useStaffPlatform();
+    return {
+        actions: MANUFACTURER_ACTIONS.filter(({ value }) =>
+            permissions.deletes ? value !== "request-deletion" : value !== "delete",
+        ),
+        getBlocker: (
+            manufacturer: Pick<ManufacturerRecord, "id" | "accountStatus" | "deletionRequest">,
+            action: ManufacturerAction,
+        ) => (action === "delete" ? null : getActionBlocker(manufacturer, action)),
+    };
+}
 
 /** Lifting only shows for what the account is under — a flag, or a suspension. */
 export function isActionHidden(
@@ -88,6 +113,15 @@ export function AccountStatusTag({
     );
 }
 
+/** Beside a manufacturer's name while an admin's request to delete the account waits for a super admin. */
+export function DeletionRequestedTag() {
+    return (
+        <span className="inline-flex shrink-0 items-center rounded-full bg-mist-100 px-2 py-0.5 text-[11px] font-medium font-text text-mist-700">
+            Deletion requested
+        </span>
+    );
+}
+
 const DIALOGS: Record<ManufacturerAction, { title: (name: string) => string; description: string }> = {
     "lift-flag": {
         title: (name) => `Lift the flag on ${name}?`,
@@ -100,8 +134,7 @@ const DIALOGS: Record<ManufacturerAction, { title: (name: string) => string; des
     },
     flag: {
         title: (name) => `Flag ${name}?`,
-        description:
-            "They'll only be able to hold one job at a time — the jobs they already have carry on.",
+        description: "They'll only be able to hold one job at a time. The jobs they already have carry on.",
     },
     suspend: {
         title: (name) => `Suspend ${name}?`,
@@ -113,17 +146,28 @@ const DIALOGS: Record<ManufacturerAction, { title: (name: string) => string; des
         description:
             "Admins can't delete accounts. A super admin will read your reason, and delete the account if they agree.",
     },
+    delete: {
+        title: (name) => `Delete ${name}'s account?`,
+        description:
+            "They won't be able to log in again, and their profile, documents and bank details are removed. Jobs they finished stay in the records. This can't be undone.",
+    },
 };
 
-/** The dialog for one of MANUFACTURER_ACTIONS on a manufacturer — closed while `action` is null. */
+/**
+ * The dialog for one of MANUFACTURER_ACTIONS on a manufacturer — closed while
+ * `action` is null. `onDeleted` runs once the account's gone, e.g. to leave
+ * its page.
+ */
 export function ManufacturerActionDialog({
     manufacturer,
     action,
     onClose,
+    onDeleted,
 }: {
     manufacturer: ManufacturerRecord | undefined;
     action: ManufacturerAction | null;
     onClose: () => void;
+    onDeleted?: () => void;
 }) {
     const { changeStatus, requestDeletion } = useAdminManufacturers();
     const dialog = action ? DIALOGS[action] : null;
@@ -141,7 +185,18 @@ export function ManufacturerActionDialog({
     return (
         <Dialog open={!!manufacturer && !!action} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="max-w-110">
-                {manufacturer && action && dialog && (
+                {manufacturer && action === "delete" ? (
+                    // Its own steps: a warning when the account's still busy, then typing their name
+                    <DeleteAccountSteps
+                        key={manufacturer.id}
+                        manufacturer={manufacturer}
+                        onCancel={onClose}
+                        onDeleted={() => {
+                            onClose();
+                            onDeleted?.();
+                        }}
+                    />
+                ) : manufacturer && action && action !== "delete" && dialog && (
                     <>
                         <div className="flex flex-col gap-1">
                             <DialogTitle>{dialog.title(manufacturer.contactName)}</DialogTitle>
@@ -201,6 +256,122 @@ export function ManufacturerActionDialog({
     );
 }
 
+const listOf = (titles: string[]) =>
+    titles.length <= 2 ? titles.join(" and ") : `${titles.slice(0, 2).join(", ")} and ${titles.length - 2} more`;
+
+/**
+ * Deleting an account (super admins): first what's still going on on it —
+ * jobs underway, money in the wallet, applications, an appeal — and what
+ * deleting does to each, with the choice to go ahead anyway; then typing
+ * their full name to delete it.
+ */
+function DeleteAccountSteps({
+    manufacturer,
+    onCancel,
+    onDeleted,
+}: {
+    manufacturer: ManufacturerRecord;
+    onCancel: () => void;
+    onDeleted: () => void;
+}) {
+    const { getDeleteWarnings, deleteManufacturer } = useAdminManufacturers();
+    const warnings = getDeleteWarnings(manufacturer.id);
+    const [isGoingAhead, setIsGoingAhead] = useState(!hasDeleteWarnings(warnings));
+    const name = manufacturer.contactName;
+    const toPending = warnings.jobsUnderway.filter((entry) => entry.goesBackToPending).map((entry) => entry.job.title);
+    const carryOn = warnings.jobsUnderway.filter((entry) => !entry.goesBackToPending).map((entry) => entry.job.title);
+
+    if (!isGoingAhead) {
+        return (
+            <>
+                <div className="flex flex-col gap-1">
+                    <DialogTitle>{name}&apos;s account is still active</DialogTitle>
+                    <DialogDescription>Deleting it now affects what&apos;s still going on:</DialogDescription>
+                </div>
+                <ul className="flex flex-col gap-3 rounded-lg bg-warning-50 px-4 py-3.5 text-sm font-text leading-5 text-warning-900">
+                    {warnings.jobsUnderway.length > 0 && (
+                        <WarningItem>
+                            <span className="font-medium">
+                                {warnings.jobsUnderway.length} job{warnings.jobsUnderway.length === 1 ? "" : "s"} underway.
+                            </span>{" "}
+                            {toPending.length > 0 &&
+                                `${listOf(toPending)} ${toPending.length === 1 ? "goes" : "go"} back to pending, with the progress cleared, for the lead to offer to someone else.`}
+                            {toPending.length > 0 && carryOn.length > 0 && " "}
+                            {carryOn.length > 0 &&
+                                `${listOf(carryOn)} ${carryOn.length === 1 ? "carries" : "carry"} on with the other manufacturer.`}
+                        </WarningItem>
+                    )}
+                    {warnings.walletBalance > 0 && (
+                        <WarningItem>
+                            <span className="font-medium">{formatPrice(warnings.walletBalance)} in their wallet.</span> Pay
+                            it out to them first. It can&apos;t be withdrawn once the account is gone.
+                        </WarningItem>
+                    )}
+                    {warnings.applications.length > 0 && (
+                        <WarningItem>
+                            <span className="font-medium">
+                                {warnings.applications.length} job application{warnings.applications.length === 1 ? "" : "s"}
+                            </span>
+                            , which {warnings.applications.length === 1 ? "is" : "are"} withdrawn.
+                        </WarningItem>
+                    )}
+                    {warnings.hasPendingAppeal && (
+                        <WarningItem>
+                            <span className="font-medium">An appeal waiting for an answer</span>, which is dropped.
+                        </WarningItem>
+                    )}
+                </ul>
+                <div className="flex justify-end gap-3">
+                    <Button
+                        type="button"
+                        onClick={onCancel}
+                        className="h-11 px-5 bg-mist-100 hover:bg-mist-200 text-mist-950 font-medium font-text rounded-button cursor-pointer transition-colors duration-300"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={() => setIsGoingAhead(true)}
+                        className="h-11 px-5 bg-error-600 hover:bg-error-700 text-white font-medium font-text rounded-button cursor-pointer transition-colors duration-300"
+                    >
+                        Continue anyway
+                    </Button>
+                </div>
+            </>
+        );
+    }
+
+    return (
+        <>
+            <div className="flex flex-col gap-1">
+                <DialogTitle>{DIALOGS.delete.title(name)}</DialogTitle>
+                <DialogDescription>{DIALOGS.delete.description}</DialogDescription>
+            </div>
+            <TypeToConfirmForm
+                confirmText={name}
+                submitLabel="Delete account"
+                loadingLabel="Deleting..."
+                errorMessage="Couldn't delete the account. Please try again."
+                onCancel={onCancel}
+                onConfirm={() => {
+                    deleteManufacturer(manufacturer.id);
+                    toast.success(`${name}'s account was deleted`);
+                    onDeleted();
+                }}
+            />
+        </>
+    );
+}
+
+function WarningItem({ children }: { children: ReactNode }) {
+    return (
+        <li className="flex gap-2.5">
+            <CircleAlert className="mt-0.5 size-4 shrink-0 text-warning-600" strokeWidth={1.75} aria-hidden />
+            <span>{children}</span>
+        </li>
+    );
+}
+
 /** Approving (an optional note) or turning down (a reason they'll see) a suspended manufacturer's appeal. */
 export function AppealDecisionDialog({
     manufacturer,
@@ -221,8 +392,8 @@ export function AppealDecisionDialog({
             decideAppeal(manufacturer.id, appeal.id, decision, response);
             toast.success(
                 decision === "approved"
-                    ? `Appeal approved — the suspension on ${manufacturer.contactName} is lifted`
-                    : "Appeal turned down — they have your reason",
+                    ? `Appeal approved. The suspension on ${manufacturer.contactName} is lifted`
+                    : "Appeal turned down. They have your reason",
             );
         } catch {
             toast.error("Couldn't save your decision. Please try again.");

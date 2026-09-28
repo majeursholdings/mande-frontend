@@ -5,21 +5,24 @@ import { MANDE_WEBSITE_URL } from "@/constant/navigation";
 import AuthSidePanel from "./authSidePanel";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AuthScreenLayout — the admin login, sign-up and reset password screens: the
-// photo panel on the left half from md up, and the form column beside it —
-// "ADMIN", the title and description, then the form and a link to the other
-// screen. On phones the panel gives way to the logo above the form; with
+// AuthScreenLayout — the staff platforms' login, sign-up and reset password
+// screens (admin and super admin): the photo panel on the left half from md
+// up, and the form column beside it — the platform's label ("ADMIN"), the
+// title and description, then the form and a link to the other screen. On phones the panel gives way to the logo above the form; with
 // `fillScreen`, the form stretches to the bottom of the screen so it can pin
 // its button there (see the reset password form).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AuthScreenLayout({
+    platformLabel = "Admin",
     title,
     description,
     footer,
     fillScreen = false,
     children,
 }: {
+    /** Over the title, e.g. "Admin" or "Super admin" — shown in capitals. */
+    platformLabel?: string;
     title: ReactNode;
     description: string;
     /** Under the form, e.g. "Don't have an account? Register". */
@@ -36,13 +39,13 @@ export default function AuthScreenLayout({
                 <div className="flex w-full flex-1 flex-col md:max-w-104 md:flex-none">
                     <LogoLink
                         href={MANDE_WEBSITE_URL}
-                        label="MANDE — go to the Mande website"
+                        label="MANDE, go to the Mande website"
                         className="mb-11 w-32 md:hidden"
                     />
 
                     <div className="mb-8 flex flex-col md:mb-12">
                         <span className="mb-4 text-xs font-medium font-text uppercase text-primary-700">
-                            Admin
+                            {platformLabel}
                         </span>
                         <h1 className="text-2xl md:text-[32px] font-bold font-text leading-tight tracking-tight text-mist-950">
                             {title}

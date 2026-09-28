@@ -1,18 +1,24 @@
 "use client";
 
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { ADMIN_PROFILE, type AdminProfile } from "@/constant/admin";
+import type { AdminProfile } from "@/constant/admin";
+import { useStaffPlatform } from "./staffPlatformContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AdminProfileProvider — the signed-in admin's profile, shared by the top
-// bars, the profile page, settings and security, so a saved change (a phone
-// number, a photo, two-factor) shows everywhere at once. Their name and email
-// aren't in `updateProfile` — only a super admin can change those. Seeded
-// from sample data and updated locally for now; once the backend is
-// connected, load the profile from the API and persist updates there.
+// AdminProfileProvider — the signed-in admin's profile (or the super
+// admin's, on their platform), shared by the top bars, the profile page,
+// settings and security, so a saved change (a phone number, a photo,
+// two-factor) shows everywhere at once. Their email isn't in `updateProfile`,
+// and an admin's name is only changed by a super admin (a super admin can
+// change their own, from Edit profile). Seeded from sample
+// data and updated locally for now; once the backend is connected, load the
+// profile from the API and persist updates there.
 // ─────────────────────────────────────────────────────────────────────────────
 
-type EditableProfile = Pick<AdminProfile, "phone" | "avatarUrl" | "security" | "notificationPreferences">;
+type EditableProfile = Pick<
+    AdminProfile,
+    "firstName" | "lastName" | "phone" | "avatarUrl" | "security" | "notificationPreferences"
+>;
 
 type AdminProfileContextValue = {
     profile: AdminProfile;
@@ -24,7 +30,8 @@ type AdminProfileContextValue = {
 const AdminProfileContext = createContext<AdminProfileContextValue | null>(null);
 
 export function AdminProfileProvider({ children }: { children: ReactNode }) {
-    const [profile, setProfile] = useState(ADMIN_PROFILE);
+    const { profile: initialProfile } = useStaffPlatform();
+    const [profile, setProfile] = useState(initialProfile);
 
     const updateProfile = (changes: Partial<EditableProfile>) =>
         setProfile((current) => ({ ...current, ...changes }));

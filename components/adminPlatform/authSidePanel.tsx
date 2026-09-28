@@ -24,7 +24,7 @@ export default function AuthSidePanel() {
                 {AUTH_HEADLINE}
             </p>
 
-            <LogoLink href={MANDE_WEBSITE_URL} label="MANDE — go to the Mande website" tone="light" className="max-w-45" />
+            <LogoLink href={MANDE_WEBSITE_URL} label="MANDE, go to the Mande website" tone="light" className="max-w-45" />
         </div>
     );
 }

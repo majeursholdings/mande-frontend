@@ -9,8 +9,8 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
-import { ADMIN_PROFILE_URL, ADMIN_SETTINGS_URL } from "@/constant/admin";
 import { useLogout } from "./logoutContext";
+import { useStaffPlatform } from "./staffPlatformContext";
 
 const MENU_ITEM_CLASS =
     "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium font-text transition-colors duration-200 cursor-pointer";
@@ -30,6 +30,7 @@ export default function UserMenu({
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const { requestLogout } = useLogout();
+    const { profileUrl, settingsUrl } = useStaffPlatform();
 
     return (
         <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -38,7 +39,7 @@ export default function UserMenu({
             </PopoverTrigger>
             <PopoverContent align="end" sideOffset={10} className="w-52 gap-0.5 p-1.5">
                 <Link
-                    href={ADMIN_PROFILE_URL}
+                    href={profileUrl}
                     onClick={() => setIsOpen(false)}
                     className={cn(MENU_ITEM_CLASS, "text-mist-700 hover:bg-mist-50 hover:text-mist-950")}
                 >
@@ -46,7 +47,7 @@ export default function UserMenu({
                     View profile
                 </Link>
                 <Link
-                    href={ADMIN_SETTINGS_URL}
+                    href={settingsUrl}
                     onClick={() => setIsOpen(false)}
                     className={cn(MENU_ITEM_CLASS, "text-mist-700 hover:bg-mist-50 hover:text-mist-950")}
                 >

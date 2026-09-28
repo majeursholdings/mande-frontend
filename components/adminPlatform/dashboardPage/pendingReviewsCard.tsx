@@ -5,12 +5,12 @@ import Link from "next/link";
 import { ClipboardCheck } from "lucide-react";
 import { getRelativeTimeLabel } from "@/lib/date";
 import {
-    ADMIN_JOBS_URL,
     TOTAL_PRODUCTION_STEPS,
     getReviewStage,
     type PendingProgressReview,
 } from "@/constant/admin";
 import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
+import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import DashboardCard from "./dashboardCard";
 import EmptyState from "../emptyState";
 import { getPendingProgressReviews } from "./dashboardStats";
@@ -26,6 +26,7 @@ import { getPendingProgressReviews } from "./dashboardStats";
 export default function PendingReviewsCard() {
     const { jobs } = useAdminJobs();
     const reviews = getPendingProgressReviews(jobs);
+    const { jobsUrl } = useStaffPlatform();
 
     return (
         <DashboardCard
@@ -39,7 +40,7 @@ export default function PendingReviewsCard() {
                     )}
                 </span>
             }
-            viewAllHref={reviews.length > 0 ? ADMIN_JOBS_URL : undefined}
+            viewAllHref={reviews.length > 0 ? jobsUrl : undefined}
         >
             {reviews.length === 0 ? (
                 <EmptyState
@@ -50,7 +51,7 @@ export default function PendingReviewsCard() {
             ) : (
                 <ul className="-my-3.5 flex flex-col divide-y divide-border">
                     {reviews.map((review) => (
-                        <ReviewRow key={review.id} review={review} />
+                        <ReviewRow key={review.id} review={review} jobsUrl={jobsUrl} />
                     ))}
                 </ul>
             )}
@@ -58,7 +59,7 @@ export default function PendingReviewsCard() {
     );
 }
 
-function ReviewRow({ review }: { review: PendingProgressReview }) {
+function ReviewRow({ review, jobsUrl }: { review: PendingProgressReview; jobsUrl: string }) {
     const stage = getReviewStage(review);
     const percentDone = Math.round((review.stepsCompleted / TOTAL_PRODUCTION_STEPS) * 100);
 
@@ -77,7 +78,7 @@ function ReviewRow({ review }: { review: PendingProgressReview }) {
                         </p>
                     </div>
                     <Link
-                        href={`${ADMIN_JOBS_URL}?job=${review.jobId}`}
+                        href={`${jobsUrl}?job=${review.jobId}`}
                         aria-label={`Review ${review.jobTitle}`}
                         className="shrink-0 rounded-button border border-border px-3 py-1.5 text-xs font-medium font-text text-mist-900 transition-colors duration-200 hover:border-secondary-300 hover:bg-secondary-50 hover:text-secondary-700"
                     >

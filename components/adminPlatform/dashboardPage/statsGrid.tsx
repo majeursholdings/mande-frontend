@@ -1,28 +1,33 @@
 "use client";
 
-import { HandCoins, Hammer, Percent, UserRoundCheck, type LucideIcon } from "lucide-react";
+import { Banknote, HandCoins, Hammer, Percent, UserRoundCheck, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ADMIN_MANUFACTURERS } from "@/constant/admin";
 import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
 import { StatCard, StatCardRow } from "../statCard";
-import { getDashboardStats, type AdminDashboardStat } from "./dashboardStats";
+import { ADMIN_DASHBOARD_STAT_IDS, getDashboardStats, type DashboardStatId } from "./dashboardStats";
 
-const STAT_ICONS: Record<AdminDashboardStat["icon"], { icon: LucideIcon; className: string }> = {
+// Money gets the design's red circle; each figure keeps its colour on every dashboard
+const STAT_ICONS: Record<DashboardStatId, { icon: LucideIcon; className: string }> = {
     manufacturers: { icon: Hammer, className: "bg-indigo-500" },
     payouts: { icon: HandCoins, className: "bg-error-500" },
+    "subscription-revenue": { icon: Banknote, className: "bg-error-500" },
     "success-rate": { icon: Percent, className: "bg-primary-600" },
     "active-accounts": { icon: UserRoundCheck, className: "bg-warning-500" },
 };
 
-/** The headline numbers — a swipeable row on phones, two columns on tablets, four from xl. */
-export default function StatsGrid() {
+/**
+ * The headline numbers (the admin's, unless `statIds` says otherwise) — a
+ * swipeable row on phones, two columns on tablets, four from xl.
+ */
+export default function StatsGrid({ statIds = ADMIN_DASHBOARD_STAT_IDS }: { statIds?: DashboardStatId[] }) {
     const { jobs } = useAdminJobs();
-    const stats = getDashboardStats(jobs, ADMIN_MANUFACTURERS);
+    const stats = getDashboardStats(jobs, ADMIN_MANUFACTURERS, statIds);
 
     return (
         <StatCardRow>
             {stats.map((stat) => {
-                const { icon, className } = STAT_ICONS[stat.icon];
+                const { icon, className } = STAT_ICONS[stat.id];
                 return (
                     <StatCard
                         key={stat.id}

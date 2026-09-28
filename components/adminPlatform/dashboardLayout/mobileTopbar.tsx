@@ -5,23 +5,24 @@ import { ArrowLeft } from "lucide-react";
 import LogoLink from "@/components/ui/logoLink";
 import UserAvatar from "@/components/ui/userAvatar";
 import { BellIcon, MOBILE_TOPBAR_CLASS } from "@/components/ui/topbarControls";
-import { ADMIN_DASHBOARD_URL } from "@/constant/admin";
 import { useAdminProfile } from "./adminProfileContext";
 import { useNotifications } from "./notificationsContext";
 import NotificationsPanel from "./notificationsPanel";
 import UserMenu from "./userMenu";
+import { useStaffPlatform } from "./staffPlatformContext";
 
 /** The phone top bar — logo, notifications (full screen) and the profile menu. */
 export default function MobileTopbar() {
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const { hasUnread } = useNotifications();
     const { profile, fullName } = useAdminProfile();
+    const { dashboardUrl } = useStaffPlatform();
     const closeNotifications = () => setIsNotificationsOpen(false);
 
     return (
         <>
             <header className={MOBILE_TOPBAR_CLASS}>
-                <LogoLink href={ADMIN_DASHBOARD_URL} className="w-25" />
+                <LogoLink href={dashboardUrl} className="w-25" />
                 <div className="flex items-center gap-4">
                     <button
                         type="button"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Check, CircleAlert, Copy, Ellipsis, PhoneCall, Pencil, Repeat, X, XIcon } from "lucide-react";
+import { Check, CircleAlert, Copy, Ellipsis, PauseCircle, PhoneCall, Pencil, Repeat, Trash2, X, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
@@ -20,8 +20,6 @@ import {
 } from "@/components/ui/popover";
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
-    ADMIN_ME_ID,
-    ADMIN_PROFILE,
     MAX_ADMIN_JOB_REJECTIONS,
     getAdminManufacturer,
     getJobCountdownLabel,
@@ -30,23 +28,34 @@ import {
     type AdminJob,
 } from "@/constant/admin";
 import { COMPANY_SPECIALITY_OPTIONS, getOptionLabel } from "@/constant/manufacturer";
-import { JOB_PRODUCTION_STEPS, getAutoApproveAt, type ProductionStepKey } from "@/constant/jobWorkflow";
+import {
+    JOB_PRODUCTION_STEPS,
+    MIN_SIGN_OFF_RATING,
+    REJECTION_CHARGE_PERCENT,
+    getAutoApproveAt,
+    getRejectionCharge,
+    type ProductionStepKey,
+} from "@/constant/jobWorkflow";
 import ReasonForm from "@/components/adminPlatform/form/reasonForm";
 import RejectJobForm from "@/components/adminPlatform/form/rejectJobForm";
 import ReassignJobForm from "@/components/adminPlatform/form/reassignJobForm";
-import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
+import TypeToConfirmForm from "@/components/adminPlatform/form/typeToConfirmForm";
+import RatingReviewForm from "@/components/form/ratingReviewForm";
+import { getJobDeleteBlocker, useAdminJobs } from "../dashboardLayout/adminJobsContext";
 import { useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
+import { useAdminProfile } from "../dashboardLayout/adminProfileContext";
+import { canActOnJob, useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import { JobStatusBadge, PersonLabel } from "../jobsPage/jobPeople";
 import AssignmentHistory from "./assignmentHistory";
 import { AttachmentList, ContactManufacturerDialog, DetailSection, ImagePreviewGrid } from "./detailParts";
 import { ExtensionHistory, PendingExtensionRequest } from "./extensionRequests";
 import JobNotes from "./jobNotes";
 import JobPayments from "./jobPayments";
-import ManufacturerRating from "./manufacturerRating";
+import ManufacturerRating, { LeadRating, RatingStarsDisplay } from "./manufacturerRating";
 import ProductionSteps from "./productionSteps";
 import { FinishedFurniture, RejectionHistory, photoItems } from "./workReview";
 
-type JobDialog = "approve" | "reject" | "reassign" | "contact" | "fault" | null;
+type JobDialog = "approve" | "sign-off-held" | "reject" | "reassign" | "contact" | "fault" | "delete" | null;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // JobDetailSheet — one job, docked on the right (full screen on phones).
@@ -54,11 +63,14 @@ type JobDialog = "approve" | "reject" | "reassign" | "contact" | "fault" | null;
 // section of constant/admin.ts): pending jobs can be edited and reassigned,
 // with their assignment history and anyone who applied for them; in-progress
 // jobs show the production steps, whose proof the lead approves or sends
-// back, and any request for more time; work in review can be approved
-// (after seeing the photos) or rejected with a review; completed jobs close
-// their notes and take a rating instead — and, for a few days, a fault
-// report. The payments show what the manufacturer has been paid so far. Only the job's project lead acts; anyone
-// else can read it all, and is told why the actions are off.
+// back, and any request for more time; work in review is signed off by
+// rating the manufacturer (3 stars or less holds it for a super admin to
+// sign off or reject instead), or rejected with a review; completed jobs
+// close their notes and show both ratings (the lead's of the manufacturer,
+// and theirs of the lead) — and, for a few days, take a fault report. The payments show what the manufacturer has been paid so far.
+// Only the job's project lead acts (and a super admin, on any job, who can
+// also delete a job no one has been paid for yet); anyone else can read it
+// all, and is told why the actions are off.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function JobDetailSheet({
@@ -85,15 +97,16 @@ export default function JobDetailSheet({
                 overlayClassName="bottom-(--mobile-bottom-nav-height) lg:bottom-0"
                 className="gap-0 bg-white p-0 data-[side=right]:inset-x-0 data-[side=right]:top-0 data-[side=right]:bottom-(--mobile-bottom-nav-height) data-[side=right]:h-auto data-[side=right]:w-full data-[side=right]:max-w-full data-[side=right]:border-l-0 md:data-[side=right]:left-auto md:data-[side=right]:max-w-120 md:data-[side=right]:border-l md:data-[side=right]:border-border lg:data-[side=right]:bottom-0"
             >
-                {job && <JobDetail key={job.id} job={job} onEdit={() => onEdit(job.id)} />}
+                {job && <JobDetail key={job.id} job={job} onEdit={() => onEdit(job.id)} onDeleted={onClose} />}
             </SheetContent>
         </Sheet>
     );
 }
 
-function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
+function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => void; onDeleted: () => void }) {
     const {
-        approveJob,
+        completeJob,
+        signOffHeldJob,
         rejectJob,
         decideExtension,
         reassignJob,
@@ -104,7 +117,10 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
         acceptApplication,
         declineApplication,
         reportFault,
+        deleteJob,
     } = useAdminJobs();
+    const platform = useStaffPlatform();
+    const { fullName } = useAdminProfile();
     const { getAssignBlocker } = useAdminManufacturers();
     const [dialog, setDialog] = useState<JobDialog>(null);
     const [isScrolled, setIsScrolled] = useState(false);
@@ -117,14 +133,19 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
     const manufacturerNames =
         job.manufacturerIds.map((id) => getAdminManufacturer(id)?.companyName).filter(Boolean).join(" & ") ||
         "the manufacturer";
-    const isLead = job.projectLeadIds.includes(ADMIN_ME_ID);
+    const isLead = canActOnJob(platform, job);
+    const deleteBlocker = getJobDeleteBlocker(job);
     const { status } = job;
     const isFinal = isRejectionFinal(job);
 
     // Only the lead acts, and only at the right point in the job's life
     const canEdit = isLead && status === "pending";
     const canReassign = isLead && status === "pending";
-    const canReview = isLead && status === "in-review";
+    const heldReview = status === "in-review" ? job.furtherReview : null;
+    // Signing off: not while it's held for a super admin
+    const canReview = isLead && status === "in-review" && !heldReview;
+    const canReject = isLead && status === "in-review";
+    const canDecideHeld = platform.permissions.decidesHeldJobs && !!heldReview;
     const canReviewSteps = isLead && status === "in-progress";
     const canDecideExtensions = isLead && status === "in-progress";
     const canPostNotes = isLead && status !== "completed";
@@ -139,7 +160,11 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
     const completeHint =
         status === "completed"
             ? null
-            : !isLead
+            : heldReview
+              ? canDecideHeld
+                  ? "Held for further review. Sign it off or reject it below."
+                  : "Held for further review. A super admin decides whether it's signed off."
+              : !isLead
               ? `Only ${leadNames} can review this job.`
               : status === "pending" || status === "in-progress"
                 ? "You can mark it as completed once the manufacturer submits it for review."
@@ -199,7 +224,7 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
                             <Check className="size-3.5" strokeWidth={2.5} />
                             {status === "completed" ? "Completed" : "Mark as completed"}
                         </button>
-                        {canReview && (
+                        {canReject && (
                             <button
                                 type="button"
                                 onClick={() => setDialog("reject")}
@@ -226,6 +251,13 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
                                     onSelect: () => setDialog("contact"),
                                 },
                                 { label: "Copy job code", icon: <Copy className="size-4" />, onSelect: copyCode },
+                                platform.permissions.deletes && {
+                                    label: "Delete job",
+                                    icon: <Trash2 className="size-4" />,
+                                    tone: "danger",
+                                    disabledReason: deleteBlocker,
+                                    onSelect: () => setDialog("delete"),
+                                },
                             ]}
                         />
                         <SheetClose className="flex size-8 items-center justify-center rounded-full text-mist-700 transition-colors hover:bg-mist-100 cursor-pointer">
@@ -251,6 +283,15 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
                         </button>
                     )}
                 </div>
+
+                {heldReview && (
+                    <FurtherReviewNotice
+                        review={heldReview}
+                        canDecide={canDecideHeld}
+                        onSignOff={() => setDialog("sign-off-held")}
+                        onReject={() => setDialog("reject")}
+                    />
+                )}
 
                 {pendingExtension && (
                     <PendingExtensionRequest
@@ -340,7 +381,7 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
                         onApprove={(step) =>
                             run(
                                 () => approveStep(job.id, step),
-                                "Step approved — payment released",
+                                "Step approved, payment released",
                                 "Couldn't approve the step. Please try again.",
                             )
                         }
@@ -367,7 +408,7 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
                                     decision === "accepted"
                                         ? acceptApplication(job.id, applicationId)
                                         : declineApplication(job.id, applicationId),
-                                decision === "accepted" ? "Application accepted — the job is theirs" : "Application declined",
+                                decision === "accepted" ? "Application accepted, the job is theirs" : "Application declined",
                                 "Couldn't save your decision. Please try again.",
                             )
                         }
@@ -392,12 +433,14 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
                         onRate={(review) =>
                             run(
                                 () => rateManufacturer(job.id, review),
-                                "Thanks — your rating was saved",
+                                "Thanks, your rating was saved",
                                 "Couldn't save your rating. Please try again.",
                             )
                         }
                     />
                 )}
+
+                {status === "completed" && <LeadRating job={job} />}
 
                 <JobNotes
                     notes={job.notes}
@@ -411,8 +454,9 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
                     }
                     onPost={(message) =>
                         addNote(job.id, {
-                            authorName: `${ADMIN_PROFILE.firstName} ${ADMIN_PROFILE.lastName}`,
-                            authorRole: "Project lead",
+                            authorName: fullName,
+                            // A super admin stepping in isn't the job's lead
+                            authorRole: job.projectLeadIds.includes(platform.leadId ?? "") ? "Project lead" : platform.roleLabel,
                             message,
                         })
                     }
@@ -422,18 +466,43 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
             <Dialog open={dialog === "approve"} onOpenChange={(open) => !open && closeDialog()}>
                 <DialogContent className="max-w-110">
                     <div className="flex flex-col gap-1">
-                        <DialogTitle>Mark this job as completed?</DialogTitle>
+                        <DialogTitle>Rate and review</DialogTitle>
                         <DialogDescription>
-                            Check the finished furniture {manufacturerNames} submitted. Marking it as completed signs off{" "}
-                            {job.title} and lets them know the work has been accepted.
+                            Jobs rated {MIN_SIGN_OFF_RATING - 1} stars or less aren&apos;t marked as completed. A super admin
+                            reviews them further.
                         </DialogDescription>
                     </div>
-                    {job.completionImageUrls.length > 0 ? (
+                    <RatingReviewForm
+                        ratingLabel="Rate this manufacturer's work"
+                        submitLabel={(rating) =>
+                            rating > 0 && rating < MIN_SIGN_OFF_RATING ? "Send for further review" : "Mark as completed"
+                        }
+                        loadingLabel="Saving..."
+                        errorMessage="Couldn't save your review. Please try again."
+                        onSubmit={(review) => {
+                            completeJob(job.id, review);
+                            toast.success(
+                                review.rating >= MIN_SIGN_OFF_RATING
+                                    ? `${job.title} is completed. ${manufacturerNames} is asked to rate ${leadNames} now.`
+                                    : `${job.title} is held for further review by a super admin`,
+                            );
+                            closeDialog();
+                        }}
+                    />
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={dialog === "sign-off-held"} onOpenChange={(open) => !open && closeDialog()}>
+                <DialogContent className="max-w-110">
+                    <div className="flex flex-col gap-1">
+                        <DialogTitle>Sign off {job.title}?</DialogTitle>
+                        <DialogDescription>
+                            It&apos;s marked as completed with {heldReview?.authorName}&apos;s rating, and{" "}
+                            {manufacturerNames} is paid the final part of the job.
+                        </DialogDescription>
+                    </div>
+                    {job.completionImageUrls.length > 0 && (
                         <ImagePreviewGrid images={photoItems(job.completionImageUrls)} />
-                    ) : (
-                        <p className="rounded-lg bg-mist-50 px-4 py-6 text-center text-sm font-text text-mist-500">
-                            No photos were submitted.
-                        </p>
                     )}
                     <div className="flex justify-end gap-3">
                         <DialogButton onClick={closeDialog} tone="neutral">
@@ -442,15 +511,15 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
                         <DialogButton
                             onClick={() => {
                                 run(
-                                    () => approveJob(job.id),
-                                    "Job marked as completed",
-                                    "Couldn't mark the job as completed. Please try again.",
+                                    () => signOffHeldJob(job.id),
+                                    `${job.title} is signed off`,
+                                    "Couldn't sign the job off. Please try again.",
                                 );
                                 closeDialog();
                             }}
                             tone="primary"
                         >
-                            Mark as completed
+                            Sign off
                         </DialogButton>
                     </div>
                 </DialogContent>
@@ -462,7 +531,9 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
                         <DialogTitle>Reject this job?</DialogTitle>
                         <DialogDescription>
                             Rejection {nextRejectionNumber} of {MAX_ADMIN_JOB_REJECTIONS}. {manufacturerNames} will get your
-                            review{nextRejectionNumber < MAX_ADMIN_JOB_REJECTIONS ? " and can fix the work and resubmit it" : ""}.
+                            review{nextRejectionNumber < MAX_ADMIN_JOB_REJECTIONS ? " and can fix the work and resubmit it" : ""}, and
+                            are charged {formatPrice(getRejectionCharge(job.amount))} ({REJECTION_CHARGE_PERCENT}% of the job) from
+                            their wallet.
                         </DialogDescription>
                     </div>
                     {nextRejectionNumber >= MAX_ADMIN_JOB_REJECTIONS && (
@@ -479,7 +550,7 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
                                 () => rejectJob(job.id, review),
                                 nextRejectionNumber >= MAX_ADMIN_JOB_REJECTIONS
                                     ? "Job rejected for the last time"
-                                    : "Job rejected — the manufacturer has your review",
+                                    : "Job rejected. The manufacturer has your review",
                                 "Couldn't reject the job. Please try again.",
                             );
                             closeDialog();
@@ -534,7 +605,7 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
                             if (sendingBack) {
                                 run(
                                     () => sendBackStep(job.id, sendingBack, reason),
-                                    "Proof sent back — the manufacturer has your reason",
+                                    "Proof sent back. The manufacturer has your reason",
                                     "Couldn't send the proof back. Please try again.",
                                 );
                             }
@@ -562,10 +633,35 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
                         onSubmit={(reason) => {
                             run(
                                 () => reportFault(job.id, reason),
-                                "Fault reported — the bonus won't be paid",
+                                "Fault reported. The bonus won't be paid",
                                 "Couldn't report the fault. Please try again.",
                             );
                             closeDialog();
+                        }}
+                    />
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={dialog === "delete"} onOpenChange={(open) => !open && closeDialog()}>
+                <DialogContent className="max-w-110">
+                    <div className="flex flex-col gap-1">
+                        <DialogTitle>Delete {job.title}?</DialogTitle>
+                        <DialogDescription>
+                            The job, its notes and its assignment history are removed for everyone, including anyone it
+                            was offered to. This can&apos;t be undone.
+                        </DialogDescription>
+                    </div>
+                    <TypeToConfirmForm
+                        confirmText={job.title}
+                        submitLabel="Delete job"
+                        loadingLabel="Deleting..."
+                        errorMessage="Couldn't delete the job. Please try again."
+                        onCancel={closeDialog}
+                        onConfirm={() => {
+                            deleteJob(job.id);
+                            toast.success(`${job.title} was deleted`);
+                            closeDialog();
+                            onDeleted();
                         }}
                     />
                 </DialogContent>
@@ -577,6 +673,61 @@ function JobDetail({ job, onEdit }: { job: AdminJob; onEdit: () => void }) {
                 onOpenChange={(open) => !open && closeDialog()}
             />
         </div>
+    );
+}
+
+/**
+ * Finished work the lead rated 3 stars or less: not signed off, and not
+ * approved automatically, while it waits for a super admin — who signs it
+ * off (keeping the rating) or rejects it.
+ */
+function FurtherReviewNotice({
+    review,
+    canDecide,
+    onSignOff,
+    onReject,
+}: {
+    review: NonNullable<AdminJob["furtherReview"]>;
+    canDecide: boolean;
+    onSignOff: () => void;
+    onReject: () => void;
+}) {
+    return (
+        <section className="flex flex-col gap-3 rounded-lg border border-warning-200 bg-warning-50/60 p-4">
+            <div className="flex items-start gap-2.5">
+                <PauseCircle className="mt-0.5 size-5 shrink-0 text-warning-600" strokeWidth={1.75} aria-hidden />
+                <div className="flex min-w-0 flex-col gap-1">
+                    <h3 className="text-sm font-semibold font-text text-mist-950">Held for further review</h3>
+                    <p className="text-xs font-text text-mist-600">
+                        {review.authorName} rated the finished work {review.rating} out of 5 on{" "}
+                        {formatOrdinalDate(new Date(review.createdAt))}, so it wasn&apos;t signed off.
+                        {canDecide ? "" : " A super admin decides."}
+                    </p>
+                </div>
+            </div>
+            <div className="flex flex-col gap-2 rounded-md bg-white px-3.5 py-3">
+                <RatingStarsDisplay rating={review.rating} />
+                <p className="text-sm font-text whitespace-pre-line text-mist-800">{review.comment}</p>
+            </div>
+            {canDecide && (
+                <div className="flex justify-end gap-2">
+                    <button
+                        type="button"
+                        onClick={onReject}
+                        className="rounded-md border border-border bg-white px-3 py-1.5 text-xs font-medium font-text text-mist-900 transition-colors hover:bg-mist-50 cursor-pointer"
+                    >
+                        Reject
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onSignOff}
+                        className="rounded-md bg-secondary-700 px-3 py-1.5 text-xs font-medium font-text text-white transition-colors hover:bg-secondary-900 cursor-pointer"
+                    >
+                        Sign off
+                    </button>
+                </div>
+            )}
+        </section>
     );
 }
 
@@ -604,9 +755,8 @@ function DialogButton({
             onClick={onClick}
             className={cn(
                 "h-11 px-5 font-medium font-text rounded-button cursor-pointer transition-colors duration-300",
-                tone === "primary"
-                    ? "bg-secondary-700 hover:bg-secondary-900 text-white"
-                    : "bg-mist-100 hover:bg-mist-200 text-mist-950",
+                tone === "primary" && "bg-secondary-700 hover:bg-secondary-900 text-white",
+                tone === "neutral" && "bg-mist-100 hover:bg-mist-200 text-mist-950",
             )}
         >
             {children}
@@ -614,7 +764,14 @@ function DialogButton({
     );
 }
 
-type MenuItem = { label: string; icon: ReactNode; onSelect: () => void };
+type MenuItem = {
+    label: string;
+    icon: ReactNode;
+    onSelect: () => void;
+    tone?: "danger";
+    /** Why it can't be done now — shown under it, greyed out. */
+    disabledReason?: string | null;
+};
 
 function MoreMenu({ items }: { items: (MenuItem | false)[] }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -633,14 +790,27 @@ function MoreMenu({ items }: { items: (MenuItem | false)[] }) {
                     <button
                         key={item.label}
                         type="button"
+                        disabled={!!item.disabledReason}
                         onClick={() => {
                             setIsOpen(false);
                             item.onSelect();
                         }}
-                        className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium font-text text-mist-700 transition-colors hover:bg-mist-50 hover:text-mist-950 cursor-pointer"
+                        className={cn(
+                            "flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-left text-sm font-medium font-text transition-colors [&>svg]:mt-0.5 [&>svg]:shrink-0",
+                            item.disabledReason
+                                ? "cursor-not-allowed text-mist-300"
+                                : item.tone === "danger"
+                                  ? "text-error-600 hover:bg-error-50 cursor-pointer"
+                                  : "text-mist-700 hover:bg-mist-50 hover:text-mist-950 cursor-pointer",
+                        )}
                     >
                         {item.icon}
-                        {item.label}
+                        <span className="flex flex-col">
+                            {item.label}
+                            {item.disabledReason && (
+                                <span className="text-xs font-normal text-mist-400">{item.disabledReason}</span>
+                            )}
+                        </span>
                     </button>
                 ))}
             </PopoverContent>

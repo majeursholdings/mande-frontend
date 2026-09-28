@@ -10,7 +10,7 @@ import {
     DialogDescription,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { ADMIN_LOGIN_URL } from "@/constant/navigation";
+import { useStaffPlatform } from "./staffPlatformContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LogoutProvider — the "Log out?" confirmation. The sidebar, the mobile menu
@@ -22,6 +22,7 @@ const LogoutContext = createContext<{ requestLogout: () => void } | null>(null);
 
 export function LogoutProvider({ children }: { children: ReactNode }) {
     const router = useRouter();
+    const { loginUrl } = useStaffPlatform();
     const [isOpen, setIsOpen] = useState(false);
 
     const logOut = () => {
@@ -29,7 +30,7 @@ export function LogoutProvider({ children }: { children: ReactNode }) {
             // No backend is wired up yet — clear the session there once it is
             setIsOpen(false);
             toast.success("You've been logged out");
-            router.push(ADMIN_LOGIN_URL);
+            router.push(loginUrl);
         } catch {
             toast.error("Couldn't log you out. Please try again.");
         }

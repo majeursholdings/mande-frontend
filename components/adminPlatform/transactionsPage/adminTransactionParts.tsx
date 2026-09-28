@@ -9,10 +9,13 @@ import {
 } from "@/components/manufacturerPlatform/transactionsPage/transactionListItem";
 import { formatPrice } from "@/lib/currency";
 import { formatOrdinalDate } from "@/lib/date";
-import { getAdminManufacturerUrl, type AdminTransaction } from "@/constant/admin";
+import type { AdminTransaction } from "@/constant/admin";
+import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 
 /** Who a transaction is for — their photo, name (a link to them) and company; just the name when `compact`. */
 function ManufacturerCell({ transaction, compact }: { transaction: AdminTransaction; compact: boolean }) {
+    const { getManufacturerUrl } = useStaffPlatform();
+
     return (
         <span className="flex items-center gap-3">
             {!compact && (
@@ -20,7 +23,7 @@ function ManufacturerCell({ transaction, compact }: { transaction: AdminTransact
             )}
             <span className="flex min-w-0 flex-col">
                 <Link
-                    href={getAdminManufacturerUrl(transaction.manufacturerId)}
+                    href={getManufacturerUrl(transaction.manufacturerId)}
                     // The row opens it too; this is for keyboards
                     onClick={(event) => event.stopPropagation()}
                     className="font-medium text-mist-950 outline-none hover:underline focus-visible:underline"

@@ -2,14 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { CirclePlus, ListChecks, SearchX } from "lucide-react";
-import {
-    ADMIN_JOBS_PAGE_SIZE,
-    ADMIN_JOBS_URL,
-    ADMIN_ME_ID,
-    type AdminJob,
-} from "@/constant/admin";
+import { ADMIN_JOBS_PAGE_SIZE, type AdminJob } from "@/constant/admin";
 import JobFormDialog from "@/components/adminPlatform/form/jobFormDialog";
 import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
+import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import EmptyState from "../emptyState";
 import JobDetailSheet from "../jobDetailPage/jobDetailSheet";
 import JobsTable from "./jobsTable";
@@ -19,12 +15,17 @@ const DEFAULT_FILTERS: JobsFilters = { search: "", assignedToMe: false, leadId: 
 
 const time = (iso: string | null) => (iso ? new Date(iso).getTime() : 0);
 
-function filterJobs(jobs: AdminJob[], { search, assignedToMe, leadId, view }: JobsFilters): AdminJob[] {
+/** `myLeadId`: the signed-in person, for "Jobs assigned to me". */
+function filterJobs(
+    jobs: AdminJob[],
+    { search, assignedToMe, leadId, view }: JobsFilters,
+    myLeadId: string | null,
+): AdminJob[] {
     const query = search.trim().toLowerCase();
     const matching = jobs.filter(
         (job) =>
             (!query || job.title.toLowerCase().includes(query) || job.code.toLowerCase().includes(query)) &&
-            (!assignedToMe || job.projectLeadIds.includes(ADMIN_ME_ID)) &&
+            (!assignedToMe || (!!myLeadId && job.projectLeadIds.includes(myLeadId))) &&
             (!leadId || job.projectLeadIds.includes(leadId)) &&
             (view === "all" || view === "date-assigned" || view === "due-date" || job.status === view),
     );
@@ -42,18 +43,20 @@ function filterJobs(jobs: AdminJob[], { search, assignedToMe, leadId, view }: Jo
 // ─────────────────────────────────────────────────────────────────────────────
 // Admin Jobs — every job on the platform: search, filter and sort them, open
 // one in the side panel (?job=<id> links straight to it), and create or edit
-// jobs in the three-step dialog.
+// jobs in the three-step dialog. The super admin's too, who doesn't lead
+// jobs: they create them for an admin to lead, and have no "assigned to me".
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AdminJobsPage({ initialJobId }: { initialJobId?: string }) {
     const { jobs, getJob } = useAdminJobs();
+    const { jobsUrl, leadId, permissions } = useStaffPlatform();
     const [filters, setFilters] = useState<JobsFilters>(DEFAULT_FILTERS);
     const [page, setPage] = useState(1);
     const [openJobId, setOpenJobId] = useState<string | null>(initialJobId ?? null);
     /** Null: closed. No jobId: creating. */
     const [jobForm, setJobForm] = useState<{ jobId?: string } | null>(null);
 
-    const filteredJobs = useMemo(() => filterJobs(jobs, filters), [jobs, filters]);
+    const filteredJobs = useMemo(() => filterJobs(jobs, filters, leadId), [jobs, filters, leadId]);
     const pageCount = Math.max(1, Math.ceil(filteredJobs.length / ADMIN_JOBS_PAGE_SIZE));
     const currentPage = Math.min(page, pageCount);
     const firstOnPage = (currentPage - 1) * ADMIN_JOBS_PAGE_SIZE;
@@ -69,17 +72,18 @@ export default function AdminJobsPage({ initialJobId }: { initialJobId?: string 
     // The URL follows the open job (without a navigation), so it can be shared
     const openJob = (jobId: string) => {
         setOpenJobId(jobId);
-        window.history.replaceState(null, "", `${ADMIN_JOBS_URL}?job=${jobId}`);
+        window.history.replaceState(null, "", `${jobsUrl}?job=${jobId}`);
     };
     const closeJob = () => {
         setOpenJobId(null);
-        window.history.replaceState(null, "", ADMIN_JOBS_URL);
+        window.history.replaceState(null, "", jobsUrl);
     };
 
     return (
         <div className="flex flex-col gap-8">
             <div className="flex items-center justify-between gap-4">
                 <h1 className="text-2xl font-semibold font-text text-mist-950">Jobs</h1>
+                {(leadId || permissions.actsOnEveryJob) && (
                 <button
                     type="button"
                     onClick={() => setJobForm({})}
@@ -88,10 +92,11 @@ export default function AdminJobsPage({ initialJobId }: { initialJobId?: string 
                     <CirclePlus className="size-4" />
                     Create a job
                 </button>
+                )}
             </div>
 
             <div className="flex flex-col gap-5">
-                <JobsToolbar filters={filters} onChange={changeFilters} />
+                <JobsToolbar filters={filters} onChange={changeFilters} showAssignedToMe={!!leadId} />
 
                 {jobs.length === 0 ? (
                     <EmptyState icon={ListChecks} title="No Jobs" description="There are no jobs to display" />

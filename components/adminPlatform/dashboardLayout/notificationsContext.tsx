@@ -1,12 +1,14 @@
 "use client";
 
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { ADMIN_NOTIFICATIONS, type AdminNotification } from "@/constant/admin";
+import type { AdminNotification } from "@/constant/admin";
 import { useAdminProfile } from "./adminProfileContext";
+import { useStaffPlatform } from "./staffPlatformContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NotificationsProvider — the admin's notifications, shared by the desktop
-// and mobile top bars so the bell's unread dot and the panel stay in sync.
+// NotificationsProvider — the signed-in admin's (or super admin's)
+// notifications, shared by the desktop and mobile top bars so the bell's
+// unread dot and the panel stay in sync.
 // Only the kinds they get in the app show (Settings › Notifications).
 // Seeded from sample data and updated locally for now; once the backend is
 // connected, load them from the API and persist "mark all as read" there.
@@ -21,7 +23,8 @@ type NotificationsContextValue = {
 const NotificationsContext = createContext<NotificationsContextValue | null>(null);
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
-    const [allNotifications, setNotifications] = useState(ADMIN_NOTIFICATIONS);
+    const { notifications: initialNotifications } = useStaffPlatform();
+    const [allNotifications, setNotifications] = useState(initialNotifications);
     const { profile } = useAdminProfile();
     const notifications = allNotifications.filter(
         (notification) => profile.notificationPreferences[notification.type]["in-app"],

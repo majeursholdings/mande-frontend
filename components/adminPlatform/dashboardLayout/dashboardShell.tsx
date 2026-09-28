@@ -9,27 +9,49 @@ import { NotificationsProvider } from "./notificationsContext";
 import { AdminJobsProvider } from "./adminJobsContext";
 import { AdminManufacturersProvider } from "./adminManufacturersContext";
 import { AdminProfileProvider } from "./adminProfileContext";
+import { StaffPlatformProvider, type StaffPlatformKey } from "./staffPlatformContext";
+import { SuperAdminSettingsProvider } from "@/components/superAdminPlatform/settingsContext";
 
-/** The admin dashboard frame — sidebar and top bar from lg up, top and bottom bars on phones. */
-export default function DashboardShell({ children }: { children: ReactNode }) {
+/**
+ * The staff dashboard frame, for the admin or the super admin — sidebar and
+ * top bar from lg up, top and bottom bars on phones.
+ */
+export default function DashboardShell({
+    platform = "admin",
+    children,
+}: {
+    platform?: StaffPlatformKey;
+    children: ReactNode;
+}) {
+    const frame = (
+        <DashboardFrame
+            sidebar={<DashboardSidebar />}
+            desktopTopbar={<DesktopTopbar />}
+            mobileTopbar={<MobileTopbar />}
+            bottomNav={<MobileBottomNav />}
+        >
+            {children}
+        </DashboardFrame>
+    );
+
     return (
-        <LogoutProvider>
-            <AdminProfileProvider>
-                <NotificationsProvider>
-                    <AdminJobsProvider>
-                        <AdminManufacturersProvider>
-                            <DashboardFrame
-                                sidebar={<DashboardSidebar />}
-                                desktopTopbar={<DesktopTopbar />}
-                                mobileTopbar={<MobileTopbar />}
-                                bottomNav={<MobileBottomNav />}
-                            >
-                                {children}
-                            </DashboardFrame>
-                        </AdminManufacturersProvider>
-                    </AdminJobsProvider>
-                </NotificationsProvider>
-            </AdminProfileProvider>
-        </LogoutProvider>
+        <StaffPlatformProvider platform={platform}>
+            <LogoutProvider>
+                <AdminProfileProvider>
+                    <NotificationsProvider>
+                        <AdminJobsProvider>
+                            <AdminManufacturersProvider>
+                                {platform === "super-admin" ? (
+                                    // Their platform settings, round the whole frame: the sidebar counts what's waiting too
+                                    <SuperAdminSettingsProvider>{frame}</SuperAdminSettingsProvider>
+                                ) : (
+                                    frame
+                                )}
+                            </AdminManufacturersProvider>
+                        </AdminJobsProvider>
+                    </NotificationsProvider>
+                </AdminProfileProvider>
+            </LogoutProvider>
+        </StaffPlatformProvider>
     );
 }

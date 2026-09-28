@@ -59,7 +59,13 @@ export default function TransactionSummaryCards({
             amount: summary.balance,
             icon: WalletMinimal,
             iconClassName: "bg-secondary-600",
-            footer: isPlatform ? "Waiting to be withdrawn" : "In their wallet now",
+            // Charges for rejected work come out of it too
+            footer:
+                summary.charges > 0
+                    ? `After ${formatPrice(summary.charges)} in rejection charges`
+                    : isPlatform
+                      ? "Waiting to be withdrawn"
+                      : "In their wallet now",
         },
     ];
 

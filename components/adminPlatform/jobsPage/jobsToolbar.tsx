@@ -30,16 +30,18 @@ export type JobsFilters = {
 };
 
 /**
- * Search, the "Jobs assigned to me" smart filter, a filter by project lead
- * (the avatar stack) and the Sort by menu. On phones: search and sort on one
- * row, the smart filter under them.
+ * Search, the "Jobs assigned to me" smart filter (for someone who leads
+ * jobs), a filter by project lead (the avatar stack) and the Sort by menu.
+ * On phones: search and sort on one row, the smart filter under them.
  */
 export default function JobsToolbar({
     filters,
     onChange,
+    showAssignedToMe = true,
 }: {
     filters: JobsFilters;
     onChange: (changes: Partial<JobsFilters>) => void;
+    showAssignedToMe?: boolean;
 }) {
     return (
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:gap-6">
@@ -61,6 +63,7 @@ export default function JobsToolbar({
             </div>
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+                {showAssignedToMe && (
                 <div className="flex items-center gap-3">
                     <span className="text-sm font-text text-mist-900">Smart filter:</span>
                     <button
@@ -77,6 +80,7 @@ export default function JobsToolbar({
                         Jobs assigned to me
                     </button>
                 </div>
+                )}
                 <LeadFilter value={filters.leadId} onChange={(leadId) => onChange({ leadId })} />
             </div>
         </div>

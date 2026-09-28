@@ -3,8 +3,8 @@
 import { ChangePasswordForm } from "@/components/manufacturerPlatform/form/profileChangePasswordForm";
 import { TwoFactorMethods } from "@/components/manufacturerPlatform/securityPage/twoFactorSettings";
 import SettingsSection from "@/components/manufacturerPlatform/settingsSection";
-import { ADMIN_PROFILE_URL } from "@/constant/admin";
 import { useAdminProfile } from "../dashboardLayout/adminProfileContext";
+import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import AdminPageHeader from "../pageHeader";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17,13 +17,14 @@ import AdminPageHeader from "../pageHeader";
 export default function AdminSecurityPage() {
     const { profile, updateProfile } = useAdminProfile();
     const { twoFactorMethod } = profile.security;
+    const { profileUrl, roleLabel } = useStaffPlatform();
 
     return (
         <div className="flex flex-col gap-8">
             <AdminPageHeader
                 title="Security"
-                description="Keep your admin account safe — your password, and a second step when you log in."
-                backLink={{ href: ADMIN_PROFILE_URL, label: "Back to Profile" }}
+                description={`Keep your ${roleLabel.toLowerCase()} account safe: your password, and a second step when you log in.`}
+                backLink={{ href: profileUrl, label: "Back to Profile" }}
             />
 
             <div className="flex max-w-2xl flex-col gap-6">
@@ -35,7 +36,7 @@ export default function AdminSecurityPage() {
                 </SettingsSection>
                 <SettingsSection
                     title="Two-factor authentication"
-                    description="Add a second step to confirm it's you when you log in — a code from your email or an authenticator app."
+                    description="Add a second step to confirm it's you when you log in: a code from your email or an authenticator app."
                 >
                     <TwoFactorMethods
                         email={profile.email}

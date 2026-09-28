@@ -1,21 +1,41 @@
 "use client";
 
 import { createContext, useContext, useState, type ReactNode } from "react";
-import { ADMIN_MANUFACTURERS, ADMIN_PROFILE, isRejectionFinal, type AdminJobAttachment } from "@/constant/admin";
+import { ADMIN_MANUFACTURERS, type AdminJob, type AdminJobAttachment } from "@/constant/admin";
+import { getManufacturerTransactions, getTransactionSummary } from "@/constant/manufacturer";
 import type { DocumentVerification, ManufacturerAccountStatus, ManufacturerRecord } from "@/constant/sampleDb";
-import { useAdminJobs } from "./adminJobsContext";
+import { isJobUnderwayFor, useAdminJobs } from "./adminJobsContext";
+import { useAdminProfile } from "./adminProfileContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AdminManufacturersProvider — every manufacturer, shared across the admin
-// dashboard so a flag, a suspension, a verification decision or a deletion
-// request stays put while the admin moves between pages. Admins can't delete
-// an account — they ask a super admin to. Seeded from the sample database
-// and kept in memory for now; once the backend is connected, load
-// manufacturers from the API and send each change there.
+// (or super admin) dashboard so a flag, a suspension, a verification
+// decision or a deletion stays put while they move between pages. Admins
+// can't delete an account: they ask a super admin to, who deletes it or
+// turns the request down. Seeded from the sample database and kept in memory
+// for now; once the backend is connected, load manufacturers from the API
+// and send each change there.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** A document an admin can verify or reject. */
 export type ManufacturerDocument = "nin-card" | "tax-number" | "business-license";
+
+/** What's still going on on an account — worth a warning before it's deleted. Empty lists and 0 when nothing is. */
+export type AccountDeleteWarnings = {
+    /** Jobs offered to them or being worked on, and whether each goes back to pending (theirs alone) or carries on with a co-manufacturer. */
+    jobsUnderway: { job: AdminJob; goesBackToPending: boolean }[];
+    /** Pending jobs they've applied for. */
+    applications: AdminJob[];
+    /** Still in their wallet, in naira. */
+    walletBalance: number;
+    hasPendingAppeal: boolean;
+};
+
+export const hasDeleteWarnings = (warnings: AccountDeleteWarnings) =>
+    warnings.jobsUnderway.length > 0 ||
+    warnings.applications.length > 0 ||
+    warnings.walletBalance > 0 ||
+    warnings.hasPendingAppeal;
 
 type AdminManufacturersContextValue = {
     manufacturers: ManufacturerRecord[];
@@ -29,6 +49,15 @@ type AdminManufacturersContextValue = {
     decideAppeal: (id: string, appealId: string, decision: "approved" | "declined", response: string | null) => void;
     /** Sends the deletion to a super admin to carry out. */
     requestDeletion: (id: string, request: { reason: string; attachments: AdminJobAttachment[] }) => void;
+    /**
+     * Super admins only: removes the account for good — after a warning when
+     * getDeleteWarnings finds anything, it takes them off their jobs too (see
+     * releaseManufacturer).
+     */
+    deleteManufacturer: (id: string) => void;
+    /** Super admins only: turns down an admin's request to delete the account. */
+    declineDeletionRequest: (id: string) => void;
+    getDeleteWarnings: (id: string) => AccountDeleteWarnings;
     decideVerification: (
         id: string,
         document: ManufacturerDocument,
@@ -43,8 +72,6 @@ type AdminManufacturersContextValue = {
 };
 
 const AdminManufacturersContext = createContext<AdminManufacturersContextValue | null>(null);
-
-const MY_NAME = `${ADMIN_PROFILE.firstName} ${ADMIN_PROFILE.lastName}`;
 
 const DOCUMENT_FIELDS: Record<
     ManufacturerDocument,
@@ -62,7 +89,8 @@ const DOCUMENT_FIELDS: Record<
 };
 
 export function AdminManufacturersProvider({ children }: { children: ReactNode }) {
-    const { jobs } = useAdminJobs();
+    const { jobs, releaseManufacturer } = useAdminJobs();
+    const { fullName: myName } = useAdminProfile();
     const [manufacturers, setManufacturers] = useState(ADMIN_MANUFACTURERS);
 
     const patch = (id: string, change: (manufacturer: ManufacturerRecord) => ManufacturerRecord) =>
@@ -71,6 +99,19 @@ export function AdminManufacturersProvider({ children }: { children: ReactNode }
         );
 
     const getManufacturer = (id: string) => manufacturers.find((manufacturer) => manufacturer.id === id);
+
+    const hasJobUnderway = (id: string) => jobs.some((job) => isJobUnderwayFor(job, id));
+
+    const getDeleteWarnings = (id: string): AccountDeleteWarnings => ({
+        jobsUnderway: jobs
+            .filter((job) => isJobUnderwayFor(job, id))
+            .map((job) => ({ job, goesBackToPending: job.manufacturerIds.length === 1 })),
+        applications: jobs.filter((job) =>
+            job.applications.some((application) => application.manufacturerId === id && application.status === "pending"),
+        ),
+        walletBalance: Math.max(0, getTransactionSummary(getManufacturerTransactions(id, jobs)).balance),
+        hasPendingAppeal: !!getManufacturer(id)?.appeals.some((appeal) => appeal.status === "pending"),
+    });
 
     const value: AdminManufacturersContextValue = {
         manufacturers,
@@ -84,7 +125,7 @@ export function AdminManufacturersProvider({ children }: { children: ReactNode }
                 return {
                     ...manufacturer,
                     accountStatus: status,
-                    statusHistory: [{ status, reason, by: MY_NAME, at: now }, ...manufacturer.statusHistory],
+                    statusHistory: [{ status, reason, by: myName, at: now }, ...manufacturer.statusHistory],
                     appeals: liftsSuspension
                         ? manufacturer.appeals.map((appeal) =>
                               appeal.status === "pending"
@@ -92,7 +133,7 @@ export function AdminManufacturersProvider({ children }: { children: ReactNode }
                                         ...appeal,
                                         status: "approved" as const,
                                         response: reason ?? "Suspension lifted.",
-                                        decidedBy: MY_NAME,
+                                        decidedBy: myName,
                                         decidedAt: now,
                                     }
                                   : appeal,
@@ -109,7 +150,7 @@ export function AdminManufacturersProvider({ children }: { children: ReactNode }
                     ...manufacturer,
                     appeals: manufacturer.appeals.map((candidate) =>
                         candidate.id === appealId
-                            ? { ...candidate, status: decision, response, decidedBy: MY_NAME, decidedAt: now }
+                            ? { ...candidate, status: decision, response, decidedBy: myName, decidedAt: now }
                             : candidate,
                     ),
                 };
@@ -119,7 +160,7 @@ export function AdminManufacturersProvider({ children }: { children: ReactNode }
                           ...decided,
                           accountStatus: "active",
                           statusHistory: [
-                              { status: "active", reason: response ?? "Appeal approved.", by: MY_NAME, at: now },
+                              { status: "active", reason: response ?? "Appeal approved.", by: myName, at: now },
                               ...manufacturer.statusHistory,
                           ],
                       }
@@ -131,9 +172,15 @@ export function AdminManufacturersProvider({ children }: { children: ReactNode }
                     ? manufacturer
                     : {
                           ...manufacturer,
-                          deletionRequest: { ...request, requestedBy: MY_NAME, requestedAt: new Date().toISOString() },
+                          deletionRequest: { ...request, requestedBy: myName, requestedAt: new Date().toISOString() },
                       },
             ),
+        deleteManufacturer: (id) => {
+            releaseManufacturer(id);
+            setManufacturers((current) => current.filter((manufacturer) => manufacturer.id !== id));
+        },
+        declineDeletionRequest: (id) => patch(id, (manufacturer) => ({ ...manufacturer, deletionRequest: null })),
+        getDeleteWarnings,
         decideVerification: (id, document, decision, rejectionReason) =>
             patch(id, (manufacturer) =>
                 DOCUMENT_FIELDS[document](manufacturer, {
@@ -143,16 +190,9 @@ export function AdminManufacturersProvider({ children }: { children: ReactNode }
             ),
         getAssignBlocker: (id) => {
             const manufacturer = getManufacturer(id);
-            if (manufacturer?.accountStatus === "suspended") return "Suspended — can't take jobs";
+            if (manufacturer?.accountStatus === "suspended") return "Suspended, can't take jobs";
             if (manufacturer?.accountStatus !== "flagged") return null;
-            // Offered, or being worked on — anything not finished
-            const hasJob = jobs.some(
-                (job) =>
-                    job.manufacturerIds.includes(id) &&
-                    job.status !== "completed" &&
-                    !isRejectionFinal(job),
-            );
-            return hasJob ? "Flagged — already has a job" : null;
+            return hasJobUnderway(id) ? "Flagged, already has a job" : null;
         },
     };
 

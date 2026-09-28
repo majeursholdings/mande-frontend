@@ -6,8 +6,9 @@ import { usePathname } from "next/navigation";
 import { Ellipsis } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { ADMIN_NAV_ITEMS, isAdminNavItemActive } from "@/constant/admin";
+import { useSuperAdminActions } from "@/components/superAdminPlatform/actions/pendingActions";
 import NavLinks from "./navLinks";
+import { isStaffNavItemActive, useStaffPlatform } from "./staffPlatformContext";
 
 const TAB_CLASS =
     "flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[11px] font-medium font-text transition-colors duration-200";
@@ -20,17 +21,21 @@ const TAB_CLASS =
 
 export default function MobileBottomNav() {
     const pathname = usePathname();
+    const platform = useStaffPlatform();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const bottomBarItems = ADMIN_NAV_ITEMS.filter((item) => item.inBottomBar);
-    const isOnDrawerOnlyPage = ADMIN_NAV_ITEMS.some(
-        (item) => !item.inBottomBar && isAdminNavItemActive(item, pathname),
+    const bottomBarItems = platform.navItems.filter((item) => item.inBottomBar);
+    // Something waiting under Menu (e.g. the super admin's Actions) puts a dot on it
+    const hasWaitingInMenu =
+        useSuperAdminActions().length > 0 && platform.navItems.some((item) => !item.inBottomBar && item.countsPendingActions);
+    const isOnDrawerOnlyPage = platform.navItems.some(
+        (item) => !item.inBottomBar && isStaffNavItemActive(platform, item, pathname),
     );
 
     return (
         <>
             <nav className="fixed inset-x-0 bottom-0 z-40 flex h-(--mobile-bottom-nav-height) items-stretch border-t border-border bg-white px-1 pb-[env(safe-area-inset-bottom)] lg:hidden">
                 {bottomBarItems.map((item) => {
-                    const isActive = isAdminNavItemActive(item, pathname);
+                    const isActive = isStaffNavItemActive(platform, item, pathname);
                     return (
                         <Link
                             key={item.href}
@@ -54,8 +59,19 @@ export default function MobileBottomNav() {
                         isMenuOpen || isOnDrawerOnlyPage ? "text-secondary-700" : "text-mist-500",
                     )}
                 >
-                    <Ellipsis className="size-6" strokeWidth={1.5} />
-                    Menu
+                    <span className="relative">
+                        <Ellipsis className="size-6" strokeWidth={1.5} />
+                        {hasWaitingInMenu && (
+                            <span className="absolute -top-0.5 -right-0.5 size-2 rounded-full bg-secondary-500" aria-hidden />
+                        )}
+                    </span>
+                    {hasWaitingInMenu ? (
+                        <>
+                            Menu<span className="sr-only">, actions waiting</span>
+                        </>
+                    ) : (
+                        "Menu"
+                    )}
                 </button>
             </nav>
 

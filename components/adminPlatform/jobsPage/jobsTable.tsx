@@ -86,7 +86,17 @@ export default function JobsTable({
         {
             key: "status",
             header: "Status",
-            cell: (job) => <JobStatusBadge status={job.status} />,
+            cell: (job) => (
+                <span className="flex flex-col items-start gap-1">
+                    <JobStatusBadge status={job.status} />
+                    {/* Rated 3 stars or less: waiting for a super admin */}
+                    {job.status === "in-review" && job.furtherReview && (
+                        <span className="rounded-full bg-warning-50 px-2 py-0.5 text-[11px] font-medium font-text whitespace-nowrap text-warning-700">
+                            Further review
+                        </span>
+                    )}
+                </span>
+            ),
         },
     ];
 

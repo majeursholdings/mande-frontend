@@ -2,9 +2,9 @@
 
 import { ReceiptText } from "lucide-react";
 import { DataTable } from "@/components/customTable";
-import { ADMIN_TRANSACTIONS_URL } from "@/constant/admin";
 import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
 import { useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
+import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import {
     AdminTransactionListItem,
     getAdminTransactionColumns,
@@ -20,15 +20,16 @@ const COLUMNS = getAdminTransactionColumns(true);
  * Transactions page, with its columns — a table from md up, a stacked list
  * on phones.
  */
-export default function RecentTransactionsCard() {
+export default function RecentTransactionsCard({ limit = 4 }: { limit?: number }) {
     const { manufacturers } = useAdminManufacturers();
     const { jobs } = useAdminJobs();
-    const transactions = getRecentTransactions(manufacturers, jobs);
+    const { transactionsUrl } = useStaffPlatform();
+    const transactions = getRecentTransactions(manufacturers, jobs, limit);
 
     return (
         <DashboardCard
             title="Recent Transactions"
-            viewAllHref={transactions.length > 0 ? ADMIN_TRANSACTIONS_URL : undefined}
+            viewAllHref={transactions.length > 0 ? transactionsUrl : undefined}
         >
             {transactions.length === 0 ? (
                 <EmptyState
