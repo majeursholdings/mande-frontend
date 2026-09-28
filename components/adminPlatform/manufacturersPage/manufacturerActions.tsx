@@ -16,6 +16,7 @@ import AccountActionForm from "@/components/adminPlatform/form/accountActionForm
 import ReasonForm from "@/components/adminPlatform/form/reasonForm";
 import RequestDeletionForm from "@/components/adminPlatform/form/requestDeletionForm";
 import TypeToConfirmForm from "@/components/adminPlatform/form/typeToConfirmForm";
+import ReauthSteps from "@/components/superAdminPlatform/reauthSteps";
 import type { AccountAppealRecord, ManufacturerAccountStatus, ManufacturerRecord } from "@/constant/sampleDb";
 import { hasDeleteWarnings, useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
@@ -32,15 +33,16 @@ export const MANUFACTURER_ACTIONS: {
     { value: "lift-suspension", label: "Lift suspension", icon: ShieldCheck },
     { value: "flag", label: "Flag", icon: Flag },
     { value: "suspend", label: "Suspend", icon: OctagonPause },
-    { value: "request-deletion", label: "Request deletion", icon: Trash2, tone: "danger" },
-    { value: "delete", label: "Delete account", icon: Trash2, tone: "danger" },
+    { value: "request-deletion", label: "Ask to close account", icon: Trash2, tone: "danger" },
+    { value: "delete", label: "Close account", icon: Trash2, tone: "danger" },
 ];
 
 /**
- * The actions the signed-in person can take on a manufacturer — an admin
- * asks for a deletion, a super admin deletes (never blocked: anything still
- * going on is a warning in the dialog) — and why one can't be taken now
- * (null when it can).
+ * The actions the signed-in person can take on a manufacturer (an admin
+ * asks for an account to be closed, a super admin closes it: never blocked,
+ * as anything still going on is a warning in the dialog), and why one can't
+ * be taken now (null when it can). Closing is deleting as far as the account
+ * goes, but nothing is removed: it's deactivated, and can be reopened.
  */
 export function useManufacturerActions() {
     const { permissions } = useStaffPlatform();
@@ -142,14 +144,14 @@ const DIALOGS: Record<ManufacturerAction, { title: (name: string) => string; des
             "Everything on their account is paused: they can't apply for, accept or work on jobs, or withdraw. All they can do is send an appeal.",
     },
     "request-deletion": {
-        title: (name) => `Request deletion of ${name}'s account?`,
+        title: (name) => `Ask to close ${name}'s account?`,
         description:
-            "Admins can't delete accounts. A super admin will read your reason, and delete the account if they agree.",
+            "Admins can't close accounts. A super admin will read your reason, and close the account if they agree.",
     },
     delete: {
-        title: (name) => `Delete ${name}'s account?`,
+        title: (name) => `Close ${name}'s account?`,
         description:
-            "They won't be able to log in again, and their profile, documents and bank details are removed. Jobs they finished stay in the records. This can't be undone.",
+            "They're logged out everywhere and can't log in, and everything on the account stops: jobs, applications and their plan. Nothing is deleted: their records, payments and history stay, and a super admin can reopen the account.",
     },
 };
 
@@ -260,10 +262,10 @@ const listOf = (titles: string[]) =>
     titles.length <= 2 ? titles.join(" and ") : `${titles.slice(0, 2).join(", ")} and ${titles.length - 2} more`;
 
 /**
- * Deleting an account (super admins): first what's still going on on it —
- * jobs underway, money in the wallet, applications, an appeal — and what
- * deleting does to each, with the choice to go ahead anyway; then typing
- * their full name to delete it.
+ * Closing an account (super admins): first what's still going on on it
+ * (jobs underway, money in the wallet, applications, an appeal) and what
+ * closing does to each, with the choice to go ahead anyway; then typing
+ * their full name; then confirming it's you (the API asks for the same).
  */
 function DeleteAccountSteps({
     manufacturer,
@@ -277,6 +279,7 @@ function DeleteAccountSteps({
     const { getDeleteWarnings, deleteManufacturer } = useAdminManufacturers();
     const warnings = getDeleteWarnings(manufacturer.id);
     const [isGoingAhead, setIsGoingAhead] = useState(!hasDeleteWarnings(warnings));
+    const [isNameConfirmed, setIsNameConfirmed] = useState(false);
     const name = manufacturer.contactName;
     const toPending = warnings.jobsUnderway.filter((entry) => entry.goesBackToPending).map((entry) => entry.job.title);
     const carryOn = warnings.jobsUnderway.filter((entry) => !entry.goesBackToPending).map((entry) => entry.job.title);
@@ -286,7 +289,7 @@ function DeleteAccountSteps({
             <>
                 <div className="flex flex-col gap-1">
                     <DialogTitle>{name}&apos;s account is still active</DialogTitle>
-                    <DialogDescription>Deleting it now affects what&apos;s still going on:</DialogDescription>
+                    <DialogDescription>Closing it now affects what&apos;s still going on:</DialogDescription>
                 </div>
                 <ul className="flex flex-col gap-3 rounded-lg bg-warning-50 px-4 py-3.5 text-sm font-text leading-5 text-warning-900">
                     {warnings.jobsUnderway.length > 0 && (
@@ -304,7 +307,7 @@ function DeleteAccountSteps({
                     {warnings.walletBalance > 0 && (
                         <WarningItem>
                             <span className="font-medium">{formatPrice(warnings.walletBalance)} in their wallet.</span> Pay
-                            it out to them first. It can&apos;t be withdrawn once the account is gone.
+                            it out to them first. It stays in the wallet, but they can&apos;t withdraw it while the account is closed.
                         </WarningItem>
                     )}
                     {warnings.applications.length > 0 && (
@@ -317,7 +320,7 @@ function DeleteAccountSteps({
                     )}
                     {warnings.hasPendingAppeal && (
                         <WarningItem>
-                            <span className="font-medium">An appeal waiting for an answer</span>, which is dropped.
+                            <span className="font-medium">An appeal waiting for an answer</span>, which is closed.
                         </WarningItem>
                     )}
                 </ul>
@@ -347,18 +350,26 @@ function DeleteAccountSteps({
                 <DialogTitle>{DIALOGS.delete.title(name)}</DialogTitle>
                 <DialogDescription>{DIALOGS.delete.description}</DialogDescription>
             </div>
-            <TypeToConfirmForm
-                confirmText={name}
-                submitLabel="Delete account"
-                loadingLabel="Deleting..."
-                errorMessage="Couldn't delete the account. Please try again."
-                onCancel={onCancel}
-                onConfirm={() => {
-                    deleteManufacturer(manufacturer.id);
-                    toast.success(`${name}'s account was deleted`);
-                    onDeleted();
-                }}
-            />
+            {isNameConfirmed ? (
+                <ReauthSteps
+                    confirmLabel="Close account"
+                    onCancel={onCancel}
+                    onConfirmed={() => {
+                        deleteManufacturer(manufacturer.id);
+                        toast.success(`${name}'s account was closed`);
+                        onDeleted();
+                    }}
+                />
+            ) : (
+                <TypeToConfirmForm
+                    confirmText={name}
+                    submitLabel="Continue"
+                    loadingLabel="Checking..."
+                    errorMessage="Couldn't close the account. Please try again."
+                    onCancel={onCancel}
+                    onConfirm={() => setIsNameConfirmed(true)}
+                />
+            )}
         </>
     );
 }

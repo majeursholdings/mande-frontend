@@ -10,9 +10,10 @@ import { useAdminProfile } from "./adminProfileContext";
 // ─────────────────────────────────────────────────────────────────────────────
 // AdminManufacturersProvider — every manufacturer, shared across the admin
 // (or super admin) dashboard so a flag, a suspension, a verification
-// decision or a deletion stays put while they move between pages. Admins
-// can't delete an account: they ask a super admin to, who deletes it or
-// turns the request down. Seeded from the sample database and kept in memory
+// decision or a closed account stays put while they move between pages.
+// Admins can't close an account: they ask a super admin to, who closes it or
+// turns the request down. Closing ("deleting") deactivates the account: the
+// API keeps every record, and a super admin can reopen it. Seeded from the sample database and kept in memory
 // for now; once the backend is connected, load manufacturers from the API
 // and send each change there.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -50,9 +51,10 @@ type AdminManufacturersContextValue = {
     /** Sends the deletion to a super admin to carry out. */
     requestDeletion: (id: string, request: { reason: string; attachments: AdminJobAttachment[] }) => void;
     /**
-     * Super admins only: removes the account for good — after a warning when
-     * getDeleteWarnings finds anything, it takes them off their jobs too (see
-     * releaseManufacturer).
+     * Super admins only: closes (deactivates) the account, after a warning
+     * when getDeleteWarnings finds anything, taking them off their jobs too
+     * (see releaseManufacturer). It leaves the list here, as closed accounts
+     * leave the API's list; nothing is deleted.
      */
     deleteManufacturer: (id: string) => void;
     /** Super admins only: turns down an admin's request to delete the account. */

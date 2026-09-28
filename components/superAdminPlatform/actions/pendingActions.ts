@@ -24,7 +24,7 @@ import { useOptionalSuperAdminSettings } from "../settingsContext";
 export type SuperAdminActionKind = "account-deletion" | "held-job" | "lead-rating" | "payments";
 
 export const ACTION_KINDS: { value: SuperAdminActionKind; label: string; one: string; many: string }[] = [
-    { value: "account-deletion", label: "Account deletions", one: "account deletion", many: "account deletions" },
+    { value: "account-deletion", label: "Accounts to close", one: "account to close", many: "accounts to close" },
     { value: "held-job", label: "Low job ratings", one: "low job rating", many: "low job ratings" },
     { value: "lead-rating", label: "Low lead ratings", one: "low lead rating", many: "low lead ratings" },
     { value: "payments", label: "Payments", one: "payment problem", many: "payment problems" },

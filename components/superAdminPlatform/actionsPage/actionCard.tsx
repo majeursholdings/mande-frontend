@@ -30,7 +30,7 @@ const PRIMARY = `${BUTTON} bg-secondary-700 text-white hover:bg-secondary-900`;
 const DANGER = `${BUTTON} bg-error-600 text-white hover:bg-error-700`;
 
 const ICONS: Record<SuperAdminAction["kind"], { icon: LucideIcon; className: string; label: string }> = {
-    "account-deletion": { icon: Trash2, className: "bg-error-50 text-error-600", label: "Account deletion" },
+    "account-deletion": { icon: Trash2, className: "bg-error-50 text-error-600", label: "Account closing" },
     "held-job": { icon: PauseCircle, className: "bg-warning-50 text-warning-700", label: "Low job rating" },
     "lead-rating": { icon: UserRoundX, className: "bg-indigo-50 text-indigo-600", label: "Low lead rating" },
     payments: { icon: CreditCard, className: "bg-error-50 text-error-600", label: "Payments" },
@@ -55,7 +55,7 @@ export default function ActionCard({ action, handlers, now }: { action: SuperAdm
             body = (
                 <>
                     <p className="text-sm font-text text-mist-600">
-                        {request.requestedBy} asked to delete {manufacturer.contactName}&apos;s account (
+                        {request.requestedBy} asked to close {manufacturer.contactName}&apos;s account (
                         {getPricingPlan(manufacturer.subscription.planId)?.name ?? "no"} plan).
                     </p>
                     <blockquote className="rounded-lg bg-mist-50 px-4 py-3 text-sm font-text whitespace-pre-line text-mist-800">
@@ -73,7 +73,7 @@ export default function ActionCard({ action, handlers, now }: { action: SuperAdm
                         Turn down
                     </button>
                     <button type="button" onClick={() => handlers.onDeleteAccount(manufacturer.id)} className={DANGER}>
-                        Delete account
+                        Close account
                     </button>
                 </>
             );

@@ -210,7 +210,7 @@ function Transactions({ transactions }: { transactions: ReturnType<typeof getMan
     );
 }
 
-/** Flag, Suspend and Request deletion (Delete account, for a super admin) — each off, with why, when it can't be taken. */
+/** Flag, Suspend and Ask to close account (Close account, for a super admin), each off, with why, when it can't be taken. */
 function ActionsMenu({
     manufacturer,
     onSelect,
@@ -286,7 +286,7 @@ function AccountNotices({
     const turnDownDeletion = () => {
         try {
             declineDeletionRequest(manufacturer.id);
-            toast.success("Deletion request turned down. The account stays");
+            toast.success("Request to close the account turned down. The account stays open");
         } catch {
             toast.error("Couldn't turn the request down. Please try again.");
         }
@@ -352,7 +352,7 @@ function AccountNotices({
                 <Notice
                     tone="neutral"
                     icon={Hourglass}
-                    title={`Deletion requested by ${deletionRequest.requestedBy} on ${formatOrdinalDate(new Date(deletionRequest.requestedAt))}${permissions.deletes ? "" : ", waiting for a super admin"}`}
+                    title={`Closing asked for by ${deletionRequest.requestedBy} on ${formatOrdinalDate(new Date(deletionRequest.requestedAt))}${permissions.deletes ? "" : ", waiting for a super admin"}`}
                     action={
                         permissions.deletes && (
                             <div className="flex gap-2">
@@ -364,7 +364,7 @@ function AccountNotices({
                                     onClick={() => onAction("delete")}
                                     className="rounded-md bg-error-600 px-3 py-1.5 text-xs font-medium font-text text-white transition-colors hover:bg-error-700 cursor-pointer"
                                 >
-                                    Delete account
+                                    Close account
                                 </button>
                             </div>
                         )

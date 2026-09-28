@@ -73,7 +73,7 @@ export default function SuperAdminActionsPage() {
         <div className="flex flex-col gap-6">
             <AdminPageHeader
                 title="Actions"
-                description="What's waiting for a super admin: account deletions admins asked for, low ratings to review, and anything stopping payments."
+                description="What's waiting for a super admin: accounts admins asked to close, low ratings to review, and anything stopping payments."
             />
 
             <div role="group" aria-label="Show" className="flex flex-wrap gap-2">
@@ -125,7 +125,7 @@ export default function SuperAdminActionsPage() {
                     <EmptyState
                         icon={CheckCheck}
                         title="You're all caught up"
-                        description="Account deletions, low ratings and payment problems will show up here"
+                        description="Accounts to close, low ratings and payment problems will show up here"
                     />
                 </div>
             ) : (
