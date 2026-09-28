@@ -1,0 +1,211 @@
+import { api, setStoredAccessToken } from "@/lib/api";
+
+export interface LoginPayload {
+  email: string;
+  password: string;
+  rememberMe?: boolean;
+}
+
+export interface LoginMfaRequiredResponse {
+  mfaRequired: true;
+  method: "email" | "app";
+  reason: "mfa_enrolled" | "step_up";
+  mfaToken: string;
+}
+
+export interface LoginSuccessResponse {
+  user: {
+    id: string;
+    email: string;
+    role: "manufacturer" | "admin" | "super_admin";
+    emailVerified: boolean;
+    status: "active" | "suspended" | "pending_verification" | "deactivated";
+  };
+  accessToken: string;
+}
+
+export type LoginResponse = LoginSuccessResponse | LoginMfaRequiredResponse;
+
+export interface ManufacturerRegisterPayload {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+}
+
+export interface StaffRegisterPayload {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  position?: string;
+}
+
+export const authService = {
+  /**
+   * Log into account (manufacturer, admin, or super admin)
+   */
+  async login(payload: LoginPayload): Promise<LoginResponse> {
+    const { data } = await api.post<LoginResponse>("/auth/login", payload);
+    if ("accessToken" in data && data.accessToken) {
+      setStoredAccessToken(data.accessToken);
+    }
+    return data;
+  },
+
+  /**
+   * Complete 2FA login challenge with MFA token and 6-digit code
+   */
+  async login2FA(mfaToken: string, code: string): Promise<LoginSuccessResponse> {
+    const { data } = await api.post<LoginSuccessResponse>("/auth/login/2fa", {
+      mfaToken,
+      code,
+    });
+    if (data.accessToken) {
+      setStoredAccessToken(data.accessToken);
+    }
+    return data;
+  },
+
+  /**
+   * Register a new manufacturer account
+   */
+  async registerManufacturer(payload: ManufacturerRegisterPayload): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>(
+      "/auth/register/manufacturer",
+      payload
+    );
+    return data;
+  },
+
+  /**
+   * Register a staff account (restricted to staff email domain or invite)
+   */
+  async registerStaff(payload: StaffRegisterPayload): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>(
+      "/auth/register/staff",
+      payload
+    );
+    return data;
+  },
+
+  /**
+   * Verify email address with 6-digit one-time code
+   */
+  async verifyEmail(email: string, code: string): Promise<LoginSuccessResponse> {
+    const { data } = await api.post<LoginSuccessResponse>("/auth/verify-email", {
+      email,
+      code,
+    });
+    if (data.accessToken) {
+      setStoredAccessToken(data.accessToken);
+    }
+    return data;
+  },
+
+  /**
+   * Resend email verification code
+   */
+  async resendVerification(email: string): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>("/auth/verify-email/resend", {
+      email,
+    });
+    return data;
+  },
+
+  /**
+   * Request password reset link/code
+   */
+  async forgotPassword(email: string): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>(
+      "/auth/password/forgot",
+      { email }
+    );
+    return data;
+  },
+
+  /**
+   * Reset password with token from link or code
+   */
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>(
+      "/auth/password/reset",
+      { token, newPassword }
+    );
+    return data;
+  },
+
+  /**
+   * Get current authenticated user profile
+   */
+  async me() {
+    const { data } = await api.get("/auth/me");
+    return data;
+  },
+
+  /**
+   * Log out current session
+   */
+  async logout(): Promise<void> {
+    try {
+      await api.post("/auth/logout");
+    } finally {
+      setStoredAccessToken(null);
+    }
+  },
+
+  /**
+   * Send re-authentication code for sensitive operations (step-up verification)
+   */
+  async sendReauthCode(): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>("/auth/reauth/send-code");
+    return data;
+  },
+
+  /**
+   * Confirm password and code to obtain X-Reauth-Token
+   */
+  async verifyReauth(password: string, code: string): Promise<{ reauthToken: string }> {
+    const { data } = await api.post<{ reauthToken: string }>("/auth/reauth", {
+      password,
+      code,
+    });
+    return data;
+  },
+
+  /**
+   * Setup Authenticator App 2FA
+   */
+  async setup2FAApp(reauthToken: string): Promise<{ secret: string; otpauthUrl: string }> {
+    const { data } = await api.post<{ secret: string; otpauthUrl: string }>(
+      "/auth/2fa/app/setup",
+      {},
+      { headers: { "X-Reauth-Token": reauthToken } }
+    );
+    return data;
+  },
+
+  /**
+   * Enable 2FA with app code
+   */
+  async enable2FA(method: "app" | "email", code: string, reauthToken: string): Promise<void> {
+    await api.post(
+      "/auth/2fa/enable",
+      { method, code },
+      { headers: { "X-Reauth-Token": reauthToken } }
+    );
+  },
+
+  /**
+   * Disable 2FA
+   */
+  async disable2FA(reauthToken: string): Promise<void> {
+    await api.post(
+      "/auth/2fa/disable",
+      {},
+      { headers: { "X-Reauth-Token": reauthToken } }
+    );
+  },
+};
