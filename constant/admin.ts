@@ -104,6 +104,8 @@ export type AdminNavItem = {
     icon: LucideIcon;
     /** In the mobile bottom bar; the rest are under its Menu. */
     inBottomBar?: boolean;
+    /** Shows how many actions are waiting for a super admin (see useSuperAdminActions). */
+    countsPendingActions?: boolean;
 };
 
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
@@ -119,10 +121,6 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     { label: "Transactions", href: ADMIN_TRANSACTIONS_URL, icon: ReceiptText, inBottomBar: true },
     { label: "Profile", href: ADMIN_PROFILE_URL, icon: UserRound },
 ];
-
-export function isAdminNavItemActive(item: AdminNavItem, pathname: string): boolean {
-    return item.href === ADMIN_DASHBOARD_URL ? pathname === item.href : pathname.startsWith(item.href);
-}
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
 

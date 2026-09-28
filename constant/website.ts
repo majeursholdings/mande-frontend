@@ -8,9 +8,16 @@ import {
     MAX_EXTENSION_PERCENT,
     MAX_JOB_REJECTIONS,
     MAX_STEP_PROOF_PHOTOS,
+    REJECTION_CHARGE_PERCENT,
     REVIEW_WINDOW_HOURS,
 } from "@/constant/jobWorkflow";
-import { PRICING_PLANS } from "@/constant/sampleData";
+import {
+    PLAN_DISCOUNT_PERCENT,
+    PRICING_PLANS,
+    getAnnualSavingPercent,
+    getPlanListPrice,
+    getPlanPrice,
+} from "@/constant/sampleData";
 import { SUPPORT_HOURS } from "@/constant/support";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -46,12 +53,17 @@ const PAYMENT_SHARES = joinList(
     ),
 );
 
-// "Solo Artisan is ₦5,000 a month, Workshop ₦15,000 and …"
+// "Solo Artisan is ₦500 a month (usually ₦5,000), Workshop ₦1,500 (usually ₦15,000) and …" — the usual
+// prices only while there's an offer
 const PLAN_PRICES = joinList(
-    PRICING_PLANS.map((plan, index) =>
-        index === 0 ? `${plan.name} is ${formatPrice(plan.monthlyPrice)} a month` : `${plan.name} ${formatPrice(plan.monthlyPrice)}`,
-    ),
+    PRICING_PLANS.map((plan, index) => {
+        const price = formatPrice(getPlanPrice(plan, "monthly"));
+        const usually = PLAN_DISCOUNT_PERCENT > 0 ? ` (usually ${formatPrice(getPlanListPrice(plan, "monthly"))})` : "";
+        return index === 0 ? `${plan.name} is ${price} a month${usually}` : `${plan.name} ${price}${usually}`;
+    }),
 );
+
+const ANNUAL_SAVING = getAnnualSavingPercent(PRICING_PLANS[0]);
 
 const JOB_SLOTS = joinList(
     PRICING_PLANS.map((plan) =>
@@ -104,7 +116,7 @@ export const WEBSITE_FAQ_GROUPS: WebsiteFaqGroup[] = [
             },
             {
                 question: "What happens if my finished work is rejected?",
-                answer: `You'll see the reason on the job. Fix the work and resubmit it with new photos — a job can be rejected up to ${MAX_JOB_REJECTIONS} times.`,
+                answer: `You'll see the reason on the job. Fix the work and resubmit it with new photos. A job can be rejected up to ${MAX_JOB_REJECTIONS} times, and each rejection charges ${REJECTION_CHARGE_PERCENT}% of your labour from your wallet.`,
             },
         ],
     },
@@ -140,7 +152,10 @@ export const WEBSITE_FAQ_GROUPS: WebsiteFaqGroup[] = [
         faqs: [
             {
                 question: "How much does MANDE cost?",
-                answer: `${PLAN_PRICES}. Pay for the year and save 17% — pay for 10 months, work all 12.`,
+                answer:
+                    PLAN_DISCOUNT_PERCENT > 0
+                        ? `Right now every plan is ${PLAN_DISCOUNT_PERCENT}% off: ${PLAN_PRICES}. Pay for the year and save a further ${ANNUAL_SAVING}%, paying for 10 months and working all 12.`
+                        : `${PLAN_PRICES}. Pay for the year and save ${ANNUAL_SAVING}%, paying for 10 months and working all 12.`,
             },
             {
                 question: "Can I change or cancel my plan?",

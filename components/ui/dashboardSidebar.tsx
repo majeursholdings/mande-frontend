@@ -11,6 +11,8 @@ export type SidebarItem = {
     href: string;
     icon: LucideIcon;
     isActive: boolean;
+    /** A count after the label, e.g. what's waiting there. Nothing at 0. */
+    badge?: number;
 };
 
 /**
@@ -71,6 +73,12 @@ export function SidebarContent({
                         >
                             <item.icon className="size-5 shrink-0" strokeWidth={1.75} />
                             {item.label}
+                            {!!item.badge && (
+                                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-secondary-600 px-1.5 text-[11px] font-semibold text-white tabular-nums">
+                                    {item.badge}
+                                    <span className="sr-only"> waiting</span>
+                                </span>
+                            )}
                         </Link>
                     ))}
                 </nav>

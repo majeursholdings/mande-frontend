@@ -9,7 +9,7 @@ import Logo, { BlackLogo } from "@/components/mainWebsite/navigations/logo";
  */
 export default function LogoLink({
     href,
-    label = "MANDE — go to your dashboard",
+    label = "MANDE, go to your dashboard",
     tone = "dark",
     onClick,
     className,

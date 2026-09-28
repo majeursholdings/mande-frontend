@@ -16,6 +16,7 @@ import {
     MAX_JOB_REJECTIONS,
     getAutoApproveAt,
     getJobPayments,
+    getRejectionCharge,
     sampleStepSubmissions,
     settleStepSubmissions,
     type JobFaultReport,
@@ -25,7 +26,8 @@ import {
     type StepSubmission,
 } from "@/constant/jobWorkflow";
 import type { DEFAULT_CURRENCY_CODE } from "@/constant/global";
-import { getPlanPrice, getPricingPlan, requiresBusinessDocuments, type BillingCycle } from "@/constant/sampleData";
+import { getPlanListPrice, getPricingPlan, requiresBusinessDocuments, type BillingCycle } from "@/constant/sampleData";
+import type { SuperAdminRole } from "@/constant/superAdmin";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -122,6 +124,82 @@ export const PROJECT_LEADS: ProjectLeadRecord[] = [
 export function getProjectLead(id: string): ProjectLeadRecord | undefined {
     return PROJECT_LEADS.find((lead) => lead.id === id);
 }
+
+/**
+ * A super admin — runs the platform: sees everything on it, looks after the
+ * admins' accounts and decides account deletions. They don't lead jobs, so
+ * they have no position; their role says what else they can do (see
+ * SuperAdminRole).
+ */
+export type SuperAdminRecord = Omit<ProjectLeadRecord, "position"> & { role: SuperAdminRole };
+
+/** The signed-in super admin. */
+export const SIGNED_IN_SUPER_ADMIN_ID = "super-ashley";
+
+export const SUPER_ADMINS: SuperAdminRecord[] = [
+    {
+        id: "super-ashley",
+        firstName: "Ashley",
+        lastName: "Cole",
+        name: "Ashley Cole",
+        email: "ashley@mande.com.ng",
+        phone: "+234 818 555 0101",
+        avatarUrl: null,
+        joinedAt: daysFromNow(-900),
+        twoFactorMethod: "app",
+        role: "owner",
+    },
+    {
+        id: "super-tobi",
+        firstName: "Tobi",
+        lastName: "Adeyemi",
+        name: "Tobi Adeyemi",
+        email: "tobi@mande.com.ng",
+        phone: "+234 818 555 0144",
+        avatarUrl: null,
+        joinedAt: daysFromNow(-610),
+        twoFactorMethod: "email",
+        role: "tech-support",
+    },
+    {
+        id: "super-zainab",
+        firstName: "Zainab",
+        lastName: "Musa",
+        name: "Zainab Musa",
+        email: "zainab@mande.com.ng",
+        phone: "+234 818 555 0152",
+        avatarUrl: null,
+        joinedAt: daysFromNow(-240),
+        twoFactorMethod: "email",
+        role: "manager",
+    },
+];
+
+/** Someone asked to become a super admin, who hasn't accepted yet. */
+export type SuperAdminInviteRecord = {
+    id: string;
+    firstName: string;
+    lastName: string;
+    /** On the Mande domain (ADMIN_EMAIL_DOMAIN). */
+    email: string;
+    /** What they'll be once they accept. */
+    role: SuperAdminRole;
+    invitedBy: string;
+    /** ISO date the latest invite email went out. */
+    invitedAt: string;
+};
+
+export const SUPER_ADMIN_INVITES: SuperAdminInviteRecord[] = [
+    {
+        id: "invite-funmi",
+        firstName: "Funmi",
+        lastName: "Okafor",
+        email: "funmi@mande.com.ng",
+        role: "manager",
+        invitedBy: "Ashley Cole",
+        invitedAt: dayAt(-3, 10, 15),
+    },
+];
 
 // ─── Manufacturers ───────────────────────────────────────────────────────────
 
@@ -527,7 +605,7 @@ export const MANUFACTURERS: ManufacturerRecord[] = [
         appeals: [
             {
                 id: "appeal-brown-2",
-                message: "The materials were bought for this job — the supplier put the wrong job code on the invoice. I've attached the corrected one.",
+                message: "The materials were bought for this job. The supplier put the wrong job code on the invoice. I've attached the corrected one.",
                 attachments: [{ name: "Corrected invoice.pdf", url: "/corrected-invoice.pdf", kind: "document" }],
                 sentAt: daysFromNow(-7), status: "pending", response: null, decidedBy: null, decidedAt: null,
             },
@@ -558,6 +636,13 @@ export const MANUFACTURERS: ManufacturerRecord[] = [
         id: "mfr-boney", companyName: "Boney Furnitures", firstName: "John", lastName: "Jones",
         email: "john@boney.ng", phone: "+234 811 234 5678", joined: -130, city: "Kano", state: "Kano",
         specialities: ["wood"],
+        // Waiting for a super admin
+        deletionRequest: {
+            reason: "John emailed to ask us to close the account. He's retiring and closing the workshop at the end of the month.",
+            attachments: [],
+            requestedBy: "Mark Wilson",
+            requestedAt: dayAt(-2, 11, 20),
+        },
     }),
     manufacturer({
         id: "mfr-metalworks", companyName: "Metal Works Ltd", firstName: "Kemi", lastName: "Adeyemi",
@@ -716,6 +801,23 @@ export type JobAssignmentRecord = {
     outcomeAt: string | null;
 };
 
+/** A manufacturer's rating of the job's project lead, asked for as soon as the job is completed. */
+export type LeadReviewRecord = {
+    manufacturerId: string;
+    /** A PROJECT_LEADS id — the job's (first) lead. */
+    leadId: string;
+    /** 1–5. */
+    rating: number;
+    comment: string;
+    /** ISO date. */
+    createdAt: string;
+    /**
+     * A low rating (under MIN_SIGN_OFF_RATING) waits for a super admin to
+     * follow it up with the lead — what they did about it, once they have.
+     */
+    followUp?: { note: string; by: string; at: string } | null;
+};
+
 /** The lead's rating of the manufacturer once the job is completed. */
 export type ManufacturerReviewRecord = {
     /** 1–5. */
@@ -765,6 +867,14 @@ export type JobRecord = {
     assignmentHistory: JobAssignmentRecord[];
     /** Null until the lead rates the manufacturer on a completed job. */
     manufacturerReview: ManufacturerReviewRecord | null;
+    /**
+     * The lead's rating of the finished work when it was under
+     * MIN_SIGN_OFF_RATING: it isn't signed off (or approved automatically)
+     * while it waits for a super admin to sign it off or send it back.
+     */
+    furtherReview: ManufacturerReviewRecord | null;
+    /** Each manufacturer's rating of the lead, once the job is completed — one each at most. */
+    leadReviews: LeadReviewRecord[];
     /** ISO date the work was signed off. Null until the job is completed. */
     completedAt: string | null;
     /** Who signed it off. Null when it was approved automatically. */
@@ -809,7 +919,8 @@ export const getJobRecordPayments = (job: JobRecord, now: Date = new Date()) =>
  */
 export function settleJobRecord(job: JobRecord, now: Date = new Date()): JobRecord {
     const settled = { ...job, stepSubmissions: settleStepSubmissions(job.stepSubmissions, now) };
-    if (job.status !== "in-review" || !job.submittedForReviewAt) return settled;
+    // Held for further review: waiting for a super admin, not the clock
+    if (job.status !== "in-review" || !job.submittedForReviewAt || job.furtherReview) return settled;
     const approveAt = getAutoApproveAt(job.submittedForReviewAt);
     return approveAt <= now
         ? { ...settled, status: "completed", completedAt: approveAt.toISOString(), completedBy: null }
@@ -860,7 +971,7 @@ const METAL_FABRICATION_NOTES: JobNoteRecord[] = [
         id: "note-1-1",
         authorName: "Latade Dipe",
         authorRole: "Project lead",
-        message: "Job created. Blueprints are attached — the powder coat should be matte black.",
+        message: "Job created. Blueprints are attached, and the powder coat should be matte black.",
         createdAt: minutesAgo(60 * 50),
     },
 ];
@@ -914,6 +1025,8 @@ type JobSeed = Pick<JobRecord, "title" | "manufacturerIds" | "amount" | "project
     /** Overrides the default single assignment. */
     assignmentHistory?: JobAssignmentRecord[];
     manufacturerReview?: ManufacturerReviewRecord;
+    furtherReview?: ManufacturerReviewRecord;
+    leadReviews?: LeadReviewRecord[];
 };
 
 const BLUEPRINTS: JobAttachmentRecord[] = [
@@ -975,10 +1088,17 @@ const JOB_SEEDS: JobSeed[] = [
         ] },
     { title: "8 Throw Pillows", specialities: ["upholstery"], manufacturerIds: ["mfr-majeurs"], amount: 96000, projectLeadIds: ["lead-joke"], status: "in-progress", start: -18, due: 3, assigned: -18, stepsDone: 4 },
     { title: "8 Office Desks & Chairs", specialities: ["desks", "chairs-seating"], manufacturerIds: ["mfr-oak", "mfr-kesino"], amount: 2400000, projectLeadIds: ["lead-ted", "lead-latade"], status: "completed", start: -70, due: -5, assigned: -70, completed: -5,
-        manufacturerReview: { rating: 4, comment: "Solid build and delivered on time. One chair base had a scuff, which they replaced the same week.", authorName: "Ted Lasso", createdAt: daysFromNow(-4) } },
+        manufacturerReview: { rating: 4, comment: "Solid build and delivered on time. One chair base had a scuff, which they replaced the same week.", authorName: "Ted Lasso", createdAt: daysFromNow(-4) },
+        leadReviews: [
+            { manufacturerId: "mfr-oak", leadId: "lead-ted", rating: 4, comment: "Clear specs and quick reviews. The first site visit was rescheduled twice.", createdAt: daysFromNow(-4) },
+            { manufacturerId: "mfr-kesino", leadId: "lead-ted", rating: 5, comment: "Ted kept both workshops in step and answered every call.", createdAt: daysFromNow(-3) },
+        ] },
     { title: "2 Cushions", specialities: ["upholstery"], manufacturerIds: ["mfr-vava"], amount: 60000, projectLeadIds: ["lead-mercury"], status: "in-progress", start: -6, due: 21, assigned: -6, stepsDone: 1 },
     // Completed, waiting for the lead's rating
-    { title: "Walnut Bookshelf", specialities: ["cabinetry", "wood"], manufacturerIds: ["mfr-kesino"], amount: 310000, projectLeadIds: ["lead-latade"], status: "completed", start: -60, due: -10, assigned: -60, completed: -36, completedBy: null },
+    { title: "Walnut Bookshelf", specialities: ["cabinetry", "wood"], manufacturerIds: ["mfr-kesino"], amount: 310000, projectLeadIds: ["lead-latade"], status: "completed", start: -60, due: -10, assigned: -60, completed: -36, completedBy: null,
+        leadReviews: [
+            { manufacturerId: "mfr-kesino", leadId: "lead-latade", rating: 4, comment: "Good communication. The work was approved automatically in the end, as no one reviewed it in time.", createdAt: daysFromNow(-35) },
+        ] },
     // Rejected for the last time
     { title: "Leather Recliner", specialities: ["leather", "sofas"], manufacturerIds: ["mfr-majeurs"], amount: 520000, projectLeadIds: ["lead-mark"], status: "rejected", start: -45, due: 6, assigned: -45,
         rejections: [
@@ -1010,9 +1130,14 @@ const JOB_SEEDS: JobSeed[] = [
             { id: "ext-19-1", previousDueDate: daysFromNow(42), requestedDueDate: daysFromNow(50), reason: "The oxblood leather batch arrived with blemishes, and the tannery needs a week to replace it.", requestedAt: daysFromNow(-5), status: "rejected", decidedAt: daysFromNow(-4), step: "frame" },
         ] },
     { title: "Low Slate TV Console", specialities: ["cabinetry"], manufacturerIds: ["mfr-majeurs"], amount: 390000, projectLeadIds: ["lead-joke"], status: "completed", start: -40, due: -8, assigned: -40, completed: -33,
-        manufacturerReview: { rating: 3, comment: "Looks great, but the steel legs weren't sealed against rust as the spec asked.", authorName: "Joke Phillips", createdAt: daysFromNow(-31) },
-        faultReport: { reason: "One of the steel legs has started to rust at the base, and the slate top rocks slightly.", reportedAt: daysFromNow(-30), reportedBy: "Joke Phillips" } },
-    { title: "6 Bar Stools", specialities: ["chairs-seating"], manufacturerIds: ["mfr-majeurs"], amount: 240000, projectLeadIds: ["lead-ted"], status: "in-review", start: -21, due: 5, assigned: -21 },
+        manufacturerReview: { rating: 4, comment: "Looks great, though the steel legs should have been sealed against rust as the spec asked.", authorName: "Joke Phillips", createdAt: daysFromNow(-33) },
+        faultReport: { reason: "One of the steel legs has started to rust at the base, and the slate top rocks slightly.", reportedAt: daysFromNow(-30), reportedBy: "Joke Phillips" },
+        leadReviews: [
+            { manufacturerId: "mfr-majeurs", leadId: "lead-joke", rating: 5, comment: "Joke answered every question the same day and approved each step quickly.", createdAt: daysFromNow(-32) },
+        ] },
+    // In review, rated 3 stars by the lead: held for a super admin to review further
+    { title: "6 Bar Stools", specialities: ["chairs-seating"], manufacturerIds: ["mfr-majeurs"], amount: 240000, projectLeadIds: ["lead-ted"], status: "in-review", start: -21, due: 5, assigned: -21,
+        furtherReview: { rating: 3, comment: "Two of the stools wobble and the footrest welds are rough. I'd like a second opinion before signing off.", authorName: "Ted Lasso", createdAt: hoursAgo(3) } },
     // In progress, after an approved extension
     { title: "Kids' Bunk Bed", specialities: ["beds", "wood"], manufacturerIds: ["mfr-kesino"], amount: 330000, projectLeadIds: ["lead-latade"], status: "in-progress", start: -11, due: 21, assigned: -11, stepsDone: 2,
         extensionRequests: [
@@ -1026,7 +1151,10 @@ const JOB_SEEDS: JobSeed[] = [
         manufacturerReview: { rating: 5, comment: "Beautiful stitching, and delivered a day early. The client loved them.", authorName: "Latade Dipe", createdAt: daysFromNow(-28) } },
     // Completed after the due date — no bonus
     { title: "Cushion Arm Rests", specialities: ["upholstery"], manufacturerIds: ["mfr-majeurs"], amount: 250000, projectLeadIds: ["lead-mark"], status: "completed", start: -80, due: -50, assigned: -80, completed: -40, created: -84,
-        manufacturerReview: { rating: 3, comment: "Would have preferred a deeper shade of brown for the cushions, and they arrived after the due date.", authorName: "Mark Wilson", createdAt: daysFromNow(-39) } },
+        manufacturerReview: { rating: 4, comment: "Good work overall, though I'd have preferred a deeper shade of brown, and they arrived after the due date.", authorName: "Mark Wilson", createdAt: daysFromNow(-40) },
+        leadReviews: [
+            { manufacturerId: "mfr-majeurs", leadId: "lead-mark", rating: 3, comment: "Reviews took a while, and the feedback on the cushion colour only came at the end.", createdAt: daysFromNow(-39) },
+        ] },
     // Open for applications
     { title: "Upholstered King Bed Frame", specialities: ["beds", "upholstery"], manufacturerIds: [], amount: 540000, projectLeadIds: ["lead-joke"], status: "pending", start: 5, due: 28, created: -2,
         description: "A king-size bed frame fully upholstered in teal performance velvet, with a curved headboard that wraps into the side rails.",
@@ -1142,6 +1270,8 @@ export const SAMPLE_JOBS: JobRecord[] = JOB_SEEDS.map((seed, index) => {
                   ]
                 : []),
         manufacturerReview: seed.manufacturerReview ?? null,
+        furtherReview: seed.furtherReview ?? null,
+        leadReviews: seed.leadReviews ?? [],
         completedAt,
         completedBy: completedAt ? (seed.completedBy === undefined ? leadName : seed.completedBy) : null,
         faultReport: seed.faultReport ?? null,
@@ -1203,12 +1333,46 @@ export function getJobRecordPayouts(job: JobRecord, now: Date = new Date()): Job
     });
 }
 
+// ─── Rejection charges ───────────────────────────────────────────────────────
+
+/** Taken from a manufacturer's wallet when their finished work on a job is rejected (see REJECTION_CHARGE_PERCENT). */
+export type JobChargeRecord = {
+    id: string;
+    jobId: string;
+    jobTitle: string;
+    manufacturerId: string;
+    /** Which rejection it was for, from 1. */
+    rejectionNumber: number;
+    /** In naira. */
+    amount: number;
+    /** ISO date — when the work was rejected. */
+    chargedAt: string;
+};
+
+/** Every charge on a job so far — one per rejection, for each manufacturer on it, on their part of the amount. */
+export function getJobRecordCharges(job: JobRecord): JobChargeRecord[] {
+    return job.rejections.flatMap((rejection, index) =>
+        job.manufacturerIds.map(
+            (manufacturerId): JobChargeRecord => ({
+                id: `${rejection.id}-charge-${manufacturerId}`,
+                jobId: job.id,
+                jobTitle: job.title,
+                manufacturerId,
+                rejectionNumber: index + 1,
+                amount: getRejectionCharge(getManufacturerShare(job, manufacturerId)),
+                chargedAt: rejection.rejectedAt,
+            }),
+        ),
+    );
+}
+
 // ─── Wallets ─────────────────────────────────────────────────────────────────
 
 /**
  * Money a manufacturer took out of their wallet — a withdrawal to their
  * bank, or a plan paid from the balance. What's paid in comes from their
- * jobs (see getJobRecordPayouts).
+ * jobs (see getJobRecordPayouts); what's charged, from rejections (see
+ * getJobRecordCharges).
  */
 export type WalletDebitRecord = {
     id: string;
@@ -1259,7 +1423,7 @@ export const SAMPLE_SUPPORT_FEEDBACK: SupportFeedbackRecord[] = [
         id: "feedback-2",
         manufacturerId: "mfr-oak",
         category: "suggestion",
-        message: "Please add a downloadable invoice for the yearly plan — our accountant needs one for the books.",
+        message: "Please add a downloadable invoice for the yearly plan. Our accountant needs one for the books.",
         screenshotUrl: null,
         sentAt: dayAt(-15, 10, 40),
     },
@@ -1355,7 +1519,8 @@ export function getSubscriptionPayments(
             manufacturerId: manufacturer.id,
             planId,
             billingCycle,
-            amount: getPlanPrice(plan, billingCycle),
+            // The sample history predates the plan offer, so each paid the usual price
+            amount: getPlanListPrice(plan, billingCycle),
             paidAt: paidAt.toISOString(),
             paidFrom: period === 0 ? "card" : renewalsPaidFrom,
         });

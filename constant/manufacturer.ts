@@ -21,9 +21,11 @@ import {
     SAMPLE_SUPPORT_FEEDBACK,
     SAMPLE_WALLET_DEBITS,
     SIGNED_IN_MANUFACTURER_ID,
+    getJobRecordCharges,
     getJobRecordPayouts,
     getManufacturer,
     getManufacturerShare,
+    getProjectLead,
     getSubscriptionPayments,
     isOpenJobRecord,
     settleJobRecord,
@@ -249,12 +251,6 @@ export type JobAssignee = {
     phone: string;
 };
 
-/** Every job shares the same customer-side point of contact for now. */
-export const DEFAULT_JOB_ASSIGNEE: JobAssignee = {
-    name: "Toni Campbell",
-    role: "Project assistant",
-    phone: "+2348012345678",
-};
 
 export type JobAttachment = {
     name: string;
@@ -341,6 +337,12 @@ export type Job = {
     faultReport?: JobFaultReport | null;
     /** Their requests for a later due date, newest first. */
     extensionRequests: TimelineExtensionRecord[];
+    /** The job's project lead — a PROJECT_LEADS id, who they rate once it's completed. Null before one's set. */
+    leadId: string | null;
+    /** Their rating of the project lead, once they've given it. */
+    leadReview: { rating: number; comment: string; createdAt: string } | null;
+    /** The lead rated the finished work 3 stars or less: a super admin is taking a second look before it's signed off. */
+    isHeldForReview: boolean;
 };
 
 /** What a job's payments are worked out from (see constant/jobWorkflow.ts). */
@@ -362,12 +364,13 @@ export function getJobPaymentInput(
  * The job with every auto-approval that's come due by `now` applied — step
  * proof, and finished work, left unreviewed for a day (not counting Sundays).
  */
-export function settleJob<T extends Pick<Job, "status" | "stepSubmissions" | "submittedForReviewAt" | "completedAt">>(
-    job: T,
-    now: Date = new Date(),
-): T {
+export function settleJob<
+    T extends Pick<Job, "status" | "stepSubmissions" | "submittedForReviewAt" | "completedAt"> &
+        Partial<Pick<Job, "isHeldForReview">>,
+>(job: T, now: Date = new Date()): T {
     const settled = { ...job, stepSubmissions: settleStepSubmissions(job.stepSubmissions, now) };
-    if (job.status !== "in-review" || !job.submittedForReviewAt) return settled;
+    // Held for further review: waiting for a super admin, not the clock
+    if (job.status !== "in-review" || !job.submittedForReviewAt || job.isHeldForReview) return settled;
     const approveAt = getAutoApproveAt(job.submittedForReviewAt);
     return approveAt <= now ? { ...settled, status: "completed", completedAt: approveAt.toISOString() } : settled;
 }
@@ -467,6 +470,8 @@ function toManufacturerJob(
 ): Job {
     const isTheirs = outcome === "accepted";
     const dateAssigned = isTheirs ? record.dateAssigned : null;
+    const lead = getProjectLead(record.projectLeadIds[0]);
+    const leadReview = record.leadReviews.find((review) => review.manufacturerId === manufacturerId);
     return {
         id: record.id,
         code: record.code,
@@ -481,7 +486,8 @@ function toManufacturerJob(
         price: getManufacturerShare(record, manufacturerId),
         category: record.category,
         status: outcome === "awaiting" ? "pending" : isTheirs ? record.status : "cancelled",
-        assignee: DEFAULT_JOB_ASSIGNEE,
+        // Who they call about the job — its project lead
+        assignee: lead ? { name: lead.name, role: "Project lead", phone: lead.phone } : null,
         attachments: record.attachments.map(({ name, url }) => ({ name, url })),
         stepSubmissions: isTheirs ? record.stepSubmissions : [],
         completionImageUrls: isTheirs ? record.completionImageUrls : [],
@@ -496,6 +502,9 @@ function toManufacturerJob(
         completedAt: isTheirs ? record.completedAt : null,
         faultReport: isTheirs ? record.faultReport : null,
         extensionRequests: isTheirs ? record.extensionRequests : [],
+        leadId: lead?.id ?? null,
+        leadReview: isTheirs && leadReview ? { rating: leadReview.rating, comment: leadReview.comment, createdAt: leadReview.createdAt } : null,
+        isHeldForReview: isTheirs && record.status === "in-review" && !!record.furtherReview,
     };
 }
 
@@ -667,10 +676,10 @@ export const NOTIFICATIONS: NotificationItem[] = [
     },
     {
         id: "notif-2",
-        message: "Toni Campbell sent an attachment to you",
+        message: "Latade Dipe sent an attachment to you",
         timestamp: "12 hrs ago",
         isRead: false,
-        avatarName: "Toni Campbell",
+        avatarName: "Latade Dipe",
     },
     {
         id: "notif-3",
@@ -680,16 +689,16 @@ export const NOTIFICATIONS: NotificationItem[] = [
     },
     {
         id: "notif-4",
-        message: "Toni Campbell has assigned a new job order to you.",
+        message: "Latade Dipe has assigned a new job order to you.",
         linkLabel: "View details",
         href: MANUFACTURER_JOBS_URL,
         timestamp: "3 days ago",
         isRead: true,
-        avatarName: "Toni Campbell",
+        avatarName: "Latade Dipe",
     },
     {
         id: "notif-5",
-        message: "Toni Campbell has been assigned as your project assistant",
+        message: "Latade Dipe is your project lead on the Metal Fabrication job",
         timestamp: "4 days ago",
         isRead: true,
     },
@@ -861,9 +870,10 @@ export type ManufacturerTransaction = {
     id: string;
     /**
      * "payment" is money in for a job. Money out: "withdrawal" to the bank
-     * account, "subscription" for a plan paid from the wallet balance.
+     * account, "subscription" for a plan paid from the wallet balance,
+     * "charge" when their finished work on a job was rejected.
      */
-    type: "payment" | "withdrawal" | "subscription";
+    type: "payment" | "withdrawal" | "subscription" | "charge";
     /** e.g. "First installment", or "Withdrawal". */
     label: string;
     /** Title of the job a payment is for. Null for withdrawals and plans. */
@@ -888,9 +898,9 @@ export const TRANSACTION_SORT_OPTIONS: SelectFilterItem[] = [
 /**
  * A manufacturer's wallet transactions, newest first — every payment made to
  * them for a job (from `records`, the sample database by default), and what
- * they took out: withdrawals, and plans paid from the balance. With
- * `includeCardPayments`, plans they paid by card too — everything they've
- * spent on the platform, for admins.
+ * came out: withdrawals, charges for rejected work, and plans paid from the
+ * balance. With `includeCardPayments`, plans they paid by card too —
+ * everything they've spent on the platform, for admins.
  */
 export function getManufacturerTransactions(
     manufacturerId: string,
@@ -911,6 +921,19 @@ export function getManufacturerTransactions(
                     projectName: payout.jobTitle,
                     date: payout.paidAt,
                     amount: payout.amount,
+                }),
+            ),
+        ...records
+            .flatMap((record) => getJobRecordCharges(record))
+            .filter((charge) => charge.manufacturerId === manufacturerId)
+            .map(
+                (charge): ManufacturerTransaction => ({
+                    id: charge.id,
+                    type: "charge",
+                    label: "Rejection charge",
+                    projectName: charge.jobTitle,
+                    date: charge.chargedAt,
+                    amount: charge.amount,
                 }),
             ),
         ...SAMPLE_WALLET_DEBITS.filter((debit) => debit.manufacturerId === manufacturerId).map(
@@ -958,7 +981,9 @@ export type TransactionSummary = {
     withdrawn: number;
     /** Plans paid for — from the balance or by card. */
     subscriptions: number;
-    /** What's left in the wallet: earned, less withdrawals and plans paid from the balance. */
+    /** Charged for rejected work. */
+    charges: number;
+    /** What's left in the wallet: earned, less withdrawals, charges and plans paid from the balance. */
     balance: number;
     counts: Record<ManufacturerTransaction["type"], number>;
 };
@@ -969,13 +994,15 @@ export function getTransactionSummary(transactions: ManufacturerTransaction[]): 
         earned: 0,
         withdrawn: 0,
         subscriptions: 0,
+        charges: 0,
         balance: 0,
-        counts: { payment: 0, withdrawal: 0, subscription: 0 },
+        counts: { payment: 0, withdrawal: 0, subscription: 0, charge: 0 },
     };
     for (const transaction of transactions) {
         summary.counts[transaction.type] += 1;
         if (transaction.type === "payment") summary.earned += transaction.amount;
         else if (transaction.type === "withdrawal") summary.withdrawn += transaction.amount;
+        else if (transaction.type === "charge") summary.charges += transaction.amount;
         else summary.subscriptions += transaction.amount;
         if (!transaction.paidByCard) {
             summary.balance += transaction.type === "payment" ? transaction.amount : -transaction.amount;

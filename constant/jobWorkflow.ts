@@ -14,7 +14,8 @@
 // the job moves (see JOB_PAYMENT_SCHEDULE), each released to their wallet
 // the moment it's earned, plus a JOB_BONUS_PERCENT bonus for work delivered
 // on time with nothing sent back and no fault reported in the
-// FAULT_REPORT_DAYS after sign-off.
+// FAULT_REPORT_DAYS after sign-off. Each time the finished work is rejected,
+// REJECTION_CHARGE_PERCENT of the amount is charged from their wallet.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -138,6 +139,13 @@ export function getStepApprovedAt(submissions: StepSubmission[], step: Productio
 /** Finished work can be rejected this many times — after the last, it can't be resubmitted. */
 export const MAX_JOB_REJECTIONS = 3;
 
+/**
+ * Signing off finished work means rating the manufacturer, out of 5. Work
+ * rated below this (3 stars or less) isn't signed off: it's held for a super
+ * admin to review further, who signs it off or sends it back.
+ */
+export const MIN_SIGN_OFF_RATING = 4;
+
 export const REVIEW_WINDOW_HOURS = 24;
 
 /**
@@ -219,6 +227,16 @@ export const JOB_PAYMENT_SCHEDULE: { milestone: JobPaymentMilestone; label: stri
 ];
 
 export const JOB_BONUS_PERCENT = 5;
+
+/**
+ * Charged from the manufacturer's wallet each time their finished work is
+ * rejected, as a percent of their part of the job's amount. It's Mande's
+ * revenue (see the super admin's Revenue page).
+ */
+export const REJECTION_CHARGE_PERCENT = 5;
+
+/** What one rejection charges, for `amount` of the job's pay. */
+export const getRejectionCharge = (amount: number) => Math.round((amount * REJECTION_CHARGE_PERCENT) / 100);
 /** How long after sign-off a fault can be reported — the bonus is released after it. */
 export const FAULT_REPORT_DAYS = 7;
 

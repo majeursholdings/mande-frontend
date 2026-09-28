@@ -41,7 +41,7 @@ export const FEATURED_COMMUNITY_CHANNEL: CommunityChannel = {
     platform: "whatsapp",
     handle: "Mande Makers",
     description:
-        "New job alerts, payout updates and tips from the team — straight to your phone, before anywhere else.",
+        "New job alerts, payout updates and tips from the team, straight to your phone before anywhere else.",
     audience: "2,400+ members",
     cta: "Join the channel",
     href: "https://www.whatsapp.com/channel",
