@@ -11,7 +11,7 @@ export default function JobsListSection() {
         <SectionWrapper containerClassName="flex flex-col items-start gap-8 md:gap-12">
             <div className="w-full space-y-6 md:space-y-8">
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                    <SectionHeading>Available furniture jobs.</SectionHeading>
+                    <SectionHeading as="h2">Available furniture jobs.</SectionHeading>
                     <Link href={OPEN_JOBS_URL} className={WEBSITE_PRIMARY_BUTTON}>
                         Discover more jobs
                     </Link>

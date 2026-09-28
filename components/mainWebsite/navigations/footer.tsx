@@ -23,10 +23,10 @@ export default function Footer() {
                     <div className="max-w-150 mx-auto text-center">
                         <span className="text-sm text-mist-300">
                             MANDE is a unique global platform for furniture
-                            manufacters and woodmen and showcasing their best
-                            woodworks and increase their busiess revenue,
-                            increase profits, get easy access to top machines
-                            and grow exponatially.
+                            manufacturers and woodworkers to showcase their best
+                            work, increase their business revenue and profits,
+                            get easy access to top machines and grow
+                            exponentially.
                         </span>
                     </div>
                 </div>

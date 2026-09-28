@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ARTISAN_SIGNUP_URL, OPEN_JOBS_URL } from "@/constant/navigation";
+import { PLAN_OFFER_TEXT } from "@/constant/sampleData";
 import SectionHeading from "./sectionHeading";
 import SectionWrapper from "./sectionWrapper";
 import { WEBSITE_ON_DARK_BUTTON, WEBSITE_ON_DARK_OUTLINE_BUTTON } from "./buttonStyles";
@@ -10,7 +11,7 @@ import { WEBSITE_ON_DARK_BUTTON, WEBSITE_ON_DARK_OUTLINE_BUTTON } from "./button
  */
 export default function CtaBand({
     title = "Ready to take on your next furniture job?",
-    description = "Create your profile, choose a plan, and start applying for jobs — you're paid as each stage is approved.",
+    description = "Create your profile, choose a plan and start applying for jobs. You're paid as each stage is approved.",
     secondaryLink = { label: "Browse open jobs", href: OPEN_JOBS_URL },
 }: {
     title?: string;
@@ -23,6 +24,11 @@ export default function CtaBand({
             containerClassName="flex flex-col items-start gap-6 md:flex-row md:items-center md:justify-between md:gap-10"
         >
             <div className="flex max-w-175 flex-col gap-3">
+                {PLAN_OFFER_TEXT && (
+                    <span className="w-fit rounded-full bg-primary-500/15 px-3 py-1 text-sm font-medium text-primary-300">
+                        {PLAN_OFFER_TEXT}
+                    </span>
+                )}
                 <SectionHeading as="h2">{title}</SectionHeading>
                 <p className="text-base font-light text-mist-300">{description}</p>
             </div>

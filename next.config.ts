@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
+import { LEGALS_URL, PRIVACY_POLICY_URL, TERMS_URL } from "./constant/navigation";
 
 export default function nextConfig(phase: string): NextConfig {
   return {
@@ -27,10 +28,28 @@ export default function nextConfig(phase: string): NextConfig {
           destination: "/admin/dashboard",
           permanent: false,
         },
+        // Nor the super admin platform
+        {
+          source: "/super-admin",
+          destination: "/super-admin/dashboard",
+          permanent: false,
+        },
         // Links to the FAQs page have used both spellings
         {
           source: "/faqs",
           destination: "/faq",
+          permanent: true,
+        },
+        // The terms and privacy policy have their own addresses (see
+        // getLegalDocumentUrl), not the /legals/<slug> the other policies use
+        {
+          source: `${LEGALS_URL}/terms-and-conditions`,
+          destination: TERMS_URL,
+          permanent: true,
+        },
+        {
+          source: `${LEGALS_URL}/privacy-policy`,
+          destination: PRIVACY_POLICY_URL,
           permanent: true,
         },
       ];

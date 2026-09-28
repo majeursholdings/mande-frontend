@@ -47,7 +47,7 @@ const SAMPLE_LEGAL_DOCUMENTS: LegalDocument[] = [
                 heading: "Your account",
                 paragraphs: [
                     "You're responsible for keeping your login details safe and for everything that happens on your account.",
-                    "The details you give us — including your company information and NIN card — must be accurate and kept up to date.",
+                    "The details you give us, including your company information and NIN card, must be accurate and kept up to date.",
                 ],
             },
             {
@@ -75,7 +75,7 @@ const SAMPLE_LEGAL_DOCUMENTS: LegalDocument[] = [
                 heading: "What we collect",
                 paragraphs: [
                     "Your name, contact details, company information, bank account for payouts, and the documents you upload to get verified, such as your NIN card.",
-                    "We also collect how you use Mande — the jobs you view and accept, and your device and browser information.",
+                    "We also collect how you use Mande: the jobs you view and accept, and your device and browser information.",
                 ],
             },
             {
@@ -83,6 +83,12 @@ const SAMPLE_LEGAL_DOCUMENTS: LegalDocument[] = [
                 paragraphs: [
                     "To run your account, match you with jobs, pay you, verify your identity, and keep the platform safe.",
                     "We don't sell your personal information.",
+                ],
+            },
+            {
+                heading: "Messages you send us",
+                paragraphs: [
+                    "When you contact us from our website, we use your name, email, phone number (if you give one) and your message to reply to you. We keep them only as long as we need to.",
                 ],
             },
             {

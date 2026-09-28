@@ -1,85 +1,107 @@
-import SectionWrapper from "@/components/common/sectionWrapper";
-import { DEFAULT_CURRENCY } from "@/constant/global";
-import { PRICING_PLANS } from "@/constant/sampleData";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
+import { formatPrice } from "@/lib/currency";
+import ListPrice from "@/components/ui/listPrice";
+import {
+    NOT_INCLUDED,
+    PLAN_DISCOUNT_PERCENT,
+    PLAN_OFFER_TEXT,
+    PRICING_PLANS,
+    getAnnualSavingPercent,
+    getAnnualSavingsText,
+    getPlanPrice,
+} from "@/constant/sampleData";
 import SectionHeading from "../common/sectionHeading";
+import SectionWrapper from "../common/sectionWrapper";
+import { WEBSITE_ON_DARK_BUTTON } from "../common/buttonStyles";
 
+/** Where "See plans" links land — the offer bar's, for one. */
+export const PRICING_SECTION_ID = "pricing";
+
+/**
+ * The plans, in the website's dark green band — price (with the usual one
+ * struck through while there's an offer), what each includes, and a way to
+ * sign up on it.
+ */
 export default function PricingSection() {
     return (
         <SectionWrapper
-            className="bg-[#031b11] text-mist-100 relative overflow-hidden border-t border-b border-primary-900/30"
-            containerClassName="flex flex-col items-start gap-8 md:gap-10"
+            id={PRICING_SECTION_ID}
+            className="scroll-mt-16 border-t border-b border-primary-900/30 bg-[#031b11] text-mist-100"
+            containerClassName="flex flex-col gap-8 md:gap-12"
         >
-            <SectionHeading>
-                Pay for 10 months, work all 12.
-            </SectionHeading>
+            <div className="flex max-w-175 flex-col gap-3">
+                {PLAN_OFFER_TEXT && (
+                    <span className="w-fit rounded-full bg-primary-500 px-3 py-1 text-sm font-medium text-primary-950">
+                        {PLAN_OFFER_TEXT}
+                    </span>
+                )}
+                <SectionHeading as="h2">Pay for 10 months, work all 12.</SectionHeading>
+                <p className="text-base font-light text-mist-300">
+                    Pick the plan that fits your team.{" "}
+                    {PLAN_DISCOUNT_PERCENT > 0
+                        ? `Every plan is ${PLAN_DISCOUNT_PERCENT}% off for now, and paying for the year saves a further ${getAnnualSavingPercent(PRICING_PLANS[0])}%.`
+                        : `Pay for the year and save ${getAnnualSavingPercent(PRICING_PLANS[0])}%.`}
+                </p>
+            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6 w-full">
+            <ul className="grid w-full grid-cols-1 gap-5 md:grid-cols-3 lg:gap-6">
                 {PRICING_PLANS.map((plan) => (
-                    <div
+                    <li
                         key={plan.id}
-                        className="border border-[#0c3c24] bg-[#042416]/70 rounded-[6px] p-6 lg:p-8 flex flex-col justify-between hover:border-primary-600/50 transition-colors duration-300"
+                        className="flex flex-col justify-between gap-8 rounded-[10px] border border-white/10 bg-white/5 p-6 transition-colors duration-300 hover:border-primary-600/50 lg:p-8"
                     >
-                        <div>
-                            {/* Card Header */}
-                            <div>
-                                <span className="text-primary-400 font-mono text-sm font-semibold">
-                                    {plan.tierNumber}
-                                </span>
-                                <h3 className="text-xl md:text-2xl font-medium text-white mt-1">
-                                    {plan.name}
-                                </h3>
-                                <p className="text-xs text-mist-400 uppercase tracking-wider mt-0.5">
-                                    {plan.targetAudience}
-                                </p>
-                            </div>
-
-                            {/* Price */}
-                            <div className="mt-6 md:mt-8">
-                                <div className="flex items-baseline gap-1.5">
-                                    <span className="text-2xl md:text-3xl font-bold text-white tracking-tight">
-                                        {DEFAULT_CURRENCY}
-                                        {plan.monthlyPrice.toLocaleString()}
-                                    </span>
-                                    <span className="text-xs text-mist-400 uppercase font-medium">
-                                        /MONTH
-                                    </span>
+                        <div className="flex flex-col gap-6 md:gap-8">
+                            <div className="flex flex-col gap-1">
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="font-mono text-sm font-semibold text-primary-400">{plan.tierNumber}</span>
+                                    {PLAN_DISCOUNT_PERCENT > 0 && (
+                                        <span className="rounded-full bg-primary-500/15 px-2.5 py-0.5 text-xs font-medium text-primary-300">
+                                            {PLAN_DISCOUNT_PERCENT}% off
+                                        </span>
+                                    )}
                                 </div>
-                                <p className="text-[#c2a649] text-xs md:text-sm mt-1.5 font-normal">
-                                    {plan.savingsText}
-                                </p>
+                                <h3 className="text-xl font-medium text-white md:text-2xl">{plan.name}</h3>
+                                <p className="text-xs tracking-wider text-mist-400 uppercase">{plan.targetAudience}</p>
                             </div>
 
-                            {/* Features Table */}
-                            <div className="mt-8 md:mt-10 space-y-3">
-                                {plan.features.map((feature, idx) => (
+                            <div className="flex flex-col gap-1.5">
+                                <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                                    <span className="text-2xl font-bold tracking-tight text-white md:text-3xl">
+                                        {formatPrice(getPlanPrice(plan, "monthly"))}
+                                    </span>
+                                    <span className="text-xs font-medium text-mist-400 uppercase">/month</span>
+                                    <ListPrice plan={plan} billingCycle="monthly" className="text-sm text-mist-500" />
+                                </p>
+                                <p className="text-sm font-light text-[#c2a649]">{getAnnualSavingsText(plan)}</p>
+                            </div>
+
+                            <dl className="flex flex-col">
+                                {plan.features.map((feature) => (
                                     <div
-                                        key={idx}
-                                        className="flex items-center justify-between py-2 border-b border-primary-900/40 text-sm"
+                                        key={feature.label}
+                                        className="flex items-center justify-between gap-4 border-b border-white/10 py-2.5 text-sm"
                                     >
-                                        <span className="text-mist-400 text-sm">
-                                            {feature.label}
-                                        </span>
-                                        <span className="text-white text-sm font-medium">
+                                        <dt className="text-mist-400">{feature.label}</dt>
+                                        <dd
+                                            className={cn(
+                                                "text-right",
+                                                feature.value === NOT_INCLUDED ? "font-light text-mist-500" : "font-medium text-white",
+                                            )}
+                                        >
                                             {feature.value}
-                                        </span>
+                                        </dd>
                                     </div>
                                 ))}
-                            </div>
+                            </dl>
                         </div>
 
-                        <div className="mt-8 md:mt-10">
-                            <Link
-                                href={plan.ctaUrl}
-                                title={plan.buttonText}
-                                className="block w-full text-center py-3.5 px-4 bg-primary-500 hover:bg-primary-400 active:bg-primary-600 text-primary-950 font-semibold text-xs md:text-sm rounded-button transition-colors duration-300"
-                            >
-                                {plan.buttonText}
-                            </Link>
-                        </div>
-                    </div>
+                        <Link href={plan.ctaUrl} className={cn(WEBSITE_ON_DARK_BUTTON, "w-full py-2.5")}>
+                            {plan.buttonText}
+                        </Link>
+                    </li>
                 ))}
-            </div>
+            </ul>
         </SectionWrapper>
     );
 }

@@ -22,17 +22,17 @@ const VALUES: { icon: LucideIcon; title: string; description: string }[] = [
     {
         icon: WalletMinimal,
         title: "Paid as you work",
-        description: `${FIRST_PAYMENT.percent}% the day you accept a job, then a share at every approved stage — never a wait until the very end.`,
+        description: `${FIRST_PAYMENT.percent}% the day you accept a job, then a share at every approved stage. No waiting until the very end.`,
     },
     {
         icon: Camera,
         title: "Proof at every stage",
-        description: `Up to ${MAX_STEP_PROOF_PHOTOS} photos per stage, checked against the drawing for the job — and approved automatically if no one reviews them within ${REVIEW_WINDOW_HOURS} hours.`,
+        description: `Up to ${MAX_STEP_PROOF_PHOTOS} photos per stage, checked against the drawing for the job, and approved automatically if no one reviews them within ${REVIEW_WINDOW_HOURS} hours.`,
     },
     {
         icon: Building2,
         title: "Real jobs, real customers",
-        description: "Furniture projects from the brands and customers who build with MANDE — not one-off favours.",
+        description: "Furniture projects from the brands and customers who build with MANDE, not one-off favours.",
     },
     {
         icon: TrendingUp,
@@ -53,7 +53,7 @@ export default function AboutPage() {
             <PageHero
                 eyebrow="About MANDE"
                 title="Built for the people who build furniture."
-                description="MANDE is a platform for furniture makers and woodworkers — to find real jobs, show their best work, and grow from local customers to an international audience."
+                description="MANDE is a platform for furniture makers and woodworkers to find real jobs, show their best work, and grow from local customers to an international audience."
             >
                 <Link href={ARTISAN_SIGNUP_URL} className={WEBSITE_PRIMARY_BUTTON}>
                     Create your profile
@@ -71,12 +71,12 @@ export default function AboutPage() {
                     </SectionHeading>
                     <p className="text-base font-light">
                         Furniture makers do their best work when they aren&apos;t chasing payment. On MANDE, every job is
-                        paid in stages as it&apos;s built — an advance when you accept it, a share at each approved stage,
+                        paid in stages as it&apos;s built: an advance when you accept it, a share at each approved stage,
                         and the balance at sign-off.
                     </p>
                     <p className="text-base font-light">
                         Each stage is proved with photographs and checked by a project lead against the drawing for that
-                        job, so customers get exactly what they ordered and makers get paid on time — with the payment
+                        job. Customers get exactly what they ordered, and makers get paid on time, with the payment
                         protected from the first cut.
                     </p>
                 </div>

@@ -1,45 +1,54 @@
-import { clientList } from "@/constant/global"
-import { ARTISAN_SIGNUP_URL } from "@/constant/navigation"
-import Image from "next/image"
-import Link from "next/link"
+import Image from "next/image";
+import Link from "next/link";
+import { clientList } from "@/constant/global";
+import { ARTISAN_SIGNUP_URL, OPEN_JOBS_URL } from "@/constant/navigation";
+import { WEBSITE_OUTLINE_BUTTON, WEBSITE_PRIMARY_BUTTON } from "../common/buttonStyles";
 
+/**
+ * The homepage's opening band — the website pages' grey hero, a size up:
+ * the promise, the two ways in, and the brands makers build for.
+ */
 export default function HomeHeroSection() {
-  return (
-    <section className="bg-mist-200">
-        <div>
+    return (
+        <section className="bg-mist-200 px-2.5 py-12.5 md:pt-24 md:pb-20">
+            <div className="container mx-auto flex flex-col items-center gap-14 text-center md:gap-20">
+                <div className="flex flex-col items-center gap-5 text-pretty">
+                    <span className="text-lg font-medium">Start making money from MANDE today</span>
+                    <h1 className="max-w-225 text-4xl tracking-tight md:text-6xl">
+                        Grow your furniture business from local customers to an international audience.
+                    </h1>
+                    <p className="max-w-160 text-base font-light md:text-lg">
+                        Find real furniture jobs, get paid as each stage is approved, and build on the country&apos;s top
+                        machines at our Lagos factory.
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
+                        <Link href={ARTISAN_SIGNUP_URL} className={WEBSITE_PRIMARY_BUTTON}>
+                            Create your profile
+                        </Link>
+                        <Link href={OPEN_JOBS_URL} className={WEBSITE_OUTLINE_BUTTON}>
+                            Browse open jobs
+                        </Link>
+                    </div>
+                </div>
 
-        </div>
-        <div className="aspect-video py-12.5 md:py-25 px-2.5 flex flex-col items-center justify-center gap-10">
-            <div className="flex flex-col gap-5 items-center text-center text-pretty">
-                <h1 className="text-lg font-medium">
-                    Start making money from MANDE today!
-                </h1>
-                <h2 className="text-3xl md:text-5xl max-w-175 tracking-tight">
-                    Grow your furniture business from local customers to an international audience.
-                </h2>
-                <Link
-                    href={ARTISAN_SIGNUP_URL}
-                    title="Create your profile"
-                    className="flex w-fit mt-3 rounded-button py-1.5 px-5 border bg-primary-950 border-primary-950 text-mist-100 hover:bg-primary-500 hover:border-primary-500 hover:text-primary-950 duration-300 transition-all"
-                >
-                    Create your profile
-                </Link>
-            </div>
-            <div className="flex flex-col gap-4 items-center mt-20">
-                <span className="text-lg font-light">
-                    Start making furniture for leading brand
-                </span>
-                <div className="grid items-center grid-cols-3 md:grid-cols-6 gap-10">
-                    {clientList.map((item) => (
-                        <Image
-                            key={item.id}
-                            {...item}
-                            className="object-center object-cover max-w-20"
-                        />
-                    ))}
+                <div className="flex flex-col items-center gap-5">
+                    <span className="text-base font-light">Makers on MANDE build furniture for leading brands</span>
+                    <ul className="grid grid-cols-3 items-center gap-8 md:grid-cols-6 md:gap-10">
+                        {clientList.map((client) => (
+                            <li key={client.id}>
+                                <Image
+                                    src={client.src}
+                                    alt={client.alt}
+                                    title={client.title}
+                                    width={client.width}
+                                    height={client.height}
+                                    className="max-w-20 object-cover object-center"
+                                />
+                            </li>
+                        ))}
+                    </ul>
                 </div>
             </div>
-        </div>
-    </section>
-  )
+        </section>
+    );
 }

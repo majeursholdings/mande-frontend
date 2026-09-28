@@ -1,138 +1,139 @@
 "use client";
 
 import { useState } from "react";
-import {
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
-    SheetFooter,
-} from "@/components/ui/sheet";
-import { ARTISAN_LOGIN_URL, ARTISAN_SIGNUP_URL, mainmenu } from "@/constant/navigation";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, Menu } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { cn } from "@/lib/utils";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import LogoLink from "@/components/ui/logoLink";
+import { ARTISAN_LOGIN_URL, ARTISAN_SIGNUP_URL, mainmenu } from "@/constant/navigation";
+import { WEBSITE_OUTLINE_BUTTON, WEBSITE_PRIMARY_BUTTON } from "../common/buttonStyles";
+import { MenuIcon } from "./menuIcons";
 
-function MobileMenuItem({
-    item,
-    pathname,
-}: {
-    item: (typeof mainmenu)[number];
-    pathname: string;
-}) {
-    const hasSubMenu = Boolean(item.subMenu && item.subMenu.length > 0);
+// Full-width rows like the dashboards' side menu — the page you're on tinted,
+// with a green bar on its left edge
+const ROW_CLASS =
+    "relative flex w-full items-center gap-3 px-6 py-3 text-base transition-colors duration-200 cursor-pointer";
+const ROW_IDLE_CLASS = "text-mist-700 hover:bg-mist-50 hover:text-mist-950";
+const ROW_ACTIVE_CLASS =
+    "bg-primary-50 text-primary-800 before:absolute before:inset-y-0 before:left-0 before:w-0.5 before:bg-primary-700";
+
+type MenuItem = (typeof mainmenu)[number];
+
+function MobileMenuItem({ item, pathname, onNavigate }: { item: MenuItem; pathname: string; onNavigate: () => void }) {
     const isChildActive = Boolean(item.subMenu?.some((sub) => sub.href === pathname));
-    const isActive = item.href === pathname || isChildActive;
     const [isOpen, setIsOpen] = useState(isChildActive);
 
-    if (hasSubMenu) {
+    if (item.subMenu && item.subMenu.length > 0) {
         return (
-            <div className="flex flex-col">
+            <li className="flex flex-col">
                 <button
                     type="button"
                     onClick={() => setIsOpen((prev) => !prev)}
-                    className={`flex items-center justify-between w-full text-left text-base font-normal px-3 py-2 rounded-none transition-colors duration-200 cursor-pointer hover:bg-mist-800/50 hover:text-primary-200 ${
-                        isActive ? "text-primary-300" : "text-mist-100"
-                    }`}
                     aria-expanded={isOpen}
+                    className={cn(ROW_CLASS, isChildActive ? "text-primary-800" : ROW_IDLE_CLASS)}
                 >
-                    <span>{item.label}</span>
+                    <MenuIcon item={item} className="size-5 shrink-0" />
+                    <span className="flex-1 text-left">{item.label}</span>
                     <ChevronDown
-                        className={`size-4 transition-transform duration-200 ${
-                            isOpen ? "rotate-180 text-primary-200" : ""
-                        }`}
+                        className={cn("size-4 text-mist-500 transition-transform duration-200", isOpen && "rotate-180")}
+                        aria-hidden
                     />
                 </button>
 
-                <AnimatePresence>
-                    {isOpen && item.subMenu && (
-                        <motion.div
+                <AnimatePresence initial={false}>
+                    {isOpen && (
+                        <motion.ul
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: "auto", opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
                             transition={{ duration: 0.2, ease: "easeInOut" }}
-                            className="overflow-hidden flex flex-col pl-4 space-y-1"
+                            className="flex flex-col overflow-hidden"
                         >
                             {item.subMenu.map((subItem) => {
                                 const isSubActive = subItem.href === pathname;
                                 return (
-                                    <Link
-                                        key={subItem.label}
-                                        href={subItem.href as string}
-                                        title={subItem.label}
-                                        className={`block text-sm font-normal px-3 py-2 rounded-none transition-colors duration-200 hover:bg-mist-800/50 hover:text-primary-200 ${
-                                            isSubActive
-                                                ? "text-primary-300 font-medium bg-mist-800/30"
-                                                : "text-mist-200"
-                                        }`}
-                                    >
-                                        {subItem.label}
-                                    </Link>
+                                    <li key={subItem.label}>
+                                        <Link
+                                            href={subItem.href as string}
+                                            onClick={onNavigate}
+                                            aria-current={isSubActive ? "page" : undefined}
+                                            className={cn(
+                                                ROW_CLASS,
+                                                "flex-col items-start gap-0.5 py-2.5 pl-14",
+                                                isSubActive ? ROW_ACTIVE_CLASS : ROW_IDLE_CLASS,
+                                            )}
+                                        >
+                                            <span className="text-sm font-medium">{subItem.label}</span>
+                                            {subItem.description && (
+                                                <span className="text-xs font-light text-mist-500">{subItem.description}</span>
+                                            )}
+                                        </Link>
+                                    </li>
                                 );
                             })}
-                        </motion.div>
+                        </motion.ul>
                     )}
                 </AnimatePresence>
-            </div>
+            </li>
         );
     }
 
+    const isActive = item.href === pathname;
     return (
-        <Link
-            href={item.href || "#"}
-            title={item.label}
-            className={`text-base font-normal px-3 py-2 rounded-none transition-colors duration-200 hover:bg-mist-800/50 hover:text-primary-200 ${
-                isActive ? "text-primary-300" : "text-mist-100"
-            }`}
-        >
-            {item.label}
-        </Link>
+        <li>
+            <Link
+                href={item.href || "#"}
+                onClick={onNavigate}
+                aria-current={isActive ? "page" : undefined}
+                className={cn(ROW_CLASS, isActive ? ROW_ACTIVE_CLASS : ROW_IDLE_CLASS)}
+            >
+                <MenuIcon item={item} className="size-5 shrink-0" />
+                {item.label}
+            </Link>
+        </li>
     );
 }
 
+/**
+ * The website menu below lg — a white drawer in the platforms' style: the
+ * logo, every page as a row (Help Center opening to its pages), and Log in /
+ * Sign up at the bottom. It closes once a page is picked.
+ */
 export default function MobileMenu() {
     const pathname = usePathname();
+    const [isOpen, setIsOpen] = useState(false);
+    const close = () => setIsOpen(false);
 
     return (
-        <Sheet>
-            <SheetTrigger>
-                <div className="flex items-center cursor-pointer">
-                    <Menu className="text-mist-100 size-6" />
-                </div>
+        <Sheet open={isOpen} onOpenChange={setIsOpen}>
+            <SheetTrigger aria-label="Open menu" className="flex cursor-pointer items-center">
+                <Menu className="size-6 text-mist-100" aria-hidden />
             </SheetTrigger>
-            <SheetContent className="bg-green-950 text-mist-100 w-72 flex flex-col justify-between h-full p-0">
-                <SheetHeader className="border-b border-mist-800 p-4">
-                    <SheetTitle className="text-xl font-bold text-mist-100">
-                        Navigation
-                    </SheetTitle>
-                </SheetHeader>
+            <SheetContent side="right" className="flex h-full w-80 max-w-[85vw] flex-col gap-0 bg-white p-0">
+                <SheetTitle className="sr-only">Menu</SheetTitle>
+                <div className="border-b border-border px-6 py-5">
+                    <LogoLink href="/" label="MANDE, go to the homepage" onClick={close} className="w-28" />
+                </div>
 
-                <nav className="flex-1 flex flex-col justify-center space-y-2 p-4 overflow-y-auto">
-                    {mainmenu.map((item) => (
-                        <MobileMenuItem key={item.label} item={item} pathname={pathname} />
-                    ))}
+                <nav aria-label="Main" className="flex-1 overflow-y-auto py-4">
+                    <ul className="flex flex-col gap-0.5">
+                        {mainmenu.map((item) => (
+                            <MobileMenuItem key={item.label} item={item} pathname={pathname} onNavigate={close} />
+                        ))}
+                    </ul>
                 </nav>
 
-                <SheetFooter className="border-t border-mist-800 p-4 mt-auto">
-                    <div className="flex items-center gap-3">
-                        <Link
-                            href={ARTISAN_LOGIN_URL}
-                            title="Log in"
-                            className="text-mist-100 text-base font-normal hover:text-primary-200 transition-all duration-300"
-                        >
-                            Log in
-                        </Link>
-                        <Link
-                            href={ARTISAN_SIGNUP_URL}
-                            title="Sign up"
-                            className="w-fit border rounded-none px-5 py-1.5 text-mist-100 text-base font-normal bg-transparent hover:border-primary-200 hover:text-mist-800 hover:bg-primary-200 transition-colors duration-300"
-                        >
-                            Sign up
-                        </Link>
-                    </div>
-                </SheetFooter>
+                <div className="flex flex-col gap-3 border-t border-border p-6">
+                    <Link href={ARTISAN_SIGNUP_URL} onClick={close} className={cn(WEBSITE_PRIMARY_BUTTON, "w-full py-2.5")}>
+                        Sign up
+                    </Link>
+                    <Link href={ARTISAN_LOGIN_URL} onClick={close} className={cn(WEBSITE_OUTLINE_BUTTON, "w-full py-2.5")}>
+                        Log in
+                    </Link>
+                </div>
             </SheetContent>
         </Sheet>
     );

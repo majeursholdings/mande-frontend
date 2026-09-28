@@ -1,109 +1,76 @@
-import SectionHeading from "@/components/common/sectionHeading";
-import SectionWrapper from "@/components/common/sectionWrapper";
-import Image from "next/image";
+import { Blocks, Hammer, Package, Paintbrush, PencilRuler, Truck, type LucideIcon } from "lucide-react";
+import { JOB_PAYMENT_SCHEDULE, JOB_PRODUCTION_STEPS, type ProductionStepKey } from "@/constant/jobWorkflow";
+import SectionHeading from "../common/sectionHeading";
+import SectionWrapper from "../common/sectionWrapper";
 
-type CardProps = {
-    number: number;
-    title: string;
-    description: string;
-    imageSrc: string;
+const percentAt = (milestone: (typeof JOB_PAYMENT_SCHEDULE)[number]["milestone"]) =>
+    JOB_PAYMENT_SCHEDULE.find((payment) => payment.milestone === milestone)?.percent ?? 0;
+
+// Each stage's work, and what's paid around it (from JOB_PAYMENT_SCHEDULE)
+const STAGES: Record<ProductionStepKey, { icon: LucideIcon; description: string; pay: string }> = {
+    design: {
+        icon: PencilRuler,
+        description: "Drawings and the bill of materials are agreed and filed against the job.",
+        pay: `${percentAt("accepted")}% paid when you accept the job`,
+    },
+    materials: {
+        icon: Package,
+        description: "Timber and fittings are bought out of the money held for this job, by you or by MANDE, decided job by job.",
+        pay: "Paid for from the job's materials money",
+    },
+    frame: {
+        icon: Hammer,
+        description: "The carcass is built. Photograph the joints before the carcass is closed.",
+        pay: `${percentAt("frame")}% when it's approved`,
+    },
+    assembly: {
+        icon: Blocks,
+        description: "Components come together, checked against the Frame photographs.",
+        pay: `${percentAt("assembly")}% when it's approved`,
+    },
+    finishing: {
+        icon: Paintbrush,
+        description: "Sanding, staining, lacquer. Shoot finishing in daylight so the colour reads true.",
+        pay: `${percentAt("finishing")}% when it's approved`,
+    },
+    delivery: {
+        icon: Truck,
+        description: "Signed off by the customer at their address.",
+        pay: `${percentAt("delivery")}% at delivery, ${percentAt("signed-off")}% at sign-off`,
+    },
 };
 
-const HIW_CONTENT = [
-    {
-        id: 1,
-        imageSrc: "/images/image1.png",
-        title: "Design",
-        description:
-            "Drawings and the bill of materials are agreed and filed against the job.",
-    },
-    {
-        id: 2,
-        imageSrc: "/images/image1.png",
-        title: "Materials",
-        description:
-            "Timber and fittings bought out of the money held for this job, by you or by MANDE. Decided job by job.",
-    },
-    {
-        id: 3,
-        imageSrc: "/images/image1.png",
-        title: "Frame",
-        description:
-            "The carcass is built. Photograph the joints before the carcass is closed.",
-    },
-    {
-        id: 4,
-        imageSrc: "/images/image1.png",
-        title: "Assembly",
-        description:
-            "Components come together. Your officer compares them against the Frame photographs.",
-    },
-    {
-        id: 5,
-        imageSrc: "/images/image1.png",
-        title: "Finishing",
-        description:
-            "Sanding, staining, lacquer. Shoot finishing in daylight so the colour reads true.",
-    },
-    {
-        id: 6,
-        imageSrc: "/images/image1.png",
-        title: "Delivery",
-        description:
-            "Signed off by the customer at their address. Your balance follows once the defect window closes.",
-    },
-];
-
+/** The six stages every job moves through — what's done at each, and what's paid. */
 export default function HowItWorks() {
     return (
-        <SectionWrapper
-            className="bg-mist-200"
-            containerClassName="flex flex-col items-start gap-8 md:gap-12"
-        >
-            <div className="max-w-175">
-                <SectionHeading>
-                    A smarter way to get furniture works, grow, and earn more.
-                </SectionHeading>
+        <SectionWrapper className="bg-mist-200" containerClassName="flex flex-col gap-8 md:gap-12">
+            <div className="flex max-w-175 flex-col gap-3">
+                <SectionHeading as="h2">A smarter way to get furniture work, grow and earn more.</SectionHeading>
+                <p className="text-base font-light">
+                    Every job moves through {JOB_PRODUCTION_STEPS.length} stages. You prove each one with photos, and
+                    you&apos;re paid as they&apos;re approved.
+                </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-8 w-full">
-                {HIW_CONTENT.map((item) => (
-                    <Card
-                        key={item.id}
-                        number={item.id}
-                        title={item.title}
-                        description={item.description}
-                        imageSrc={item.imageSrc}
-                    />
-                ))}
-            </div>
+            <ol className="grid w-full grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+                {JOB_PRODUCTION_STEPS.map((step, index) => {
+                    const { icon: Icon, description, pay } = STAGES[step.key];
+                    return (
+                        <li key={step.key} className="flex flex-col gap-4 rounded-[10px] bg-white p-6 lg:p-8">
+                            <div className="flex items-center justify-between">
+                                <span className="flex size-11 items-center justify-center rounded-full bg-primary-100 text-primary-900">
+                                    <Icon className="size-5" strokeWidth={1.75} aria-hidden />
+                                </span>
+                                <span className="font-mono text-sm font-semibold text-primary-700">
+                                    {String(index + 1).padStart(2, "0")}
+                                </span>
+                            </div>
+                            <h3 className="text-xl font-medium">{step.label}</h3>
+                            <p className="flex-1 text-base font-light text-mist-700">{description}</p>
+                            <p className="w-fit rounded-full bg-primary-50 px-3 py-1 text-sm text-primary-900">{pay}</p>
+                        </li>
+                    );
+                })}
+            </ol>
         </SectionWrapper>
     );
 }
-
-const Card = ({ number, title, description, imageSrc }: CardProps) => {
-    return (
-        <div className="relative aspect-9/12 w-full rounded-[10px] overflow-hidden group">
-            <Image
-                src={imageSrc}
-                alt={title}
-                title={title}
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                className="object-cover object-center group-hover:scale-110 duration-1000 transition-transform ease-in-out"
-            />
-            <div className="absolute inset-0 bg-mist-950/50 p-4 md:p-6 group-hover:backdrop-blur-sm group-hover:bg-mist-950/70 duration-300 transition-all ease-in-out">
-                <span className="text-4xl font-bold text-mist-100">
-                    {String(number).padStart(2, "0")}
-                </span>
-            </div>
-            <div className="absolute bottom-0 inset-x-0 p-4 md:p-6 text-mist-100 flex flex-col gap-1.5 z-10">
-                <h4 className="text-lg md:text-2xl font-normal uppercase tracking-wide">
-                    {title}
-                </h4>
-                <p className="font-light text-base text-mist-100">
-                    {description}
-                </p>
-            </div>
-        </div>
-    );
-};
