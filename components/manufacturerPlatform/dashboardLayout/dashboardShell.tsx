@@ -14,6 +14,8 @@ import { JobApplicationsProvider } from "./jobApplicationsContext";
 import { ManufacturerWalletProvider } from "./manufacturerWalletContext";
 import { NotificationsProvider } from "./notificationsContext";
 import { RecentSearchesProvider } from "./recentSearchesContext";
+import { LeadReviewsProvider } from "./leadReviewsContext";
+import LeadReviewPrompt from "./leadReviewPrompt";
 
 export default function DashboardShell({ children }: { children: ReactNode }) {
     return (
@@ -26,16 +28,20 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
                             <JobApplicationsProvider>
                                 <NotificationsProvider>
                                     <RecentSearchesProvider>
-                                        <DashboardFrame
-                                            sidebar={<DashboardSidebar />}
-                                            desktopTopbar={<DesktopTopbar />}
-                                            mobileTopbar={<MobileTopbar />}
-                                            bottomNav={<MobileBottomNav />}
-                                            beforeContent={<AccountStatusBanner />}
-                                        >
-                                            {children}
-                                        </DashboardFrame>
-                                        <BusinessDocumentsGate />
+                                        <LeadReviewsProvider>
+                                            <DashboardFrame
+                                                sidebar={<DashboardSidebar />}
+                                                desktopTopbar={<DesktopTopbar />}
+                                                mobileTopbar={<MobileTopbar />}
+                                                bottomNav={<MobileBottomNav />}
+                                                beforeContent={<AccountStatusBanner />}
+                                            >
+                                                {children}
+                                            </DashboardFrame>
+                                            <BusinessDocumentsGate />
+                                            {/* The first thing they see once a job is completed */}
+                                            <LeadReviewPrompt />
+                                        </LeadReviewsProvider>
                                     </RecentSearchesProvider>
                                 </NotificationsProvider>
                             </JobApplicationsProvider>

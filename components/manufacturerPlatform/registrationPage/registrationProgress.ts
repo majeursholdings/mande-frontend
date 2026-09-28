@@ -11,7 +11,7 @@ import type { RegistrationFormValues } from "./types";
 
 const STORAGE_KEY = "mande:manufacturer-registration";
 
-const NEVER_SAVED: readonly string[] = ["password", "otp", "ninCard"] satisfies (keyof RegistrationFormValues)[];
+const NEVER_SAVED: readonly string[] = ["password", "otp", "ninNumber", "ninCard"] satisfies (keyof RegistrationFormValues)[];
 
 export type RegistrationProgress = {
     /** The step to resume at (0-based). */

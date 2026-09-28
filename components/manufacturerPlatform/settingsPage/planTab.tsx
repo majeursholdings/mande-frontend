@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
 import { formatOrdinalDate } from "@/lib/date";
 import { Button } from "@/components/ui/button";
+import ListPrice from "@/components/ui/listPrice";
 import {
     Dialog,
     DialogContent,
@@ -98,9 +99,12 @@ export default function PlanTab() {
                                 {currentPlan.targetAudience}
                             </p>
                         </div>
-                        <p className="text-lg font-semibold font-text text-mist-950">
-                            {formatPrice(currentPrice)}
-                            <span className="text-xs font-normal text-mist-500">/{per}</span>
+                        <p className="flex flex-wrap items-baseline justify-end gap-x-2 text-lg font-semibold font-text text-mist-950">
+                            <ListPrice plan={currentPlan} billingCycle={cycle} className="text-sm text-mist-400" />
+                            <span>
+                                {formatPrice(currentPrice)}
+                                <span className="text-xs font-normal text-mist-500">/{per}</span>
+                            </span>
                         </p>
                     </div>
                     <PlanFeatures plan={currentPlan} />
@@ -128,7 +132,7 @@ export default function PlanTab() {
 
             <SettingsSection headingLevel="h3"
                 title="Change plan"
-                description="Upgrades start straight away — you pay the difference for the rest of this billing period. Downgrades start when it ends."
+description="Upgrades start straight away, and you pay the difference for the rest of this billing period. Downgrades start when it ends."
             >
                 <ul className="flex flex-col gap-3">
                     {PRICING_PLANS.filter((plan) => plan.id !== currentPlan.id).map((plan) => {
@@ -146,7 +150,8 @@ export default function PlanTab() {
                                         {plan.name}
                                     </p>
                                     <p className="text-xs font-text text-mist-500">
-                                        {formatPrice(price)}/{per} · {plan.targetAudience.toLowerCase()}
+                                        {formatPrice(price)}/{per} <ListPrice plan={plan} billingCycle={cycle} className="text-mist-400" /> ·{" "}
+                                        {plan.targetAudience.toLowerCase()}
                                     </p>
                                 </div>
                                 <button

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Tabs } from "@base-ui/react/tabs";
+import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 
@@ -29,7 +30,8 @@ export default function SettingsTabs<T extends string>({
     defaultValue,
     label,
 }: {
-    header: ReactNode;
+    /** Above the tabs, e.g. the avatar — divided from them on desktop. */
+    header?: ReactNode;
     tabs: SettingsTab<T>[];
     defaultValue: T;
     /** Names the tab list for screen readers. */
@@ -47,7 +49,10 @@ export default function SettingsTabs<T extends string>({
                 {header}
                 <Tabs.List
                     aria-label={label}
-                    className="grid auto-cols-fr grid-flow-col gap-1 rounded-lg bg-mist-100 p-1 lg:flex lg:flex-col lg:rounded-none lg:bg-transparent lg:border-t lg:border-border lg:p-0 lg:pt-6"
+                    className={cn(
+                        "grid auto-cols-fr grid-flow-col gap-1 rounded-lg bg-mist-100 p-1 lg:flex lg:flex-col lg:rounded-none lg:bg-transparent lg:p-0",
+                        header && "lg:border-t lg:border-border lg:pt-6",
+                    )}
                 >
                     {tabs.map(({ value, label, shortLabel, icon: Icon }) => (
                         <Tabs.Tab

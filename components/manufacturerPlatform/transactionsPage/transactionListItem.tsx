@@ -4,7 +4,7 @@ import { formatPrice } from "@/lib/currency";
 import { formatOrdinalDate } from "@/lib/date";
 import type { ManufacturerTransaction } from "@/constant/manufacturer";
 
-/** Green "money in" badge for a payment, red "money out" for a withdrawal or plan payment. */
+/** Green "money in" badge for a payment, red "money out" for a withdrawal, plan payment or rejection charge. */
 export function TransactionIcon({
     type,
     className,

@@ -62,6 +62,19 @@ export default function AboutCompanyStep({
             validation: isOptional ? undefined : validators.required("Business license number"),
         },
         {
+            name: "ninNumber",
+            type: "text",
+            label: "NIN",
+            placeholder: "11-digit National Identification Number",
+            inputMode: "numeric",
+            autoComplete: "off",
+            description: "We check it against the national records, with your name. Only its last 4 digits are shown again.",
+            validation: {
+                required: "Enter your NIN",
+                validate: (value: string) => /^\d{11}$/.test(value.trim()) || "Enter your 11-digit NIN",
+            },
+        },
+        {
             name: "ninCard",
             type: "image",
             label: "NIN card",

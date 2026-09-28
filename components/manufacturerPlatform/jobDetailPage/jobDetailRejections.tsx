@@ -2,11 +2,12 @@ import { AlertTriangle, Info, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatOrdinalDate } from "@/lib/date";
 import { MAX_JOB_REJECTIONS, type JobRejection, type JobStatus } from "@/constant/manufacturer";
+import { REJECTION_CHARGE_PERCENT } from "@/constant/jobWorkflow";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // JobDetailRejections — everything about a job's rejection history:
 //   • an alert about the MAX_JOB_REJECTIONS limit (how many are left, or that
-//     the job can no longer be resubmitted)
+//     the job can no longer be resubmitted), and what each rejection charges
 //   • the latest rejection reason, while the job is still rejected
 //   • earlier rejections, with the photos each one turned down
 // Renders nothing for a job that has never been rejected.
@@ -32,7 +33,7 @@ function RejectionLimitAlert({
               ? {
                     tone: "danger" as const,
                     title: "Rejection limit reached",
-                    message: `This job has been rejected ${MAX_JOB_REJECTIONS} times, the maximum allowed, so it can no longer be resubmitted. Contact your project assistant for next steps.`,
+                    message: `This job has been rejected ${MAX_JOB_REJECTIONS} times, the maximum allowed, so it can no longer be resubmitted. Contact your project lead for next steps.`,
                 }
               : remaining === 1
                 ? {
@@ -78,6 +79,10 @@ function RejectionLimitAlert({
                     {alert.title}
                 </p>
                 <p className="text-xs font-text text-mist-600">{alert.message}</p>
+                <p className="text-xs font-text text-mist-600">
+                    Each rejection charges {REJECTION_CHARGE_PERCENT}% of the job&apos;s amount from your wallet. You&apos;ll
+                    see it in Transactions.
+                </p>
             </div>
         </div>
     );

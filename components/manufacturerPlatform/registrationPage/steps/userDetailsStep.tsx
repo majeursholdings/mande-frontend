@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { PRIVACY_POLICY_URL, TERMS_URL } from "@/constant/navigation";
 import { UseFormReturn } from "react-hook-form";
 import MainForm from "@/components/form";
 import { FormFieldConfig } from "@/components/form/types";
@@ -60,23 +61,24 @@ export default function UserDetailsStep({
                 <span>
                     I agree to all{" "}
                     <Link
-                        href="/terms-and-conditions"
+                        href={TERMS_URL}
                         className="text-secondary-700 hover:underline"
                     >
                         Terms
                     </Link>{" "}
                     and{" "}
                     <Link
-                        href="/privacy-policy"
+                        href={PRIVACY_POLICY_URL}
                         className="text-secondary-700 hover:underline"
                     >
                         Privacy Policy
                     </Link>
                 </span>
             ),
-            validation: validators.checkbox(
-                "You must agree to the Terms and Privacy Policy",
-            ),
+            validation: {
+                validate: (value: boolean) =>
+                    value === true || "You must agree to the Terms and Privacy Policy",
+            },
         },
     ];
 

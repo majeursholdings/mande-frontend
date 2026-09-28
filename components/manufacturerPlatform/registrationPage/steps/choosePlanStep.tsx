@@ -5,7 +5,8 @@ import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
 import MainForm from "@/components/form";
-import { PRICING_PLANS, type PricingPlan } from "@/constant/sampleData";
+import { PLAN_OFFER_TEXT, PRICING_PLANS, type PricingPlan } from "@/constant/sampleData";
+import ListPrice from "@/components/ui/listPrice";
 import Notice from "../../notice";
 import StepFooter from "../stepFooter";
 import StepHeader from "../stepHeader";
@@ -61,7 +62,7 @@ export default function ChoosePlanStep({
             <StepHeader
                 step={3}
                 title="Choose a plan"
-                description="Pick the plan that fits your business. With yearly billing you pay for 10 months and work all 12."
+                description={`${PLAN_OFFER_TEXT ? `${PLAN_OFFER_TEXT}. ` : ""}Pick the plan that fits your business. With yearly billing you pay for 10 months and work all 12.`}
             />
 
             <MainForm<RegistrationFormValues>
@@ -200,10 +201,13 @@ function PlanOption({
                     <span className="text-base font-semibold font-text text-mist-950">
                         {plan.name}
                     </span>
-                    <span className="text-base font-semibold font-text text-mist-950">
-                        {formatPrice(getPlanPrice(plan, billingCycle))}
-                        <span className="text-xs font-normal text-mist-500">
-                            /{PER[billingCycle]}
+                    <span className="flex flex-wrap items-baseline gap-x-2 text-base font-semibold font-text text-mist-950">
+                        <ListPrice plan={plan} billingCycle={billingCycle} className="text-xs text-mist-400" />
+                        <span>
+                            {formatPrice(getPlanPrice(plan, billingCycle))}
+                            <span className="text-xs font-normal text-mist-500">
+                                /{PER[billingCycle]}
+                            </span>
                         </span>
                     </span>
                 </div>

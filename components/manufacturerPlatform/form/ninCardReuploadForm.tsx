@@ -8,12 +8,26 @@ import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashbo
 import { PENDING_VERIFICATION } from "@/constant/manufacturer";
 import { FormSubmitButton } from "./formButtons";
 
-// Named apart from the sign-up form's "ninCard" — MainForm uses field names as input ids
+// Named apart from the sign-up form's fields: MainForm uses field names as input ids
 type NinCardReuploadFormValues = {
+    ninNumberAgain: string;
     ninCardPhoto: FileList | null;
 };
 
 const FIELDS: FormFieldConfig[] = [
+    {
+        name: "ninNumberAgain",
+        type: "text",
+        label: "NIN",
+        placeholder: "11-digit National Identification Number",
+        inputMode: "numeric",
+        autoComplete: "off",
+        description: "We check it against the national records, with your name.",
+        validation: {
+            required: "Enter your NIN",
+            validate: (value: string) => /^\d{11}$/.test(value.trim()) || "Enter your 11-digit NIN",
+        },
+    },
     {
         name: "ninCardPhoto",
         type: "image",
@@ -29,7 +43,7 @@ const FIELDS: FormFieldConfig[] = [
     },
 ];
 
-/** Replaces a rejected NIN card with a new photo and sends it back for review. */
+/** Replaces a rejected NIN (the number and a new photo of the card) and sends it back to be checked. */
 export default function NinCardReuploadForm({ onSubmitted }: { onSubmitted: () => void }) {
     const { profile, updateProfile } = useManufacturerProfile();
     const [isLoading, setIsLoading] = useState(false);

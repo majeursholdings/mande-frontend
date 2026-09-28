@@ -13,9 +13,9 @@ export default function JobDetailCallAssignee({ assignee }: { assignee: JobAssig
     if (!assignee) {
         return (
             <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-semibold font-text text-mist-950">Assignee</h3>
+                <h3 className="text-sm font-semibold font-text text-mist-950">Project lead</h3>
                 <p className="text-sm font-text text-mist-400">
-                    No project assistant has been assigned to this job yet.
+                    No project lead has been assigned to this job yet.
                 </p>
             </div>
         );
@@ -23,7 +23,7 @@ export default function JobDetailCallAssignee({ assignee }: { assignee: JobAssig
 
     return (
         <div className="flex flex-col gap-3">
-            <h3 className="text-sm font-semibold font-text text-mist-950">Assignee</h3>
+            <h3 className="text-sm font-semibold font-text text-mist-950">Project lead</h3>
             <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-mist-50 p-3">
                 <div className="flex items-center gap-3 min-w-0">
                     <UserAvatar name={assignee.name} className="size-10 text-sm shrink-0" />

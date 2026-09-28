@@ -26,6 +26,8 @@ export type RegistrationFormValues = AddressFormValues & {
     companyName: string;
     companyTaxNumber: string;
     businessLicenseNumber: string;
+    /** The 11-digit National Identification Number, checked with the national records. Never saved in the browser. */
+    ninNumber: string;
     /** Photo of the manufacturer's NIN (National Identification Number) card. */
     ninCard: FileList | null;
     // Step 5 — company specifications
@@ -51,6 +53,7 @@ export const REGISTRATION_DEFAULT_VALUES: RegistrationFormValues = {
     state: "",
     companyTaxNumber: "",
     businessLicenseNumber: "",
+    ninNumber: "",
     ninCard: null,
     staffRange: "",
     specialities: [],
@@ -80,6 +83,7 @@ export function getStepRequiredFields(
                 ...(isSoloPlan(plan)
                     ? []
                     : (["companyTaxNumber", "businessLicenseNumber"] as const)),
+                "ninNumber",
                 "ninCard",
             ];
         case 4:

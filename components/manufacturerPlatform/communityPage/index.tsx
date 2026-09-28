@@ -70,7 +70,7 @@ function ExternalLink({
 }
 
 // The WhatsApp channel gets the big card — it's where new jobs are announced first
-function FeaturedChannel({ channel }: { channel: CommunityChannel }) {
+export function FeaturedChannel({ channel }: { channel: CommunityChannel }) {
     const { name, Icon } = PLATFORMS[channel.platform];
 
     return (
@@ -98,7 +98,7 @@ function FeaturedChannel({ channel }: { channel: CommunityChannel }) {
     );
 }
 
-function ChannelCard({ channel }: { channel: CommunityChannel }) {
+export function ChannelCard({ channel }: { channel: CommunityChannel }) {
     const { name, Icon, badgeClass, accentClass } = PLATFORMS[channel.platform];
 
     return (
@@ -134,7 +134,7 @@ function ChannelCard({ channel }: { channel: CommunityChannel }) {
     );
 }
 
-function TestimonialCard({ testimonial }: { testimonial: CommunityTestimonial }) {
+export function TestimonialCard({ testimonial }: { testimonial: CommunityTestimonial }) {
     const { name, Icon, badgeClass } = PLATFORMS[testimonial.platform];
 
     return (

@@ -56,7 +56,8 @@ export function useJobDetailState(job: Job) {
         extensionRequests: job.extensionRequests,
         banner: null,
     });
-    const state = settleJob(storedState);
+    // A job held for further review waits for a super admin, not the clock
+    const state = settleJob({ ...storedState, isHeldForReview: job.isHeldForReview });
 
     const showBanner = (message: string) => {
         setState((s) => ({ ...s, banner: message }));

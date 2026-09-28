@@ -11,6 +11,7 @@ import JobDetailStepRecorder from "./jobDetailStepRecorder";
 import JobDetailRejections from "./jobDetailRejections";
 import JobDetailCallAssignee from "./jobDetailCallAssignee";
 import JobDetailPayments from "./jobDetailPayments";
+import JobDetailLeadReview, { HeldForReviewNote } from "./jobDetailLeadReview";
 import JobDetailCompletionUpload from "@/components/manufacturerPlatform/form/jobDetailCompletionUploadForm";
 import CancelJobForm from "@/components/manufacturerPlatform/form/cancelJobForm";
 import ReportDelayForm from "@/components/manufacturerPlatform/form/reportDelayForm";
@@ -152,7 +153,7 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                     <DetailRow label="Category" value={getJobCategoryLabel(job.category)} />
 
                     <DetailRow
-                        label="Assignee"
+                        label="Project lead"
                         value={
                             job.assignee ? (
                                 <span className="flex items-center gap-2">
@@ -241,6 +242,8 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                         <dd className="text-mist-700">{job.description}</dd>
                     </div>
                 </dl>
+
+                {state.status === "in-review" && job.isHeldForReview && <HeldForReviewNote />}
 
                 <JobDetailRejections
                     rejections={state.rejections}
@@ -338,6 +341,8 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                         faultReport={job.faultReport ?? null}
                     />
                 )}
+
+                {state.status === "completed" && <JobDetailLeadReview job={job} />}
 
                 {!isCancelled && (
                     <JobDetailCallAssignee assignee={job.assignee} />
