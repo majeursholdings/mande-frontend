@@ -46,7 +46,15 @@ const FIELDS: FormFieldConfig[] = [
     },
 ];
 
-export default function AdminLoginForm() {
+/** Logging in to a staff platform — the admin's by default; the super admin's passes its own links. */
+export default function AdminLoginForm({
+    dashboardUrl = ADMIN_DASHBOARD_URL,
+    forgotPasswordUrl = ADMIN_FORGOT_PASSWORD_URL,
+}: {
+    /** Where logging in lands. */
+    dashboardUrl?: string;
+    forgotPasswordUrl?: string;
+}) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<AdminLoginFormValues>({
@@ -61,7 +69,7 @@ export default function AdminLoginForm() {
             // is testable end-to-end.
             await new Promise((resolve) => setTimeout(resolve, 800));
             toast.success("Logged in successfully");
-            router.push(ADMIN_DASHBOARD_URL);
+            router.push(dashboardUrl);
         } catch {
             toast.error("Invalid email or password");
         } finally {
@@ -77,7 +85,7 @@ export default function AdminLoginForm() {
             isLoading={isLoading}
             fieldGapClassName={AUTH_FORM_FIELD_GAP}
             hideRequiredMarks
-            footerSlot={<RememberMeRow control={methods.control} />}
+            footerSlot={<RememberMeRow control={methods.control} forgotPasswordUrl={forgotPasswordUrl} />}
             renderFooter={({ isLoading, canSubmit }) => (
                 <FormSubmitButton
                     label="Login"
@@ -95,7 +103,13 @@ export default function AdminLoginForm() {
  * "Remember me" beside the "Forgot Password?" link — a checkbox from md up
  * and a switch on phones, as in the design. Both edit the same value.
  */
-function RememberMeRow({ control }: { control: Control<AdminLoginFormValues> }) {
+function RememberMeRow({
+    control,
+    forgotPasswordUrl,
+}: {
+    control: Control<AdminLoginFormValues>;
+    forgotPasswordUrl: string;
+}) {
     const { field } = useController({ control, name: "rememberMe" });
     const labelClass =
         "items-center gap-2 text-sm font-text text-mist-600 cursor-pointer select-none";
@@ -115,7 +129,7 @@ function RememberMeRow({ control }: { control: Control<AdminLoginFormValues> }) 
                 Remember me
             </label>
             <Link
-                href={ADMIN_FORGOT_PASSWORD_URL}
+                href={forgotPasswordUrl}
                 className="text-sm font-medium font-text text-secondary-700 hover:underline"
             >
                 Forgot Password?

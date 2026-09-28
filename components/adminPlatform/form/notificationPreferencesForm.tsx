@@ -4,17 +4,14 @@ import { useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
-import {
-    ADMIN_NOTIFICATION_CHANNELS,
-    ADMIN_NOTIFICATION_TYPES,
-    type AdminNotificationPreferences,
-} from "@/constant/admin";
+import { ADMIN_NOTIFICATION_CHANNELS, type AdminNotificationPreferences } from "@/constant/admin";
 import { useAdminProfile } from "../dashboardLayout/adminProfileContext";
+import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import { FormSubmitButton } from "./formButtons";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NotificationPreferencesForm — for each thing an admin can be notified
-// about, a switch per channel (in the app, by email — and any channel added
+// NotificationPreferencesForm — for each thing an admin (or super admin) can
+// be notified about, a switch per channel (in the app, by email — and any channel added
 // to ADMIN_NOTIFICATION_CHANNELS later, e.g. SMS or WhatsApp, with no change
 // here). The switches wrap under the description on phones, so more channels
 // still fit.
@@ -22,6 +19,7 @@ import { FormSubmitButton } from "./formButtons";
 
 export default function NotificationPreferencesForm() {
     const { profile, updateProfile } = useAdminProfile();
+    const { notificationTypes } = useStaffPlatform();
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<AdminNotificationPreferences>({ defaultValues: profile.notificationPreferences });
     const values = useWatch({ control: methods.control });
@@ -55,7 +53,7 @@ export default function NotificationPreferencesForm() {
             </dl>
 
             <ul className="flex flex-col divide-y divide-border rounded-xl border border-border bg-white">
-                {ADMIN_NOTIFICATION_TYPES.map((type) => {
+                {notificationTypes.map((type) => {
                     const isAllOff = ADMIN_NOTIFICATION_CHANNELS.every(
                         (channel) => !values[type.value]?.[channel.value],
                     );

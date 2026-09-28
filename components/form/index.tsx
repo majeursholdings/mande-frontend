@@ -534,7 +534,7 @@ export const TextareaInput = <T extends FieldValues = FieldValues>({
                         )}
                     >
                         {maxLength !== undefined
-                            ? `${count}/${maxLength}`
+                            ? `${count} of ${maxLength}`
                             : count}
                     </span>
                 </div>

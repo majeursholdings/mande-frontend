@@ -81,6 +81,10 @@ export function RowActionsMenu<TRow extends { id: string }>({
     onOpenEdit: () => void;
     onOpenDelete: () => void;
 }) {
+    // A row whose actions are all hidden gets no menu, rather than an empty one
+    const visibleRowActions = rowActions.filter((action) => !action.hidden?.(row));
+    if (!viewAction && !editAction && !deleteAction && !linkAction && visibleRowActions.length === 0) return null;
+
     return (
         <div className="flex justify-end">
             <Menu.Root modal={false}>
@@ -131,29 +135,34 @@ export function RowActionsMenu<TRow extends { id: string }>({
 
                             {linkAction && <LinkActionMenuItem row={row} action={linkAction} />}
 
-                            {rowActions
-                                .filter((action) => !action.hidden?.(row))
-                                .map((action) => {
-                                    const disabledReason = action.disabledReason?.(row) ?? null;
-                                    return (
-                                        <Menu.Item
-                                            key={action.label}
-                                            disabled={!!disabledReason}
-                                            title={disabledReason ?? undefined}
-                                            onClick={() => action.onSelect(row)}
-                                            className={
-                                                disabledReason
-                                                    ? `${ITEM_CLASS} cursor-not-allowed text-gray-300 hover:bg-transparent data-highlighted:bg-transparent`
-                                                    : action.tone === "danger"
-                                                      ? DANGER_ITEM_CLASS
-                                                      : ITEM_CLASS
-                                            }
-                                        >
-                                            {action.icon}
-                                            {action.label}
-                                        </Menu.Item>
-                                    );
-                                })}
+                            {visibleRowActions.map((action) => {
+                                const disabledReason = action.disabledReason?.(row) ?? null;
+                                return (
+                                    <Menu.Item
+                                        key={action.label}
+                                        disabled={!!disabledReason}
+                                        onClick={() => action.onSelect(row)}
+                                        className={
+                                            disabledReason
+                                                ? `${ITEM_CLASS} items-start cursor-not-allowed text-gray-300 hover:bg-transparent data-highlighted:bg-transparent [&>svg]:mt-0.5`
+                                                : action.tone === "danger"
+                                                  ? DANGER_ITEM_CLASS
+                                                  : ITEM_CLASS
+                                        }
+                                    >
+                                        {action.icon}
+                                        {/* Why it's off, under it — a tooltip alone never shows on touch screens */}
+                                        {disabledReason ? (
+                                            <span className="flex flex-col">
+                                                {action.label}
+                                                <span className="text-[11px] text-gray-400">{disabledReason}</span>
+                                            </span>
+                                        ) : (
+                                            action.label
+                                        )}
+                                    </Menu.Item>
+                                );
+                            })}
 
                             {deleteAction && (
                                 <Menu.Item onClick={onOpenDelete} className={DANGER_ITEM_CLASS}>

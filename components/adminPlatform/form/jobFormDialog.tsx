@@ -16,8 +16,10 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
+    ADMIN_POSITION_OPTIONS,
     JOB_DESCRIPTION_MAX_LENGTH,
     MAX_JOB_MANUFACTURERS,
+    PROJECT_LEADS,
     formatJobCodeTimestamp,
     generateJobCode,
     getJobCategoryCode,
@@ -27,11 +29,14 @@ import {
 import { COMPANY_SPECIALITY_OPTIONS } from "@/constant/manufacturer";
 import { useAdminManufacturers } from "@/components/adminPlatform/dashboardLayout/adminManufacturersContext";
 import { useAdminJobs } from "@/components/adminPlatform/dashboardLayout/adminJobsContext";
+import { useStaffPlatform } from "@/components/adminPlatform/dashboardLayout/staffPlatformContext";
 import { FormSubmitButton } from "./formButtons";
 
 type DetailsValues = {
     title: string;
     category: string;
+    /** A PROJECT_LEADS id — asked for when a super admin creates or edits the job. */
+    projectLeadId: string;
     manufacturerIds: string[];
     /** Digits only — the amount field's value. */
     amount: string;
@@ -67,8 +72,10 @@ const fileCount = (files: FileList | File[] | null | undefined) => (files ? Arra
 // schedule and description, then its documents and images. Each step keeps
 // its own form here, so going Back and forth never loses what was typed.
 // The job code is generated as soon as a name goes in (MD-category-date-time)
-// and shown above the name. Whoever creates the job leads it. Closing with
-// changes asks first ("Your changes won't be saved").
+// and shown above the name. Whoever creates the job leads it; a super admin,
+// who doesn't lead jobs, picks the admin who will (and can hand an edited
+// job to another). Closing with changes asks first ("Your changes won't be
+// saved").
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function JobFormDialog({
@@ -80,6 +87,8 @@ export default function JobFormDialog({
     onClose: () => void;
 }) {
     const { createJob, updateJob } = useAdminJobs();
+    // Someone who doesn't lead jobs picks the admin who will
+    const picksLead = !useStaffPlatform().leadId;
     const isEditing = !!job;
     const { manufacturers, getAssignBlocker } = useAdminManufacturers();
     // Suspended manufacturers, and flagged ones with a job already, can't take this one
@@ -104,6 +113,7 @@ export default function JobFormDialog({
         defaultValues: {
             title: job?.title ?? "",
             category: job?.category ?? "",
+            projectLeadId: job?.projectLeadIds[0] ?? "",
             manufacturerIds: job?.manufacturerIds ?? [],
             amount: job ? String(job.amount) : "",
         },
@@ -161,6 +171,22 @@ export default function JobFormDialog({
             clearable: true,
             validation: { required: "Select a category" },
         },
+        ...(picksLead
+            ? [
+                  {
+                      name: "projectLeadId",
+                      type: "select",
+                      label: "Project lead",
+                      placeholder: "Select an admin",
+                      description: "The admin who reviews the work and looks after this job.",
+                      options: PROJECT_LEADS.map((lead) => ({
+                          label: `${lead.name} (${ADMIN_POSITION_OPTIONS.find((option) => option.value === lead.position)?.label ?? "Admin"})`,
+                          value: lead.id,
+                      })),
+                      validation: { required: "Pick the admin who'll lead this job" },
+                  } satisfies FormFieldConfig,
+              ]
+            : []),
         {
             name: "manufacturerIds",
             type: "multiselect",
@@ -256,18 +282,20 @@ export default function JobFormDialog({
                 startDate: scheduleValues.startDate || null,
                 dueDate: scheduleValues.dueDate,
                 description: scheduleValues.description.trim(),
+                ...(picksLead && { projectLeadIds: [detailsValues.projectLeadId] }),
                 attachments: [
                     ...keptAttachments,
                     ...upload(attachments.getValues("documents"), "document"),
                     ...upload(attachments.getValues("images"), "image"),
                 ],
             };
+            const leadName = PROJECT_LEADS.find((lead) => lead.id === detailsValues.projectLeadId)?.name;
             if (job) {
                 updateJob(job.id, draft);
                 toast.success("Job updated successfully");
             } else {
                 createJob(draft, generateJobCode(draft.category, namedAt ?? new Date()));
-                toast.success("Job created successfully");
+                toast.success(picksLead && leadName ? `Job created and assigned to ${leadName}` : "Job created successfully");
             }
             onClose();
         } catch {

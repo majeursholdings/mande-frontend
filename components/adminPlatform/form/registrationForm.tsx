@@ -32,17 +32,21 @@ const ADMIN_REGISTRATION_DEFAULT_VALUES: AdminRegistrationFormValues = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AdminRegistrationForm — the first step of admin sign-up. Staff only, so the
-// email has to be on the Mande domain. Submitting creates the account and
+// AdminRegistrationForm — the first step of admin (and super admin) sign-up.
+// Staff only, so the email has to be on the Mande domain. Admins also pick
+// their position; super admins don't (`asksForPosition`). Submitting creates the account and
 // sends a verification code to that email; the sign-up page then shows the
 // code step (AdminVerifyEmailForm).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AdminRegistrationForm({
     onCodeSent,
+    asksForPosition = true,
 }: {
     /** The account was created and a code sent — move on to verifying `email`. */
     onCodeSent: (email: string) => void;
+    /** Whether to ask for a position (ADMIN_POSITION_OPTIONS) — admins yes, super admins no. */
+    asksForPosition?: boolean;
 }) {
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<AdminRegistrationFormValues>({
@@ -50,7 +54,7 @@ export default function AdminRegistrationForm({
         defaultValues: ADMIN_REGISTRATION_DEFAULT_VALUES,
     });
 
-    const fields: FormFieldConfig[] = [
+    const allFields: FormFieldConfig[] = [
         {
             name: "firstName",
             type: "text",
@@ -121,6 +125,7 @@ export default function AdminRegistrationForm({
             validation: validators.confirmPassword(methods.getValues),
         },
     ];
+    const fields = asksForPosition ? allFields : allFields.filter((field) => field.name !== "position");
 
     const handleSubmit = async ({ email }: AdminRegistrationFormValues) => {
         setIsLoading(true);
