@@ -3,6 +3,7 @@ import { Toaster } from "sonner";
 import { inter } from "./fonts";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { QueryProvider } from "@/components/providers/queryProvider";
 
 export const metadata: Metadata = {
   title: "Mande",
@@ -20,8 +21,10 @@ export default function RootLayout({
       className={cn("h-full antialiased", inter.variable, inter.className)}
     >
       <body className={cn("min-h-full flex flex-col font-sans", inter.className)}>
-        {children}
-        <Toaster position="top-right" richColors />
+        <QueryProvider>
+          {children}
+          <Toaster position="top-right" richColors />
+        </QueryProvider>
       </body>
     </html>
   );
