@@ -64,6 +64,8 @@ export type FormFieldConfig = {
     showPreview?: boolean;
     clearable?: boolean; // for select — an × in the field clears the choice
     trailingSlot?: ReactNode; // e.g. a "Forgot password?" link next to a checkbox
+    uploadCategory?: string; // e.g. "jobcreation", "jobProof", "profile", "identity"
+    uploadVisibility?: "public" | "private"; // defaults to "private" (or "public" for avatars/public showcases)
 };
 
 export type MainFormProps<T extends FieldValues = FieldValues> = {

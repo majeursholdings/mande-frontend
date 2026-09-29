@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, use, Suspense, useMemo } from "react";
+import { useState, use, Suspense, useMemo } from "react";
 import {
     useForm,
     Controller,
@@ -12,15 +12,14 @@ import {
     RegisterOptions,
     FieldErrors,
     useWatch,
-    useFormContext,
+    FormProvider,
+    UseFormSetValue,
 } from "react-hook-form";
 import dayjs from "dayjs";
 import {
     CalendarIcon,
     EyeIcon,
     EyeOffIcon,
-    UploadIcon,
-    ImageIcon,
     TriangleAlert,
     Loader2,
     XIcon,
@@ -58,8 +57,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DEFAULT_CURRENCY } from "@/constant/global";
 
 import { FormFieldConfig, MainFormProps, SelectOption } from "./types";
-import Image from "next/image";
-import { DEFAULT_MAX_FILE_SIZE_MB, DOCUMENT_ACCEPT, IMAGE_ACCEPT, getFileKindError } from "./fileRules";
+import { FileInput, cleanupFormFieldUploads } from "./fileInput";
 
 export default function MainForm<T extends FieldValues = FieldValues>({
     title,
@@ -80,13 +78,15 @@ export default function MainForm<T extends FieldValues = FieldValues>({
     // Hooks must run unconditionally — when a shared `methods` instance is
     // passed in (e.g. steps of a wizard), this internal one is simply unused.
     const internalForm = useForm<T>({ mode: "onTouched" });
+    const formMethods = methods ?? internalForm;
     const {
         register,
         handleSubmit,
         control,
         getValues,
+        setValue,
         formState: { errors },
-    } = methods ?? internalForm;
+    } = formMethods;
 
     // Lets a parent read live field values (e.g. for a "preview" action) without
     // needing to submit the form — MainForm owns its own useForm() internally,
@@ -117,9 +117,23 @@ export default function MainForm<T extends FieldValues = FieldValues>({
 
     const renderedPairs = new Set<string>();
 
+    const handleFormSubmit = async (values: T) => {
+        try {
+            await onSubmit(values);
+        } catch (error) {
+            // If form submission fails, delete any uploaded files for this form from Cloudinary
+            const fileFields = fields.filter((f) => f.type === "file" || f.type === "image");
+            await Promise.allSettled(
+                fileFields.map((f) => cleanupFormFieldUploads(f.name))
+            );
+            throw error;
+        }
+    };
+
     return (
+        <FormProvider {...formMethods}>
         <form
-            onSubmit={handleSubmit(onSubmit)}
+            onSubmit={handleSubmit(handleFormSubmit)}
             className={cn("flex flex-col gap-5", className)}
             noValidate
         >
@@ -161,6 +175,7 @@ export default function MainForm<T extends FieldValues = FieldValues>({
                                     register={register}
                                     control={control}
                                     getValues={getValues}
+                                    setValue={setValue}
                                     errors={errors}
                                     hideRequiredMark={hideRequiredMarks}
                                 />
@@ -169,6 +184,7 @@ export default function MainForm<T extends FieldValues = FieldValues>({
                                     register={register}
                                     control={control}
                                     getValues={getValues}
+                                    setValue={setValue}
                                     errors={errors}
                                     hideRequiredMark={hideRequiredMarks}
                                 />
@@ -183,6 +199,7 @@ export default function MainForm<T extends FieldValues = FieldValues>({
                             register={register}
                             control={control}
                             getValues={getValues}
+                            setValue={setValue}
                             errors={errors}
                             hideRequiredMark={hideRequiredMarks}
                         />
@@ -213,6 +230,7 @@ export default function MainForm<T extends FieldValues = FieldValues>({
                 </Button>
             )}
         </form>
+        </FormProvider>
     );
 }
 
@@ -223,6 +241,7 @@ export type FormFieldProps<T extends FieldValues = FieldValues> = {
     register: UseFormRegister<T>;
     control: Control<T>;
     getValues: () => T;
+    setValue?: UseFormSetValue<T>;
     errors: FieldErrors<T>;
     /** Leave the red asterisk off the label even if the field is required. */
     hideRequiredMark?: boolean;
@@ -233,6 +252,7 @@ export const FormField = <T extends FieldValues = FieldValues>({
     register,
     control,
     getValues,
+    setValue,
     errors,
     hideRequiredMark = false,
 }: FormFieldProps<T>) => {
@@ -343,6 +363,7 @@ export const FormField = <T extends FieldValues = FieldValues>({
                     register={register}
                     error={error}
                     getValues={getValues}
+                    setValue={setValue}
                 />,
             );
         case "checkbox":
@@ -387,8 +408,6 @@ export const inputClass = (error?: string) =>
 
 // SelectTrigger sizes itself with `data-[size=default]:h-8`, which outranks a
 // plain `h-11` — match that selector so selects are as tall as text inputs.
-const PREVIEWABLE_IMAGE_TYPE = /^image\/(jpeg|png|gif|webp|avif|svg\+xml|bmp)$/;
-
 const selectTriggerClass = (error?: string) =>
     cn(inputClass(error), "w-full data-[size=default]:h-11");
 
@@ -1224,377 +1243,7 @@ export const DateTimeInput = <T extends FieldValues = FieldValues>({
 };
 
 // File / Image upload
-export type FileInputProps<T extends FieldValues = FieldValues> =
-    InputProps<T> & {
-        control?: Control<T>;
-        getValues?: () => T;
-    };
-
-export const FileInput = <T extends FieldValues = FieldValues>({
-    field,
-    register,
-    error,
-    getValues,
-}: FileInputProps<T>) => {
-    const formContext = useFormContext<T>();
-    const getValueFn = getValues ?? formContext?.getValues;
-
-    const getInitialFiles = (): File[] => {
-        if (!getValueFn) return [];
-        try {
-            const val = getValueFn()[field.name as Path<T>] as unknown;
-            if (!val) return [];
-            if (typeof FileList !== "undefined" && val instanceof FileList) {
-                return Array.from(val);
-            }
-            if (Array.isArray(val)) {
-                return val.filter(
-                    (f: unknown): f is File =>
-                        typeof File !== "undefined" && f instanceof File,
-                );
-            }
-            if (typeof File !== "undefined" && val instanceof File) {
-                return [val];
-            }
-        } catch {
-            // ignore
-        }
-        return [];
-    };
-
-    const [files, setFiles] = useState<File[]>(getInitialFiles);
-    const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
-    const [isDragging, setIsDragging] = useState(false);
-    const inputRef = useRef<HTMLInputElement | null>(null);
-
-    const { ref, ...rest } = register(
-        field.name as Path<T>,
-        field.validation as RegisterOptions<T, Path<T>>,
-    );
-
-    const defaultIcon =
-        field.type === "image" ? (
-            <ImageIcon className="size-5 text-[#9CA3AF]" />
-        ) : (
-            <UploadIcon className="size-5 text-[#9CA3AF]" />
-        );
-
-    const icon = field.uploadIcon ?? defaultIcon;
-
-    // Two files are treated as "the same" if name, size and lastModified all match —
-    // avoids accidental duplicates if a user reselects the same file twice.
-    const isSameFile = (a: File, b: File) =>
-        a.name === b.name &&
-        a.size === b.size &&
-        a.lastModified === b.lastModified;
-
-    const getFileKey = (file: File) =>
-        `${file.name}-${file.size}-${file.lastModified}`;
-
-    const validateFile = (file: File): string | null => {
-        const maxSizeMB = field.maxSizeMB ?? DEFAULT_MAX_FILE_SIZE_MB;
-        const sizeMB = file.size / (1024 * 1024);
-        if (sizeMB > maxSizeMB) {
-            return `Exceeds ${maxSizeMB}MB limit (${sizeMB.toFixed(1)}MB)`;
-        }
-
-        // Images only in an image field, PDF or Word only in a file field —
-        // whatever the field's own `accept` says
-        const kindError = getFileKindError(file, field.type === "image" ? "image" : "file");
-        if (kindError) return kindError;
-
-        const acceptStr = field.accept;
-        if (acceptStr) {
-            const tokens = acceptStr
-                .split(",")
-                .map((t) => t.trim().toLowerCase());
-            const fileMime = file.type.toLowerCase();
-            const fileName = file.name.toLowerCase();
-
-            const matches = tokens.some((token) => {
-                if (token.startsWith(".")) {
-                    return fileName.endsWith(token);
-                }
-                if (token.endsWith("/*")) {
-                    const prefix = token.slice(0, -2);
-                    return fileMime.startsWith(prefix);
-                }
-                return fileMime === token;
-            });
-
-            if (!matches) {
-                return `Unsupported format (${file.type || "file"})`;
-            }
-        }
-
-        return null;
-    };
-
-    const syncInputFiles = (updated: File[]) => {
-        if (!inputRef.current) return;
-
-        const dt = new DataTransfer();
-        updated.forEach((file) => dt.items.add(file));
-        inputRef.current.files = dt.files;
-
-        rest.onChange({ target: inputRef.current } as unknown as Event);
-    };
-
-    const handleFilesSelected = (newlySelected: File[]) => {
-        if (!newlySelected.length) return;
-
-        const newErrors: Record<string, string> = {};
-
-        newlySelected.forEach((file) => {
-            const err = validateFile(file);
-            if (err) {
-                newErrors[getFileKey(file)] = err;
-            }
-        });
-
-        let combined = field.multiple
-            ? [
-                  ...files,
-                  ...newlySelected.filter(
-                      (nf) =>
-                          !files.some((existing) => isSameFile(existing, nf)),
-                  ),
-              ]
-            : newlySelected;
-
-        if (field.maxFiles) {
-            combined = combined.slice(0, field.maxFiles);
-        }
-
-        setFileErrors((prev) => ({ ...prev, ...newErrors }));
-        setFiles(combined);
-
-        const validFiles = combined.filter((f) => {
-            const key = getFileKey(f);
-            return !newErrors[key] && !fileErrors[key];
-        });
-        syncInputFiles(validFiles);
-    };
-
-    const removeFile = (index: number) => {
-        const fileToRemove = files[index];
-        const nextErrors = { ...fileErrors };
-        if (fileToRemove) {
-            const key = getFileKey(fileToRemove);
-            delete nextErrors[key];
-            setFileErrors(nextErrors);
-        }
-
-        const updated = files.filter((_, i) => i !== index);
-        setFiles(updated);
-
-        const validFiles = updated.filter((f) => {
-            const key = getFileKey(f);
-            return !nextErrors[key];
-        });
-        syncInputFiles(validFiles);
-    };
-
-    const hasFileErrors = Object.keys(fileErrors).length > 0;
-    const activeError = hasFileErrors
-        ? "Some uploaded files have errors. Please remove the highlighted files below."
-        : error;
-
-    return (
-        <div className="flex flex-col gap-3">
-            <label
-                htmlFor={field.name}
-                onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIsDragging(true);
-                }}
-                onDragLeave={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIsDragging(false);
-                }}
-                onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIsDragging(false);
-                    if (
-                        e.dataTransfer.files &&
-                        e.dataTransfer.files.length > 0
-                    ) {
-                        handleFilesSelected(Array.from(e.dataTransfer.files));
-                    }
-                }}
-                className={cn(
-                    "flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-lg p-5 cursor-pointer transition-colors duration-200 group",
-                    isDragging && "border-secondary-700 bg-secondary-50/50",
-                    activeError
-                        ? "border-[#EF4444] bg-[#FFF5F5]"
-                        : "border-[#E5E7EB] hover:border-secondary-700",
-                )}
-            >
-                {icon}
-
-                <div className="text-center">
-                    <span
-                        className={cn(
-                            "text-sm font-medium font-text",
-                            activeError
-                                ? "text-[#EF4444]"
-                                : "text-secondary-700 group-hover:underline",
-                        )}
-                    >
-                        Click to upload
-                    </span>
-
-                    <span className="text-[#6B7280] text-sm font-text">
-                        {" "}
-                        or drag and drop
-                    </span>
-                </div>
-
-                {field.description && (
-                    <span className="text-[#9CA3AF] text-xs font-text text-center">
-                        {field.description}
-                    </span>
-                )}
-
-                {field.maxFiles && (
-                    <span className="text-[#6B7280] text-xs font-text">
-                        {files.length}/{field.maxFiles} selected
-                    </span>
-                )}
-
-                <input
-                    id={field.name}
-                    type="file"
-                    accept={
-                        field.accept ?? (field.type === "image" ? IMAGE_ACCEPT : DOCUMENT_ACCEPT)
-                    }
-                    capture={field.capture}
-                    multiple={field.multiple}
-                    disabled={field.disabled}
-                    className="hidden"
-                    {...rest}
-                    ref={(e) => {
-                        ref(e);
-                        if (
-                            e &&
-                            files.length > 0 &&
-                            (!e.files || e.files.length === 0)
-                        ) {
-                            try {
-                                const dt = new DataTransfer();
-                                files.forEach((file) => dt.items.add(file));
-                                e.files = dt.files;
-                            } catch {
-                                // ignore if environment blocks manual files assignment
-                            }
-                        }
-                        inputRef.current = e;
-                    }}
-                    onChange={(e) => {
-                        const newlySelected = Array.from(e.target.files ?? []);
-                        handleFilesSelected(newlySelected);
-                    }}
-                />
-            </label>
-
-            {activeError && (
-                <span className="text-[#EF4444] text-xs font-normal font-text flex items-center gap-1">
-                    <ErrorIcon />
-                    {activeError}
-                </span>
-            )}
-
-            {files.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {files.map((file, index) => {
-                        const fileKey = getFileKey(file);
-                        const fileErr = fileErrors[fileKey];
-                        // Only formats browsers can draw get a thumbnail — HEIC, say, shows the icon
-                        const isImage = PREVIEWABLE_IMAGE_TYPE.test(file.type);
-                        const preview = isImage
-                            ? URL.createObjectURL(file)
-                            : null;
-
-                        return (
-                            <div
-                                key={`${file.name}-${file.lastModified}-${index}`}
-                                className={cn(
-                                    "relative rounded-lg border overflow-hidden bg-white transition-all duration-200 flex flex-col justify-between",
-                                    fileErr
-                                        ? "border-red-500 ring-2 ring-red-500 bg-[#FFF5F5]"
-                                        : "border-gray-300",
-                                )}
-                            >
-                                {isImage && field.showPreview !== false ? (
-                                    <div className="relative w-full aspect-square bg-gray-100">
-                                        <Image
-                                            src={preview!}
-                                            alt={file.name}
-                                            title={file.name}
-                                            fill
-                                            className="object-cover"
-                                        />
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center justify-center h-28 bg-zinc-200">
-                                        {icon}
-                                    </div>
-                                )}
-
-                                <div className="p-2">
-                                    <p
-                                        className={cn(
-                                            "text-xs font-text truncate",
-                                            fileErr
-                                                ? "text-[#EF4444] font-semibold"
-                                                : "text-[#1F2937]",
-                                        )}
-                                    >
-                                        {file.name}
-                                    </p>
-
-                                    <p className="text-[11px] text-[#9CA3AF]">
-                                        {(file.size / 1024 / 1024).toFixed(2)}{" "}
-                                        MB
-                                    </p>
-
-                                    {fileErr && (
-                                        <p className="text-[11px] text-[#EF4444] font-medium font-text mt-1 flex items-center gap-1">
-                                            <ErrorIcon />
-                                            <span
-                                                className="truncate"
-                                                title={fileErr}
-                                            >
-                                                {fileErr}
-                                            </span>
-                                        </p>
-                                    )}
-                                </div>
-
-                                <button
-                                    type="button"
-                                    onClick={() => removeFile(index)}
-                                    className={cn(
-                                        "absolute top-2 right-2 w-6 h-6 rounded-full shadow flex items-center justify-center transition-colors",
-                                        fileErr
-                                            ? "bg-[#EF4444] text-white hover:bg-red-700"
-                                            : "bg-white text-red-500 hover:bg-red-50",
-                                    )}
-                                    title="Remove file"
-                                >
-                                    ×
-                                </button>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
-    );
-};
+export { FileInput, type FileInputProps } from "./fileInput";
 
 // Checkbox
 export type CheckboxInputProps<T extends FieldValues = FieldValues> =

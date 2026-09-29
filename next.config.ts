@@ -4,6 +4,10 @@ import { LEGALS_URL, PRIVACY_POLICY_URL, TERMS_URL } from "./constant/navigation
 
 export default function nextConfig(phase: string): NextConfig {
   return {
+    images: {
+      // Job photos come from the API as Cloudinary links
+      remotePatterns: [{ protocol: "https", hostname: "res.cloudinary.com", pathname: "/**" }],
+    },
     experimental: {
       // Dev-only workaround for a Next.js 16.3 dev-server bug: it never marks
       // intercepted routes as interceptable (production builds do), so after a
