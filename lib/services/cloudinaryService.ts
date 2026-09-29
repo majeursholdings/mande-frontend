@@ -47,7 +47,8 @@ export function formatDateTimeForFileName(date: Date = new Date()): string {
   const hours = pad(date.getHours());
   const minutes = pad(date.getMinutes());
   const seconds = pad(date.getSeconds());
-  return `${year}${month}${day}-${hours}${minutes}${seconds}`;
+  const millis = String(date.getMilliseconds()).padStart(3, "0");
+  return `${year}${month}${day}-${hours}${minutes}${seconds}${millis}`;
 }
 
 /**
@@ -157,7 +158,8 @@ export function generateRenamedFileName(
   const lastDot = originalName.lastIndexOf(".");
   const ext = lastDot !== -1 ? originalName.slice(lastDot + 1).toLowerCase() : "";
   const datetime = formatDateTimeForFileName(date);
-  const baseName = `${sanitizeSlug(username)}-${datetime}`;
+  const uniqueSuffix = Math.random().toString(36).slice(2, 6);
+  const baseName = `${sanitizeSlug(username)}-${datetime}-${uniqueSuffix}`;
   const fullName = ext ? `${baseName}.${ext}` : baseName;
 
   return { baseName, fullName, extension: ext };
