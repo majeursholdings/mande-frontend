@@ -9,6 +9,13 @@ export async function POST(request: Request) {
     const timestamp = Math.round(Date.now() / 1000);
     const { apiKey, apiSecret, cloudName } = getCloudinaryCredentials();
 
+    if (!apiSecret || !apiKey || !cloudName) {
+      return NextResponse.json(
+        { error: "Cloudinary credentials are not configured in environment" },
+        { status: 500 }
+      );
+    }
+
     const paramsToSign: Record<string, string | number> = {
       timestamp,
     };

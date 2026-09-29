@@ -314,7 +314,7 @@ export function uploadFileToCloudinary(options: UploadOptions): {
     return {
       id: fileId,
       publicId: uploadResponse.public_id,
-      url: uploadResponse.secure_url || uploadResponse.url,
+      url: uploadResponse.secure_url || uploadResponse.url || "",
       name: renamed.fullName,
       originalName: file.name,
       format: uploadResponse.format || renamed.extension,
