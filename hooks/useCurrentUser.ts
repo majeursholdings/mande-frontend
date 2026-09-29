@@ -1,16 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, setStoredAccessToken } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
+import type { PublicUser } from "@/lib/services/authService";
 
-export interface CurrentUser {
-  id: string;
-  email: string;
-  role: "manufacturer" | "admin" | "super_admin";
-  emailVerified: boolean;
-  status: "active" | "suspended" | "pending_verification" | "deactivated";
-  twoFactorEnabled: boolean;
-  superAdminRole?: "owner" | "tech_support" | "manager" | null;
-}
+/** The signed-in account (see PublicUser in authService). */
+export type CurrentUser = PublicUser;
 
 /**
  * Hook to retrieve the currently logged in user profile

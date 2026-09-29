@@ -8,11 +8,12 @@ export interface StaffBasicInfoPayload {
 
 export interface StaffNotificationsPayload {
   applications?: { "in-app"?: boolean; email?: boolean };
-  assignedJobs?: { "in-app"?: boolean; email?: boolean };
-  proofReviews?: { "in-app"?: boolean; email?: boolean };
-  disputesAndReports?: { "in-app"?: boolean; email?: boolean };
-  suspensionsAndAppeals?: { "in-app"?: boolean; email?: boolean };
+  reviews?: { "in-app"?: boolean; email?: boolean };
+  delays?: { "in-app"?: boolean; email?: boolean };
+  "job-responses"?: { "in-app"?: boolean; email?: boolean };
+  appeals?: { "in-app"?: boolean; email?: boolean };
   chats?: { "in-app"?: boolean; email?: boolean };
+  [key: string]: { "in-app"?: boolean; email?: boolean } | undefined;
 }
 
 export interface ProjectLeadsQuery {

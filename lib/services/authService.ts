@@ -8,20 +8,29 @@ export interface LoginPayload {
 
 export interface LoginMfaRequiredResponse {
   mfaRequired: true;
+  /** Where the code comes from: their email, or their authenticator app. */
   method: "email" | "app";
-  reason: "mfa_enrolled" | "step_up";
+  /** "step_up": several wrong passwords were tried on this email, so a code is needed this time. */
+  reason?: "step_up";
   mfaToken: string;
 }
 
+/** The signed-in account, as the API's /auth/me and login answers give it. */
+export interface PublicUser {
+  id: string;
+  email: string;
+  role: "manufacturer" | "admin" | "super_admin";
+  superAdminRole: "owner" | "manager" | "tech-support" | null;
+  status: "active" | "pending_verification" | "deactivated";
+  emailVerified: boolean;
+  twoFactorMethod: "email" | "app" | null;
+  profile: Record<string, unknown> | null;
+}
+
 export interface LoginSuccessResponse {
-  user: {
-    id: string;
-    email: string;
-    role: "manufacturer" | "admin" | "super_admin";
-    emailVerified: boolean;
-    status: "active" | "suspended" | "pending_verification" | "deactivated";
-  };
+  user: PublicUser;
   accessToken: string;
+  accessTokenExpiresAt: string;
 }
 
 export type LoginResponse = LoginSuccessResponse | LoginMfaRequiredResponse;
@@ -85,9 +94,25 @@ export const authService = {
    */
   async registerStaff(payload: StaffRegisterPayload): Promise<{ message: string }> {
     const { data } = await api.post<{ message: string }>(
-      "/auth/register/staff",
+      "/auth/register/admin",
       payload
     );
+    return data;
+  },
+
+  /**
+   * Accept a super admin invite (the token from the invite link): sets their
+   * password and phone, and signs them in. Name, email and role come from the invite.
+   */
+  async acceptInvite(token: string, password: string, phone: string): Promise<LoginSuccessResponse> {
+    const { data } = await api.post<LoginSuccessResponse>("/auth/invites/accept", {
+      token,
+      password,
+      phone,
+    });
+    if (data.accessToken) {
+      setStoredAccessToken(data.accessToken);
+    }
     return data;
   },
 
@@ -132,7 +157,18 @@ export const authService = {
   async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
     const { data } = await api.post<{ message: string }>(
       "/auth/password/reset",
-      { token, newPassword }
+      { token, password: newPassword }
+    );
+    return data;
+  },
+
+  /**
+   * Change password for authenticated user
+   */
+  async changePassword(payload: { currentPassword: string; newPassword: string }): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>(
+      "/auth/password/change",
+      payload
     );
     return data;
   },

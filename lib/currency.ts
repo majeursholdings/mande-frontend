@@ -1,6 +1,11 @@
 import { DEFAULT_CURRENCY } from "@/constant/global";
 import { formatCompactNumber } from "@/lib/number";
 
+/** The API sends whole kobo (₦1 = 100 kobo): 500000 → 5000. */
+export function fromKobo(amountKobo: number): number {
+    return amountKobo / 100;
+}
+
 /** 450000 → "₦450,000" */
 export function formatPrice(amount: number): string {
     return `${DEFAULT_CURRENCY}${amount.toLocaleString("en-NG")}`;

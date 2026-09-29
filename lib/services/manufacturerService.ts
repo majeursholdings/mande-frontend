@@ -1,40 +1,50 @@
 import { api } from "@/lib/api";
 
 export interface BasicInfoPayload {
-  firstName: string;
-  lastName: string;
-  phone: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  dateOfBirth?: string;
 }
 
 export interface CompanyInfoPayload {
-  companyName: string;
-  state: string;
-  lga: string;
-  address: string;
-  yearsOfExperience: number;
-  capacityPerMonth: number;
-  machinery?: string[];
-  materials?: string[];
-  specializations?: string[];
+  companyName?: string;
+  specialities?: string[];
+  staffRange?: string;
+  productionLeadTime?: string;
+  materialsInventory?: string;
 }
 
 export interface SubmitNinPayload {
-  nin: string;
-  consent: boolean;
+  ninNumber: string;
+  image?: string;
 }
 
-export interface SubmitCacPayload {
-  rcNumber: string;
-  companyName: string;
+export interface SubmitBusinessDocsPayload {
+  companyTaxNumber?: string;
+  businessLicenseNumber?: string;
 }
 
-export interface SubmitKycDocsPayload {
-  ninSlipPublicId?: string;
-  cacCertificatePublicId?: string;
+export interface ListManufacturersQuery {
+  status?: "active" | "flagged" | "suspended" | "deactivated";
+  planId?: string;
+  q?: string;
+  limit?: number;
+  before?: string;
+}
+
+export interface StaffDeletionRequestPayload {
+  reason: string;
+  attachments?: Array<{ publicId: string; name: string }>;
+}
+
+export interface StaffDeactivatePayload {
+  reason: string;
+  confirmName: string;
 }
 
 export const manufacturerService = {
-  // ── Profile ──────────────────────────────────────────────────────────
+  // ── Manufacturer Self-Service: Profile ───────────────────────────────
 
   async getProfile() {
     const { data } = await api.get("/profile");
@@ -47,7 +57,7 @@ export const manufacturerService = {
   },
 
   async updateCompanyInfo(payload: CompanyInfoPayload) {
-    const { data } = await api.put("/profile/company", payload);
+    const { data } = await api.patch("/profile/company", payload);
     return data;
   },
 
@@ -60,29 +70,24 @@ export const manufacturerService = {
     return data;
   },
 
-  // ── KYC & Verification ───────────────────────────────────────────────
+  // ── Manufacturer Self-Service: KYC & Verification ────────────────────
 
-  async getKycStatus() {
-    const { data } = await api.get("/kyc/status");
+  async getKyc() {
+    const { data } = await api.get("/kyc");
     return data;
   },
 
   async submitNin(payload: SubmitNinPayload) {
-    const { data } = await api.post("/kyc/nin", payload);
+    const { data } = await api.put("/kyc/nin", payload);
     return data;
   },
 
-  async submitCac(payload: SubmitCacPayload) {
-    const { data } = await api.post("/kyc/cac", payload);
+  async submitBusinessDocuments(payload: SubmitBusinessDocsPayload) {
+    const { data } = await api.put("/kyc/business", payload);
     return data;
   },
 
-  async submitDocuments(payload: SubmitKycDocsPayload) {
-    const { data } = await api.post("/kyc/documents", payload);
-    return data;
-  },
-
-  // ── Account, Suspension Appeals & Deletion ────────────────────────────
+  // ── Manufacturer Self-Service: Account Standing & Appeals ────────────
 
   async getAccountStatus() {
     const { data } = await api.get("/account");
@@ -94,8 +99,114 @@ export const manufacturerService = {
     return data;
   },
 
-  async requestAccountDeletion(reason: string) {
-    const { data } = await api.post("/account/deletion-request", { reason });
+  // ── Staff & Admin: Manufacturers Management ─────────────────────────
+
+  async getStaffManufacturers(params?: ListManufacturersQuery) {
+    const { data } = await api.get("/manufacturers", { params });
+    return data;
+  },
+
+  async getStaffManufacturer(manufacturerId: string) {
+    const { data } = await api.get(`/manufacturers/${manufacturerId}`);
+    return data;
+  },
+
+  async getManufacturerActivity(manufacturerId: string, params?: { limit?: number; before?: string }) {
+    const { data } = await api.get(`/manufacturers/${manufacturerId}/activity`, { params });
+    return data;
+  },
+
+  async changeStatus(
+    manufacturerId: string,
+    status: "active" | "flagged" | "suspended",
+    reason?: string | null
+  ) {
+    const { data } = await api.post(`/manufacturers/${manufacturerId}/status`, {
+      status,
+      ...(reason ? { reason } : {}),
+    });
+    return data;
+  },
+
+  async decideAppeal(
+    manufacturerId: string,
+    appealId: string,
+    decision: "approved" | "declined",
+    response?: string | null
+  ) {
+    const { data } = await api.post(
+      `/manufacturers/${manufacturerId}/appeals/${appealId}/decision`,
+      {
+        decision,
+        ...(response ? { response } : {}),
+      }
+    );
+    return data;
+  },
+
+  async requestDeletion(manufacturerId: string, payload: StaffDeletionRequestPayload) {
+    const { data } = await api.post(`/manufacturers/${manufacturerId}/deletion-request`, payload);
+    return data;
+  },
+
+  async declineDeletionRequest(manufacturerId: string) {
+    const { data } = await api.delete(`/manufacturers/${manufacturerId}/deletion-request`);
+    return data;
+  },
+
+  async getDeactivationWarnings(manufacturerId: string) {
+    const { data } = await api.get(`/manufacturers/${manufacturerId}/deactivation-warnings`);
+    return data;
+  },
+
+  async deactivateManufacturer(
+    manufacturerId: string,
+    payload: StaffDeactivatePayload,
+    reauthToken?: string
+  ) {
+    const headers: Record<string, string> = {};
+    if (reauthToken) headers["X-Reauth-Token"] = reauthToken;
+    const { data } = await api.post(`/manufacturers/${manufacturerId}/deactivate`, payload, {
+      headers,
+    });
+    return data;
+  },
+
+  async reactivateManufacturer(
+    manufacturerId: string,
+    reason: string,
+    reauthToken?: string
+  ) {
+    const headers: Record<string, string> = {};
+    if (reauthToken) headers["X-Reauth-Token"] = reauthToken;
+    const { data } = await api.post(
+      `/manufacturers/${manufacturerId}/reactivate`,
+      { reason },
+      { headers }
+    );
+    return data;
+  },
+
+  // ── Staff & Admin: KYC Document Verification Decisions ──────────────
+
+  async getStaffManufacturerKyc(manufacturerId: string) {
+    const { data } = await api.get(`/manufacturers/${manufacturerId}/kyc`);
+    return data;
+  },
+
+  async decideDocumentVerification(
+    manufacturerId: string,
+    document: "nin" | "company-tax-number" | "business-license-number",
+    decision: "verified" | "rejected",
+    reason?: string | null
+  ) {
+    const { data } = await api.post(
+      `/manufacturers/${manufacturerId}/kyc/${document}/decision`,
+      {
+        decision,
+        ...(reason ? { reason } : {}),
+      }
+    );
     return data;
   },
 };

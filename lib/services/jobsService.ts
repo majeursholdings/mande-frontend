@@ -89,6 +89,26 @@ export const jobsService = {
     return data;
   },
 
+  async submitFinishedWork(jobId: string, photos: string[]) {
+    const { data } = await api.post(`/my-jobs/${jobId}/submit`, { photos });
+    return data;
+  },
+
+  async requestExtension(jobId: string, payload: { requestedDueDate: string; reason: string }) {
+    const { data } = await api.post(`/my-jobs/${jobId}/extensions`, payload);
+    return data;
+  },
+
+  async rateLead(jobId: string, payload: { rating: number; comment?: string }) {
+    const { data } = await api.post(`/my-jobs/${jobId}/lead-review`, payload);
+    return data;
+  },
+
+  async addManufacturerNote(jobId: string, message: string) {
+    const { data } = await api.post(`/my-jobs/${jobId}/notes`, { message });
+    return data;
+  },
+
   async confirmDelivery(jobId: string) {
     const { data } = await api.post(`/my-jobs/${jobId}/delivery/confirm`);
     return data;
@@ -143,6 +163,44 @@ export const jobsService = {
 
   async addJobNote(jobId: string, note: string) {
     const { data } = await api.post(`/jobs/${jobId}/notes`, { note });
+    return data;
+  },
+
+  async followUpLeadReview(jobId: string, manufacturerId: string, note: string) {
+    const { data } = await api.post(`/jobs/${jobId}/lead-reviews/${manufacturerId}/follow-up`, { note });
+    return data;
+  },
+
+  async signOffJob(jobId: string, payload: { rating: number; comment?: string }) {
+    const { data } = await api.post(`/jobs/${jobId}/sign-off`, payload);
+    return data;
+  },
+
+  async signOffHeldJob(jobId: string) {
+    const { data } = await api.post(`/jobs/${jobId}/held/sign-off`);
+    return data;
+  },
+
+  async rejectJob(
+    jobId: string,
+    payload: { reason: string; attachments?: Array<{ publicId?: string; name?: string; url?: string; kind?: "document" | "image" }> }
+  ) {
+    const { data } = await api.post(`/jobs/${jobId}/reject`, payload);
+    return data;
+  },
+
+  async decideApplication(jobId: string, applicationId: string, decision: "accepted" | "declined") {
+    const { data } = await api.post(`/jobs/${jobId}/applications/${applicationId}/decision`, { decision });
+    return data;
+  },
+
+  async decideExtension(jobId: string, extensionId: string, decision: "approved" | "rejected") {
+    const { data } = await api.post(`/jobs/${jobId}/extensions/${extensionId}/decision`, { decision });
+    return data;
+  },
+
+  async reportFault(jobId: string, reason: string) {
+    const { data } = await api.post(`/jobs/${jobId}/fault`, { reason });
     return data;
   },
 };

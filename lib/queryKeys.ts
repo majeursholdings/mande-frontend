@@ -67,6 +67,21 @@ export const queryKeys = {
     plans: () => [...queryKeys.settings.all, "plans"] as const,
   },
 
+  // Super Admin Platform
+  superAdmin: {
+    all: ["super-admin"] as const,
+    directory: () => [...queryKeys.superAdmin.all, "directory"] as const,
+    invites: () => [...queryKeys.superAdmin.all, "invites"] as const,
+    apiKeys: () => [...queryKeys.superAdmin.all, "api-keys"] as const,
+  },
+
+  // Messages from the website's contact form (super admins)
+  contactMessages: {
+    all: ["contact-messages"] as const,
+    list: (status: "open" | "resolved") =>
+      [...queryKeys.contactMessages.all, status] as const,
+  },
+
   // Reports
   reports: {
     all: ["reports"] as const,
