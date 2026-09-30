@@ -26,19 +26,16 @@ export default function PasswordConfirmForm({
     onConfirmed,
     onCancel,
 }: {
-    onConfirmed: () => void;
+    onConfirmed: (password: string) => void | Promise<void>;
     onCancel: () => void;
 }) {
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<PasswordConfirmValues>({ mode: "onTouched", defaultValues: { password: "" } });
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (values: PasswordConfirmValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate checking the password (any
-            // password passes) so the flow is testable end-to-end.
-            await new Promise((resolve) => setTimeout(resolve, 700));
-            onConfirmed();
+            await onConfirmed(values.password);
         } catch {
             toast.error("Couldn't check your password. Please try again.");
         } finally {

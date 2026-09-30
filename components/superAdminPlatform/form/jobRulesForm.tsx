@@ -71,7 +71,7 @@ export default function JobRulesForm({
     onSave,
 }: {
     settings: PlatformSettings;
-    onSave: (changes: Pick<PlatformSettings, JobRuleKey>) => void;
+    onSave: (changes: Pick<PlatformSettings, JobRuleKey>) => Promise<void> | void;
 }) {
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<JobRulesValues>({
@@ -83,9 +83,7 @@ export default function JobRulesForm({
     const handleSubmit = async (values: JobRulesValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate saving it
-            await new Promise((resolve) => setTimeout(resolve, 600));
-            onSave(Object.fromEntries(RULES.map(({ name }) => [name, Number(values[name])])) as Pick<PlatformSettings, JobRuleKey>);
+            await onSave(Object.fromEntries(RULES.map(({ name }) => [name, Number(values[name])])) as Pick<PlatformSettings, JobRuleKey>);
             methods.reset(values);
             toast.success("Job rules saved");
         } catch {

@@ -35,22 +35,20 @@ export default function PlanOfferForm({
     onSave,
 }: {
     discountPercent: number;
-    onSave: (percent: number) => void;
+    onSave: (percent: number) => Promise<void> | void;
 }) {
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<PlanOfferValues>({
         mode: "onTouched",
-        defaultValues: { discountPercent: String(discountPercent) },
+        values: { discountPercent: String(discountPercent) },
     });
     const { isDirty } = methods.formState;
 
     const handleSubmit = async (values: PlanOfferValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate saving it
-            await new Promise((resolve) => setTimeout(resolve, 600));
             const percent = Number(values.discountPercent);
-            onSave(percent);
+            await onSave(percent);
             methods.reset({ discountPercent: String(percent) });
             toast.success(percent === 0 ? "The plan offer has ended" : `Every plan is now ${percent}% off`);
         } catch {

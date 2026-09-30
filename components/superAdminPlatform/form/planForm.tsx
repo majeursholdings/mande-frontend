@@ -30,7 +30,7 @@ export default function PlanForm({
     onCancel,
 }: {
     plan: PricingPlan;
-    onSave: (changes: PlanChanges) => void;
+    onSave: (changes: PlanChanges) => Promise<void> | void;
     onCancel: () => void;
 }) {
     const [isLoading, setIsLoading] = useState(false);
@@ -103,10 +103,8 @@ export default function PlanForm({
     const handleSubmit = async (values: PlanFormValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate saving it
-            await new Promise((resolve) => setTimeout(resolve, 600));
             const maxConcurrentJobs = values.concurrentJobs ? Number(values.concurrentJobs) : null;
-            onSave({
+            await onSave({
                 targetAudience: values.targetAudience.trim(),
                 monthlyPrice: Number(values.monthlyPrice),
                 annualPrice: Number(values.annualPrice),

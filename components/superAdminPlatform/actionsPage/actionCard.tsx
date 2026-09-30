@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { CreditCard, PauseCircle, Phone, Trash2, UserRoundX, type LucideIcon } from "lucide-react";
+import { CreditCard, Loader2, Mail, PauseCircle, Phone, Trash2, UserRoundX, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
 import { getRelativeTimeLabel } from "@/lib/date";
@@ -13,6 +13,7 @@ import { useStaffPlatform } from "@/components/adminPlatform/dashboardLayout/sta
 import { getAdminManufacturer, getProjectLead } from "@/constant/admin";
 import { getPricingPlan } from "@/constant/sampleData";
 import { API_PROVIDERS, SUPER_ADMIN_SETTINGS_URL } from "@/constant/superAdmin";
+import { CONTACT_TOPIC_OPTIONS } from "@/constant/website";
 import type { SuperAdminAction } from "../actions/pendingActions";
 
 /** What each action's buttons do — the page opens the dialog for it. */
@@ -22,6 +23,9 @@ export type ActionHandlers = {
     onSignOff: (jobId: string) => void;
     onReject: (jobId: string) => void;
     onFollowUp: (jobId: string, manufacturerId: string) => void;
+    onResolveContactMessage: (messageId: string) => void;
+    /** Whether that message is being marked as dealt with right now. */
+    isResolvingContactMessage: (messageId: string) => boolean;
 };
 
 const BUTTON = "flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-medium font-text transition-colors cursor-pointer";
@@ -33,8 +37,11 @@ const ICONS: Record<SuperAdminAction["kind"], { icon: LucideIcon; className: str
     "account-deletion": { icon: Trash2, className: "bg-error-50 text-error-600", label: "Account closing" },
     "held-job": { icon: PauseCircle, className: "bg-warning-50 text-warning-700", label: "Low job rating" },
     "lead-rating": { icon: UserRoundX, className: "bg-indigo-50 text-indigo-600", label: "Low lead rating" },
+    "contact-message": { icon: Mail, className: "bg-primary-50 text-primary-700", label: "Contact message" },
     payments: { icon: CreditCard, className: "bg-error-50 text-error-600", label: "Payments" },
 };
+
+const topicLabel = (topic: string) => CONTACT_TOPIC_OPTIONS.find((option) => option.value === topic)?.label ?? "Something else";
 
 const providerLabel = (provider: string | null) => API_PROVIDERS.find((option) => option.value === provider)?.label ?? "A platform";
 
@@ -56,7 +63,7 @@ export default function ActionCard({ action, handlers, now }: { action: SuperAdm
                 <>
                     <p className="text-sm font-text text-mist-600">
                         {request.requestedBy} asked to close {manufacturer.contactName}&apos;s account (
-                        {getPricingPlan(manufacturer.subscription.planId)?.name ?? "no"} plan).
+                        {getPricingPlan(manufacturer.subscription?.planId ?? "growth")?.name ?? "no"} plan).
                     </p>
                     <blockquote className="rounded-lg bg-mist-50 px-4 py-3 text-sm font-text whitespace-pre-line text-mist-800">
                         {request.reason}
@@ -106,7 +113,7 @@ export default function ActionCard({ action, handlers, now }: { action: SuperAdm
             );
             buttons = (
                 <>
-                    <Link href={`${jobsUrl}?job=${job.id}`} className={SECONDARY}>
+                    <Link href={`${jobsUrl}?job=${encodeURIComponent(job.code ? job.code.toLowerCase() : job.id)}`} className={SECONDARY}>
                         Open job
                     </Link>
                     <button type="button" onClick={() => handlers.onReject(job.id)} className={SECONDARY}>
@@ -144,7 +151,7 @@ export default function ActionCard({ action, handlers, now }: { action: SuperAdm
                             Call {lead.firstName}
                         </a>
                     )}
-                    <Link href={`${jobsUrl}?job=${job.id}`} className={SECONDARY}>
+                    <Link href={`${jobsUrl}?job=${encodeURIComponent(job.code ? job.code.toLowerCase() : job.id)}`} className={SECONDARY}>
                         Open job
                     </Link>
                     <button
@@ -153,6 +160,49 @@ export default function ActionCard({ action, handlers, now }: { action: SuperAdm
                         className={PRIMARY}
                     >
                         Mark as followed up
+                    </button>
+                </>
+            );
+            break;
+        }
+        case "contact-message": {
+            const { message } = action;
+            const resolving = handlers.isResolvingContactMessage(message.id);
+            title = `${message.name} wrote from the website`;
+            body = (
+                <>
+                    <p className="text-sm font-text text-mist-600">
+                        {topicLabel(message.topic)}. Reply to {message.email}
+                        {message.phone ? ` or call ${message.phone}` : ""}, then mark it as dealt with.
+                    </p>
+                    <blockquote className="rounded-lg bg-mist-50 px-4 py-3 text-sm font-text whitespace-pre-line text-mist-800">
+                        {message.message}
+                    </blockquote>
+                </>
+            );
+            buttons = (
+                <>
+                    {message.phone && (
+                        <a href={`tel:${message.phone.replace(/[\s()-]/g, "")}`} className={SECONDARY}>
+                            <Phone className="size-4" aria-hidden />
+                            Call {message.firstName}
+                        </a>
+                    )}
+                    <a
+                        href={`mailto:${message.email}?subject=${encodeURIComponent("Re: your message to MANDE")}`}
+                        className={SECONDARY}
+                    >
+                        <Mail className="size-4" aria-hidden />
+                        Reply by email
+                    </a>
+                    <button
+                        type="button"
+                        disabled={resolving}
+                        onClick={() => handlers.onResolveContactMessage(message.id)}
+                        className={cn(PRIMARY, "disabled:cursor-not-allowed disabled:opacity-60")}
+                    >
+                        {resolving && <Loader2 className="size-4 animate-spin" aria-hidden />}
+                        Mark as dealt with
                     </button>
                 </>
             );

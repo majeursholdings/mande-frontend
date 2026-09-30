@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { KeyRound, ShieldCheck } from "lucide-react";
+import { toast } from "sonner";
 import { maskEmail } from "@/lib/utils";
+import { authService } from "@/lib/services/authService";
 import OtpVerificationForm from "@/components/manufacturerPlatform/form/otpVerificationForm";
 import { useAdminProfile } from "@/components/adminPlatform/dashboardLayout/adminProfileContext";
 import PasswordConfirmForm from "./form/passwordConfirmForm";
@@ -23,14 +25,33 @@ export default function ReauthSteps({
 }: {
     /** The code step's button, e.g. "Add keys". */
     confirmLabel: string;
-    /** Runs once both check out — make the change. */
-    onConfirmed: () => void | Promise<void>;
+    /** Runs once both check out — make the change with X-Reauth-Token. */
+    onConfirmed: (reauthToken: string) => void | Promise<void>;
     onCancel: () => void;
 }) {
     const { profile } = useAdminProfile();
     const [step, setStep] = useState<"password" | "code">("password");
+    const [password, setPassword] = useState("");
     const usesApp = profile.security.twoFactorMethod === "app";
     const sentTo = maskEmail(profile.email);
+
+    const handlePasswordConfirmed = async (enteredPassword: string) => {
+        setPassword(enteredPassword);
+        if (!usesApp) {
+            try {
+                await authService.sendReauthCode();
+                toast.success(`Verification code sent to ${sentTo}`);
+            } catch {
+                toast.error("Couldn't send the verification code. Please try again.");
+            }
+        }
+        setStep("code");
+    };
+
+    const handleCodeVerified = async (code: string) => {
+        const { reauthToken } = await authService.verifyReauth(password, code);
+        await onConfirmed(reauthToken);
+    };
 
     return (
         <div className="flex flex-col gap-5">
@@ -57,12 +78,15 @@ export default function ReauthSteps({
             </div>
 
             {step === "password" ? (
-                <PasswordConfirmForm onConfirmed={() => setStep("code")} onCancel={onCancel} />
+                <PasswordConfirmForm onConfirmed={handlePasswordConfirmed} onCancel={onCancel} />
             ) : (
                 <OtpVerificationForm
                     resendTo={usesApp ? undefined : sentTo}
                     confirmLabel={confirmLabel}
-                    onVerified={onConfirmed}
+                    onVerified={handleCodeVerified}
+                    onResend={async () => {
+                        await authService.sendReauthCode();
+                    }}
                     onCancel={onCancel}
                 />
             )}

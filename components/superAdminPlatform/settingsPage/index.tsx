@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { KeyRound, SlidersHorizontal, Tags, UsersRound } from "lucide-react";
 import SettingsTabs, { type SettingsTab } from "@/components/manufacturerPlatform/settingsTabs";
 import AdminPageHeader from "@/components/adminPlatform/pageHeader";
@@ -21,7 +22,11 @@ type SettingsTabValue = "super-admins" | "plans" | "platform" | "api-keys";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function SuperAdminSettingsPage({ initialTab }: { initialTab?: string }) {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const { permissions } = useStaffPlatform();
+
     const tabs: SettingsTab<SettingsTabValue>[] = [
         { value: "super-admins", label: "Super admins", shortLabel: "Admins", icon: UsersRound, panel: <SuperAdminsTab /> },
         { value: "plans", label: "Plans", icon: Tags, panel: <PlansTab /> },
@@ -30,8 +35,19 @@ export default function SuperAdminSettingsPage({ initialTab }: { initialTab?: st
             ? [{ value: "api-keys" as const, label: "API keys", icon: KeyRound, panel: <ApiKeysTab /> }]
             : []),
     ];
-    // e.g. ?tab=api-keys
-    const defaultTab = tabs.find((tab) => tab.value === initialTab)?.value ?? tabs[0].value;
+
+    const tabParam = searchParams.get("tab");
+    const currentTab = tabs.some((t) => t.value === tabParam)
+        ? (tabParam as SettingsTabValue)
+        : tabs.some((t) => t.value === initialTab)
+          ? (initialTab as SettingsTabValue)
+          : tabs[0].value;
+
+    const handleTabChange = (nextTab: SettingsTabValue) => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("tab", nextTab);
+        router.push(`${pathname}?${params.toString()}`, { scroll: false });
+    };
 
     return (
         <div className="flex flex-col gap-6 lg:gap-10">
@@ -43,7 +59,12 @@ export default function SuperAdminSettingsPage({ initialTab }: { initialTab?: st
                         : "Run the platform: who else can, what the plans cost and the rules every job follows."
                 }
             />
-            <SettingsTabs label="Settings sections" tabs={tabs} defaultValue={defaultTab} />
+            <SettingsTabs
+                label="Settings sections"
+                tabs={tabs}
+                value={currentTab}
+                onValueChange={handleTabChange}
+            />
         </div>
     );
 }

@@ -1,10 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCheck } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
+import { queryKeys } from "@/lib/queryKeys";
+import { contactService } from "@/lib/services/contactService";
+import { MandeApiError } from "@/lib/types/api";
 import { useIsClient } from "@/hooks/useIsClient";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,8 +37,9 @@ const DIALOG_BUTTON = "h-11 px-5 font-medium font-text rounded-button cursor-poi
 // SuperAdminActionsPage — everything waiting for a super admin, in one queue
 // (see useSuperAdminActions): delete an account an admin asked to, or turn
 // the request down; sign off or reject finished work a lead rated too low;
-// follow up a manufacturer's low rating of their lead; and fix anything
-// stopping payments. Each leaves the queue as soon as it's dealt with.
+// follow up a manufacturer's low rating of their lead; reply to a message
+// from the website's contact form; and fix anything stopping payments. Each
+// leaves the queue as soon as it's dealt with.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function SuperAdminActionsPage() {
@@ -44,7 +49,21 @@ export default function SuperAdminActionsPage() {
     const [kind, setKind] = useState<SuperAdminActionKind | "all">("all");
     const [dialog, setDialog] = useState<OpenDialog>(null);
     const isClient = useIsClient();
+    const queryClient = useQueryClient();
     const close = () => setDialog(null);
+
+    // Marking a contact message as dealt with: it leaves the queue (and the menu's count) at once
+    const resolveMessage = useMutation({
+        mutationFn: (messageId: string) => contactService.resolveMessage(messageId),
+        onSuccess: (message) => toast.success(`${message.name}'s message is marked as dealt with`),
+        onError: (error) =>
+            toast.error(
+                error instanceof MandeApiError && error.code === "ALREADY_RESOLVED"
+                    ? "Someone else already marked it as dealt with."
+                    : "Couldn't mark the message as dealt with. Please try again.",
+            ),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.contactMessages.all }),
+    });
     const now = new Date();
 
     const shown = actions.filter((action) => kind === "all" || action.kind === kind);
@@ -73,7 +92,7 @@ export default function SuperAdminActionsPage() {
         <div className="flex flex-col gap-6">
             <AdminPageHeader
                 title="Actions"
-                description="What's waiting for a super admin: accounts admins asked to close, low ratings to review, and anything stopping payments."
+                description="What's waiting for a super admin: accounts admins asked to close, low ratings to review, messages from the website, and anything stopping payments."
             />
 
             <div role="group" aria-label="Show" className="flex flex-wrap gap-2">
@@ -125,7 +144,7 @@ export default function SuperAdminActionsPage() {
                     <EmptyState
                         icon={CheckCheck}
                         title="You're all caught up"
-                        description="Accounts to close, low ratings and payment problems will show up here"
+                        description="Accounts to close, low ratings, website messages and payment problems will show up here"
                     />
                 </div>
             ) : (
@@ -141,6 +160,9 @@ export default function SuperAdminActionsPage() {
                                 onSignOff: (jobId) => setDialog({ kind: "sign-off", jobId }),
                                 onReject: (jobId) => setDialog({ kind: "reject", jobId }),
                                 onFollowUp: (jobId, manufacturerId) => setDialog({ kind: "follow-up", jobId, manufacturerId }),
+                                onResolveContactMessage: (messageId) => resolveMessage.mutate(messageId),
+                                isResolvingContactMessage: (messageId) =>
+                                    resolveMessage.isPending && resolveMessage.variables === messageId,
                             }}
                         />
                     ))}

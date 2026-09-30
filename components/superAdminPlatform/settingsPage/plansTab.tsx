@@ -36,7 +36,7 @@ export default function PlansTab() {
                         : "No offer on for now. Set a discount to take it off every plan's price."
                 }
             >
-                <PlanOfferForm discountPercent={discountPercent} onSave={setDiscountPercent} />
+                <PlanOfferForm key={discountPercent} discountPercent={discountPercent} onSave={setDiscountPercent} />
             </SettingsSection>
 
             <ul className="flex flex-col gap-4">
@@ -116,10 +116,14 @@ export default function PlansTab() {
                                 key={editing.id}
                                 plan={editing}
                                 onCancel={() => setEditing(null)}
-                                onSave={(changes) => {
-                                    updatePlan(editing.id, changes);
-                                    toast.success(`${editing.name} saved`);
-                                    setEditing(null);
+                                onSave={async (changes) => {
+                                    try {
+                                        await updatePlan(editing.id, changes);
+                                        toast.success(`${editing.name} saved`);
+                                        setEditing(null);
+                                    } catch {
+                                        toast.error("Couldn't save the plan. Please try again.");
+                                    }
                                 }}
                             />
                         </>

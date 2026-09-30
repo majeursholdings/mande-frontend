@@ -5,7 +5,6 @@ import { CircleCheck, KeyRound, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatOrdinalDate } from "@/lib/date";
-import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import SettingsSection from "@/components/manufacturerPlatform/settingsSection";
 import { API_KEY_GROUPS, API_PROVIDERS, type ApiKey, type ApiProvider } from "@/constant/superAdmin";
@@ -130,10 +129,14 @@ export default function ApiKeysTab() {
                                 <ReauthSteps
                                     confirmLabel="Add keys"
                                     onCancel={close}
-                                    onConfirmed={() => {
-                                        addApiKey(draft);
-                                        toast.success(`${providerLabel(draft.provider)} keys added: ${draft.name}`);
-                                        close();
+                                    onConfirmed={async (reauthToken) => {
+                                        try {
+                                            await addApiKey(draft, reauthToken);
+                                            toast.success(`${providerLabel(draft.provider)} keys added: ${draft.name}`);
+                                            close();
+                                        } catch {
+                                            toast.error("Couldn't add the keys. Please try again.");
+                                        }
                                     }}
                                 />
                             ) : (
@@ -157,30 +160,19 @@ export default function ApiKeysTab() {
                                     The keys it replaces stay here, to switch back to.
                                 </DialogDescription>
                             </div>
-                            <div className="flex justify-end gap-3">
-                                <Button
-                                    type="button"
-                                    onClick={close}
-                                    className="h-11 px-5 bg-mist-100 hover:bg-mist-200 text-mist-950 font-medium font-text rounded-button cursor-pointer"
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="button"
-                                    onClick={() => {
-                                        try {
-                                            setActiveApiKey(dialog.key.id);
-                                            toast.success(`${providerLabel(dialog.key.provider)} now uses ${dialog.key.name}`);
-                                        } catch {
-                                            toast.error("Couldn't switch the keys. Please try again.");
-                                        }
+                            <ReauthSteps
+                                confirmLabel="Use these keys"
+                                onCancel={close}
+                                onConfirmed={async (reauthToken) => {
+                                    try {
+                                        await setActiveApiKey(dialog.key.id, reauthToken);
+                                        toast.success(`${providerLabel(dialog.key.provider)} now uses ${dialog.key.name}`);
                                         close();
-                                    }}
-                                    className="h-11 px-5 bg-secondary-700 hover:bg-secondary-900 text-white font-medium font-text rounded-button cursor-pointer"
-                                >
-                                    Use these keys
-                                </Button>
-                            </div>
+                                    } catch {
+                                        toast.error("Couldn't switch the keys. Please try again.");
+                                    }
+                                }}
+                            />
                         </>
                     )}
 
@@ -197,10 +189,14 @@ export default function ApiKeysTab() {
                             <ReauthSteps
                                 confirmLabel="Remove keys"
                                 onCancel={close}
-                                onConfirmed={() => {
-                                    removeApiKey(dialog.key.id);
-                                    toast.success(`${dialog.key.name} removed from ${providerLabel(dialog.key.provider)}`);
-                                    close();
+                                onConfirmed={async (reauthToken) => {
+                                    try {
+                                        await removeApiKey(dialog.key.id, reauthToken);
+                                        toast.success(`${dialog.key.name} removed from ${providerLabel(dialog.key.provider)}`);
+                                        close();
+                                    } catch {
+                                        toast.error("Couldn't remove the keys. Please try again.");
+                                    }
                                 }}
                             />
                         </>

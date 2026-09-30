@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { useAdminJobs } from "@/components/adminPlatform/dashboardLayout/adminJobsContext";
 import { useAdminManufacturers } from "@/components/adminPlatform/dashboardLayout/adminManufacturersContext";
 import type { AdminJob } from "@/constant/admin";
@@ -11,22 +12,27 @@ import type {
     ManufacturerReviewRecord,
 } from "@/constant/sampleDb";
 import { API_PROVIDERS, type ApiKey, type ApiProvider } from "@/constant/superAdmin";
+import { getStoredAccessToken } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
+import { contactService, type ContactMessage } from "@/lib/services/contactService";
 import { useOptionalSuperAdminSettings } from "../settingsContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // What's waiting for a super admin — the Actions page, and the count beside
 // it in the menu: account deletions admins asked for, finished work a lead
-// rated too low to sign off, manufacturers' low ratings of their lead, and
-// anything stopping payments. Worked out from the records, so an action
-// leaves the list the moment it's dealt with (here, or anywhere else).
+// rated too low to sign off, manufacturers' low ratings of their lead,
+// messages from the website's contact form, and anything stopping payments.
+// Worked out from the records, so an action leaves the list the moment it's
+// dealt with (here, or anywhere else). Contact messages come from the API.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type SuperAdminActionKind = "account-deletion" | "held-job" | "lead-rating" | "payments";
+export type SuperAdminActionKind = "account-deletion" | "held-job" | "lead-rating" | "contact-message" | "payments";
 
 export const ACTION_KINDS: { value: SuperAdminActionKind; label: string; one: string; many: string }[] = [
     { value: "account-deletion", label: "Accounts to close", one: "account to close", many: "accounts to close" },
     { value: "held-job", label: "Low job ratings", one: "low job rating", many: "low job ratings" },
     { value: "lead-rating", label: "Low lead ratings", one: "low lead rating", many: "low lead ratings" },
+    { value: "contact-message", label: "Contact messages", one: "message from the website", many: "messages from the website" },
     { value: "payments", label: "Payments", one: "payment problem", many: "payment problems" },
 ];
 
@@ -34,6 +40,7 @@ export type SuperAdminAction =
     | { kind: "account-deletion"; id: string; at: string; manufacturer: ManufacturerRecord; request: DeletionRequestRecord }
     | { kind: "held-job"; id: string; at: string; job: AdminJob; review: ManufacturerReviewRecord }
     | { kind: "lead-rating"; id: string; at: string; job: AdminJob; review: LeadReviewRecord }
+    | { kind: "contact-message"; id: string; at: string; message: ContactMessage }
     | {
           kind: "payments";
           id: string;
@@ -53,6 +60,7 @@ export function getSuperAdminActions(
     jobs: AdminJob[],
     manufacturers: ManufacturerRecord[],
     apiKeys: ApiKey[] | null,
+    contactMessages: ContactMessage[] = [],
 ): SuperAdminAction[] {
     const deletions = manufacturers.flatMap((manufacturer): SuperAdminAction[] =>
         manufacturer.deletionRequest
@@ -88,6 +96,10 @@ export function getSuperAdminActions(
             ),
     );
 
+    const messages = contactMessages.map(
+        (message): SuperAdminAction => ({ kind: "contact-message", id: `contact-${message.id}`, at: message.sentAt, message }),
+    );
+
     const active = (apiKeys ?? []).filter(
         (key) => key.isActive && PAYMENT_PROVIDERS.some((provider) => provider.value === key.provider),
     );
@@ -107,16 +119,33 @@ export function getSuperAdminActions(
 
     return [
         ...payments,
-        ...[...deletions, ...heldJobs, ...leadRatings].sort(
+        ...[...deletions, ...heldJobs, ...leadRatings, ...messages].sort(
             (a, b) => new Date(a.at ?? 0).getTime() - new Date(b.at ?? 0).getTime(),
         ),
     ];
 }
 
-/** Everything waiting for the super admin now. Payment problems only on their platform, where the keys are. */
+/**
+ * Contact messages still waiting, from the API. Only on the super admin's
+ * platform (the menu is shared with admins, who can't read them), and only
+ * once they're signed in to the API: until then, none.
+ */
+function useOpenContactMessages(onSuperAdminPlatform: boolean): ContactMessage[] {
+    const { data } = useQuery({
+        queryKey: queryKeys.contactMessages.list("open"),
+        queryFn: () => contactService.listMessages("open"),
+        enabled: onSuperAdminPlatform && Boolean(getStoredAccessToken()),
+        // A new message shouldn't wait for a reload to show in the menu's count
+        refetchInterval: 2 * 60 * 1000,
+    });
+    return data?.contactMessages ?? [];
+}
+
+/** Everything waiting for the super admin now. Payment problems and contact messages only on their platform. */
 export function useSuperAdminActions(): SuperAdminAction[] {
     const { jobs } = useAdminJobs();
     const { manufacturers } = useAdminManufacturers();
     const settings = useOptionalSuperAdminSettings();
-    return getSuperAdminActions(jobs, manufacturers, settings?.apiKeys ?? null);
+    const contactMessages = useOpenContactMessages(settings !== null);
+    return getSuperAdminActions(jobs, manufacturers, settings?.apiKeys ?? null, contactMessages);
 }

@@ -134,9 +134,9 @@ export default function SuperAdminsTab() {
                   label: "Send invite again",
                   icon: <RotateCw className="size-3.5" aria-hidden />,
                   hidden: (row) => row.status !== "invited",
-                  onSelect: (row) => {
+                  onSelect: async (row) => {
                       try {
-                          resendInvite(row.id);
+                          await resendInvite(row.id);
                           toast.success(`Invite sent again to ${row.email}`);
                       } catch {
                           toast.error("Couldn't send the invite. Please try again.");
@@ -186,9 +186,13 @@ export default function SuperAdminsTab() {
                 open={isInviting}
                 takenEmails={rows.map((row) => row.email.toLowerCase())}
                 onClose={() => setIsInviting(false)}
-                onInvite={(values) => {
-                    inviteSuperAdmin(values);
-                    toast.success(`Invite sent to ${values.email}`);
+                onInvite={async (values, reauthToken) => {
+                    try {
+                        await inviteSuperAdmin(values, reauthToken);
+                        toast.success(`Invite sent to ${values.email}`);
+                    } catch {
+                        toast.error("Couldn't send the invite. Please try again.");
+                    }
                 }}
             />
 
@@ -196,9 +200,13 @@ export default function SuperAdminsTab() {
                 superAdmin={changingRole}
                 isLastOwner={changingRole?.role === "owner" && ownerCount <= 1}
                 onClose={() => setChangingRole(null)}
-                onChange={(row, role) => {
-                    changeSuperAdminRole(row.id, role);
-                    toast.success(`${row.name} is now ${getSuperAdminRolePhrase(role)}`);
+                onChange={async (row, role, reauthToken) => {
+                    try {
+                        await changeSuperAdminRole(row.id, role, reauthToken);
+                        toast.success(`${row.name} is now ${getSuperAdminRolePhrase(role)}`);
+                    } catch {
+                        toast.error("Couldn't change their role. Please try again.");
+                    }
                 }}
             />
 
@@ -220,10 +228,10 @@ export default function SuperAdminsTab() {
                         </Button>
                         <Button
                             type="button"
-                            onClick={() => {
+                            onClick={async () => {
                                 if (!cancelling) return;
                                 try {
-                                    cancelInvite(cancelling.id);
+                                    await cancelInvite(cancelling.id);
                                     toast.success(`The invite to ${cancelling.email} was cancelled`);
                                 } catch {
                                     toast.error("Couldn't cancel the invite. Please try again.");
@@ -251,7 +259,7 @@ function InviteDialog({
     open: boolean;
     takenEmails: string[];
     onClose: () => void;
-    onInvite: (values: InviteSuperAdminValues) => void;
+    onInvite: (values: InviteSuperAdminValues, reauthToken: string) => Promise<void> | void;
 }) {
     const [pending, setPending] = useState<InviteSuperAdminValues | null>(null);
     const close = () => {
@@ -277,8 +285,8 @@ function InviteDialog({
                     <ReauthSteps
                         confirmLabel="Send invite"
                         onCancel={close}
-                        onConfirmed={() => {
-                            onInvite(pending);
+                        onConfirmed={async (reauthToken) => {
+                            await onInvite(pending, reauthToken);
                             close();
                         }}
                     />
@@ -300,7 +308,7 @@ function ChangeRoleDialog({
     superAdmin: SuperAdminRow | null;
     isLastOwner: boolean;
     onClose: () => void;
-    onChange: (superAdmin: SuperAdminRow, role: SuperAdminRole) => void;
+    onChange: (superAdmin: SuperAdminRow, role: SuperAdminRole, reauthToken: string) => Promise<void> | void;
 }) {
     const [pendingRole, setPendingRole] = useState<SuperAdminRole | null>(null);
     const close = () => {
@@ -327,8 +335,8 @@ function ChangeRoleDialog({
                         <ReauthSteps
                             confirmLabel="Change role"
                             onCancel={close}
-                            onConfirmed={() => {
-                                onChange(superAdmin, pendingRole);
+                            onConfirmed={async (reauthToken) => {
+                                await onChange(superAdmin, pendingRole, reauthToken);
                                 close();
                             }}
                         />

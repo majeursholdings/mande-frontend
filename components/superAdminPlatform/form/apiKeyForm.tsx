@@ -27,7 +27,11 @@ type ApiKeyValues = {
 };
 
 /** What goes on to confirming it's you — the full secret only ever leaves in the request to the API. */
-export type ApiKeyDraft = Omit<ApiKey, "id" | "addedBy" | "addedAt">;
+export type ApiKeyDraft = Omit<ApiKey, "id" | "addedBy" | "addedAt"> & {
+    secretKey?: string;
+    encryptionKey?: string;
+    webhookSecret?: string;
+};
 
 const MIN_KEY_LENGTH = 20;
 
@@ -166,16 +170,20 @@ export default function ApiKeyForm({
         setIsLoading(true);
         try {
             // Flutterwave's keys all end "-X", so the characters before it tell them apart
-            const secret = values.secretKey.trim().replace(/-X$/, "");
+            const secret = values.secretKey.trim();
+            const last4 = secret.replace(/-X$/, "").slice(-4);
             onSubmit({
                 provider,
                 name: values.name.trim(),
                 mode: values.mode,
                 publicKey: config.hasPublicKey ? values.publicKey.trim() : null,
-                secretKeyLast4: secret.slice(-4),
+                secretKeyLast4: last4,
                 hasEncryptionKey: config.hasEncryptionKey,
                 hasWebhookSecret: config.hasWebhookSecret,
                 isActive: !hasActiveKey || values.isActive,
+                secretKey: secret,
+                encryptionKey: config.hasEncryptionKey && values.encryptionKey ? values.encryptionKey.trim() : undefined,
+                webhookSecret: config.hasWebhookSecret && values.webhookSecret ? values.webhookSecret.trim() : undefined,
             });
         } catch {
             toast.error("Couldn't check the keys. Please try again.");

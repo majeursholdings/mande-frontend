@@ -62,7 +62,7 @@ export default function JobPaymentsForm({
     onSave,
 }: {
     settings: PlatformSettings;
-    onSave: (changes: JobPaymentsChanges) => void;
+    onSave: (changes: JobPaymentsChanges, reauthToken: string) => Promise<void> | void;
 }) {
     const [isLoading, setIsLoading] = useState(false);
     /** Checked and waiting for the confirmation, with the values to reset the form to once saved. */
@@ -101,10 +101,10 @@ export default function JobPaymentsForm({
         }
     };
 
-    const save = () => {
+    const save = async (reauthToken: string) => {
         if (!pending) return;
         try {
-            onSave(pending.changes);
+            await onSave(pending.changes, reauthToken);
             methods.reset(pending.submitted);
             toast.success("Job payments saved. New jobs follow them");
         } catch {
