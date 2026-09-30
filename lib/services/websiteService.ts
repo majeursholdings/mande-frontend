@@ -91,5 +91,5 @@ export async function getWebsiteOpenJobs(limit?: number): Promise<WebsiteJob[] |
 
 /** The plans and the offer on them now. Null when the API can't be reached. */
 export async function getWebsitePlans(): Promise<WebsitePlans | null> {
-    return getJson<WebsitePlans>("/plans", { cache: "no-store" });
+    return getJson<WebsitePlans>("/plans");
 }
