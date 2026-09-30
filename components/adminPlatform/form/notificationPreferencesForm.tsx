@@ -5,6 +5,7 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import { ADMIN_NOTIFICATION_CHANNELS, type AdminNotificationPreferences } from "@/constant/admin";
+import { staffService } from "@/lib/services/staffService";
 import { useAdminProfile } from "../dashboardLayout/adminProfileContext";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import { FormSubmitButton } from "./formButtons";
@@ -21,16 +22,19 @@ export default function NotificationPreferencesForm() {
     const { profile, updateProfile } = useAdminProfile();
     const { notificationTypes } = useStaffPlatform();
     const [isLoading, setIsLoading] = useState(false);
-    const methods = useForm<AdminNotificationPreferences>({ defaultValues: profile.notificationPreferences });
+    const methods = useForm<AdminNotificationPreferences>({
+        values: profile.notificationPreferences,
+        resetOptions: {
+            keepDirtyValues: true,
+        },
+    });
     const values = useWatch({ control: methods.control });
     const { isDirty } = methods.formState;
 
     const handleSubmit = async (preferences: AdminNotificationPreferences) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate the request so the flow
-            // is testable end-to-end.
-            await new Promise((resolve) => setTimeout(resolve, 800));
+            await staffService.updateNotifications(preferences);
             updateProfile({ notificationPreferences: preferences });
             methods.reset(preferences);
             toast.success("Notification settings saved");

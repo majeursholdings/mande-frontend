@@ -48,11 +48,18 @@ function filterJobs(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AdminJobsPage({ initialJobId }: { initialJobId?: string }) {
-    const { jobs, getJob } = useAdminJobs();
+    const { jobs, getJob, isLoading } = useAdminJobs();
     const { jobsUrl, leadId, permissions } = useStaffPlatform();
     const [filters, setFilters] = useState<JobsFilters>(DEFAULT_FILTERS);
     const [page, setPage] = useState(1);
     const [openJobId, setOpenJobId] = useState<string | null>(initialJobId ?? null);
+    const [prevInitialJobId, setPrevInitialJobId] = useState<string | undefined>(initialJobId);
+
+    if (initialJobId !== prevInitialJobId) {
+        setPrevInitialJobId(initialJobId);
+        setOpenJobId(initialJobId ?? null);
+    }
+
     /** Null: closed. No jobId: creating. */
     const [jobForm, setJobForm] = useState<{ jobId?: string } | null>(null);
 
@@ -69,10 +76,12 @@ export default function AdminJobsPage({ initialJobId }: { initialJobId?: string 
         setPage(1);
     };
 
-    // The URL follows the open job (without a navigation), so it can be shared
-    const openJob = (jobId: string) => {
-        setOpenJobId(jobId);
-        window.history.replaceState(null, "", `${jobsUrl}?job=${jobId}`);
+    // The URL follows the open job code (without a navigation), so it can be shared
+    const openJob = (jobIdOrCode: string) => {
+        const job = getJob(jobIdOrCode);
+        const identifier = (job?.code || jobIdOrCode).toLowerCase();
+        setOpenJobId(identifier);
+        window.history.replaceState(null, "", `${jobsUrl}?job=${encodeURIComponent(identifier)}`);
     };
     const closeJob = () => {
         setOpenJobId(null);
@@ -98,7 +107,20 @@ export default function AdminJobsPage({ initialJobId }: { initialJobId?: string 
             <div className="flex flex-col gap-5">
                 <JobsToolbar filters={filters} onChange={changeFilters} showAssignedToMe={!!leadId} />
 
-                {jobs.length === 0 ? (
+                {isLoading ? (
+                    <JobsTable
+                        jobs={[]}
+                        loading={true}
+                        pagination={{
+                            total: 0,
+                            totalPages: 1,
+                            rowsPerPage: ADMIN_JOBS_PAGE_SIZE,
+                        }}
+                        page={1}
+                        onPageChange={setPage}
+                        onOpenJob={openJob}
+                    />
+                ) : jobs.length === 0 ? (
                     <EmptyState icon={ListChecks} title="No Jobs" description="There are no jobs to display" />
                 ) : filteredJobs.length === 0 ? (
                     <EmptyState
