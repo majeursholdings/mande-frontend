@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { Button } from "@/components/ui/button";
+import { getErrorMessage } from "@/lib/api";
 
 export type RatingReview = { rating: number; comment: string };
 
@@ -62,11 +63,10 @@ export default function RatingReviewForm({
     const handleSubmit = async ({ rating, comment }: RatingReview) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate saving the review
-            await new Promise((resolve) => setTimeout(resolve, 600));
             await onSubmit({ rating, comment: comment.trim() });
-        } catch {
-            toast.error(errorMessage);
+        } catch (err: unknown) {
+            const message = getErrorMessage(err, errorMessage);
+            toast.error(message);
         } finally {
             setIsLoading(false);
         }
