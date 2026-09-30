@@ -17,10 +17,9 @@ export interface StaffNotificationsPayload {
 }
 
 export interface ProjectLeadsQuery {
-  search?: string;
-  status?: "active" | "deactivated" | "all";
-  page?: number;
-  limit?: number;
+  q?: string;
+  status?: "active" | "deactivated" | "pending_verification";
+  position?: string;
 }
 
 export const staffService = {

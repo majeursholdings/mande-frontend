@@ -123,7 +123,7 @@ export const manufacturerService = {
   ) {
     const { data } = await api.post(`/manufacturers/${manufacturerId}/status`, {
       status,
-      ...(reason ? { reason } : {}),
+      ...(reason != null ? { reason } : {}),
     });
     return data;
   },
@@ -138,7 +138,7 @@ export const manufacturerService = {
       `/manufacturers/${manufacturerId}/appeals/${appealId}/decision`,
       {
         decision,
-        ...(response ? { response } : {}),
+        ...(response != null ? { response } : {}),
       }
     );
     return data;
@@ -204,7 +204,7 @@ export const manufacturerService = {
       `/manufacturers/${manufacturerId}/kyc/${document}/decision`,
       {
         decision,
-        ...(reason ? { reason } : {}),
+        ...(reason != null ? { reason } : {}),
       }
     );
     return data;

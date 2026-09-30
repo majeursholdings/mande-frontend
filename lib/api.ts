@@ -1,8 +1,11 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { MandeApiError } from "./types/api";
+export { MandeApiError };
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+export const API_BASE_URL =
+  process.env.NODE_ENV === "production"
+    ? process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1"
+    : "http://localhost:4000/api/v1";
 
 let currentAccessToken: string | null = null;
 let isRefreshing = false;
@@ -37,8 +40,10 @@ export function setStoredAccessToken(token: string | null): void {
   if (typeof window !== "undefined") {
     if (token) {
       sessionStorage.setItem("mande_at", token);
+      window.dispatchEvent(new CustomEvent("mande:auth_token_changed", { detail: { token } }));
     } else {
       sessionStorage.removeItem("mande_at");
+      window.dispatchEvent(new CustomEvent("mande:auth_token_changed", { detail: { token: null } }));
     }
   }
 }
@@ -154,3 +159,26 @@ function normalizeError(error: AxiosError<{ error?: { code?: string; message?: s
 
   return new MandeApiError(status, code, message, details);
 }
+
+export function getErrorMessage(err: unknown, fallback = "An error occurred. Please try again."): string {
+  if (err instanceof MandeApiError) {
+    if (err.details && typeof err.details === "object" && !Array.isArray(err.details)) {
+      const entries = Object.entries(err.details);
+      if (entries.length > 0) {
+        const [, val] = entries[0];
+        if (Array.isArray(val) && val.length > 0) {
+          return String(val[0]);
+        }
+        if (typeof val === "string") {
+          return val;
+        }
+      }
+    }
+    return err.message || fallback;
+  }
+  if (err && typeof err === "object" && "message" in err && typeof (err as { message: unknown }).message === "string") {
+    return (err as { message: string }).message;
+  }
+  return fallback;
+}
+

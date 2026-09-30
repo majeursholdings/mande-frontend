@@ -21,20 +21,23 @@ export function getSocket(): Socket | null {
   if (!socketInstance) {
     socketInstance = io(SOCKET_URL, {
       path: "/socket.io",
-      auth: { token },
+      auth: (cb) => {
+        cb({ token: getStoredAccessToken() });
+      },
       transports: ["websocket", "polling"],
       autoConnect: true,
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: Infinity,
       reconnectionDelay: 2000,
     });
 
     socketInstance.on("connect_error", (error) => {
-      // If token expired, disconnect socket and wait for API refresh
-      if (error.message.includes("jwt") || error.message.includes("token")) {
-        socketInstance?.disconnect();
+      if (error.message.includes("unauthorized") || error.message.includes("jwt") || error.message.includes("token")) {
+        // Auth expired: will retry automatically when token is refreshed
       }
     });
+  } else if (!socketInstance.connected) {
+    socketInstance.connect();
   }
 
   return socketInstance;
@@ -46,3 +49,18 @@ export function disconnectSocket(): void {
     socketInstance = null;
   }
 }
+
+if (typeof window !== "undefined") {
+  window.addEventListener("mande:auth_token_changed", (e: Event) => {
+    const detail = (e as CustomEvent<{ token: string | null }>).detail;
+    if (!detail?.token) {
+      disconnectSocket();
+    } else {
+      if (socketInstance && !socketInstance.connected) {
+        socketInstance.connect();
+      }
+    }
+  });
+}
+
+

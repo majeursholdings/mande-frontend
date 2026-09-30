@@ -14,25 +14,38 @@ export interface StepProofPayload {
 }
 
 export interface ApproveStepPayload {
-  rating: number; // 1-5 integer
-  feedback?: string;
+  outcome?: "approved";
 }
 
 export interface RejectStepPayload {
   reason: string;
-  photos?: string[];
 }
 
 export interface CreateJobPayload {
   title: string;
   description: string;
   category: string;
-  totalCostKobo: number;
-  deliveryDate: string;
-  specifications?: Record<string, unknown>;
+  amountKobo: number;
+  dueDate: string;
+  startDate?: string | null;
+  image?: { publicId: string; name?: string } | null;
+  attachments?: { publicId: string; name?: string }[];
   projectLeadIds?: string[];
   manufacturerIds?: string[];
 }
+
+export interface UpdateJobPayload {
+  title?: string;
+  description?: string;
+  category?: string;
+  amountKobo?: number;
+  dueDate?: string;
+  startDate?: string | null;
+  image?: { publicId: string; name?: string } | null;
+  attachments?: { publicId: string; name?: string }[];
+  projectLeadIds?: string[];
+}
+
 
 export const jobsService = {
   // ── Open Jobs Marketplace (Manufacturers) ───────────────────────────
@@ -131,7 +144,7 @@ export const jobsService = {
     return data;
   },
 
-  async updateJob(jobId: string, payload: Partial<CreateJobPayload>) {
+  async updateJob(jobId: string, payload: UpdateJobPayload) {
     const { data } = await api.patch(`/jobs/${jobId}`, payload);
     return data;
   },
@@ -141,28 +154,39 @@ export const jobsService = {
     return data;
   },
 
-  async assignJob(jobId: string, manufacturerIds: string[]) {
-    const { data } = await api.post(`/jobs/${jobId}/assign`, { manufacturerIds });
+  async offerJob(jobId: string, manufacturerIds: string[]) {
+    const { data } = await api.put(`/jobs/${jobId}/offer`, { manufacturerIds });
     return data;
   },
 
-  async approveStep(jobId: string, stepKey: string, payload: ApproveStepPayload) {
-    const { data } = await api.post(`/jobs/${jobId}/steps/${stepKey}/approve`, payload);
+  async assignJob(jobId: string, manufacturerIds: string[]) {
+    return this.offerJob(jobId, manufacturerIds);
+  },
+
+  async reviewStep(jobId: string, stepKey: string, payload: { outcome: "approved" | "sent-back"; reason?: string }) {
+    const { data } = await api.post(`/jobs/${jobId}/steps/${stepKey}/review`, payload);
     return data;
+  },
+
+  async approveStep(jobId: string, stepKey: string) {
+    return this.reviewStep(jobId, stepKey, { outcome: "approved" });
   },
 
   async rejectStep(jobId: string, stepKey: string, payload: RejectStepPayload) {
-    const { data } = await api.post(`/jobs/${jobId}/steps/${stepKey}/reject`, payload);
-    return data;
+    return this.reviewStep(jobId, stepKey, { outcome: "sent-back", reason: payload.reason });
   },
 
-  async signOffLowRatedStep(jobId: string, stepKey: string) {
-    const { data } = await api.post(`/jobs/${jobId}/steps/${stepKey}/sign-off`);
+  async signOffLowRatedStep(jobId: string) {
+    return this.signOffHeldJob(jobId);
+  },
+
+  async rateManufacturer(jobId: string, payload: { rating: number; comment: string }) {
+    const { data } = await api.put(`/jobs/${jobId}/manufacturer-review`, payload);
     return data;
   },
 
   async addJobNote(jobId: string, note: string) {
-    const { data } = await api.post(`/jobs/${jobId}/notes`, { note });
+    const { data } = await api.post(`/jobs/${jobId}/notes`, { message: note });
     return data;
   },
 

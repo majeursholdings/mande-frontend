@@ -4,6 +4,7 @@ export interface LoginPayload {
   email: string;
   password: string;
   rememberMe?: boolean;
+  role?: "manufacturer" | "admin" | "super_admin";
 }
 
 export interface LoginMfaRequiredResponse {
@@ -18,6 +19,7 @@ export interface LoginMfaRequiredResponse {
 /** The signed-in account, as the API's /auth/me and login answers give it. */
 export interface PublicUser {
   id: string;
+  userId?: string | null;
   email: string;
   role: "manufacturer" | "admin" | "super_admin";
   superAdminRole: "owner" | "manager" | "tech-support" | null;

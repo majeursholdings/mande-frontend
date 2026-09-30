@@ -6,7 +6,7 @@
 // return null, so a page shows its empty state instead of failing.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
+import { API_BASE_URL } from "@/lib/api";
 
 /** How often, in seconds, the website asks the API again. */
 const REVALIDATE_SECONDS = 60;
@@ -52,9 +52,12 @@ export type WebsitePlans = {
     discountPercent: number;
 };
 
-async function getJson<T>(path: string): Promise<T | null> {
+async function getJson<T>(path: string, init?: RequestInit): Promise<T | null> {
     try {
-        const response = await fetch(`${API_BASE_URL}${path}`, { next: { revalidate: REVALIDATE_SECONDS } });
+        const response = await fetch(`${API_BASE_URL}${path}`, {
+            next: { revalidate: REVALIDATE_SECONDS },
+            ...init,
+        });
         if (!response.ok) {
             console.error(`Website fetch ${path} failed with ${response.status}`);
             return null;
@@ -88,5 +91,5 @@ export async function getWebsiteOpenJobs(limit?: number): Promise<WebsiteJob[] |
 
 /** The plans and the offer on them now. Null when the API can't be reached. */
 export async function getWebsitePlans(): Promise<WebsitePlans | null> {
-    return getJson<WebsitePlans>("/plans");
+    return getJson<WebsitePlans>("/plans", { cache: "no-store" });
 }

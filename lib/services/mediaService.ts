@@ -3,21 +3,20 @@ import { api } from "@/lib/api";
 
 export type UploadPurpose =
   | "avatar"
+  | "nin-card"
+  | "business-document"
   | "step-proof"
-  | "nin-slip"
-  | "cac-certificate"
-  | "workshop-photo"
+  | "completion-photo"
+  | "feedback-screenshot"
   | "appeal-attachment"
-  | "support-attachment"
-  | "job-spec";
+  | "job-image"
+  | "job-attachment"
+  | "review-attachment";
 
 export interface SignatureResponse {
-  signature: string;
-  timestamp: number;
-  apiKey: string;
-  folder: string;
-  cloudName: string;
-  publicId?: string;
+  uploadUrl: string;
+  fields: Record<string, string | number | boolean>;
+  maxBytes?: number;
 }
 
 export interface UploadResult {
@@ -32,7 +31,11 @@ export const mediaService = {
   /**
    * Upload a file directly and securely to Cloudinary using backend signing
    */
-  async uploadFile(file: File, purpose: UploadPurpose): Promise<UploadResult> {
+  async uploadFile(
+    file: File,
+    purpose: UploadPurpose,
+    onProgress?: (percent: number) => void
+  ): Promise<UploadResult> {
     // 1. Get upload signature from backend
     const { data: signatureData } = await api.post<SignatureResponse>(
       "/media/signature",
@@ -41,13 +44,12 @@ export const mediaService = {
 
     // 2. Direct upload to Cloudinary via FormData
     const formData = new FormData();
+    if (signatureData.fields) {
+      for (const [key, value] of Object.entries(signatureData.fields)) {
+        formData.append(key, String(value));
+      }
+    }
     formData.append("file", file);
-    formData.append("api_key", signatureData.apiKey);
-    formData.append("timestamp", String(signatureData.timestamp));
-    formData.append("signature", signatureData.signature);
-    formData.append("folder", signatureData.folder);
-
-    const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${signatureData.cloudName}/auto/upload`;
 
     const cloudinaryResponse = await axios.post<{
       public_id: string;
@@ -55,18 +57,18 @@ export const mediaService = {
       format: string;
       bytes: number;
       resource_type: string;
-    }>(cloudinaryUrl, formData, {
+    }>(signatureData.uploadUrl, formData, {
       headers: { "Content-Type": "multipart/form-data" },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(percent);
+        }
+      },
     });
 
     const publicId = cloudinaryResponse.data.public_id;
     const url = cloudinaryResponse.data.secure_url;
-
-    // 3. Confirm upload with backend to lock ownership
-    await api.post("/media/confirm", {
-      purpose,
-      publicId,
-    });
 
     return {
       publicId,
@@ -77,3 +79,4 @@ export const mediaService = {
     };
   },
 };
+
