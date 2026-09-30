@@ -2,7 +2,7 @@
 
 import { PlatformErrorView } from "@/components/common/platformErrorView";
 
-export default function GlobalError({
+export default function SuperAdminPlatformError({
   error,
   reset,
 }: {
@@ -13,9 +13,9 @@ export default function GlobalError({
     <PlatformErrorView
       error={error}
       reset={reset}
-      platformName="Application"
-      homeHref="/"
-      homeLabel="Return to Home"
+      platformName="Super Admin Platform"
+      homeHref="/super-admin/dashboard"
+      homeLabel="Super Admin Dashboard"
     />
   );
 }

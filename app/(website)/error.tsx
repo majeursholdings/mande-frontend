@@ -2,7 +2,7 @@
 
 import { PlatformErrorView } from "@/components/common/platformErrorView";
 
-export default function GlobalError({
+export default function WebsitePlatformError({
   error,
   reset,
 }: {
@@ -13,7 +13,7 @@ export default function GlobalError({
     <PlatformErrorView
       error={error}
       reset={reset}
-      platformName="Application"
+      platformName="Website"
       homeHref="/"
       homeLabel="Return to Home"
     />

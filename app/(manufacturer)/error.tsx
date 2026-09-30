@@ -2,7 +2,7 @@
 
 import { PlatformErrorView } from "@/components/common/platformErrorView";
 
-export default function GlobalError({
+export default function ManufacturerPlatformError({
   error,
   reset,
 }: {
@@ -13,9 +13,9 @@ export default function GlobalError({
     <PlatformErrorView
       error={error}
       reset={reset}
-      platformName="Application"
-      homeHref="/"
-      homeLabel="Return to Home"
+      platformName="Manufacturer Portal"
+      homeHref="/manufacturer/dashboard"
+      homeLabel="Manufacturer Dashboard"
     />
   );
 }
