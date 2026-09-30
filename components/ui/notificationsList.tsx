@@ -25,6 +25,7 @@ export default function NotificationsList({
     hasUnread,
     onMarkAllAsRead,
     onLinkClick,
+    onMarkAsRead,
     className,
 }: {
     items: NotificationListItem[];
@@ -32,6 +33,7 @@ export default function NotificationsList({
     onMarkAllAsRead: () => void;
     /** A link in a notification was clicked — close whatever the list is shown in. */
     onLinkClick?: () => void;
+    onMarkAsRead?: (id: string) => void;
     className?: string;
 }) {
     return (
@@ -52,7 +54,12 @@ export default function NotificationsList({
             ) : (
                 <ul className="flex flex-col divide-y divide-border">
                     {items.map((item) => (
-                        <NotificationRow key={item.id} item={item} onLinkClick={onLinkClick} />
+                        <NotificationRow
+                            key={item.id}
+                            item={item}
+                            onLinkClick={onLinkClick}
+                            onMarkAsRead={onMarkAsRead}
+                        />
                     ))}
                 </ul>
             )}
@@ -60,9 +67,36 @@ export default function NotificationsList({
     );
 }
 
-function NotificationRow({ item, onLinkClick }: { item: NotificationListItem; onLinkClick?: () => void }) {
+function NotificationRow({
+    item,
+    onLinkClick,
+    onMarkAsRead,
+}: {
+    item: NotificationListItem;
+    onLinkClick?: () => void;
+    onMarkAsRead?: (id: string) => void;
+}) {
+    const handleClick = () => {
+        if (!item.isRead && onMarkAsRead) {
+            onMarkAsRead(item.id);
+        }
+    };
+
+    const handleLinkClick = () => {
+        if (!item.isRead && onMarkAsRead) {
+            onMarkAsRead(item.id);
+        }
+        onLinkClick?.();
+    };
+
     return (
-        <li className="flex items-start gap-3 px-1 py-3">
+        <li
+            onClick={handleClick}
+            className={cn(
+                "flex items-start gap-3 px-1 py-3 transition-colors",
+                !item.isRead && "cursor-pointer hover:bg-mist-50/50",
+            )}
+        >
             {item.avatarName ? (
                 <UserAvatar name={item.avatarName} className="size-9 text-sm" />
             ) : (
@@ -77,7 +111,11 @@ function NotificationRow({ item, onLinkClick }: { item: NotificationListItem; on
                     {item.link && (
                         <>
                             {" "}
-                            <Link href={item.link.href} onClick={onLinkClick} className="text-secondary-600 hover:underline">
+                            <Link
+                                href={item.link.href}
+                                onClick={handleLinkClick}
+                                className="text-secondary-600 hover:underline"
+                            >
                                 {item.link.label}
                             </Link>
                         </>

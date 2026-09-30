@@ -10,12 +10,15 @@ export default function ListPrice({
     plan,
     billingCycle,
     className,
+    discountPercent,
 }: {
     plan: PricingPlan;
     billingCycle: BillingCycle;
     className?: string;
+    discountPercent?: number;
 }) {
-    if (PLAN_DISCOUNT_PERCENT === 0) return null;
+    const discount = discountPercent !== undefined ? discountPercent : PLAN_DISCOUNT_PERCENT;
+    if (discount === 0) return null;
     return (
         <s className={cn("font-normal", className)}>
             <span className="sr-only">Usually </span>
