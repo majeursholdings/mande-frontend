@@ -197,8 +197,8 @@ export const authService = {
   /**
    * Send re-authentication code for sensitive operations (step-up verification)
    */
-  async sendReauthCode(): Promise<{ message: string }> {
-    const { data } = await api.post<{ message: string }>("/auth/reauth/send-code");
+  async sendReauthCode(action?: string): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>("/auth/reauth/send-code", action ? { action } : {});
     return data;
   },
 

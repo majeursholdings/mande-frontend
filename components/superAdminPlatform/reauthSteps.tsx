@@ -20,11 +20,14 @@ import PasswordConfirmForm from "./form/passwordConfirmForm";
 
 export default function ReauthSteps({
     confirmLabel,
+    action,
     onConfirmed,
     onCancel,
 }: {
     /** The code step's button, e.g. "Add keys". */
     confirmLabel: string;
+    /** Optional specific action identifier (e.g. "add_super_admin") */
+    action?: string;
     /** Runs once both check out — make the change with X-Reauth-Token. */
     onConfirmed: (reauthToken: string) => void | Promise<void>;
     onCancel: () => void;
@@ -34,12 +37,17 @@ export default function ReauthSteps({
     const [password, setPassword] = useState("");
     const usesApp = profile.security.twoFactorMethod === "app";
     const sentTo = maskEmail(profile.email);
+    const targetAction =
+        action ??
+        (confirmLabel.toLowerCase().includes("super admin") || confirmLabel.toLowerCase().includes("invite")
+            ? "add_super_admin"
+            : undefined);
 
     const handlePasswordConfirmed = async (enteredPassword: string) => {
         setPassword(enteredPassword);
         if (!usesApp) {
             try {
-                await authService.sendReauthCode();
+                await authService.sendReauthCode(targetAction);
                 toast.success(`Verification code sent to ${sentTo}`);
             } catch {
                 toast.error("Couldn't send the verification code. Please try again.");
@@ -85,7 +93,7 @@ export default function ReauthSteps({
                     confirmLabel={confirmLabel}
                     onVerified={handleCodeVerified}
                     onResend={async () => {
-                        await authService.sendReauthCode();
+                        await authService.sendReauthCode(targetAction);
                     }}
                     onCancel={onCancel}
                 />
