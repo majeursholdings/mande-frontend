@@ -15,6 +15,9 @@ import {
     getJobRecordPayments as getAdminJobPayments,
     getManufacturer as getAdminManufacturer,
     getProjectLead,
+    registerProjectLeads,
+    registerManufacturers,
+    getAllProjectLeads,
     getSampleCategoryPhoto,
     isRejectionFinal,
     settleJobRecord as settleAdminJob,
@@ -56,6 +59,9 @@ export {
     getAdminManufacturer,
     getJobCategoryCode,
     getProjectLead,
+    registerProjectLeads,
+    registerManufacturers,
+    getAllProjectLeads,
     getSampleCategoryPhoto,
     isRejectionFinal,
     settleAdminJob,
@@ -321,6 +327,7 @@ export type PendingProgressReview = {
     id: string;
     /** An ADMIN_JOBS id — "Review" opens that job. */
     jobId: string;
+    jobCode?: string;
     jobTitle: string;
     manufacturerName: string;
     /** The photo submitted with the update. */

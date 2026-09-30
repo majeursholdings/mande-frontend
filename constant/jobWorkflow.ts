@@ -34,7 +34,8 @@ export const JOB_PRODUCTION_STEPS: { key: ProductionStepKey; label: string }[] =
     { key: "delivery", label: "Delivery" },
 ];
 
-export const MAX_STEP_PROOF_PHOTOS = 3;
+export const MIN_STEP_PROOF_PHOTOS = 3;
+export const MAX_STEP_PROOF_PHOTOS = 6;
 
 export type StepReview = {
     outcome: "approved" | "sent-back";

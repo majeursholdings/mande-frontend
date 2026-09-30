@@ -114,9 +114,55 @@ export const PROJECT_LEADS: ProjectLeadRecord[] = [
     projectLead({ id: "lead-mercury", firstName: "Mercury", lastName: "Jones", position: "inventory-manager", joined: -95, phone: "+234 817 555 0175" }),
 ];
 
-export function getProjectLead(id: string): ProjectLeadRecord | undefined {
-    return PROJECT_LEADS.find((lead) => lead.id === id);
+const DYNAMIC_PROJECT_LEADS = new Map<string, ProjectLeadRecord>();
+
+export function registerProjectLeads(
+    leads: Array<{
+        id: string;
+        name?: string;
+        firstName?: string;
+        lastName?: string;
+        position?: string | null;
+        phone?: string | null;
+        avatarUrl?: string | null;
+        joined?: number;
+        joinedAt?: string;
+        twoFactorMethod?: TwoFactorMethod | null;
+    }>
+) {
+    for (const lead of leads) {
+        if (!lead || !lead.id) continue;
+        const nameParts = (lead.name || "").trim().split(/\s+/);
+        const firstName = lead.firstName || nameParts[0] || "Admin";
+        const lastName = lead.lastName || nameParts.slice(1).join(" ") || "";
+        const fullName = lead.name || `${firstName} ${lastName}`.trim();
+        const existing = DYNAMIC_PROJECT_LEADS.get(lead.id) || PROJECT_LEADS.find((l) => l.id === lead.id);
+
+        DYNAMIC_PROJECT_LEADS.set(lead.id, {
+            id: lead.id,
+            firstName,
+            lastName,
+            name: fullName,
+            email: existing?.email ?? `${firstName.toLowerCase()}@mande.com.ng`,
+            phone: lead.phone ?? existing?.phone ?? "",
+            avatarUrl: lead.avatarUrl ?? existing?.avatarUrl ?? null,
+            position: lead.position || existing?.position || "quality-assurance-manager",
+            joinedAt: lead.joinedAt ?? existing?.joinedAt ?? new Date().toISOString(),
+            twoFactorMethod: lead.twoFactorMethod ?? existing?.twoFactorMethod ?? null,
+        });
+    }
 }
+
+export function getProjectLead(id: string): ProjectLeadRecord | undefined {
+    return DYNAMIC_PROJECT_LEADS.get(id) || PROJECT_LEADS.find((lead) => lead.id === id);
+}
+
+export function getAllProjectLeads(): ProjectLeadRecord[] {
+    const dynamicList = Array.from(DYNAMIC_PROJECT_LEADS.values());
+    if (dynamicList.length > 0) return dynamicList;
+    return PROJECT_LEADS;
+}
+
 
 /**
  * A super admin — runs the platform: sees everything on it, looks after the
@@ -455,8 +501,8 @@ function manufacturer({
     const record: Omit<ManufacturerRecord, "activity" | "security"> = {
         dateOfBirth: null,
         avatarUrl: null,
-        staffRange: "6-10",
-        productionLeadTime: "2-4-weeks",
+        staffRange: "1-10",
+        productionLeadTime: "3-4-weeks",
         materialsInventory: "yes",
         ninCard: { imageUrl: "/sample-image/nin-card-sample.svg", ...VERIFIED },
         companyTaxNumber: "",
@@ -645,16 +691,104 @@ export const MANUFACTURERS: ManufacturerRecord[] = [
     }),
 ];
 
+const DYNAMIC_MANUFACTURERS = new Map<string, ManufacturerRecord>();
+
+export function registerManufacturers(
+    manufacturers: Array<{
+        id: string;
+        name?: string;
+        firstName?: string;
+        lastName?: string;
+        companyName?: string | null;
+        phone?: string | null;
+        email?: string | null;
+        accountStatus?: ManufacturerAccountStatus;
+        avatarUrl?: string | null;
+        specialities?: string[];
+        joinedAt?: string | null;
+        subscription?: ManufacturerRecord["subscription"];
+        [key: string]: unknown;
+    }>,
+) {
+    for (const m of manufacturers) {
+        if (!m || !m.id) continue;
+        const existing = DYNAMIC_MANUFACTURERS.get(m.id) || MANUFACTURERS.find((item) => item.id === m.id);
+        const companyName = m.companyName || existing?.companyName || m.name || "Manufacturer";
+        const firstName = m.firstName || existing?.firstName || companyName;
+        const lastName = m.lastName || existing?.lastName || "";
+        const contactName = existing?.contactName || m.name || `${firstName} ${lastName}`.trim() || companyName;
+
+        const sub = (m.subscription as ManufacturerRecord["subscription"]) || existing?.subscription;
+        const planId = sub?.planId || ((m as Record<string, unknown>).planId as string) || "growth";
+        const billingCycle =
+            sub?.billingCycle ||
+            (((m as Record<string, unknown>).billingCycle === "yearly" ? "annual" : "monthly") as BillingCycle) ||
+            "monthly";
+        const renewsAt = sub?.renewsAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        const renewalsPaidFrom = sub?.renewalsPaidFrom || "wallet";
+
+        const record: ManufacturerRecord = {
+            ...(existing ?? {}),
+            id: m.id,
+            firstName,
+            lastName,
+            contactName,
+            companyName,
+            email: m.email || existing?.email || "",
+            accountStatus: m.accountStatus || existing?.accountStatus || "active",
+            phone: m.phone || existing?.phone || "",
+            dateOfBirth: (m.dateOfBirth as string) || existing?.dateOfBirth || null,
+            address: (m.address as ManufacturerRecord["address"]) || existing?.address || { streetAddress: "", city: "", state: "", country: "NG" },
+            specialities: m.specialities || existing?.specialities || [],
+            staffRange: (m.staffRange as string) || existing?.staffRange || "",
+            productionLeadTime: (m.productionLeadTime as string) || existing?.productionLeadTime || "",
+            materialsInventory: (m.materialsInventory as string) || existing?.materialsInventory || "",
+            joinedAt: m.joinedAt || existing?.joinedAt || new Date().toISOString(),
+            avatarUrl: m.avatarUrl || existing?.avatarUrl || null,
+            ninCard: (m.ninCard as ManufacturerRecord["ninCard"]) || existing?.ninCard || { imageUrl: "", status: "verified", rejectionReason: null },
+            companyTaxNumber: (m.companyTaxNumber as string) || existing?.companyTaxNumber || "",
+            companyTaxNumberVerification: (m.companyTaxNumberVerification as ManufacturerRecord["companyTaxNumberVerification"]) || existing?.companyTaxNumberVerification || { status: "verified", rejectionReason: null },
+            businessLicenseNumber: (m.businessLicenseNumber as string) || existing?.businessLicenseNumber || "",
+            businessLicenseNumberVerification: (m.businessLicenseNumberVerification as ManufacturerRecord["businessLicenseNumberVerification"]) || existing?.businessLicenseNumberVerification || { status: "verified", rejectionReason: null },
+            subscription: {
+                planId,
+                billingCycle,
+                renewsAt,
+                renewalsPaidFrom,
+            },
+            bankAccount: (m.bankAccount as ManufacturerRecord["bankAccount"]) || existing?.bankAccount || null,
+            security: (m.security as ManufacturerRecord["security"]) || existing?.security || { twoFactorMethod: null, linkedAccounts: { google: null, facebook: null } },
+            activity: (m.activity as ManufacturerRecord["activity"]) || existing?.activity || [],
+            statusHistory: (m.statusHistory as ManufacturerRecord["statusHistory"]) || existing?.statusHistory || [],
+            appeals: (m.appeals as ManufacturerRecord["appeals"]) || existing?.appeals || [],
+            deletionRequest: (m.deletionRequest as ManufacturerRecord["deletionRequest"]) || existing?.deletionRequest || null,
+        };
+        DYNAMIC_MANUFACTURERS.set(m.id, record);
+    }
+}
+
 export function getManufacturer(id: string): ManufacturerRecord | undefined {
-    return MANUFACTURERS.find((manufacturer) => manufacturer.id === id);
+    return DYNAMIC_MANUFACTURERS.get(id) || MANUFACTURERS.find((manufacturer) => manufacturer.id === id);
 }
 
 /** The flag or suspension the account is under now — null while it's active. */
 export function getAccountHold(
     manufacturer: Pick<ManufacturerRecord, "accountStatus" | "statusHistory">,
 ): AccountStatusEventRecord | null {
-    if (manufacturer.accountStatus === "active") return null;
-    return manufacturer.statusHistory.find((event) => event.status === manufacturer.accountStatus) ?? null;
+    if (!manufacturer || manufacturer.accountStatus === "active") return null;
+    const found = manufacturer.statusHistory?.find((event) => event.status === manufacturer.accountStatus);
+    if (found) {
+        return {
+            ...found,
+            by: found.by || (found as unknown as { byName?: string }).byName || "Admin",
+        };
+    }
+    return {
+        status: manufacturer.accountStatus,
+        reason: null,
+        by: "Admin",
+        at: new Date().toISOString(),
+    };
 }
 
 /**
@@ -673,13 +807,18 @@ export function getManufacturerVerification(
         | "businessLicenseNumberVerification"
     >,
 ): VerificationStatus {
-    const needsBusinessDocuments = requiresBusinessDocuments(manufacturer.subscription.planId);
-    const statuses: VerificationStatus[] = [manufacturer.ninCard.status];
-    if (manufacturer.companyTaxNumber || needsBusinessDocuments) {
-        statuses.push(manufacturer.companyTaxNumberVerification.status);
+    const planId = manufacturer?.subscription?.planId ?? "growth";
+    const needsBusinessDocuments = requiresBusinessDocuments(planId);
+    const statuses: VerificationStatus[] = [manufacturer?.ninCard?.status ?? "pending"];
+    if (manufacturer?.companyTaxNumber || needsBusinessDocuments) {
+        if (manufacturer?.companyTaxNumberVerification?.status) {
+            statuses.push(manufacturer.companyTaxNumberVerification.status);
+        }
     }
-    if (manufacturer.businessLicenseNumber || needsBusinessDocuments) {
-        statuses.push(manufacturer.businessLicenseNumberVerification.status);
+    if (manufacturer?.businessLicenseNumber || needsBusinessDocuments) {
+        if (manufacturer?.businessLicenseNumberVerification?.status) {
+            statuses.push(manufacturer.businessLicenseNumberVerification.status);
+        }
     }
     if (statuses.includes("rejected")) return "rejected";
     if (statuses.every((status) => status === "verified")) return "verified";
@@ -830,6 +969,8 @@ export type JobRecord = {
     category: string;
     /** Up to MAX_JOB_MANUFACTURERS; empty until one is chosen. */
     manufacturerIds: string[];
+    /** Manufacturer profiles carrying their company names, populated from the API. */
+    manufacturers?: { id: string; name: string; companyName: string | null }[];
     /** What the manufacturer is paid, in naira. */
     amount: number;
     projectLeadIds: string[];
@@ -1180,7 +1321,8 @@ export function getSubscriptionPayments(
     manufacturer: ManufacturerRecord,
     now: Date = new Date(),
 ): SubscriptionPaymentRecord[] {
-    const { planId, billingCycle, renewalsPaidFrom } = manufacturer.subscription;
+    if (!manufacturer?.subscription?.planId) return [];
+    const { planId, billingCycle = "monthly", renewalsPaidFrom = "wallet" } = manufacturer.subscription;
     const plan = getPricingPlan(planId);
     if (!plan) return [];
     const payments: SubscriptionPaymentRecord[] = [];

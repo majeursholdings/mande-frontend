@@ -35,14 +35,17 @@ export const NOT_INCLUDED = "Not included";
 
 // ─── The plan offer ──────────────────────────────────────────────────────────
 // A discount on every plan, as a percentage off its usual price: 0 for no
-// offer. Change this one number and everything follows — every price shown
-// or charged (the website, sign-up, plan settings and upgrades), the struck-
-// through usual prices, and each line of copy about the offer.
-export const PLAN_DISCOUNT_PERCENT: number = 90;
+// offer. The live value is managed by the super admin settings and retrieved
+// from the API (/plans).
+export const DEFAULT_PLAN_DISCOUNT_PERCENT: number = 0;
+export const PLAN_DISCOUNT_PERCENT: number = DEFAULT_PLAN_DISCOUNT_PERCENT;
 
-/** "Every plan is 90% off for now" — null while there's no offer. */
-export const PLAN_OFFER_TEXT: string | null =
-    PLAN_DISCOUNT_PERCENT > 0 ? `Every plan is ${PLAN_DISCOUNT_PERCENT}% off for now` : null;
+export function getPlanOfferText(discountPercent: number): string | null {
+    return discountPercent > 0 ? `Every plan is ${discountPercent}% off for now` : null;
+}
+
+/** "Every plan is X% off for now" — null while there's no offer. */
+export const PLAN_OFFER_TEXT: string | null = getPlanOfferText(PLAN_DISCOUNT_PERCENT);
 
 export const PRICING_PLANS: PricingPlan[] = [
     {
@@ -107,9 +110,9 @@ export function getPlanListPrice(plan: PricingPlan, billingCycle: BillingCycle):
     return billingCycle === "annual" ? plan.annualPrice : plan.monthlyPrice;
 }
 
-/** What a plan costs now — its usual price, less PLAN_DISCOUNT_PERCENT. What's shown and charged. */
-export function getPlanPrice(plan: PricingPlan, billingCycle: BillingCycle): number {
-    return Math.round((getPlanListPrice(plan, billingCycle) * (100 - PLAN_DISCOUNT_PERCENT)) / 100);
+/** What a plan costs now — its usual price, less discountPercent (defaults to PLAN_DISCOUNT_PERCENT). What's shown and charged. */
+export function getPlanPrice(plan: PricingPlan, billingCycle: BillingCycle, discountPercent: number = PLAN_DISCOUNT_PERCENT): number {
+    return Math.round((getPlanListPrice(plan, billingCycle) * (100 - discountPercent)) / 100);
 }
 
 /** How much yearly billing saves on 12 monthly payments, e.g. 17. */
@@ -118,8 +121,8 @@ export function getAnnualSavingPercent(plan: PricingPlan): number {
 }
 
 /** "or ₦5,000 a year, saving 17%" — at the price it costs now. */
-export function getAnnualSavingsText(plan: PricingPlan): string {
-    return `or ${formatPrice(getPlanPrice(plan, "annual"))} a year, saving ${getAnnualSavingPercent(plan)}%`;
+export function getAnnualSavingsText(plan: PricingPlan, discountPercent: number = PLAN_DISCOUNT_PERCENT): string {
+    return `or ${formatPrice(getPlanPrice(plan, "annual", discountPercent))} a year, saving ${getAnnualSavingPercent(plan)}%`;
 }
 
 export const SOLO_PLAN_ID = "solo";
