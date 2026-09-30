@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { Button } from "@/components/ui/button";
+import { getErrorMessage } from "@/lib/api";
 import { FormSubmitButton } from "./formButtons";
 
 type ReasonValues = { reason: string };
@@ -32,7 +33,7 @@ export default function ReasonForm({
     loadingLabel: string;
     /** Shown if saving fails. */
     errorMessage: string;
-    onSubmit: (reason: string) => void;
+    onSubmit: (reason: string) => void | Promise<void>;
     onCancel: () => void;
 }) {
     const [isLoading, setIsLoading] = useState(false);
@@ -61,11 +62,10 @@ export default function ReasonForm({
     const handleSubmit = async ({ reason }: ReasonValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate saving it
-            await new Promise((resolve) => setTimeout(resolve, 600));
-            onSubmit(reason.trim());
-        } catch {
-            toast.error(errorMessage);
+            await onSubmit(reason.trim());
+        } catch (err: unknown) {
+            const message = getErrorMessage(err, errorMessage);
+            toast.error(message);
         } finally {
             setIsLoading(false);
         }

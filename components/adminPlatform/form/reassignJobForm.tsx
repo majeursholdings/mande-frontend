@@ -7,6 +7,7 @@ import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { Button } from "@/components/ui/button";
 import { MAX_JOB_MANUFACTURERS } from "@/constant/admin";
+import { getErrorMessage } from "@/lib/api";
 import { useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
 import { FormSubmitButton } from "./formButtons";
 
@@ -39,7 +40,7 @@ export default function ReassignJobForm({
     onCancel,
 }: {
     currentManufacturerIds: string[];
-    onReassign: (manufacturerIds: string[]) => void;
+    onReassign: (manufacturerIds: string[]) => void | Promise<void>;
     onCancel: () => void;
 }) {
     const [isLoading, setIsLoading] = useState(false);
@@ -54,11 +55,10 @@ export default function ReassignJobForm({
     const handleSubmit = async ({ manufacturerIds }: ReassignJobValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate sending the offer
-            await new Promise((resolve) => setTimeout(resolve, 600));
-            onReassign(manufacturerIds);
-        } catch {
-            toast.error(`Couldn't ${isFirstAssignment ? "assign" : "reassign"} the job. Please try again.`);
+            await onReassign(manufacturerIds);
+        } catch (err: unknown) {
+            const message = getErrorMessage(err, `Couldn't ${isFirstAssignment ? "assign" : "reassign"} the job. Please try again.`);
+            toast.error(message);
         } finally {
             setIsLoading(false);
         }

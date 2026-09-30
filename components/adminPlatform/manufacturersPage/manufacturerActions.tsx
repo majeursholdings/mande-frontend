@@ -174,9 +174,9 @@ export function ManufacturerActionDialog({
     const { changeStatus, requestDeletion } = useAdminManufacturers();
     const dialog = action ? DIALOGS[action] : null;
 
-    const run = (task: () => void, success: string, failure: string) => {
+    const run = async (task: () => Promise<void>, success: string, failure: string) => {
         try {
-            task();
+            await task();
             toast.success(success);
         } catch {
             toast.error(failure);
@@ -354,10 +354,14 @@ function DeleteAccountSteps({
                 <ReauthSteps
                     confirmLabel="Close account"
                     onCancel={onCancel}
-                    onConfirmed={() => {
-                        deleteManufacturer(manufacturer.id);
-                        toast.success(`${name}'s account was closed`);
-                        onDeleted();
+                    onConfirmed={async (reauthToken) => {
+                        try {
+                            await deleteManufacturer(manufacturer.id, reauthToken);
+                            toast.success(`${name}'s account was closed`);
+                            onDeleted();
+                        } catch {
+                            toast.error("Couldn't close the account. Please try again.");
+                        }
                     }}
                 />
             ) : (
@@ -397,10 +401,10 @@ export function AppealDecisionDialog({
 }) {
     const { decideAppeal } = useAdminManufacturers();
 
-    const decide = (response: string | null) => {
+    const decide = async (response: string | null) => {
         if (!appeal || !decision) return;
         try {
-            decideAppeal(manufacturer.id, appeal.id, decision, response);
+            await decideAppeal(manufacturer.id, appeal.id, decision, response);
             toast.success(
                 decision === "approved"
                     ? `Appeal approved. The suspension on ${manufacturer.contactName} is lifted`

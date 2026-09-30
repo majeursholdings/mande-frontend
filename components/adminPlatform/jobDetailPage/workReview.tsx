@@ -43,6 +43,9 @@ export function RejectionHistory({ job, onContact }: { job: AdminJob; onContact:
     const isFinal = isRejectionFinal(job);
     const attemptsLeft = MAX_ADMIN_JOB_REJECTIONS - job.rejections.length;
     const manufacturer =
+        (job.manufacturers && job.manufacturers.length > 0
+            ? job.manufacturers.map((m) => m.companyName || m.name).filter(Boolean).join(" & ")
+            : null) ||
         job.manufacturerIds.map((id) => getAdminManufacturer(id)?.companyName).filter(Boolean).join(" & ") ||
         "the manufacturer";
 

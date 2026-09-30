@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { validators } from "@/components/form/form.validators";
+import { authService } from "@/lib/services/authService";
+import { MandeApiError } from "@/lib/types/api";
 import { FormSubmitButton } from "./formButtons";
 import { AUTH_FORM_FIELD_GAP } from "./styles";
 
@@ -34,12 +36,18 @@ export default function AdminForgotPasswordForm() {
     const handleSubmit = async ({ email }: AdminForgotPasswordFormValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate the request so the flow
-            // is testable end-to-end.
-            await new Promise((resolve) => setTimeout(resolve, 800));
-            toast.success(`A reset link was sent to ${email.trim()}`);
-        } catch {
-            toast.error("Couldn't send the reset link. Please try again.");
+            const trimmedEmail = email.trim().toLowerCase();
+            const res = await authService.forgotPassword(trimmedEmail);
+            toast.success(res.message || "If that email has an account, a reset link is on its way.");
+            methods.reset();
+        } catch (error) {
+            toast.error(
+                error instanceof MandeApiError && error.status === 429
+                    ? "Too many tries. Please wait a few minutes and try again."
+                    : error instanceof MandeApiError && error.message
+                      ? error.message
+                      : "Couldn't send the reset link. Please try again."
+            );
         } finally {
             setIsLoading(false);
         }

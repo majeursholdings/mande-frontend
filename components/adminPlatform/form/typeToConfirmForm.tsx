@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { Button } from "@/components/ui/button";
+import { getErrorMessage } from "@/lib/api";
 import { FormSubmitButton } from "./formButtons";
 
 type TypeToConfirmValues = { confirmation: string };
@@ -60,11 +61,10 @@ export default function TypeToConfirmForm({
     const handleSubmit = async () => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate the request
-            await new Promise((resolve) => setTimeout(resolve, 600));
             await onConfirm();
-        } catch {
-            toast.error(errorMessage);
+        } catch (err: unknown) {
+            const message = getErrorMessage(err, errorMessage);
+            toast.error(message);
         } finally {
             setIsLoading(false);
         }

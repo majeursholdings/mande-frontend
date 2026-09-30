@@ -1,6 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
 import { CalendarClock, CreditCard, Wallet } from "lucide-react";
 import { formatPrice } from "@/lib/currency";
 import { formatOrdinalDate } from "@/lib/date";
+import { queryKeys } from "@/lib/queryKeys";
+import { superAdminService } from "@/lib/services/superAdminService";
 import ListPrice from "@/components/ui/listPrice";
 import { getPlanPrice, getPricingPlan } from "@/constant/sampleData";
 import type { ManufacturerRecord } from "@/constant/sampleDb";
@@ -13,10 +16,20 @@ import type { ManufacturerRecord } from "@/constant/sampleDb";
 export default function ManufacturerPlanCard({
     subscription,
     className,
+    discountPercent: propDiscount,
 }: {
-    subscription: ManufacturerRecord["subscription"];
+    subscription?: ManufacturerRecord["subscription"];
     className?: string;
+    discountPercent?: number;
 }) {
+    const { data: plansData } = useQuery({
+        queryKey: queryKeys.settings.plans(),
+        queryFn: () => superAdminService.getPlans(),
+        enabled: propDiscount === undefined,
+    });
+    const discountPercent = propDiscount ?? plansData?.discountPercent ?? 0;
+
+    if (!subscription?.planId) return null;
     const plan = getPricingPlan(subscription.planId);
     if (!plan) return null;
     const isAnnual = subscription.billingCycle === "annual";
@@ -35,10 +48,10 @@ export default function ManufacturerPlanCard({
 
             <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 font-text">
                 <span className="text-xl font-semibold text-mist-950">
-                    {formatPrice(getPlanPrice(plan, subscription.billingCycle))}
+                    {formatPrice(getPlanPrice(plan, subscription.billingCycle, discountPercent))}
                 </span>
                 <span className="text-xs text-mist-500">{isAnnual ? "a year" : "a month"}</span>
-                <ListPrice plan={plan} billingCycle={subscription.billingCycle} className="text-xs text-mist-400" />
+                <ListPrice plan={plan} billingCycle={subscription.billingCycle} discountPercent={discountPercent} className="text-xs text-mist-400" />
             </p>
 
             <ul className="flex flex-col gap-2 text-sm font-text text-mist-600">

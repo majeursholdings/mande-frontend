@@ -8,6 +8,7 @@ import type { FormFieldConfig } from "@/components/form/types";
 import { isPhoneNumber } from "@/components/form/form.validators";
 import { ADMIN_POSITION_OPTIONS } from "@/constant/admin";
 import { getOptionLabel } from "@/constant/manufacturer";
+import { staffService } from "@/lib/services/staffService";
 import { useAdminProfile } from "../dashboardLayout/adminProfileContext";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import { FormSubmitButton } from "./formButtons";
@@ -79,15 +80,17 @@ export default function AdminBasicInfoForm() {
     const handleSubmit = async (values: AdminBasicInfoFormValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate the request so the flow
-            // is testable end-to-end.
-            await new Promise((resolve) => setTimeout(resolve, 800));
             const saved = {
                 ...values,
                 firstName: values.firstName.trim(),
                 lastName: values.lastName.trim(),
                 phone: values.phone.trim(),
             };
+            await staffService.updateBasicInfo(
+                canChangeName
+                    ? { firstName: saved.firstName, lastName: saved.lastName, phone: saved.phone }
+                    : { phone: saved.phone },
+            );
             updateProfile(
                 canChangeName
                     ? { firstName: saved.firstName, lastName: saved.lastName, phone: saved.phone }

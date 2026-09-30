@@ -221,7 +221,9 @@ function ProofForReview({
                     </button>
                 </div>
             ) : (
-                <p className="text-xs font-text text-mist-500">Only {leadNames} can review it.</p>
+                <p className="text-xs font-text text-mist-500">
+                    {leadNames ? `Admins like ${leadNames} review and approve production steps for payout.` : "Admins review and approve production steps for payout."}
+                </p>
             )}
         </div>
     );

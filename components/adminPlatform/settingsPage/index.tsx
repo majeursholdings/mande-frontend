@@ -6,6 +6,7 @@ import Notice from "@/components/manufacturerPlatform/notice";
 import SettingsTabs, { type SettingsTab } from "@/components/manufacturerPlatform/settingsTabs";
 import AdminBasicInfoForm from "@/components/adminPlatform/form/adminBasicInfoForm";
 import NotificationPreferencesForm from "@/components/adminPlatform/form/notificationPreferencesForm";
+import { staffService } from "@/lib/services/staffService";
 import { useAdminProfile } from "../dashboardLayout/adminProfileContext";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import AdminPageHeader from "../pageHeader";
@@ -70,7 +71,21 @@ export default function AdminSettingsPage({ initialTab }: { initialTab?: string 
                     <AvatarUploadForm
                         name={fullName}
                         avatarUrl={profile.avatarUrl}
-                        onUploaded={(avatarUrl) => updateProfile({ avatarUrl })}
+                        onUploaded={async (avatarUrl, publicId) => {
+                            let savedUrl = avatarUrl;
+                            if (publicId) {
+                                try {
+                                    const res = await staffService.setAvatar(publicId);
+                                    if (res?.profile?.avatarUrl) {
+                                        savedUrl = res.profile.avatarUrl;
+                                    }
+                                } catch (e) {
+                                    console.error("Failed to sync avatar to backend:", e);
+                                    throw e;
+                                }
+                            }
+                            updateProfile({ avatarUrl: savedUrl });
+                        }}
                     />
                 }
                 tabs={tabs}

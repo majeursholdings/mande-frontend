@@ -2,7 +2,9 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { authService } from "@/lib/services/authService";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -15,24 +17,32 @@ import { useStaffPlatform } from "./staffPlatformContext";
 // ─────────────────────────────────────────────────────────────────────────────
 // LogoutProvider — the "Log out?" confirmation. The sidebar, the mobile menu
 // and the profile menu all just call requestLogout(); the dialog lives here
-// once, so it survives the menu that opened it closing.
+// once, so it survives the menu that opened it closing. Logging out ends the
+// session on the API (and its cookie) and forgets everything cached for them.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const LogoutContext = createContext<{ requestLogout: () => void } | null>(null);
 
 export function LogoutProvider({ children }: { children: ReactNode }) {
     const router = useRouter();
+    const queryClient = useQueryClient();
     const { loginUrl } = useStaffPlatform();
     const [isOpen, setIsOpen] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-    const logOut = () => {
+    const logOut = async () => {
+        setIsLoggingOut(true);
         try {
-            // No backend is wired up yet — clear the session there once it is
-            setIsOpen(false);
+            // The token is forgotten here even if the API can't be reached
+            await authService.logout();
             toast.success("You've been logged out");
-            router.push(loginUrl);
         } catch {
-            toast.error("Couldn't log you out. Please try again.");
+            toast.error("You're logged out here, but we couldn't reach MANDE to end the session everywhere.");
+        } finally {
+            queryClient.clear();
+            setIsOpen(false);
+            setIsLoggingOut(false);
+            router.replace(loginUrl);
         }
     };
 
@@ -55,7 +65,8 @@ export function LogoutProvider({ children }: { children: ReactNode }) {
                         </Button>
                         <Button
                             type="button"
-                            onClick={logOut}
+                            onClick={() => void logOut()}
+                            disabled={isLoggingOut}
                             className="h-11 px-5 bg-error-600 hover:bg-error-700 text-white font-medium font-text rounded-button cursor-pointer transition-colors duration-300"
                         >
                             Yes, Logout

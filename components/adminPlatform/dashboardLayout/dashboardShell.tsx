@@ -10,11 +10,14 @@ import { AdminJobsProvider } from "./adminJobsContext";
 import { AdminManufacturersProvider } from "./adminManufacturersContext";
 import { AdminProfileProvider } from "./adminProfileContext";
 import { StaffPlatformProvider, type StaffPlatformKey } from "./staffPlatformContext";
+import SessionGuard from "./sessionGuard";
+import { ADMIN_LOGIN_URL, SUPER_ADMIN_LOGIN_URL } from "@/constant/navigation";
 import { SuperAdminSettingsProvider } from "@/components/superAdminPlatform/settingsContext";
 
 /**
  * The staff dashboard frame, for the admin or the super admin — sidebar and
- * top bar from lg up, top and bottom bars on phones.
+ * top bar from lg up, top and bottom bars on phones. Protected by SessionGuard
+ * so only authenticated users with the matching role can access.
  */
 export default function DashboardShell({
     platform = "admin",
@@ -34,7 +37,7 @@ export default function DashboardShell({
         </DashboardFrame>
     );
 
-    return (
+    const shell = (
         <StaffPlatformProvider platform={platform}>
             <LogoutProvider>
                 <AdminProfileProvider>
@@ -53,5 +56,17 @@ export default function DashboardShell({
                 </AdminProfileProvider>
             </LogoutProvider>
         </StaffPlatformProvider>
+    );
+
+    return platform === "super-admin" ? (
+        <SessionGuard role="super_admin" loginUrl={SUPER_ADMIN_LOGIN_URL}>
+            {shell}
+        </SessionGuard>
+    ) : platform === "admin" ? (
+        <SessionGuard role="admin" loginUrl={ADMIN_LOGIN_URL}>
+            {shell}
+        </SessionGuard>
+    ) : (
+        shell
     );
 }

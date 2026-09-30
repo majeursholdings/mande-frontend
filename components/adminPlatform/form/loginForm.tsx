@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useController, useForm, type Control } from "react-hook-form";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
@@ -10,8 +9,9 @@ import type { FormFieldConfig } from "@/components/form/types";
 import { validators } from "@/components/form/form.validators";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
-import { ADMIN_DASHBOARD_URL } from "@/constant/admin";
 import { ADMIN_FORGOT_PASSWORD_URL } from "@/constant/navigation";
+import { authService, type LoginMfaRequiredResponse, type PublicUser } from "@/lib/services/authService";
+import { MandeApiError } from "@/lib/types/api";
 import { FormSubmitButton } from "./formButtons";
 import { AUTH_FORM_FIELD_GAP } from "./styles";
 
@@ -46,32 +46,51 @@ const FIELDS: FormFieldConfig[] = [
     },
 ];
 
-/** Logging in to a staff platform — the admin's by default; the super admin's passes its own links. */
+/** What a failed log in says, by the API's error code. */
+function loginErrorMessage(error: unknown): string {
+    if (!(error instanceof MandeApiError)) return "Couldn't log you in. Please try again.";
+    if (error.status === 429) return "Too many tries. Please wait a few minutes and try again.";
+    if (error.status >= 400 && error.status < 500 && error.message) {
+        return error.message;
+    }
+    return "Couldn't log you in. Please try again.";
+}
+
+/**
+ * Logging in to a staff platform (the admin's, or the super admin's): the
+ * email and password go to the API. It either signs them in (`onSignedIn`)
+ * or asks for a code first (`onCodeRequired`: two-factor, or extra checks
+ * after wrong passwords). The page decides where each leads.
+ */
 export default function AdminLoginForm({
-    dashboardUrl = ADMIN_DASHBOARD_URL,
     forgotPasswordUrl = ADMIN_FORGOT_PASSWORD_URL,
+    role,
+    onSignedIn,
+    onCodeRequired,
 }: {
-    /** Where logging in lands. */
-    dashboardUrl?: string;
     forgotPasswordUrl?: string;
+    role?: "admin" | "super_admin";
+    onSignedIn: (user: PublicUser) => void;
+    onCodeRequired: (challenge: LoginMfaRequiredResponse, email: string) => void;
 }) {
-    const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<AdminLoginFormValues>({
         mode: "onTouched",
         defaultValues: ADMIN_LOGIN_DEFAULT_VALUES,
     });
 
-    const handleSubmit = async () => {
+    const handleSubmit = async ({ email, password, rememberMe }: AdminLoginFormValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate the request so the flow
-            // is testable end-to-end.
-            await new Promise((resolve) => setTimeout(resolve, 800));
-            toast.success("Logged in successfully");
-            router.push(dashboardUrl);
-        } catch {
-            toast.error("Invalid email or password");
+            const trimmedEmail = email.trim().toLowerCase();
+            const result = await authService.login({ email: trimmedEmail, password, rememberMe, role });
+            if ("mfaRequired" in result) {
+                onCodeRequired(result, trimmedEmail);
+                return;
+            }
+            onSignedIn(result.user);
+        } catch (error) {
+            toast.error(loginErrorMessage(error));
         } finally {
             setIsLoading(false);
         }

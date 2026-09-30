@@ -50,8 +50,8 @@ const DOCUMENT_LABELS: Record<ManufacturerDocument, string> = {
 export default function ManufacturerInfo({ manufacturer }: { manufacturer: ManufacturerRecord }) {
     const { decideVerification } = useAdminManufacturers();
     const [rejecting, setRejecting] = useState<ManufacturerDocument | null>(null);
-    const plan = getPricingPlan(manufacturer.subscription.planId);
-    const needsBusinessDocuments = requiresBusinessDocuments(manufacturer.subscription.planId);
+    const plan = getPricingPlan(manufacturer.subscription?.planId ?? "growth");
+    const needsBusinessDocuments = requiresBusinessDocuments(manufacturer.subscription?.planId ?? "growth");
     const specialities = manufacturer.specialities
         .map((value) => getOptionLabel(COMPANY_SPECIALITY_OPTIONS, value))
         .join(", ");
@@ -68,7 +68,7 @@ export default function ManufacturerInfo({ manufacturer }: { manufacturer: Manuf
     const documents: { document: ManufacturerDocument; value: ReactNode; verification: DocumentVerification | null }[] = [
         {
             document: "nin-card",
-            value: manufacturer.ninCard.imageUrl ? (
+            value: manufacturer.ninCard?.imageUrl ? (
                 <Link
                     href={manufacturer.ninCard.imageUrl}
                     target="_blank"
@@ -78,17 +78,17 @@ export default function ManufacturerInfo({ manufacturer }: { manufacturer: Manuf
                     <Image src={manufacturer.ninCard.imageUrl} alt="NIN card" fill unoptimized className="object-cover" />
                 </Link>
             ) : null,
-            verification: manufacturer.ninCard.imageUrl ? manufacturer.ninCard : null,
+            verification: manufacturer.ninCard?.imageUrl ? manufacturer.ninCard : null,
         },
         {
             document: "tax-number",
             value: manufacturer.companyTaxNumber || null,
-            verification: manufacturer.companyTaxNumber ? manufacturer.companyTaxNumberVerification : null,
+            verification: manufacturer.companyTaxNumber ? (manufacturer.companyTaxNumberVerification ?? null) : null,
         },
         {
             document: "business-license",
             value: manufacturer.businessLicenseNumber || null,
-            verification: manufacturer.businessLicenseNumber ? manufacturer.businessLicenseNumberVerification : null,
+            verification: manufacturer.businessLicenseNumber ? (manufacturer.businessLicenseNumberVerification ?? null) : null,
         },
     ];
 
@@ -204,10 +204,10 @@ export default function ManufacturerInfo({ manufacturer }: { manufacturer: Manuf
                         panel: (
                             <Panel>
                                 <FieldGrid>
-                                    <Field label="Street address">{manufacturer.address.streetAddress}</Field>
-                                    <Field label="City">{manufacturer.address.city}</Field>
-                                    <Field label="State">{manufacturer.address.state}</Field>
-                                    <Field label="Country">{getCountryName(manufacturer.address.country)}</Field>
+                                    <Field label="Street address">{manufacturer.address?.streetAddress || "—"}</Field>
+                                    <Field label="City">{manufacturer.address?.city || "—"}</Field>
+                                    <Field label="State">{manufacturer.address?.state || "—"}</Field>
+                                    <Field label="Country">{manufacturer.address?.country ? getCountryName(manufacturer.address.country) : "Nigeria"}</Field>
                                 </FieldGrid>
                             </Panel>
                         ),
@@ -220,12 +220,16 @@ export default function ManufacturerInfo({ manufacturer }: { manufacturer: Manuf
                                 <FieldGrid>
                                     <Field label="Plan">{plan?.name}</Field>
                                     <Field label="Billing">
-                                        {plan &&
+                                        {plan && manufacturer.subscription &&
                                             `${formatPrice(getPlanPrice(plan, manufacturer.subscription.billingCycle))} a ${
                                                 manufacturer.subscription.billingCycle === "annual" ? "year" : "month"
                                             }`}
                                     </Field>
-                                    <Field label="Renews on">{formatOrdinalDate(new Date(manufacturer.subscription.renewsAt))}</Field>
+                                    <Field label="Renews on">
+                                        {manufacturer.subscription?.renewsAt
+                                            ? formatOrdinalDate(new Date(manufacturer.subscription.renewsAt))
+                                            : "—"}
+                                    </Field>
                                     <Field label="Jobs at once">
                                         {plan ? (plan.maxConcurrentJobs === null ? "Unlimited" : String(plan.maxConcurrentJobs)) : null}
                                     </Field>

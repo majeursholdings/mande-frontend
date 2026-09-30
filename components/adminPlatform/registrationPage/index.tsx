@@ -3,11 +3,15 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import AdminRegistrationForm from "@/components/adminPlatform/form/registrationForm";
 import AdminVerifyEmailForm from "@/components/adminPlatform/form/verifyEmailForm";
 import { OTP_LENGTH } from "@/constant/global";
+import { queryKeys } from "@/lib/queryKeys";
+import type { PublicUser } from "@/lib/services/authService";
 import { ADMIN_AUTH, type AuthPlatform } from "../authPlatforms";
 import AuthScreenLayout from "../authScreenLayout";
+import { useRedirectIfAuthenticated } from "@/hooks/useAuthRedirect";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Staff sign-up (admin, or super admin with its `platform`) — two steps on
@@ -20,12 +24,21 @@ const LOGIN_LINK_CLASS = "ml-1 font-medium text-secondary-700 hover:underline cu
 
 export default function AdminRegistrationPage({ platform = ADMIN_AUTH }: { platform?: AuthPlatform }) {
     const router = useRouter();
+    const queryClient = useQueryClient();
+    useRedirectIfAuthenticated();
     // The address a code was sent to — null while still on the details step
     const [verifyingEmail, setVerifyingEmail] = useState<string | null>(null);
 
     const changeStep = (email: string | null) => {
         setVerifyingEmail(email);
         window.scrollTo({ top: 0 });
+    };
+
+    const handleVerified = (user?: PublicUser) => {
+        if (user) {
+            queryClient.setQueryData(queryKeys.auth.profile(), user);
+        }
+        router.push(platform.dashboardUrl);
     };
 
     return (
@@ -73,7 +86,7 @@ export default function AdminRegistrationPage({ platform = ADMIN_AUTH }: { platf
             {verifyingEmail && (
                 <AdminVerifyEmailForm
                     email={verifyingEmail}
-                    onVerified={() => router.push(platform.loginUrl)}
+                    onVerified={handleVerified}
                 />
             )}
         </AuthScreenLayout>

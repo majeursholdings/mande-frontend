@@ -7,6 +7,8 @@ import MainForm from "@/components/form";
 import OtpInput from "@/components/form/otpInput";
 import { useCountdown } from "@/hooks/useCountdown";
 import { OTP_LENGTH, OTP_RESEND_SECONDS } from "@/constant/global";
+import { authService, type PublicUser } from "@/lib/services/authService";
+import { MandeApiError } from "@/lib/types/api";
 import { FormSubmitButton } from "./formButtons";
 
 type AdminVerifyEmailFormValues = {
@@ -25,7 +27,7 @@ export default function AdminVerifyEmailForm({
 }: {
     /** Where the code was sent. */
     email: string;
-    onVerified: () => void;
+    onVerified: (user?: PublicUser) => void;
 }) {
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<AdminVerifyEmailFormValues>({ defaultValues: { otp: "" } });
@@ -41,22 +43,36 @@ export default function AdminVerifyEmailForm({
     const { secondsLeft, restart } = useCountdown(OTP_RESEND_SECONDS);
     const code = field.value ?? "";
 
-    const handleResend = () => {
+    const handleResend = async () => {
         if (secondsLeft > 0) return;
-        restart();
-        toast.success(`A new code was sent to ${email}`);
+        try {
+            const res = await authService.resendVerification(email);
+            restart();
+            toast.success(res.message || `A new code was sent to ${email}`);
+        } catch (error) {
+            toast.error(
+                error instanceof MandeApiError
+                    ? error.message
+                    : "Couldn't resend the code. Please try again."
+            );
+        }
     };
 
     const handleSubmit = async () => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate checking the code (any
-            // complete code passes) so the flow is testable end-to-end.
-            await new Promise((resolve) => setTimeout(resolve, 800));
-            toast.success("Email verified. Log in to continue.");
-            onVerified();
-        } catch {
-            toast.error("Couldn't verify the code. Please try again.");
+            const result = await authService.verifyEmail(email, code);
+            toast.success("Email verified successfully!");
+            onVerified(result.user);
+        } catch (error) {
+            methods.setValue("otp", "");
+            toast.error(
+                error instanceof MandeApiError && error.status === 429
+                    ? "Too many tries. Please wait a few minutes, then try again."
+                    : error instanceof MandeApiError && error.message
+                      ? error.message
+                      : "Couldn't verify the code. Please try again."
+            );
         } finally {
             setIsLoading(false);
         }

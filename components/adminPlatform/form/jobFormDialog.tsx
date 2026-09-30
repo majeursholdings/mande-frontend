@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fileRules";
+import { cleanupFormFieldUploads, clearFormUploadedFiles } from "@/components/form/fileInput";
 import { Button } from "@/components/ui/button";
 import {
     Dialog,
@@ -15,11 +16,17 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
+import { staffService } from "@/lib/services/staffService";
+import { getErrorMessage } from "@/lib/api";
+import { formatDuration } from "@/lib/date";
 import {
     ADMIN_POSITION_OPTIONS,
     JOB_DESCRIPTION_MAX_LENGTH,
     MAX_JOB_MANUFACTURERS,
-    PROJECT_LEADS,
+    registerProjectLeads,
+    getAllProjectLeads,
     formatJobCodeTimestamp,
     generateJobCode,
     getJobCategoryCode,
@@ -43,7 +50,6 @@ type DetailsValues = {
 };
 
 type ScheduleValues = {
-    startDate: string;
     dueDate: string;
     description: string;
 };
@@ -98,6 +104,29 @@ export default function JobFormDialog({
                 job?.manufacturerIds.includes(manufacturer.id) || !getAssignBlocker(manufacturer.id),
         )
         .map((manufacturer) => ({ label: manufacturer.companyName, value: manufacturer.id }));
+
+    const { data: leadsData } = useQuery({
+        queryKey: queryKeys.staff.projectLeads({ status: "active" }),
+        queryFn: async () => {
+            const data = await staffService.getProjectLeads({ status: "active" });
+            if (data?.projectLeads) {
+                registerProjectLeads(data.projectLeads);
+            }
+            return data;
+        },
+        staleTime: 60_000,
+    });
+
+    const activeProjectLeads =
+        leadsData?.projectLeads && leadsData.projectLeads.length > 0
+            ? leadsData.projectLeads
+            : getAllProjectLeads();
+
+    const projectLeadOptions = activeProjectLeads.map((lead: { id: string; name: string; position?: string | null }) => ({
+        label: `${lead.name} (${ADMIN_POSITION_OPTIONS.find((option) => option.value === lead.position)?.label ?? "Admin"})`,
+        value: lead.id,
+    }));
+
     const [step, setStep] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
     const [isDiscardOpen, setIsDiscardOpen] = useState(false);
@@ -121,17 +150,17 @@ export default function JobFormDialog({
     const schedule = useForm<ScheduleValues>({
         mode: "onTouched",
         defaultValues: {
-            startDate: job?.startDate ?? "",
             dueDate: job?.dueDate ?? "",
             description: job?.description ?? "",
         },
     });
     const attachments = useForm<AttachmentsValues>({ defaultValues: { documents: null, images: null } });
     const category = useWatch({ control: details.control, name: "category" });
-    const startDate = useWatch({ control: schedule.control, name: "startDate" });
+    const dueDate = useWatch({ control: schedule.control, name: "dueDate" });
     const documents = useWatch({ control: attachments.control, name: "documents" });
     const images = useWatch({ control: attachments.control, name: "images" });
     const newFileCount = fileCount(documents) + fileCount(images);
+    const relativeDuration = dueDate ? formatDuration(new Date(), new Date(dueDate)) : null;
 
     const isDirty =
         details.formState.isDirty ||
@@ -179,10 +208,7 @@ export default function JobFormDialog({
                       label: "Project lead",
                       placeholder: "Select an admin",
                       description: "The admin who reviews the work and looks after this job.",
-                      options: PROJECT_LEADS.map((lead) => ({
-                          label: `${lead.name} (${ADMIN_POSITION_OPTIONS.find((option) => option.value === lead.position)?.label ?? "Admin"})`,
-                          value: lead.id,
-                      })),
+                      options: projectLeadOptions,
                       validation: { required: "Pick the admin who'll lead this job" },
                   } satisfies FormFieldConfig,
               ]
@@ -209,23 +235,13 @@ export default function JobFormDialog({
 
     const scheduleFields: FormFieldConfig[] = [
         {
-            name: "startDate",
-            type: "date",
-            label: labelWithNote("Start date", "optional"),
-            placeholder: "Pick a date",
-        },
-        {
             name: "dueDate",
             type: "date",
             label: "End date",
-            placeholder: "Pick a date",
-            minDate: startDate || undefined,
+            placeholder: "Pick an end date",
+            minDate: new Date(),
             validation: {
                 required: "End date is required",
-                validate: (value: string) =>
-                    !startDate ||
-                    new Date(value) >= new Date(startDate) ||
-                    "End date can't be before the start date",
             },
         },
         {
@@ -253,6 +269,8 @@ export default function JobFormDialog({
             description: `PDF or Word, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
             multiple: true,
             maxFiles: 5,
+            uploadCategory: "jobcreation",
+            uploadVisibility: "private",
         },
         {
             name: "images",
@@ -261,45 +279,65 @@ export default function JobFormDialog({
             description: `Images only, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
             multiple: true,
             maxFiles: 10,
+            uploadCategory: "jobcreation",
+            uploadVisibility: "public",
         },
     ];
 
     const save = async () => {
         setIsSaving(true);
         try {
-            // No backend is wired up yet — simulate the upload and save. New
-            // files show from local object URLs until the API returns real ones.
-            await new Promise((resolve) => setTimeout(resolve, 800));
             const detailsValues = details.getValues();
             const scheduleValues = schedule.getValues();
-            const upload = (files: FileList | File[] | null, kind: AdminJobAttachment["kind"]) =>
-                Array.from(files ?? []).map((file) => ({ name: file.name, url: URL.createObjectURL(file), kind }));
+            const upload = (files: unknown, kind: AdminJobAttachment["kind"]) =>
+                Array.from((files as Array<Record<string, unknown> | File>) ?? []).map((file) => {
+                    if (file && typeof file === "object" && "url" in file && typeof file.url === "string") {
+                        const f = file as { name?: string; originalName?: string; url: string; publicId?: string };
+                        return {
+                            name: f.originalName || f.name || "attachment",
+                            url: f.url,
+                            kind,
+                            publicId: f.publicId,
+                        };
+                    }
+                    if (file instanceof File) {
+                        return { name: file.name, url: URL.createObjectURL(file), kind };
+                    }
+                    return { name: "attachment", url: "", kind };
+                });
             const draft = {
                 title: detailsValues.title.trim(),
                 category: detailsValues.category,
                 manufacturerIds: detailsValues.manufacturerIds,
                 amount: Number(detailsValues.amount),
-                startDate: scheduleValues.startDate || null,
+                startDate: job?.startDate ?? null,
                 dueDate: scheduleValues.dueDate,
                 description: scheduleValues.description.trim(),
-                ...(picksLead && { projectLeadIds: [detailsValues.projectLeadId] }),
+                ...(picksLead && detailsValues.projectLeadId ? { projectLeadIds: [detailsValues.projectLeadId] } : {}),
                 attachments: [
                     ...keptAttachments,
                     ...upload(attachments.getValues("documents"), "document"),
                     ...upload(attachments.getValues("images"), "image"),
                 ],
             };
-            const leadName = PROJECT_LEADS.find((lead) => lead.id === detailsValues.projectLeadId)?.name;
+            const leadName = activeProjectLeads.find((lead: { id: string; name: string }) => lead.id === detailsValues.projectLeadId)?.name;
             if (job) {
-                updateJob(job.id, draft);
+                await updateJob(job.id, draft);
                 toast.success("Job updated successfully");
             } else {
-                createJob(draft, generateJobCode(draft.category, namedAt ?? new Date()));
+                await createJob(draft, generateJobCode(draft.category, namedAt ?? new Date()));
                 toast.success(picksLead && leadName ? `Job created and assigned to ${leadName}` : "Job created successfully");
             }
+            clearFormUploadedFiles("documents");
+            clearFormUploadedFiles("images");
             onClose();
-        } catch {
-            toast.error(`Couldn't ${isEditing ? "update" : "create"} the job. Please try again.`);
+        } catch (err: unknown) {
+            await Promise.allSettled([
+                cleanupFormFieldUploads("documents"),
+                cleanupFormFieldUploads("images"),
+            ]);
+            const errorMsg = getErrorMessage(err, `Couldn't ${isEditing ? "update" : "create"} the job. Please try again.`);
+            toast.error(errorMsg);
         } finally {
             setIsSaving(false);
         }
@@ -361,14 +399,37 @@ export default function JobFormDialog({
                     )}
 
                     {step === 1 && (
-                        <MainForm<ScheduleValues>
-                            methods={schedule}
-                            fields={scheduleFields}
-                            rowPairs={[["startDate", "dueDate"]]}
-                            hideRequiredMarks
-                            onSubmit={() => setStep(2)}
-                            renderFooter={({ canSubmit }) => footer({ canContinue: canSubmit, isLast: false })}
-                        />
+                        <div className="flex flex-col gap-4">
+                            {dueDate && (
+                                <div className="rounded-lg border border-primary-100 bg-primary-50/60 p-3.5 flex flex-col gap-1 text-xs font-text">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-mist-600 font-medium">Estimated project duration:</span>
+                                        <span className="font-semibold text-primary-700 font-text text-sm">
+                                            {relativeDuration}
+                                        </span>
+                                    </div>
+                                    <p className="text-mist-500 text-[11px] leading-relaxed">
+                                        Note: The duration starts counting from when the manufacturer accepts the job.
+                                    </p>
+                                </div>
+                            )}
+                            <MainForm<ScheduleValues>
+                                methods={schedule}
+                                fields={scheduleFields}
+                                hideRequiredMarks
+                                onSubmit={() => setStep(2)}
+                                renderFooter={({ canSubmit }) => (
+                                    <div className="flex flex-col gap-3">
+                                        {!dueDate && (
+                                            <p className="text-[11px] font-text text-mist-500 italic">
+                                                Select an end date to calculate duration. Note: The duration starts counting from when the manufacturer accepts the job.
+                                            </p>
+                                        )}
+                                        {footer({ canContinue: canSubmit, isLast: false })}
+                                    </div>
+                                )}
+                            />
+                        </div>
                     )}
 
                     {step === 2 && (

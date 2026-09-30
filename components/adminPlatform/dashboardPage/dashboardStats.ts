@@ -264,6 +264,7 @@ export function getPendingProgressReviews(jobs: AdminJob[]): PendingProgressRevi
                     {
                         id: `review-${job.id}`,
                         jobId: job.id,
+                        jobCode: job.code,
                         jobTitle: job.title,
                         manufacturerName: manufacturerName(job),
                         imageUrl: job.completionImageUrls[0],
@@ -280,6 +281,7 @@ export function getPendingProgressReviews(jobs: AdminJob[]): PendingProgressRevi
                           {
                               id: `review-${job.id}-${submission.step}`,
                               jobId: job.id,
+                              jobCode: job.code,
                               jobTitle: job.title,
                               manufacturerName: manufacturerName(job),
                               imageUrl: submission.imageUrls[0],

@@ -25,6 +25,7 @@ function Countdown({ job, className }: { job: AdminJob; className?: string }) {
  */
 export default function JobsTable({
     jobs,
+    loading = false,
     pagination,
     page,
     onPageChange,
@@ -32,6 +33,7 @@ export default function JobsTable({
 }: {
     /** The jobs on this page. */
     jobs: AdminJob[];
+    loading?: boolean;
     pagination: PaginationMeta;
     page: number;
     onPageChange: (page: number) => void;
@@ -49,7 +51,7 @@ export default function JobsTable({
                         onClick={(event) => {
                             // The row handles the click; this is for keyboards
                             event.stopPropagation();
-                            onOpenJob(job.id);
+                            onOpenJob(job.code ? job.code.toLowerCase() : job.id);
                         }}
                         className="text-left outline-none hover:underline focus-visible:underline"
                     >
@@ -105,10 +107,11 @@ export default function JobsTable({
             tableId="admin-jobs"
             columns={columns}
             rows={jobs}
-            pagination={pagination}
+            loading={loading}
+            pagination={loading ? undefined : pagination}
             page={page}
             onPageChange={onPageChange}
-            onRowClick={(job) => onOpenJob(job.id)}
+            onRowClick={(job) => onOpenJob(job.code ? job.code.toLowerCase() : job.id)}
             showIndex
         />
     );

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fileRules";
+import { cleanupFormFieldUploads, clearFormUploadedFiles } from "@/components/form/fileInput";
 import { Button } from "@/components/ui/button";
 import type { AdminJobAttachment } from "@/constant/admin";
 import { FormSubmitButton } from "./formButtons";
@@ -46,6 +47,8 @@ const FIELDS: FormFieldConfig[] = [
         description: `Screenshots or photos that back it up — images only, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
         multiple: true,
         maxFiles: 5,
+        uploadCategory: "deletionRequest",
+        uploadVisibility: "private",
     },
     {
         name: "documents",
@@ -54,6 +57,8 @@ const FIELDS: FormFieldConfig[] = [
         description: `PDF or Word, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
         multiple: true,
         maxFiles: 5,
+        uploadCategory: "deletionRequest",
+        uploadVisibility: "private",
     },
 ];
 
@@ -77,16 +82,34 @@ export default function RequestDeletionForm({
     const handleSubmit = async ({ reason, photos, documents }: RequestDeletionValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate the upload. Files show
-            // from local object URLs until the API returns real ones.
             await new Promise((resolve) => setTimeout(resolve, 800));
-            const upload = (files: FileList | File[] | null, kind: AdminJobAttachment["kind"]) =>
-                Array.from(files ?? []).map((file) => ({ name: file.name, url: URL.createObjectURL(file), kind }));
+            const upload = (files: unknown, kind: AdminJobAttachment["kind"]) =>
+                Array.from((files as Array<Record<string, unknown> | File>) ?? []).map((file) => {
+                    if (file && typeof file === "object" && "url" in file && typeof file.url === "string") {
+                        const f = file as { name?: string; originalName?: string; url: string; publicId?: string };
+                        return {
+                            name: f.originalName || f.name || "attachment",
+                            url: f.url,
+                            kind,
+                            publicId: f.publicId,
+                        };
+                    }
+                    if (file instanceof File) {
+                        return { name: file.name, url: URL.createObjectURL(file), kind };
+                    }
+                    return { name: "attachment", url: "", kind };
+                });
             onRequest({
                 reason: reason.trim(),
                 attachments: [...upload(photos, "image"), ...upload(documents, "document")],
             });
+            clearFormUploadedFiles("photos");
+            clearFormUploadedFiles("documents");
         } catch {
+            await Promise.allSettled([
+                cleanupFormFieldUploads("photos"),
+                cleanupFormFieldUploads("documents"),
+            ]);
             toast.error("Couldn't send the deletion request. Please try again.");
         } finally {
             setIsLoading(false);

@@ -8,6 +8,8 @@ import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { isPhoneNumber, validators } from "@/components/form/form.validators";
 import { ADMIN_EMAIL_DOMAIN, ADMIN_POSITION_OPTIONS } from "@/constant/admin";
+import { authService } from "@/lib/services/authService";
+import { MandeApiError } from "@/lib/types/api";
 import { FormSubmitButton } from "./formButtons";
 import { AUTH_FORM_FIELD_GAP } from "./styles";
 
@@ -127,17 +129,50 @@ export default function AdminRegistrationForm({
     ];
     const fields = asksForPosition ? allFields : allFields.filter((field) => field.name !== "position");
 
-    const handleSubmit = async ({ email }: AdminRegistrationFormValues) => {
+    const handleSubmit = async (values: AdminRegistrationFormValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate creating the account and
-            // sending the code so the flow is testable end-to-end.
-            await new Promise((resolve) => setTimeout(resolve, 800));
-            const trimmedEmail = email.trim();
-            toast.success(`We sent a verification code to ${trimmedEmail}`);
+            const trimmedEmail = values.email.trim().toLowerCase();
+            const res = await authService.registerStaff({
+                firstName: values.firstName.trim(),
+                lastName: values.lastName.trim(),
+                email: trimmedEmail,
+                phone: values.phone.trim(),
+                position: values.position,
+                password: values.password,
+            });
+            toast.success(res.message || `We sent a verification code to ${trimmedEmail}`);
             onCodeSent(trimmedEmail);
-        } catch {
-            toast.error("Couldn't create your account. Please try again.");
+        } catch (error) {
+            const details =
+                error instanceof MandeApiError && error.details && !Array.isArray(error.details)
+                    ? (error.details as Record<string, string[]>)
+                    : null;
+            if (error instanceof MandeApiError && error.status === 422 && details) {
+                const fieldNames: (keyof AdminRegistrationFormValues)[] = [
+                    "firstName",
+                    "lastName",
+                    "email",
+                    "phone",
+                    "position",
+                    "password",
+                ];
+                for (const name of fieldNames) {
+                    const messages = details[name];
+                    if (Array.isArray(messages) && messages[0]) {
+                        methods.setError(name, { message: String(messages[0]) });
+                    }
+                }
+                toast.error("Some fields need attention.");
+                return;
+            }
+            toast.error(
+                error instanceof MandeApiError && error.status === 429
+                    ? "Too many tries. Please wait a few minutes and try again."
+                    : error instanceof MandeApiError && error.message
+                      ? error.message
+                      : "Couldn't create your account. Please try again."
+            );
         } finally {
             setIsLoading(false);
         }

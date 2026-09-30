@@ -12,7 +12,7 @@ export default function NotificationsPanel({
     onLinkClick?: () => void;
     className?: string;
 }) {
-    const { notifications, hasUnread, markAllAsRead } = useNotifications();
+    const { notifications, hasUnread, markAllAsRead, markAsRead } = useNotifications();
 
     return (
         <NotificationsList
@@ -34,6 +34,7 @@ export default function NotificationsPanel({
             }))}
             hasUnread={hasUnread}
             onMarkAllAsRead={markAllAsRead}
+            onMarkAsRead={markAsRead}
             onLinkClick={onLinkClick}
             className={className}
         />

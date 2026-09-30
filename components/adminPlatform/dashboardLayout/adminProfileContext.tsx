@@ -1,7 +1,8 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import type { AdminProfile } from "@/constant/admin";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useStaffPlatform } from "./staffPlatformContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -10,9 +11,7 @@ import { useStaffPlatform } from "./staffPlatformContext";
 // settings and security, so a saved change (a phone number, a photo,
 // two-factor) shows everywhere at once. Their email isn't in `updateProfile`,
 // and an admin's name is only changed by a super admin (a super admin can
-// change their own, from Edit profile). Seeded from sample
-// data and updated locally for now; once the backend is connected, load the
-// profile from the API and persist updates there.
+// change their own, from Edit profile).
 // ─────────────────────────────────────────────────────────────────────────────
 
 type EditableProfile = Pick<
@@ -31,10 +30,40 @@ const AdminProfileContext = createContext<AdminProfileContextValue | null>(null)
 
 export function AdminProfileProvider({ children }: { children: ReactNode }) {
     const { profile: initialProfile } = useStaffPlatform();
-    const [profile, setProfile] = useState(initialProfile);
+    const { data: currentUser } = useCurrentUser();
+    const [overrides, setOverrides] = useState<Partial<EditableProfile>>({});
+
+    const profile = useMemo(() => {
+        const p = (currentUser?.profile || {}) as {
+            firstName?: string;
+            lastName?: string;
+            phone?: string;
+            position?: string;
+            avatar?: string | { url?: string | null } | null;
+            avatarUrl?: string | null;
+            notificationPreferences?: AdminProfile["notificationPreferences"];
+        };
+        const resolvedAvatarUrl =
+            overrides.avatarUrl !== undefined
+                ? overrides.avatarUrl
+                : p.avatarUrl ?? (typeof p.avatar === "string" ? p.avatar : p.avatar?.url) ?? initialProfile.avatarUrl;
+        return {
+            ...initialProfile,
+            firstName: overrides.firstName ?? p.firstName ?? initialProfile.firstName,
+            lastName: overrides.lastName ?? p.lastName ?? initialProfile.lastName,
+            email: currentUser?.email ?? initialProfile.email,
+            phone: overrides.phone ?? p.phone ?? initialProfile.phone,
+            position: ((p.position as AdminProfile["position"]) ?? initialProfile.position),
+            avatarUrl: resolvedAvatarUrl,
+            security: {
+                twoFactorMethod: currentUser?.twoFactorMethod ?? initialProfile.security?.twoFactorMethod,
+            },
+            notificationPreferences: overrides.notificationPreferences ?? p.notificationPreferences ?? initialProfile.notificationPreferences,
+        };
+    }, [initialProfile, currentUser, overrides]);
 
     const updateProfile = (changes: Partial<EditableProfile>) =>
-        setProfile((current) => ({ ...current, ...changes }));
+        setOverrides((current) => ({ ...current, ...changes }));
 
     return (
         <AdminProfileContext.Provider

@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
     ADMIN_DASHBOARD_URL,
     ADMIN_JOBS_URL,
@@ -165,7 +166,20 @@ const STAFF_PLATFORMS: Record<StaffPlatformKey, StaffPlatform> = {
 const StaffPlatformContext = createContext<StaffPlatform>(STAFF_PLATFORMS.admin);
 
 export function StaffPlatformProvider({ platform, children }: { platform: StaffPlatformKey; children: ReactNode }) {
-    return <StaffPlatformContext.Provider value={STAFF_PLATFORMS[platform]}>{children}</StaffPlatformContext.Provider>;
+    const { data: currentUser } = useCurrentUser();
+    const currentUserId = currentUser?.id;
+    const config = useMemo(() => {
+        const base = STAFF_PLATFORMS[platform];
+        if (platform === "admin" && currentUserId) {
+            return {
+                ...base,
+                leadId: currentUserId,
+            };
+        }
+        return base;
+    }, [platform, currentUserId]);
+
+    return <StaffPlatformContext.Provider value={config}>{children}</StaffPlatformContext.Provider>;
 }
 
 /** The staff platform the page is on — the admin's outside a StaffPlatformProvider. */

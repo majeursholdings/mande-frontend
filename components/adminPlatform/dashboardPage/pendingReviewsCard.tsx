@@ -78,7 +78,7 @@ function ReviewRow({ review, jobsUrl }: { review: PendingProgressReview; jobsUrl
                         </p>
                     </div>
                     <Link
-                        href={`${jobsUrl}?job=${review.jobId}`}
+                        href={`${jobsUrl}?job=${encodeURIComponent((review.jobCode || review.jobId).toLowerCase())}`}
                         aria-label={`Review ${review.jobTitle}`}
                         className="shrink-0 rounded-button border border-border px-3 py-1.5 text-xs font-medium font-text text-mist-900 transition-colors duration-200 hover:border-secondary-300 hover:bg-secondary-50 hover:text-secondary-700"
                     >

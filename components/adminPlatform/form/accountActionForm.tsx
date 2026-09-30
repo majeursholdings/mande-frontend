@@ -20,11 +20,11 @@ const REASON_MAX_LENGTH = 300;
  * something away from the manufacturer, never for giving it back.
  */
 const ACTIONS = {
-    flag: { submitLabel: "Flag manufacturer", loadingLabel: "Flagging...", noteLabel: "Reason", confirm: true },
-    suspend: { submitLabel: "Suspend manufacturer", loadingLabel: "Suspending...", noteLabel: "Reason", confirm: true },
-    "lift-flag": { submitLabel: "Lift flag", loadingLabel: "Lifting...", noteLabel: "Note", confirm: false },
-    "lift-suspension": { submitLabel: "Lift suspension", loadingLabel: "Lifting...", noteLabel: "Note", confirm: false },
-    "approve-appeal": { submitLabel: "Approve appeal", loadingLabel: "Approving...", noteLabel: "Note", confirm: false },
+    flag: { submitLabel: "Flag manufacturer", loadingLabel: "Flagging...", noteLabel: "Reason", confirm: true, reasonRequired: true },
+    suspend: { submitLabel: "Suspend manufacturer", loadingLabel: "Suspending...", noteLabel: "Reason", confirm: true, reasonRequired: true },
+    "lift-flag": { submitLabel: "Lift flag", loadingLabel: "Lifting...", noteLabel: "Note", confirm: false, reasonRequired: false },
+    "lift-suspension": { submitLabel: "Lift suspension", loadingLabel: "Lifting...", noteLabel: "Note", confirm: false, reasonRequired: false },
+    "approve-appeal": { submitLabel: "Approve appeal", loadingLabel: "Approving...", noteLabel: "Note", confirm: false, reasonRequired: false },
 } as const;
 
 export type AccountAction = keyof typeof ACTIONS;
@@ -50,7 +50,7 @@ export default function AccountActionForm({
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<AccountActionValues>({ mode: "onChange", defaultValues: { reason: "", confirmation: "" } });
     const phrase = fullName.toUpperCase();
-    const { confirm, noteLabel } = ACTIONS[action];
+    const { confirm, noteLabel, reasonRequired } = ACTIONS[action];
     // Off until the name is typed exactly, not just typed
     const typed = useWatch({ control: methods.control, name: "confirmation" });
     const isConfirmed = !confirm || typed?.trim() === phrase;
@@ -62,14 +62,19 @@ export default function AccountActionForm({
             label: (
                 <>
                     {noteLabel}{" "}
-                    <span className="font-normal text-mist-400">
-                        (optional)
-                    </span>
+                    {!reasonRequired && (
+                        <span className="font-normal text-mist-400">
+                            (optional)
+                        </span>
+                    )}
                 </>
             ),
             placeholder: "Why — the manufacturer will see this",
             height: 120,
             validation: {
+                ...(reasonRequired
+                    ? { required: "Say why — the manufacturer sees it" }
+                    : {}),
                 maxLength: {
                     value: REASON_MAX_LENGTH,
                     message: `Keep it under ${REASON_MAX_LENGTH} characters`,

@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowLeft, ChevronDown, Flag, Hourglass, MailQuestion, OctagonPause, ReceiptText, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatOrdinalDate, getRelativeTimeLabel } from "@/lib/date";
+import { queryKeys } from "@/lib/queryKeys";
+import { manufacturerService } from "@/lib/services/manufacturerService";
+import { registerManufacturers } from "@/constant/admin";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import ProfileCard from "@/components/manufacturerPlatform/profilePage/profileCard";
 import ResponsiveTabs from "@/components/ui/responsiveTabs";
@@ -47,20 +51,91 @@ import ManufacturerReports from "./manufacturerReports";
 
 type DetailTab = "jobs" | "transactions" | "reports" | "info" | "history";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AdminManufacturerDetailPage — one manufacturer, as their own profile page
-// lays it out: their card and the plan they're on, beside their jobs,
-// transactions, job reports and support feedback, everything they told
-// Mande, and the account's history —
-// what they changed on it, and its flags and suspensions. From here an
-// admin flags or suspends them, lifts a flag or suspension, answers their
-// appeal, or asks a super admin to delete the account — but doesn't hand out
-// jobs. A super admin deletes the account, or turns an admin's request down.
-// ─────────────────────────────────────────────────────────────────────────────
+function ManufacturerDetailSkeleton() {
+    return (
+        <div className="flex flex-col gap-6" aria-busy="true" aria-label="Loading manufacturer details">
+            {/* Top header skeleton */}
+            <div className="flex flex-wrap items-end justify-between gap-4">
+                <div className="flex flex-col gap-2">
+                    <div className="h-4 w-28 rounded bg-gray-300 animate-pulse" />
+                    <div className="h-8 w-64 rounded-md bg-gray-300 animate-pulse" />
+                </div>
+                <div className="h-9 w-32 rounded-lg bg-gray-300 animate-pulse" />
+            </div>
+
+            {/* Layout skeleton */}
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+                {/* Left column */}
+                <div className="flex flex-col gap-6 lg:w-65 lg:shrink-0">
+                    {/* Profile Card */}
+                    <div className="flex flex-col items-center gap-4 rounded-xl border border-border bg-white p-5">
+                        <div className="size-20 rounded-full bg-gray-300 animate-pulse" />
+                        <div className="flex flex-col items-center gap-1.5 w-full">
+                            <div className="h-5 w-36 rounded bg-gray-300 animate-pulse" />
+                            <div className="h-4 w-28 rounded bg-gray-300 animate-pulse" />
+                        </div>
+                        <div className="h-6 w-24 rounded-full bg-gray-300 animate-pulse mt-1" />
+                        <div className="w-full border-t border-border pt-4 flex flex-col gap-3">
+                            <div className="flex justify-between items-center">
+                                <div className="h-3 w-16 rounded bg-gray-300 animate-pulse" />
+                                <div className="h-3 w-24 rounded bg-gray-300 animate-pulse" />
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <div className="h-3 w-14 rounded bg-gray-300 animate-pulse" />
+                                <div className="h-3 w-28 rounded bg-gray-300 animate-pulse" />
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <div className="h-3 w-12 rounded bg-gray-300 animate-pulse" />
+                                <div className="h-3 w-20 rounded bg-gray-300 animate-pulse" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Plan Card */}
+                    <div className="flex flex-col gap-4 rounded-xl border border-border bg-white p-5">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex flex-col gap-1.5">
+                                <div className="h-3 w-20 rounded bg-gray-300 animate-pulse" />
+                                <div className="h-5 w-28 rounded bg-gray-300 animate-pulse" />
+                            </div>
+                            <div className="h-5 w-16 rounded-full bg-gray-300 animate-pulse" />
+                        </div>
+                        <div className="h-7 w-32 rounded bg-gray-300 animate-pulse" />
+                        <div className="h-4 w-36 rounded bg-gray-300 animate-pulse" />
+                    </div>
+                </div>
+
+                {/* Right column: Tabs & Content */}
+                <div className="min-w-0 flex-1 flex flex-col gap-6">
+                    {/* Tab pills */}
+                    <div className="flex flex-wrap gap-2 border-b border-border pb-2.5">
+                        <div className="h-8 w-20 rounded-lg bg-gray-300 animate-pulse" />
+                        <div className="h-8 w-28 rounded-lg bg-gray-300 animate-pulse" />
+                        <div className="h-8 w-20 rounded-lg bg-gray-300 animate-pulse" />
+                        <div className="h-8 w-24 rounded-lg bg-gray-300 animate-pulse" />
+                        <div className="h-8 w-32 rounded-lg bg-gray-300 animate-pulse" />
+                        <div className="h-8 w-32 rounded-lg bg-gray-300 animate-pulse" />
+                    </div>
+
+                    {/* Tab panel card */}
+                    <div className="flex flex-col gap-4 rounded-xl border border-border bg-white p-6">
+                        <div className="flex justify-between items-center mb-2">
+                            <div className="h-5 w-36 rounded bg-gray-300 animate-pulse" />
+                            <div className="h-8 w-28 rounded-lg bg-gray-300 animate-pulse" />
+                        </div>
+                        <div className="h-20 w-full rounded-lg bg-gray-300 animate-pulse" />
+                        <div className="h-20 w-full rounded-lg bg-gray-300 animate-pulse" />
+                        <div className="h-20 w-full rounded-lg bg-gray-300 animate-pulse" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export default function AdminManufacturerDetailPage({ manufacturerId }: { manufacturerId: string }) {
     const router = useRouter();
-    const { getManufacturer } = useAdminManufacturers();
+    const { getManufacturer, isLoading: isContextLoading } = useAdminManufacturers();
     const { jobs: allJobs } = useAdminJobs();
     const { jobsUrl, manufacturersUrl } = useStaffPlatform();
     const [action, setAction] = useState<ManufacturerAction | null>(null);
@@ -68,7 +143,96 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
         appeal: AccountAppealRecord;
         decision: "approved" | "declined";
     } | null>(null);
-    const manufacturer = getManufacturer(manufacturerId);
+
+    const { data: detailData, isLoading: isDetailLoading } = useQuery({
+        queryKey: queryKeys.manufacturers.detail(manufacturerId),
+        queryFn: () => manufacturerService.getStaffManufacturer(manufacturerId),
+        staleTime: 10_000,
+        retry: 1,
+    });
+
+    const contextManufacturer = getManufacturer(manufacturerId);
+    const manufacturer = useMemo(() => {
+        const raw = detailData?.manufacturer;
+        if (raw) {
+            const fromApi: Partial<ManufacturerRecord> & { id: string } = {
+                id: raw.id,
+                companyName: raw.companyName,
+                firstName: raw.firstName,
+                lastName: raw.lastName,
+                contactName: `${raw.firstName ?? ""} ${raw.lastName ?? ""}`.trim() || raw.companyName,
+                email: raw.email ?? "",
+                phone: raw.phone ?? "",
+                dateOfBirth: raw.dateOfBirth,
+                avatarUrl: raw.avatar?.url ?? null,
+                joinedAt: raw.joinedAt,
+                address: raw.address ?? { streetAddress: "", city: "", state: "", country: "NG" },
+                specialities: raw.specialities ?? [],
+                staffRange: raw.staffRange ?? "",
+                productionLeadTime: raw.productionLeadTime ?? "",
+                materialsInventory: raw.materialsInventory ?? "",
+                accountStatus: raw.accountStatus ?? "active",
+                ninCard: raw.kyc?.nin
+                    ? {
+                          imageUrl: raw.kyc.nin.image?.url ?? "",
+                          status: raw.kyc.nin.status ?? "pending",
+                          rejectionReason: raw.kyc.nin.rejectionReason ?? null,
+                      }
+                    : { imageUrl: "", status: "pending", rejectionReason: null },
+                companyTaxNumber: raw.kyc?.companyTaxNumber?.value ?? "",
+                companyTaxNumberVerification: {
+                    status: raw.kyc?.companyTaxNumber?.status ?? "pending",
+                    rejectionReason: raw.kyc?.companyTaxNumber?.rejectionReason ?? null,
+                },
+                businessLicenseNumber: raw.kyc?.businessLicenseNumber?.value ?? "",
+                businessLicenseNumberVerification: {
+                    status: raw.kyc?.businessLicenseNumber?.status ?? "pending",
+                    rejectionReason: raw.kyc?.businessLicenseNumber?.rejectionReason ?? null,
+                },
+                statusHistory: (raw.statusHistory ?? []).map((s: { status: "active" | "flagged" | "suspended"; reason?: string | null; by?: string; byName?: string; at?: string }) => ({
+                    status: s.status,
+                    reason: s.reason ?? null,
+                    by: s.by || s.byName || "Admin",
+                    at: s.at ? new Date(s.at).toISOString() : new Date().toISOString(),
+                })),
+                appeals: (raw.appeals ?? []).map((a: { id: string; message: string; attachments?: unknown[]; sentAt?: string; status: "pending" | "approved" | "declined"; response?: string | null; decidedBy?: string; decidedByName?: string; decidedAt?: string | null }) => ({
+                    id: a.id,
+                    message: a.message,
+                    attachments: a.attachments ?? [],
+                    sentAt: a.sentAt ? new Date(a.sentAt).toISOString() : new Date().toISOString(),
+                    status: a.status,
+                    response: a.response ?? null,
+                    decidedBy: a.decidedByName || a.decidedBy || null,
+                    decidedAt: a.decidedAt ? new Date(a.decidedAt).toISOString() : null,
+                })),
+                deletionRequest: raw.deletionRequest
+                    ? {
+                          reason: raw.deletionRequest.reason,
+                          attachments: raw.deletionRequest.attachments ?? [],
+                          requestedBy: raw.deletionRequest.requestedBy || raw.deletionRequest.requestedByName || "Admin",
+                          requestedAt: String(raw.deletionRequest.requestedAt),
+                      }
+                    : null,
+                subscription: raw.plan
+                    ? {
+                          planId: raw.plan.planId,
+                          billingCycle: raw.plan.billingCycle === "yearly" ? "annual" : "monthly",
+                          renewsAt: raw.plan.renewsAt ?? new Date().toISOString(),
+                          renewalsPaidFrom: raw.plan.renewalsPaidFrom ?? "wallet",
+                      }
+                    : undefined,
+            };
+            registerManufacturers([fromApi]);
+            return getManufacturer(manufacturerId) || (fromApi as unknown as ManufacturerRecord);
+        }
+        return contextManufacturer;
+    }, [detailData, contextManufacturer, manufacturerId, getManufacturer]);
+
+    const isInitialLoading = (isContextLoading || isDetailLoading) && !manufacturer;
+
+    if (isInitialLoading) {
+        return <ManufacturerDetailSkeleton />;
+    }
 
     if (!manufacturer) {
         return (
@@ -122,7 +286,7 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
                                 panel: (
                                     <ActiveJobsPanel
                                         jobs={jobs}
-                                        getJobHref={(job) => `${jobsUrl}?job=${job.id}`}
+                                        getJobHref={(job) => `${jobsUrl}?job=${encodeURIComponent(job.code ? job.code.toLowerCase() : job.id)}`}
                                         emptyDescription="Jobs offered to this manufacturer will show up here."
                                     />
                                 ),

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Check, CircleAlert, Copy, Ellipsis, PauseCircle, PhoneCall, Pencil, Repeat, Trash2, X, XIcon } from "lucide-react";
+import { Check, CircleAlert, Copy, Ellipsis, Loader2, PauseCircle, PhoneCall, Pencil, Repeat, Trash2, X, XIcon } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
 import { formatDuration, formatOrdinalDate, getTimeUntilLabel } from "@/lib/date";
@@ -21,6 +22,7 @@ import {
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import {
     MAX_ADMIN_JOB_REJECTIONS,
+    getAdminJobPayments,
     getAdminManufacturer,
     getJobCountdownLabel,
     getProjectLead,
@@ -121,17 +123,43 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
     } = useAdminJobs();
     const platform = useStaffPlatform();
     const { fullName } = useAdminProfile();
-    const { getAssignBlocker } = useAdminManufacturers();
+    const { getAssignBlocker, getManufacturer } = useAdminManufacturers();
     const [dialog, setDialog] = useState<JobDialog>(null);
     const [isScrolled, setIsScrolled] = useState(false);
     /** The step whose proof is being sent back, while its dialog is open. */
     const [sendingBack, setSendingBack] = useState<ProductionStepKey | null>(null);
+    /** The step whose proof is being approved, while its dialog is open. */
+    const [approvingStep, setApprovingStep] = useState<ProductionStepKey | null>(null);
+    const [isApprovingStep, setIsApprovingStep] = useState(false);
     const closeDialog = () => setDialog(null);
+
+    const approvingStepConfig = JOB_PRODUCTION_STEPS.find((step) => step.key === approvingStep);
+    const approvingSubmission = approvingStep
+        ? job.stepSubmissions.filter((sub) => sub.step === approvingStep).at(-1)
+        : undefined;
+    const { payments: jobPayments } = getAdminJobPayments(job);
+    const approvingPayment = jobPayments.find((p) => p.milestone === approvingStep);
 
     const leads = job.projectLeadIds.map(getProjectLead).filter((lead) => !!lead);
     const leadNames = leads.map((lead) => lead.name).join(" and ") || "the project lead";
+    const jobManufacturers = job.manufacturers ?? [];
+    const getMfrName = (id: string) => {
+        const fromJob = jobManufacturers.find((m) => m.id === id);
+        const fromContext = getManufacturer(id);
+        const fromSample = getAdminManufacturer(id);
+        return (
+            fromJob?.companyName ||
+            fromContext?.companyName ||
+            fromSample?.companyName ||
+            fromJob?.name ||
+            fromContext?.contactName ||
+            fromSample?.contactName ||
+            null
+        );
+    };
     const manufacturerNames =
-        job.manufacturerIds.map((id) => getAdminManufacturer(id)?.companyName).filter(Boolean).join(" & ") ||
+        job.manufacturerIds.map(getMfrName).filter(Boolean).join(" & ") ||
+        (jobManufacturers.length > 0 ? jobManufacturers.map((m) => m.companyName || m.name).filter(Boolean).join(" & ") : null) ||
         "the manufacturer";
     const isLead = canActOnJob(platform, job);
     const deleteBlocker = getJobDeleteBlocker(job);
@@ -146,7 +174,13 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
     const canReview = isLead && status === "in-review" && !heldReview;
     const canReject = isLead && status === "in-review";
     const canDecideHeld = platform.permissions.decidesHeldJobs && !!heldReview;
-    const canReviewSteps = isLead && status === "in-progress";
+    const hasDeliveryRejection =
+        job.rejections.length > 0 ||
+        job.stepSubmissions.some((sub) => sub.step === "delivery" && sub.review?.outcome === "sent-back");
+    // Admin can approve steps for payout; super admin only gets involved in case of rejection at delivery
+    const canReviewSteps =
+        status === "in-progress" &&
+        (platform.key === "admin" || (platform.key === "super-admin" && hasDeliveryRejection));
     const canDecideExtensions = isLead && status === "in-progress";
     const canPostNotes = isLead && status !== "completed";
     const canRate = isLead && status === "completed" && !job.manufacturerReview;
@@ -176,12 +210,15 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
                     ? "Waiting for the manufacturer to fix and resubmit it."
                     : null;
 
-    const run = (action: () => void, success: string, failure: string) => {
+    const run = async (action: () => Promise<unknown> | void, success: string, failure: string): Promise<boolean> => {
         try {
-            action();
+            await action();
             toast.success(success);
-        } catch {
-            toast.error(failure);
+            return true;
+        } catch (err: unknown) {
+            const message = getErrorMessage(err, failure);
+            toast.error(message);
+            return false;
         }
     };
 
@@ -325,10 +362,8 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
                         {job.manufacturerIds.length > 0 ? (
                             <span className="flex flex-col gap-2">
                                 {job.manufacturerIds.map((id) => {
-                                    const manufacturer = getAdminManufacturer(id);
-                                    return manufacturer ? (
-                                        <PersonLabel key={id} name={manufacturer.companyName} size="sm" />
-                                    ) : null;
+                                    const name = getMfrName(id) || "Manufacturer";
+                                    return <PersonLabel key={id} name={name} size="sm" />;
                                 })}
                             </span>
                         ) : (
@@ -345,7 +380,7 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
                         {job.startDate ? (
                             formatOrdinalDate(new Date(job.startDate))
                         ) : (
-                            <span className="text-mist-500">Not set</span>
+                            <span className="text-mist-500">Starts when accepted</span>
                         )}
                     </DetailRow>
                     <DetailRow label="Due date">
@@ -365,7 +400,14 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
                     </DetailRow>
                     <DetailRow label="Project duration">
                         {/* From the planned start — or, without one, when it was accepted or created */}
-                        {formatDuration(new Date(job.startDate ?? job.dateAssigned ?? job.createdAt), new Date(job.dueDate))}
+                        {job.startDate || job.dateAssigned ? (
+                            formatDuration(new Date(job.startDate ?? job.dateAssigned!), new Date(job.dueDate))
+                        ) : (
+                            <span>
+                                {formatDuration(new Date(job.createdAt), new Date(job.dueDate))}{" "}
+                                <span className="text-xs text-mist-400 font-normal">(starts when accepted)</span>
+                            </span>
+                        )}
                     </DetailRow>
                     <DetailRow label="Status">
                         <JobStatusBadge status={status} />
@@ -378,13 +420,7 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
                         job={job}
                         canReview={canReviewSteps}
                         leadNames={leadNames}
-                        onApprove={(step) =>
-                            run(
-                                () => approveStep(job.id, step),
-                                "Step approved, payment released",
-                                "Couldn't approve the step. Please try again.",
-                            )
-                        }
+                        onApprove={setApprovingStep}
                         onSendBack={setSendingBack}
                     />
                 )}
@@ -479,8 +515,8 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
                         }
                         loadingLabel="Saving..."
                         errorMessage="Couldn't save your review. Please try again."
-                        onSubmit={(review) => {
-                            completeJob(job.id, review);
+                        onSubmit={async (review) => {
+                            await completeJob(job.id, review);
                             toast.success(
                                 review.rating >= MIN_SIGN_OFF_RATING
                                     ? `${job.title} is completed. ${manufacturerNames} is asked to rate ${leadNames} now.`
@@ -509,13 +545,13 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
                             Cancel
                         </DialogButton>
                         <DialogButton
-                            onClick={() => {
-                                run(
+                            onClick={async () => {
+                                const ok = await run(
                                     () => signOffHeldJob(job.id),
                                     `${job.title} is signed off`,
                                     "Couldn't sign the job off. Please try again.",
                                 );
-                                closeDialog();
+                                if (ok) closeDialog();
                             }}
                             tone="primary"
                         >
@@ -545,13 +581,12 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
                     )}
                     <RejectJobForm
                         onCancel={closeDialog}
-                        onReject={(review) => {
-                            run(
-                                () => rejectJob(job.id, review),
+                        onReject={async (review) => {
+                            await rejectJob(job.id, review);
+                            toast.success(
                                 nextRejectionNumber >= MAX_ADMIN_JOB_REJECTIONS
                                     ? "Job rejected for the last time"
                                     : "Job rejected. The manufacturer has your review",
-                                "Couldn't reject the job. Please try again.",
                             );
                             closeDialog();
                         }}
@@ -570,16 +605,99 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
                     <ReassignJobForm
                         currentManufacturerIds={job.manufacturerIds}
                         onCancel={closeDialog}
-                        onReassign={(manufacturerIds) => {
+                        onReassign={async (manufacturerIds) => {
                             const isFirst = job.manufacturerIds.length === 0;
-                            run(
-                                () => reassignJob(job.id, manufacturerIds),
-                                isFirst ? "Job assigned" : "Job reassigned",
-                                "Couldn't save the assignment. Please try again.",
-                            );
+                            await reassignJob(job.id, manufacturerIds);
+                            toast.success(isFirst ? "Job assigned" : "Job reassigned");
                             closeDialog();
                         }}
                     />
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={approvingStep !== null}
+                onOpenChange={(open) => {
+                    if (!open && !isApprovingStep) setApprovingStep(null);
+                }}
+            >
+                <DialogContent className="max-w-120">
+                    <div className="flex flex-col gap-1">
+                        <DialogTitle>
+                            Approve {approvingStepConfig?.label.toLowerCase() ?? "stage"} proof?
+                        </DialogTitle>
+                        <DialogDescription>
+                            Review the photos and note submitted by {manufacturerNames} before approving. Once approved, this stage is marked complete
+                            {approvingPayment ? ` and ${formatPrice(approvingPayment.amount)} is released to their wallet` : ""}.
+                        </DialogDescription>
+                    </div>
+
+                    {approvingSubmission?.note && (
+                        <div className="flex flex-col gap-1.5 rounded-lg border border-mist-200 bg-mist-50/70 p-3.5">
+                            <span className="text-xs font-semibold font-text text-mist-900">
+                                Manufacturer&apos;s note:
+                            </span>
+                            <p className="text-xs leading-relaxed font-text text-mist-700 whitespace-pre-line">
+                                {approvingSubmission.note}
+                            </p>
+                        </div>
+                    )}
+
+                    {approvingSubmission && approvingSubmission.imageUrls.length > 0 ? (
+                        <div className="flex flex-col gap-2">
+                            <p className="text-xs font-medium font-text text-mist-600">
+                                Attached photos ({approvingSubmission.imageUrls.length})
+                            </p>
+                            <ImagePreviewGrid
+                                images={photoItems(approvingSubmission.imageUrls).map((image, idx) => ({
+                                    ...image,
+                                    name: `${approvingStepConfig?.label ?? "Step"} photo ${idx + 1}`,
+                                }))}
+                                className="grid-cols-3"
+                            />
+                        </div>
+                    ) : (
+                        <p className="text-xs font-text text-mist-500 italic">
+                            No photos were attached to this submission.
+                        </p>
+                    )}
+
+                    <div className="flex justify-end gap-3 pt-2">
+                        <DialogButton
+                            onClick={() => setApprovingStep(null)}
+                            tone="neutral"
+                            disabled={isApprovingStep}
+                        >
+                            Cancel
+                        </DialogButton>
+                        <DialogButton
+                            onClick={async () => {
+                                if (!approvingStep) return;
+                                setIsApprovingStep(true);
+                                try {
+                                    await approveStep(job.id, approvingStep);
+                                    toast.success(`${approvingStepConfig?.label ?? "Step"} approved, payment released`);
+                                    setApprovingStep(null);
+                                } catch (err: unknown) {
+                                    const message = getErrorMessage(err, "Couldn't approve the step. Please try again.");
+                                    toast.error(message);
+                                } finally {
+                                    setIsApprovingStep(false);
+                                }
+                            }}
+                            tone="primary"
+                            disabled={isApprovingStep}
+                        >
+                            {isApprovingStep ? (
+                                <span className="flex items-center gap-2">
+                                    <Loader2 className="size-4 animate-spin" />
+                                    Approving...
+                                </span>
+                            ) : (
+                                "Approve step"
+                            )}
+                        </DialogButton>
+                    </div>
                 </DialogContent>
             </Dialog>
 
@@ -601,15 +719,12 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
                         loadingLabel="Sending back..."
                         errorMessage="Couldn't send the proof back. Please try again."
                         onCancel={() => setSendingBack(null)}
-                        onSubmit={(reason) => {
+                        onSubmit={async (reason) => {
                             if (sendingBack) {
-                                run(
-                                    () => sendBackStep(job.id, sendingBack, reason),
-                                    "Proof sent back. The manufacturer has your reason",
-                                    "Couldn't send the proof back. Please try again.",
-                                );
+                                await sendBackStep(job.id, sendingBack, reason);
+                                toast.success("Proof sent back. The manufacturer has your reason");
+                                setSendingBack(null);
                             }
-                            setSendingBack(null);
                         }}
                     />
                 </DialogContent>
@@ -630,12 +745,9 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
                         loadingLabel="Reporting..."
                         errorMessage="Couldn't report the fault. Please try again."
                         onCancel={closeDialog}
-                        onSubmit={(reason) => {
-                            run(
-                                () => reportFault(job.id, reason),
-                                "Fault reported. The bonus won't be paid",
-                                "Couldn't report the fault. Please try again.",
-                            );
+                        onSubmit={async (reason) => {
+                            await reportFault(job.id, reason);
+                            toast.success("Fault reported. The bonus won't be paid");
                             closeDialog();
                         }}
                     />
@@ -657,8 +769,8 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
                         loadingLabel="Deleting..."
                         errorMessage="Couldn't delete the job. Please try again."
                         onCancel={closeDialog}
-                        onConfirm={() => {
-                            deleteJob(job.id);
+                        onConfirm={async () => {
+                            await deleteJob(job.id);
                             toast.success(`${job.title} was deleted`);
                             closeDialog();
                             onDeleted();
@@ -743,15 +855,18 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
 function DialogButton({
     onClick,
     tone,
+    disabled,
     children,
 }: {
     onClick: () => void;
     tone: "neutral" | "primary";
+    disabled?: boolean;
     children: ReactNode;
 }) {
     return (
         <Button
             type="button"
+            disabled={disabled}
             onClick={onClick}
             className={cn(
                 "h-11 px-5 font-medium font-text rounded-button cursor-pointer transition-colors duration-300",
