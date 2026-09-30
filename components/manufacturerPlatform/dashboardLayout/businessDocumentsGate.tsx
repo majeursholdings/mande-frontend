@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
     Dialog,
     DialogContent,
@@ -10,7 +9,7 @@ import {
 import BusinessDocumentsForm from "@/components/manufacturerPlatform/form/businessDocumentsForm";
 import { hasBusinessDocuments } from "@/constant/manufacturer";
 import { getPricingPlan, requiresBusinessDocuments } from "@/constant/sampleData";
-import { ARTISAN_LOGIN_URL } from "@/constant/navigation";
+import { useLogout } from "./logoutContext";
 import { useManufacturerProfile } from "./manufacturerProfileContext";
 import { useManufacturerSubscription } from "./manufacturerSubscriptionContext";
 
@@ -25,6 +24,7 @@ import { useManufacturerSubscription } from "./manufacturerSubscriptionContext";
 export default function BusinessDocumentsGate() {
     const { profile } = useManufacturerProfile();
     const { subscription } = useManufacturerSubscription();
+    const { requestLogout } = useLogout();
     const plan = getPricingPlan(subscription.planId);
     const isRequired =
         requiresBusinessDocuments(subscription.planId) && !hasBusinessDocuments(profile);
@@ -44,12 +44,13 @@ export default function BusinessDocumentsGate() {
                 <BusinessDocumentsForm />
                 <p className="text-center text-sm font-text text-mist-500">
                     Not ready yet?{" "}
-                    <Link
-                        href={ARTISAN_LOGIN_URL}
-                        className="font-medium text-secondary-700 hover:underline"
+                    <button
+                        type="button"
+                        onClick={requestLogout}
+                        className="cursor-pointer font-medium text-secondary-700 hover:underline"
                     >
                         Log out
-                    </Link>
+                    </button>
                 </p>
             </DialogContent>
         </Dialog>

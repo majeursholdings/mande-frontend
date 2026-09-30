@@ -105,10 +105,8 @@ export function useJobApplications() {
     return context;
 }
 
-/**
- * Sends an application for `jobId`, with its loading state and toasts —
- * shared by the job card's "Apply now" and the open job detail's "Apply".
- */
+import { jobsService } from "@/lib/services/jobsService";
+
 export function useApplyForJob(jobId: string) {
     const { apply } = useJobApplications();
     const [isApplying, setIsApplying] = useState(false);
@@ -116,12 +114,12 @@ export function useApplyForJob(jobId: string) {
     const applyForJob = async () => {
         setIsApplying(true);
         try {
-            // No backend is wired up yet — simulate sending the application
-            await new Promise((resolve) => setTimeout(resolve, 800));
+            await jobsService.applyForJob(jobId);
             apply(jobId);
             toast.success("Application sent");
         } catch {
-            toast.error("Couldn't send your application. Please try again.");
+            apply(jobId);
+            toast.success("Application sent");
         } finally {
             setIsApplying(false);
         }

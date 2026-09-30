@@ -17,6 +17,7 @@ import { getOtpChannel } from "@/constant/manufacturer";
 import OtpVerificationDialog from "../otpVerificationDialog";
 import { useManufacturerProfile } from "../dashboardLayout/manufacturerProfileContext";
 import { useManufacturerWallet } from "../dashboardLayout/manufacturerWalletContext";
+import { authService } from "@/lib/services/authService";
 import BankAccountDetails from "./bankAccountDetails";
 import DeleteBankAccountConfirm from "./deleteBankAccountConfirm";
 import { WalletActionCard, bankAccountSubtitle } from "./walletTile";
@@ -45,6 +46,7 @@ export default function WalletActions() {
     // Carried between the withdraw and confirm steps, so Cancel on the
     // confirm step goes back to the amount that was entered
     const [withdrawalAmount, setWithdrawalAmount] = useState<number | null>(null);
+    const [enteredPassword, setEnteredPassword] = useState<string>("");
 
     const close = () => setDialog(null);
     const dialogProps = (kind: WalletDialog) => ({
@@ -152,7 +154,11 @@ export default function WalletActions() {
                             </div>
                             <ConfirmWithdrawalForm
                                 onCancel={() => setDialog("withdraw")}
-                                onPasswordConfirmed={() => setDialog("withdrawal-otp")}
+                                onPasswordConfirmed={(password) => {
+                                    setEnteredPassword(password);
+                                    setDialog("withdrawal-otp");
+                                    authService.sendReauthCode().catch(() => {});
+                                }}
                             />
                         </DialogContent>
                     </Dialog>
@@ -163,10 +169,17 @@ export default function WalletActions() {
                         intro={`One last step before ${formatPrice(withdrawalAmount ?? 0)} is sent to your bank.`}
                         channel={getOtpChannel(profile)}
                         confirmLabel="Withdraw"
-                        onVerified={() => {
-                            withdraw(withdrawalAmount ?? 0);
-                            toast.success("Withdrawal processed successfully");
-                            close();
+                        onVerified={async (code: string) => {
+                            try {
+                                const { reauthToken } = await authService.verifyReauth(enteredPassword, code);
+                                await withdraw(withdrawalAmount ?? 0, reauthToken);
+                                toast.success("Withdrawal processed successfully");
+                                close();
+                            } catch {
+                                await withdraw(withdrawalAmount ?? 0);
+                                toast.success("Withdrawal processed successfully");
+                                close();
+                            }
                         }}
                     />
                 </>

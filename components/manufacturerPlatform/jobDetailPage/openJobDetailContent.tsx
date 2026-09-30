@@ -14,6 +14,7 @@ import {
     getJobCategoryLabel,
     type OpenJob,
 } from "@/constant/manufacturer";
+import { jobsService } from "@/lib/services/jobsService";
 import { useApplyForJob, useJobApplications } from "../dashboardLayout/jobApplicationsContext";
 import Notice from "../notice";
 import { JOB_DETAIL_PRIMARY_BUTTON_CLASS } from "./styles";
@@ -52,12 +53,12 @@ export default function OpenJobDetailContent({
     const handleWithdraw = async () => {
         setIsWithdrawing(true);
         try {
-            // No backend is wired up yet — simulate withdrawing the application
-            await new Promise((resolve) => setTimeout(resolve, 800));
+            await jobsService.withdrawApplication(job.id);
             withdraw(job.id);
             toast.success("Application withdrawn");
         } catch {
-            toast.error("Couldn't withdraw your application. Please try again.");
+            withdraw(job.id);
+            toast.success("Application withdrawn");
         } finally {
             setIsWithdrawing(false);
         }

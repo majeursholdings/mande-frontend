@@ -9,6 +9,8 @@ import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { isPhoneNumber, validators } from "@/components/form/form.validators";
 import { cn } from "@/lib/utils";
+import { contactService } from "@/lib/services/contactService";
+import { MandeApiError } from "@/lib/types/api";
 import { PRIVACY_POLICY_URL } from "@/constant/navigation";
 import { CONTACT_TOPIC_OPTIONS } from "@/constant/website";
 import { WEBSITE_PRIMARY_BUTTON } from "../common/buttonStyles";
@@ -32,6 +34,9 @@ const DEFAULT_VALUES: ContactFormValues = {
     message: "",
     agreeToPrivacyPolicy: false,
 };
+
+/** The fields the API can name in a validation error, to show it on the field. */
+const FIELD_NAMES = Object.keys(DEFAULT_VALUES) as (keyof ContactFormValues)[];
 
 const MESSAGE_MIN_LENGTH = 20;
 const MESSAGE_MAX_LENGTH = 1000;
@@ -129,16 +134,33 @@ export default function ContactForm() {
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<ContactFormValues>({ mode: "onTouched", defaultValues: DEFAULT_VALUES });
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (values: ContactFormValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate sending the message so the
-            // flow is testable end-to-end.
-            await new Promise((resolve) => setTimeout(resolve, 800));
+            const phone = values.phone.trim();
+            await contactService.sendMessage({
+                firstName: values.firstName.trim(),
+                lastName: values.lastName.trim(),
+                email: values.email.trim(),
+                ...(phone && { phone }),
+                topic: values.topic,
+                message: values.message.trim(),
+                agreeToPrivacyPolicy: true,
+            });
             methods.reset(DEFAULT_VALUES);
-            toast.success("Thanks — your message is on its way. We'll reply by email.");
-        } catch {
-            toast.error("Couldn't send your message. Please try again.");
+            toast.success("Thanks, your message is on its way. We'll reply by email.");
+        } catch (error) {
+            if (error instanceof MandeApiError && error.status === 429) {
+                toast.error("You've sent a few messages already. Please try again in an hour, or email us.");
+                return;
+            }
+            // The API's reason for a field, shown on that field
+            const details = error instanceof MandeApiError && error.status === 422 && error.details && !Array.isArray(error.details) ? error.details : null;
+            const fieldErrors = details ? FIELD_NAMES.filter((name) => Array.isArray(details[name])) : [];
+            for (const name of fieldErrors) {
+                methods.setError(name, { message: String((details![name] as unknown[])[0]) });
+            }
+            toast.error(fieldErrors.length > 0 ? "Some fields need attention." : "Couldn't send your message. Please try again.");
         } finally {
             setIsLoading(false);
         }

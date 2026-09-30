@@ -1,9 +1,10 @@
 "use client";
 
 import { createContext, useContext, useState, useMemo, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
+import { walletService } from "@/lib/services/walletService";
 import {
     MANUFACTURER_WALLET,
     type ManufacturerBankAccount,
@@ -48,7 +49,7 @@ type ManufacturerWalletContextValue = {
     wallet: ManufacturerWallet;
     setBankAccount: (bankAccount: ManufacturerBankAccount | null) => void;
     /** Takes `amount` off the balance and records it as a withdrawal. */
-    withdraw: (amount: number) => void;
+    withdraw: (amount: number, reauthToken?: string) => void | Promise<void>;
     /** Takes `amount` off the balance to pay for a plan, recorded as `label`. */
     payFromBalance: (amount: number, label: string) => void;
     /** Adds a job payment to the balance — once per `id`, however often it's released again. */
@@ -58,6 +59,7 @@ type ManufacturerWalletContextValue = {
 const ManufacturerWalletContext = createContext<ManufacturerWalletContextValue | null>(null);
 
 export function ManufacturerWalletProvider({ children }: { children: ReactNode }) {
+    const queryClient = useQueryClient();
     const [bankAccountOverride, setBankAccountOverride] = useState<ManufacturerBankAccount | null | undefined>(undefined);
     const [balanceDelta, setBalanceDelta] = useState(0);
     const [localTransactions, setLocalTransactions] = useState<ManufacturerTransaction[]>([]);
@@ -114,6 +116,20 @@ export function ManufacturerWalletProvider({ children }: { children: ReactNode }
 
     const setBankAccount = (bankAccount: ManufacturerBankAccount | null) => {
         setBankAccountOverride(bankAccount);
+        if (bankAccount) {
+            walletService
+                .setBankAccount({
+                    bankCode: bankAccount.bankCode,
+                    accountNumber: bankAccount.accountNumber.replace(/\D/g, ""),
+                })
+                .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.wallet.all }))
+                .catch((err) => console.error("Failed to set bank account on server:", err));
+        } else {
+            walletService
+                .removeBankAccount()
+                .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.wallet.all }))
+                .catch((err) => console.error("Failed to remove bank account on server:", err));
+        }
     };
 
     const debit = (amount: number, type: ManufacturerTransaction["type"], label: string) => {
@@ -150,7 +166,15 @@ export function ManufacturerWalletProvider({ children }: { children: ReactNode }
     const value: ManufacturerWalletContextValue = {
         wallet,
         setBankAccount,
-        withdraw: (amount) => debit(amount, "withdrawal", "Withdrawal to bank account"),
+        withdraw: async (amount, reauthToken) => {
+            debit(amount, "withdrawal", "Withdrawal to bank account");
+            try {
+                await walletService.requestWithdrawal(Math.round(amount * 100), reauthToken);
+                queryClient.invalidateQueries({ queryKey: queryKeys.wallet.all });
+            } catch (err) {
+                console.error("Failed to request withdrawal on server:", err);
+            }
+        },
         payFromBalance: (amount, label) => debit(amount, "subscription", label),
         receivePayment,
     };

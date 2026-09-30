@@ -7,6 +7,7 @@ import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { validators } from "@/components/form/form.validators";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
+import { authService } from "@/lib/services/authService";
 import { OtpCodeDialog } from "@/components/manufacturerPlatform/otpVerificationDialog";
 import { getOtpChannel, type TwoFactorMethod } from "@/constant/manufacturer";
 import { FormSubmitButton } from "./formButtons";
@@ -92,13 +93,20 @@ export function ChangePasswordForm({
         }
     };
 
-    const handleVerified = () => {
-        // The API call would go here, sending the new password with the
-        // verified code; the OTP form simulates the request for now.
+    const handleVerified = async () => {
         setIsAwaitingCode(false);
-        // Clear all three fields so the passwords don't linger on screen
-        methods.reset();
-        toast.success("Password changed successfully");
+        try {
+            const values = methods.getValues();
+            await authService.changePassword({
+                currentPassword: values.oldPassword,
+                newPassword: values.newPassword,
+            });
+            // Clear all three fields so the passwords don't linger on screen
+            methods.reset();
+            toast.success("Password changed successfully");
+        } catch {
+            toast.error("Couldn't change your password. Please check your current password and try again.");
+        }
     };
 
     return (

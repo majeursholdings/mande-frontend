@@ -9,7 +9,7 @@ type CancelJobFormValues = {
 };
 
 type CancelJobFormProps = {
-    cancelJob: () => void;
+    cancelJob: (reason: string) => void | Promise<void>;
     closeDialog: () => void;
 };
 
@@ -41,9 +41,9 @@ export default function CancelJobForm({
     cancelJob,
     closeDialog,
 }: CancelJobFormProps) {
-    const handleFormSubmit = () => {
+    const handleFormSubmit = async (values: CancelJobFormValues) => {
         try {
-            cancelJob();
+            await cancelJob(values.reason.trim());
             closeDialog();
             toast.success("Submitted successfully");
         } catch {

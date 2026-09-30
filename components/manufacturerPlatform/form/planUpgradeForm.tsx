@@ -38,11 +38,13 @@ export default function PlanUpgradeForm({
     newPlan,
     subscription,
     onUpgraded,
+    discountPercent = 0,
 }: {
     currentPlan: PricingPlan;
     newPlan: PricingPlan;
     subscription: ManufacturerSubscription;
     onUpgraded: () => void;
+    discountPercent?: number;
 }) {
     const { profile } = useManufacturerProfile();
     const { wallet, payFromBalance } = useManufacturerWallet();
@@ -51,8 +53,8 @@ export default function PlanUpgradeForm({
 
     const cycle = subscription.billingCycle;
     const per = cycle === "annual" ? "year" : "month";
-    const newPrice = getPlanPrice(newPlan, cycle);
-    const amountDue = newPrice - getPlanPrice(currentPlan, cycle);
+    const newPrice = getPlanPrice(newPlan, cycle, discountPercent);
+    const amountDue = newPrice - getPlanPrice(currentPlan, cycle, discountPercent);
     const canPayFromWallet = wallet.balance >= amountDue;
     // Solo doesn't need these, other plans do — they're asked for right after paying
     const needsBusinessDocuments =
@@ -77,18 +79,18 @@ export default function PlanUpgradeForm({
     const handleSubmit = async ({ paymentMethod, saveCard }: PlanUpgradeFormValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate the charge so the flow is
-            // testable end-to-end. Card payments (and entering a new card) go
-            // through the payment partner's secure checkout.
-            await new Promise((resolve) => setTimeout(resolve, 1200));
             if (paymentMethod === WALLET) {
                 payFromBalance(amountDue, `${newPlan.name} plan upgrade`);
+                await upgradePlan(newPlan.id, { from: "wallet" });
+            } else if (paymentMethod.startsWith("card:")) {
+                const cardId = paymentMethod.slice("card:".length);
+                await upgradePlan(newPlan.id, { from: "card", cardId });
+            } else {
+                if (saveCard) {
+                    addCard({ id: `card-${Date.now()}`, brand: "Mastercard", last4: "5100", expiry: "12/28" });
+                }
+                await upgradePlan(newPlan.id, { from: "new-card", saveCard });
             }
-            if (paymentMethod === NEW_CARD && saveCard) {
-                // The partner returns the new card's brand and last digits
-                addCard({ id: `card-${Date.now()}`, brand: "Mastercard", last4: "5100", expiry: "12/28" });
-            }
-            upgradePlan(newPlan.id);
             toast.success(`You're now on the ${newPlan.name} plan`);
             onUpgraded();
         } catch {

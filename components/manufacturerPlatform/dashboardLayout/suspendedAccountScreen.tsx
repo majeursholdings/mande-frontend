@@ -7,7 +7,7 @@ import { formatOrdinalDate, getRelativeTimeLabel } from "@/lib/date";
 import LogoLink from "@/components/ui/logoLink";
 import { MANUFACTURER_DASHBOARD_URL } from "@/constant/manufacturer";
 import AppealForm from "@/components/manufacturerPlatform/form/appealForm";
-import { ARTISAN_LOGIN_URL } from "@/constant/navigation";
+import { useLogout } from "./logoutContext";
 import type { AccountAppealRecord } from "@/constant/sampleDb";
 import { useManufacturerAccount } from "./manufacturerAccountContext";
 
@@ -29,6 +29,7 @@ const APPEAL_STATUS: Record<
 
 export default function SuspendedAccountScreen() {
     const { hold, appeals, pendingAppeal, sendAppeal } = useManufacturerAccount();
+    const { requestLogout } = useLogout();
     const pastAppeals = appeals.filter((appeal) => appeal.status !== "pending");
     const lastTurnedDown = pastAppeals[0]?.status === "declined";
 
@@ -36,13 +37,14 @@ export default function SuspendedAccountScreen() {
         <div className="flex min-h-dvh flex-col bg-mist-50">
             <header className="flex items-center justify-between border-b border-border bg-white px-4 py-3.5 lg:px-8">
                 <LogoLink href={MANUFACTURER_DASHBOARD_URL} className="w-30" />
-                <Link
-                    href={ARTISAN_LOGIN_URL}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium font-text text-mist-600 transition-colors hover:bg-mist-100 hover:text-mist-900"
+                <button
+                    type="button"
+                    onClick={requestLogout}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium font-text text-mist-600 transition-colors hover:bg-mist-100 hover:text-mist-900"
                 >
                     <LogOut className="size-4" strokeWidth={1.75} />
                     Logout
-                </Link>
+                </button>
             </header>
 
             <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8 lg:py-12">

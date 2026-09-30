@@ -85,6 +85,8 @@ export default function AboutCompanyStep({
             capture: "environment",
             maxFiles: 1,
             maxSizeMB: 5,
+            uploadCategory: "profile",
+            uploadVisibility: "private",
             validation: { required: "Add a photo of your NIN card" },
         },
     ];

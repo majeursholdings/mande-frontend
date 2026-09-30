@@ -16,17 +16,19 @@ import {
 // backend is connected, load these from the API and let it apply the changes.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { subscriptionService, type UpgradePlanPayload } from "@/lib/services/subscriptionService";
+
 type ManufacturerSubscriptionContextValue = {
     subscription: ManufacturerSubscription;
     savedCards: SavedCard[];
     /** Moves to `planId` now — also undoes a pending cancellation or downgrade. */
-    upgradePlan: (planId: string) => void;
+    upgradePlan: (planId: string, pay?: UpgradePlanPayload["pay"]) => void | Promise<void>;
     /** Moves to `planId` when the current period ends. */
-    scheduleDowngrade: (planId: string) => void;
+    scheduleDowngrade: (planId: string) => void | Promise<void>;
     /** Keeps the current plan — drops a scheduled downgrade or cancellation. */
-    keepCurrentPlan: () => void;
+    keepCurrentPlan: () => void | Promise<void>;
     /** Ends the plan when the current period ends. */
-    cancelPlan: () => void;
+    cancelPlan: () => void | Promise<void>;
     addCard: (card: SavedCard) => void;
 };
 
@@ -43,12 +45,40 @@ export function ManufacturerSubscriptionProvider({ children }: { children: React
     const value: ManufacturerSubscriptionContextValue = {
         subscription,
         savedCards,
-        upgradePlan: (planId) =>
-            update({ planId, cancelAtPeriodEnd: false, scheduledPlanId: null }),
-        scheduleDowngrade: (planId) =>
-            update({ scheduledPlanId: planId, cancelAtPeriodEnd: false }),
-        keepCurrentPlan: () => update({ scheduledPlanId: null, cancelAtPeriodEnd: false }),
-        cancelPlan: () => update({ cancelAtPeriodEnd: true, scheduledPlanId: null }),
+        upgradePlan: async (planId, pay) => {
+            update({ planId, cancelAtPeriodEnd: false, scheduledPlanId: null });
+            try {
+                if (pay) {
+                    await subscriptionService.upgradePlan({ planId, pay });
+                }
+            } catch (err) {
+                console.error("Failed to upgrade plan on server:", err);
+            }
+        },
+        scheduleDowngrade: async (planId) => {
+            update({ scheduledPlanId: planId, cancelAtPeriodEnd: false });
+            try {
+                await subscriptionService.scheduleDowngrade(planId);
+            } catch (err) {
+                console.error("Failed to schedule downgrade on server:", err);
+            }
+        },
+        keepCurrentPlan: async () => {
+            update({ scheduledPlanId: null, cancelAtPeriodEnd: false });
+            try {
+                await subscriptionService.keepCurrentPlan();
+            } catch (err) {
+                console.error("Failed to keep current plan on server:", err);
+            }
+        },
+        cancelPlan: async () => {
+            update({ cancelAtPeriodEnd: true, scheduledPlanId: null });
+            try {
+                await subscriptionService.cancelPlan();
+            } catch (err) {
+                console.error("Failed to cancel plan on server:", err);
+            }
+        },
         addCard: (card) => setSavedCards((current) => [...current, card]),
     };
 

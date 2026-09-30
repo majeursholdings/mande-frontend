@@ -5,13 +5,13 @@ import { BriefcaseBusiness, Search } from "lucide-react";
 import { FilterChips } from "@/components/manufacturerPlatform/jobsPage/jobFilters";
 import { SortByDropdown } from "@/components/manufacturerPlatform/jobsPage/sortByDropdown";
 import { OPEN_JOB_SORT_OPTIONS, getJobCategoryLabel } from "@/constant/manufacturer";
-import type { JobRecord } from "@/constant/sampleDb";
+import type { WebsiteJob } from "@/lib/services/websiteService";
 import WebsiteJobCard from "../common/websiteJobCard";
 
-function sortJobs(jobs: JobRecord[], sortBy: string): JobRecord[] {
+function sortJobs(jobs: WebsiteJob[], sortBy: string): WebsiteJob[] {
     const sorted = [...jobs];
     if (sortBy === "name") return sorted.sort((a, b) => a.title.localeCompare(b.title));
-    if (sortBy === "date") return sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    if (sortBy === "date") return sorted.sort((a, b) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime());
     // Soonest due first
     if (sortBy === "due-date") return sorted.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
     if (sortBy === "category") {
@@ -22,7 +22,7 @@ function sortJobs(jobs: JobRecord[], sortBy: string): JobRecord[] {
         );
     }
     // Best paid first
-    if (sortBy === "price") return sorted.sort((a, b) => b.amount - a.amount);
+    if (sortBy === "price") return sorted.sort((a, b) => b.amountKobo - a.amountKobo);
     return jobs;
 }
 
@@ -30,7 +30,7 @@ function sortJobs(jobs: JobRecord[], sortBy: string): JobRecord[] {
  * Every open job — searchable by name, what it is or its category, filtered
  * to a category, and sorted. Newest first until a sort is picked.
  */
-export default function OpenJobsBrowser({ jobs }: { jobs: JobRecord[] }) {
+export default function OpenJobsBrowser({ jobs }: { jobs: WebsiteJob[] }) {
     const [query, setQuery] = useState("");
     const [category, setCategory] = useState("all");
     const [sortBy, setSortBy] = useState("");

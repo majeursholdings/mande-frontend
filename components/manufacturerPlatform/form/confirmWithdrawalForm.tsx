@@ -30,18 +30,14 @@ export default function ConfirmWithdrawalForm({
     onPasswordConfirmed,
 }: {
     onCancel: () => void;
-    onPasswordConfirmed: () => void;
+    onPasswordConfirmed: (password: string) => void;
 }) {
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleSubmit = async () => {
+    const handleSubmit = async ({ password }: ConfirmWithdrawalFormValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate the request so the flow
-            // is testable end-to-end. The API should check the password and
-            // reject a wrong one.
-            await new Promise((resolve) => setTimeout(resolve, 800));
-            onPasswordConfirmed();
+            onPasswordConfirmed(password);
         } catch {
             toast.error("Couldn't confirm your password. Please try again.");
         } finally {

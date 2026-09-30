@@ -4,7 +4,8 @@ import CtaBand from "../common/ctaBand";
 import PageHero from "../common/pageHero";
 import SectionHeading from "../common/sectionHeading";
 import SectionWrapper from "../common/sectionWrapper";
-import { WEBSITE_OPEN_JOBS } from "../common/websiteJobCard";
+import NoOpenJobs from "../common/noOpenJobs";
+import { getWebsiteOpenJobs } from "@/lib/services/websiteService";
 import OpenJobsBrowser from "./openJobsBrowser";
 
 const APPLY_STEPS: { icon: LucideIcon; title: string; description: string }[] = [
@@ -31,7 +32,9 @@ const APPLY_STEPS: { icon: LucideIcon; title: string; description: string }[] = 
 // profile, so each card leads to sign-up.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function OpenJobsPage() {
+export default async function OpenJobsPage() {
+    const jobs = await getWebsiteOpenJobs();
+
     return (
         <>
             <PageHero
@@ -41,7 +44,7 @@ export default function OpenJobsPage() {
             />
 
             <SectionWrapper>
-                <OpenJobsBrowser jobs={WEBSITE_OPEN_JOBS} />
+                {jobs && jobs.length > 0 ? <OpenJobsBrowser jobs={jobs} /> : <NoOpenJobs unavailable={jobs === null} />}
             </SectionWrapper>
 
             <SectionWrapper className="bg-mist-200" containerClassName="flex flex-col gap-8 md:gap-12">

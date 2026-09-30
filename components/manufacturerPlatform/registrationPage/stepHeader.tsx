@@ -17,6 +17,9 @@ export default function StepHeader({
 }: StepHeaderProps) {
     return (
         <div className="flex flex-col gap-2">
+            <span className="text-xs font-semibold font-text uppercase tracking-wider text-secondary-700">
+                Manufacturer Platform
+            </span>
             <span className="text-xs font-semibold font-text tracking-wide uppercase text-primary-700">
                 Step {step} of {totalSteps}
             </span>

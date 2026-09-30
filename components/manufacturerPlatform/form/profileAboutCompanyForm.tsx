@@ -7,6 +7,7 @@ import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
 import { useManufacturerSubscription } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerSubscriptionContext";
+import { manufacturerService } from "@/lib/services/manufacturerService";
 import VerificationBadge from "@/components/manufacturerPlatform/verificationBadge";
 import {
     COMPANY_SPECIALITY_OPTIONS,
@@ -180,9 +181,6 @@ function AboutCompanyForm() {
     const handleSubmit = async (values: AboutCompanyFormValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate the request so the flow
-            // is testable end-to-end. Locked fields are sent unchanged.
-            await new Promise((resolve) => setTimeout(resolve, 800));
             const companyAddress = {
                 streetAddress: values.streetAddress.trim(),
                 city: values.city.trim(),
@@ -191,6 +189,22 @@ function AboutCompanyForm() {
             };
             const companyTaxNumber = values.companyTaxNumber.trim();
             const businessLicenseNumber = values.businessLicenseNumber.trim();
+
+            await manufacturerService.updateCompanyInfo({
+                specialities: values.specialities,
+                staffRange: values.staffRange,
+            });
+
+            if (
+                (companyTaxNumber && companyTaxNumber !== profile.companyTaxNumber) ||
+                (businessLicenseNumber && businessLicenseNumber !== profile.businessLicenseNumber)
+            ) {
+                await manufacturerService.submitBusinessDocuments({
+                    companyTaxNumber: companyTaxNumber || undefined,
+                    businessLicenseNumber: businessLicenseNumber || undefined,
+                });
+            }
+
             const changes = {
                 companyTaxNumber,
                 companyTaxNumberVerification: getVerificationAfterSave(

@@ -1,11 +1,14 @@
 "use client";
 
 import { useController, UseFormReturn } from "react-hook-form";
+import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
+import { queryKeys } from "@/lib/queryKeys";
+import { superAdminService } from "@/lib/services/superAdminService";
 import MainForm from "@/components/form";
-import { PLAN_OFFER_TEXT, PRICING_PLANS, type PricingPlan } from "@/constant/sampleData";
+import { PRICING_PLANS, type PricingPlan } from "@/constant/sampleData";
 import ListPrice from "@/components/ui/listPrice";
 import Notice from "../../notice";
 import StepFooter from "../stepFooter";
@@ -42,6 +45,13 @@ export default function ChoosePlanStep({
     onSubmit,
     isLoading,
 }: ChoosePlanStepProps) {
+    const { data: plansData } = useQuery({
+        queryKey: queryKeys.settings.plans(),
+        queryFn: () => superAdminService.getPlans(),
+    });
+    const plans = plansData?.plans ?? PRICING_PLANS;
+    const discountPercent = plansData?.discountPercent ?? 0;
+
     const { field: planField, fieldState: planState } = useController({
         name: "plan",
         control: methods.control,
@@ -52,17 +62,18 @@ export default function ChoosePlanStep({
         control: methods.control,
     });
 
-    const plan = getPricingPlan(planField.value);
+    const plan = plans.find((p) => p.id === planField.value) ?? getPricingPlan(planField.value);
     const billingCycle: BillingCycle = cycleField.value;
-    const price = plan ? getPlanPrice(plan, billingCycle) : 0;
+    const price = plan ? getPlanPrice(plan, billingCycle, discountPercent) : 0;
     const isPaid = !!paymentReference;
+    const offerText = discountPercent > 0 ? `Every plan is ${discountPercent}% off for now. ` : "";
 
     return (
         <div className="flex flex-col gap-6">
             <StepHeader
                 step={3}
                 title="Choose a plan"
-                description={`${PLAN_OFFER_TEXT ? `${PLAN_OFFER_TEXT}. ` : ""}Pick the plan that fits your business. With yearly billing you pay for 10 months and work all 12.`}
+                description={`${offerText}Pick the plan that fits your business. With yearly billing you pay for 10 months and work all 12.`}
             />
 
             <MainForm<RegistrationFormValues>
@@ -100,11 +111,12 @@ export default function ChoosePlanStep({
                         </div>
 
                         <div role="radiogroup" aria-label="Plan" className="flex flex-col gap-3">
-                            {PRICING_PLANS.map((option) => (
+                            {plans.map((option) => (
                                 <PlanOption
                                     key={option.id}
                                     plan={option}
                                     billingCycle={billingCycle}
+                                    discountPercent={discountPercent}
                                     name={planField.name}
                                     checked={planField.value === option.id}
                                     onSelect={() => planField.onChange(option.id)}
@@ -167,6 +179,7 @@ export default function ChoosePlanStep({
 function PlanOption({
     plan,
     billingCycle,
+    discountPercent,
     name,
     checked,
     onSelect,
@@ -174,6 +187,7 @@ function PlanOption({
 }: {
     plan: PricingPlan;
     billingCycle: BillingCycle;
+    discountPercent: number;
     name: string;
     checked: boolean;
     onSelect: () => void;
@@ -202,9 +216,9 @@ function PlanOption({
                         {plan.name}
                     </span>
                     <span className="flex flex-wrap items-baseline gap-x-2 text-base font-semibold font-text text-mist-950">
-                        <ListPrice plan={plan} billingCycle={billingCycle} className="text-xs text-mist-400" />
+                        <ListPrice plan={plan} billingCycle={billingCycle} discountPercent={discountPercent} className="text-xs text-mist-400" />
                         <span>
-                            {formatPrice(getPlanPrice(plan, billingCycle))}
+                            {formatPrice(getPlanPrice(plan, billingCycle, discountPercent))}
                             <span className="text-xs font-normal text-mist-500">
                                 /{PER[billingCycle]}
                             </span>

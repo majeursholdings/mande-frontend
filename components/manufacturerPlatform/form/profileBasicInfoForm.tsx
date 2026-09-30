@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { isPhoneNumber, validators } from "@/components/form/form.validators";
+import { manufacturerService } from "@/lib/services/manufacturerService";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
 import { FormSubmitButton } from "./formButtons";
 
@@ -92,15 +93,18 @@ export default function ProfileBasicInfoForm() {
     const handleSubmit = async (values: BasicInfoFormValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate the request so the flow
-            // is testable end-to-end.
-            await new Promise((resolve) => setTimeout(resolve, 800));
             const changes = {
                 firstName: values.firstName.trim(),
                 lastName: values.lastName.trim(),
                 phoneNumber: values.phoneNumber.trim(),
                 dateOfBirth: values.dateOfBirth,
             };
+            await manufacturerService.updateBasicInfo({
+                firstName: changes.firstName,
+                lastName: changes.lastName,
+                phone: changes.phoneNumber,
+                dateOfBirth: changes.dateOfBirth || undefined,
+            });
             updateProfile(changes);
             // The saved values become the new baseline, so Save greys out again
             methods.reset({ ...changes, email: profile.email });

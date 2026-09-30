@@ -10,7 +10,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { MANUFACTURER_PROFILE_URL, MANUFACTURER_SETTINGS_URL } from "@/constant/manufacturer";
-import { ARTISAN_LOGIN_URL } from "@/constant/navigation";
+import { useLogout } from "./logoutContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UserMenu — the top bars' profile popup: View profile, Settings and
@@ -37,6 +37,7 @@ export default function UserMenu({
     "aria-label"?: string;
 }) {
     const [open, setOpen] = useState(false);
+    const { requestLogout } = useLogout();
     const close = () => setOpen(false);
 
     return (
@@ -57,14 +58,17 @@ export default function UserMenu({
                     </Link>
                 ))}
                 <div className="my-1 h-px bg-border" />
-                <Link
-                    href={ARTISAN_LOGIN_URL}
-                    onClick={close}
-                    className={cn(MENU_LINK_CLASS, "text-secondary-600 hover:bg-secondary-50")}
+                <button
+                    type="button"
+                    onClick={() => {
+                        close();
+                        requestLogout();
+                    }}
+                    className={cn(MENU_LINK_CLASS, "w-full text-left text-secondary-600 hover:bg-secondary-50 cursor-pointer")}
                 >
                     <LogOut className="size-4 shrink-0" strokeWidth={1.75} />
                     Logout
-                </Link>
+                </button>
             </PopoverContent>
         </Popover>
     );

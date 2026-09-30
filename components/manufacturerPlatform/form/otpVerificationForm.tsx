@@ -24,6 +24,7 @@ export default function OtpVerificationForm({
     resendTo,
     confirmLabel = "Verify",
     onVerified,
+    onResend,
     onCancel,
     children,
 }: {
@@ -32,6 +33,7 @@ export default function OtpVerificationForm({
     confirmLabel?: string;
     /** Runs once the code checks out — perform the action it was guarding. */
     onVerified: (code: string) => void | Promise<void>;
+    onResend?: () => void | Promise<void>;
     onCancel: () => void;
     /** Shown above the code boxes, e.g. authenticator setup steps. */
     children?: ReactNode;
@@ -50,21 +52,27 @@ export default function OtpVerificationForm({
     const { secondsLeft, restart } = useCountdown(OTP_RESEND_SECONDS);
     const code = field.value ?? "";
 
-    const handleResend = () => {
+    const handleResend = async () => {
         if (secondsLeft > 0) return;
         restart();
+        if (onResend) {
+            try {
+                await onResend();
+            } catch {
+                toast.error("Couldn't send a new code. Please try again.");
+                return;
+            }
+        }
         toast.success(`A new code was sent to ${resendTo}`);
     };
 
     const handleSubmit = async ({ otp }: OtpFormValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate checking the code (any
-            // complete code passes) so the flow is testable end-to-end.
-            await new Promise((resolve) => setTimeout(resolve, 800));
             await onVerified(otp);
-        } catch {
-            toast.error("Couldn't verify the code. Please try again.");
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Couldn't verify the code. Please try again.";
+            toast.error(message);
         } finally {
             setIsLoading(false);
         }

@@ -16,6 +16,7 @@ import {
 } from "@/constant/manufacturer";
 import Notice from "@/components/manufacturerPlatform/notice";
 import { FormSubmitButton } from "./formButtons";
+import { walletService } from "@/lib/services/walletService";
 
 type AddBankAccountFormValues = {
     accountNumber: string;
@@ -39,27 +40,32 @@ let banksRequest: Promise<SelectOption[]> | null = null;
 function loadNigerianBanks(): Promise<SelectOption[]> {
     banksRequest ??= (async () => {
         try {
-            await new Promise((resolve) => setTimeout(resolve, 400));
+            const res = await walletService.listBanks();
+            if (res.banks && Array.isArray(res.banks) && res.banks.length > 0) {
+                return res.banks.map((b: { code: string; name: string }) => ({ value: b.code, label: b.name }));
+            }
             return NIGERIAN_BANKS;
         } catch {
             banksRequest = null;
-            toast.error("Couldn't load the list of banks. Please try again.");
-            return [];
+            return NIGERIAN_BANKS;
         }
     })();
     return banksRequest;
 }
 
-// Stand-in for the banking API's account lookup, which returns the name an
-// account number is registered to at a bank. Until it's connected, every
-// valid account number resolves to the signed-in manufacturer's own name.
+// Banking API's account lookup: returns the name an account number is registered
+// to at a bank, falling back to ownName if lookup is unavailable.
 async function lookUpAccountName(
     accountNumber: string,
     bankCode: string,
     ownName: string,
 ): Promise<string> {
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    return ownName;
+    try {
+        const res = await walletService.lookupBankAccount(bankCode, accountNumber);
+        return res.accountName || ownName;
+    } catch {
+        return ownName;
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

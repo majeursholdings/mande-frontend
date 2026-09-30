@@ -1,11 +1,14 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
 import { formatOrdinalDate } from "@/lib/date";
+import { queryKeys } from "@/lib/queryKeys";
+import { superAdminService } from "@/lib/services/superAdminService";
 import { Button } from "@/components/ui/button";
 import ListPrice from "@/components/ui/listPrice";
 import {
@@ -37,23 +40,30 @@ type PlanDialog = "upgrade" | "downgrade" | "cancel";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function PlanTab() {
+    const { data: plansData } = useQuery({
+        queryKey: queryKeys.settings.plans(),
+        queryFn: () => superAdminService.getPlans(),
+    });
+    const discountPercent = plansData?.discountPercent ?? 0;
+    const plans = plansData?.plans ?? PRICING_PLANS;
+
     const { subscription, keepCurrentPlan, scheduleDowngrade, cancelPlan } =
         useManufacturerSubscription();
     const [dialog, setDialog] = useState<PlanDialog | null>(null);
     // Kept after closing so the dialog's content stays put while it animates out
     const [targetPlanId, setTargetPlanId] = useState<string | null>(null);
 
-    const currentPlan = getPricingPlan(subscription.planId);
+    const currentPlan = plans.find((p) => p.id === subscription.planId) ?? getPricingPlan(subscription.planId);
     if (!currentPlan) {
         return <Notice>We couldn&apos;t load your plan. Please refresh the page.</Notice>;
     }
 
     const cycle = subscription.billingCycle;
     const per = cycle === "annual" ? "year" : "month";
-    const currentPrice = getPlanPrice(currentPlan, cycle);
+    const currentPrice = getPlanPrice(currentPlan, cycle, discountPercent);
     const periodEnd = formatOrdinalDate(new Date(subscription.renewsAt));
-    const scheduledPlan = getPricingPlan(subscription.scheduledPlanId ?? "");
-    const targetPlan = getPricingPlan(targetPlanId ?? "");
+    const scheduledPlan = plans.find((p) => p.id === subscription.scheduledPlanId) ?? getPricingPlan(subscription.scheduledPlanId ?? "");
+    const targetPlan = plans.find((p) => p.id === targetPlanId) ?? getPricingPlan(targetPlanId ?? "");
 
     const openDialog = (kind: PlanDialog, planId?: string) => {
         if (planId) setTargetPlanId(planId);
@@ -100,7 +110,7 @@ export default function PlanTab() {
                             </p>
                         </div>
                         <p className="flex flex-wrap items-baseline justify-end gap-x-2 text-lg font-semibold font-text text-mist-950">
-                            <ListPrice plan={currentPlan} billingCycle={cycle} className="text-sm text-mist-400" />
+                            <ListPrice plan={currentPlan} billingCycle={cycle} discountPercent={discountPercent} className="text-sm text-mist-400" />
                             <span>
                                 {formatPrice(currentPrice)}
                                 <span className="text-xs font-normal text-mist-500">/{per}</span>
@@ -135,8 +145,8 @@ export default function PlanTab() {
 description="Upgrades start straight away, and you pay the difference for the rest of this billing period. Downgrades start when it ends."
             >
                 <ul className="flex flex-col gap-3">
-                    {PRICING_PLANS.filter((plan) => plan.id !== currentPlan.id).map((plan) => {
-                        const price = getPlanPrice(plan, cycle);
+                    {plans.filter((plan) => plan.id !== currentPlan.id).map((plan) => {
+                        const price = getPlanPrice(plan, cycle, discountPercent);
                         const isUpgrade = price > currentPrice;
                         const isScheduled = plan.id === subscription.scheduledPlanId;
 
@@ -150,7 +160,7 @@ description="Upgrades start straight away, and you pay the difference for the re
                                         {plan.name}
                                     </p>
                                     <p className="text-xs font-text text-mist-500">
-                                        {formatPrice(price)}/{per} <ListPrice plan={plan} billingCycle={cycle} className="text-mist-400" /> ·{" "}
+                                        {formatPrice(price)}/{per} <ListPrice plan={plan} billingCycle={cycle} discountPercent={discountPercent} className="text-mist-400" /> ·{" "}
                                         {plan.targetAudience.toLowerCase()}
                                     </p>
                                 </div>
@@ -200,6 +210,7 @@ description="Upgrades start straight away, and you pay the difference for the re
                             newPlan={targetPlan}
                             subscription={subscription}
                             onUpgraded={closeDialog}
+                            discountPercent={discountPercent}
                         />
                     )}
                 </DialogContent>
@@ -212,7 +223,7 @@ description="Upgrades start straight away, and you pay the difference for the re
                         <DialogDescription>
                             Your plan changes on {periodEnd}, when this billing period ends.
                             You&apos;ll keep {currentPlan.name}&apos;s features until then, and
-                            pay {targetPlan && formatPrice(getPlanPrice(targetPlan, cycle))} per{" "}
+                            pay {targetPlan && formatPrice(getPlanPrice(targetPlan, cycle, discountPercent))} per{" "}
                             {per} after.
                         </DialogDescription>
                     </div>

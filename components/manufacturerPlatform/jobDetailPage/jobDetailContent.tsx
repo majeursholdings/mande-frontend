@@ -360,7 +360,7 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                         >
                             Accept job
                         </Button>
-                        <Button variant="outline" className="flex-1" onClick={declineJob}>
+                        <Button variant="outline" className="flex-1" onClick={() => declineJob()}>
                             Decline
                         </Button>
                     </div>

@@ -4,7 +4,10 @@ import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { Button } from "@/components/ui/button";
 import { JOB_DETAIL_PRIMARY_BUTTON_CLASS } from "@/components/manufacturerPlatform/jobDetailPage/styles";
+import { cleanupFormFieldUploads, clearFormUploadedFiles } from "@/components/form/fileInput";
 import { toast } from "sonner";
+
+import { MIN_STEP_PROOF_PHOTOS, MAX_STEP_PROOF_PHOTOS } from "@/constant/jobWorkflow";
 
 type CompletionFormValues = {
     photo: FileList;
@@ -13,33 +16,47 @@ type CompletionFormValues = {
 
 const NOTE_MAX_LENGTH = 500;
 
-const getFields = (photoLabel: string, withNote: boolean): FormFieldConfig[] => [
-    {
-        name: "photo",
-        // Images only, up to the form's 5MB default each
-        type: "image",
-        label: photoLabel,
-        showPreview: true,
-        multiple: true,
-        maxFiles: 3,
-        // Keeps the submit button disabled until at least one photo is added
-        validation: { required: "Upload at least one photo" },
-    },
-    ...(withNote
-        ? [
-              {
-                  name: "note",
-                  type: "textarea",
-                  label: "Note (optional)",
-                  placeholder: "Anything your project lead should know about this step",
-                  rows: 3,
-                  validation: {
-                      maxLength: { value: NOTE_MAX_LENGTH, message: `Keep it under ${NOTE_MAX_LENGTH} characters` },
-                  },
-              } satisfies FormFieldConfig,
-          ]
-        : []),
-];
+const getFields = (photoLabel: string, withNote: boolean): FormFieldConfig[] => {
+    const minPhotos = withNote ? MIN_STEP_PROOF_PHOTOS : 1;
+    return [
+        {
+            name: "photo",
+            // Images only, up to the form's 5MB default each
+            type: "image",
+            label: photoLabel,
+            description: minPhotos > 1 ? `Upload at least ${minPhotos} photos (up to ${MAX_STEP_PROOF_PHOTOS})` : undefined,
+            showPreview: true,
+            multiple: true,
+            maxFiles: MAX_STEP_PROOF_PHOTOS,
+            uploadCategory: "jobProof",
+            uploadVisibility: "public",
+            validation: {
+                required: minPhotos > 1 ? `Upload at least ${minPhotos} photos` : "Upload at least one photo",
+                validate: (value: unknown) => {
+                    const count = Array.isArray(value) ? value.length : value instanceof FileList ? value.length : 0;
+                    if (count < minPhotos) {
+                        return `Upload at least ${minPhotos} photos`;
+                    }
+                    return true;
+                },
+            },
+        },
+        ...(withNote
+            ? [
+                  {
+                      name: "note",
+                      type: "textarea",
+                      label: "Note (optional)",
+                      placeholder: "Anything your project lead should know about this step",
+                      rows: 3,
+                      validation: {
+                          maxLength: { value: NOTE_MAX_LENGTH, message: `Keep it under ${NOTE_MAX_LENGTH} characters` },
+                      },
+                  } satisfies FormFieldConfig,
+              ]
+            : []),
+    ];
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // JobDetailCompletionUpload — shown once every production step is approved.
@@ -78,18 +95,27 @@ export default function JobDetailCompletionUpload({
             <MainForm<CompletionFormValues>
                 fields={getFields(photoLabel, withNote)}
                 submitLabel={submitLabel}
-                onSubmit={(values) => {
+                onSubmit={async (values) => {
                     try {
+                        const minPhotos = withNote ? MIN_STEP_PROOF_PHOTOS : 1;
                         const files = Array.from(values.photo ?? []);
-                        if (files.length === 0) {
-                            toast.error("You need to add image to submit");
+                        if (files.length < minPhotos) {
+                            toast.error(minPhotos > 1 ? `Upload at least ${minPhotos} photos` : "You need to add an image to submit");
                             return;
                         }
-                        onComplete(
-                            files.map((file) => URL.createObjectURL(file)),
-                            values.note?.trim() || undefined,
-                        );
+                        const urls = (files as Array<Record<string, unknown> | File>)
+                            .map((file) => {
+                                if (file && typeof file === "object" && "url" in file && typeof file.url === "string") {
+                                    return file.url;
+                                }
+                                if (file instanceof File) return URL.createObjectURL(file);
+                                return "";
+                            })
+                            .filter(Boolean);
+                        clearFormUploadedFiles("photo");
+                        onComplete(urls, values.note?.trim() || undefined);
                     } catch {
+                        await cleanupFormFieldUploads("photo");
                         toast.error("Couldn't upload the photo. Please try again.");
                     }
                 }}

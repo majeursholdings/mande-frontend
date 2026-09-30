@@ -4,6 +4,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
+import { cleanupFormFieldUploads, clearFormUploadedFiles } from "@/components/form/fileInput";
+import { manufacturerService } from "@/lib/services/manufacturerService";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
 import { PENDING_VERIFICATION } from "@/constant/manufacturer";
 import { FormSubmitButton } from "./formButtons";
@@ -39,6 +41,8 @@ const FIELDS: FormFieldConfig[] = [
         capture: "environment",
         maxFiles: 1,
         maxSizeMB: 5,
+        uploadCategory: "profile",
+        uploadVisibility: "private",
         validation: { required: "Add a photo of your NIN card" },
     },
 ];
@@ -48,26 +52,44 @@ export default function NinCardReuploadForm({ onSubmitted }: { onSubmitted: () =
     const { profile, updateProfile } = useManufacturerProfile();
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleSubmit = async ({ ninCardPhoto }: NinCardReuploadFormValues) => {
+    const handleSubmit = async (values: NinCardReuploadFormValues) => {
         setIsLoading(true);
         try {
-            const file = ninCardPhoto?.[0];
-            if (!file) {
+            const photoItem = Array.isArray(values.ninCardPhoto)
+                ? (values.ninCardPhoto[0] as unknown)
+                : (values.ninCardPhoto as unknown);
+            if (!photoItem) {
                 toast.error("Add a photo of your NIN card");
                 return;
             }
 
-            // No backend is wired up yet — simulate the upload and show the
-            // chosen file from a local object URL until the API returns one.
-            await new Promise((resolve) => setTimeout(resolve, 800));
+            const imageUrl =
+                photoItem && typeof photoItem === "object" && "url" in photoItem && typeof photoItem.url === "string"
+                    ? photoItem.url
+                    : photoItem instanceof File
+                      ? URL.createObjectURL(photoItem)
+                      : "";
+
+            const publicId =
+                photoItem && typeof photoItem === "object" && "publicId" in photoItem && typeof photoItem.publicId === "string"
+                    ? photoItem.publicId
+                    : undefined;
+
+            await manufacturerService.submitNin({
+                ninNumber: values.ninNumberAgain.trim(),
+                image: publicId,
+            });
+
             const previousUrl = profile.ninCard.imageUrl;
             updateProfile({
-                ninCard: { imageUrl: URL.createObjectURL(file), ...PENDING_VERIFICATION },
+                ninCard: { imageUrl, ...PENDING_VERIFICATION },
             });
             if (previousUrl?.startsWith("blob:")) URL.revokeObjectURL(previousUrl);
+            clearFormUploadedFiles("ninCardPhoto");
             toast.success("NIN card sent for review");
             onSubmitted();
         } catch {
+            await cleanupFormFieldUploads("ninCardPhoto");
             toast.error("Couldn't upload your NIN card. Please try again.");
         } finally {
             setIsLoading(false);

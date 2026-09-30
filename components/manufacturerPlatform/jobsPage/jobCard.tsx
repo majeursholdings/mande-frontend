@@ -40,7 +40,7 @@ export function OpenJobCard({ job }: { job: OpenJob }) {
             meta={`${getJobCategoryLabel(job.category)} · Posted ${getTimeAgoLabel(new Date(job.postedAt))}`}
             description={job.description}
             price={job.price}
-            duration={formatShortDuration(new Date(job.startDate), new Date(job.dueDate))}
+            duration={formatShortDuration(new Date(job.startDate || job.postedAt), new Date(job.dueDate))}
             imageUrl={job.imageUrl}
             trailing={<ApplyNowButton jobId={job.id} jobTitle={job.title} />}
         />

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, type ReactNode } from "react";
+import { manufacturerService } from "@/lib/services/manufacturerService";
 import { MANUFACTURER_ACCOUNT } from "@/constant/manufacturer";
 import { getAccountHold, type AccountAppealRecord, type AccountStatusEventRecord } from "@/constant/sampleDb";
 
@@ -35,7 +36,7 @@ export function ManufacturerAccountProvider({ children }: { children: ReactNode 
         isFlagged: account.accountStatus === "flagged",
         hold: getAccountHold(account),
         pendingAppeal: account.appeals.find((appeal) => appeal.status === "pending"),
-        sendAppeal: (appeal) =>
+        sendAppeal: (appeal) => {
             setAccount((current) =>
                 current.accountStatus !== "suspended" || current.appeals.some((sent) => sent.status === "pending")
                     ? current
@@ -54,7 +55,14 @@ export function ManufacturerAccountProvider({ children }: { children: ReactNode 
                               ...current.appeals,
                           ],
                       },
-            ),
+            );
+            const attachments = (appeal.attachments || [])
+                .filter((a) => !!a.publicId)
+                .map((a) => ({ publicId: a.publicId!, name: a.name }));
+            manufacturerService
+                .submitAppeal({ message: appeal.message, attachments })
+                .catch((err) => console.error("Failed to submit appeal to server:", err));
+        },
     };
 
     return <ManufacturerAccountContext.Provider value={value}>{children}</ManufacturerAccountContext.Provider>;

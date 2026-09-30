@@ -8,6 +8,9 @@ import UserAvatar from "@/components/ui/userAvatar";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
 import { getManufacturerFullName } from "@/constant/manufacturer";
 import { DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fileRules";
+import { mediaService } from "@/lib/services/mediaService";
+import { uploadFileToCloudinary } from "@/lib/services/cloudinaryService";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const AVATAR_ACCEPT = "image/png, image/jpeg, image/webp";
 const AVATAR_MAX_SIZE_MB = DEFAULT_MAX_FILE_SIZE_MB;
@@ -19,6 +22,8 @@ const AVATAR_MAX_SIZE_MB = DEFAULT_MAX_FILE_SIZE_MB;
 // a single round avatar, so this is a plain file input behind the photo.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { manufacturerService } from "@/lib/services/manufacturerService";
+
 /** The signed-in manufacturer's profile photo. */
 export default function ProfileAvatarUploadForm() {
     const { profile, updateProfile } = useManufacturerProfile();
@@ -26,7 +31,21 @@ export default function ProfileAvatarUploadForm() {
         <AvatarUploadForm
             name={getManufacturerFullName(profile)}
             avatarUrl={profile.avatarUrl}
-            onUploaded={(avatarUrl) => updateProfile({ avatarUrl })}
+            onUploaded={async (avatarUrl, publicId) => {
+                let savedUrl = avatarUrl;
+                if (publicId) {
+                    try {
+                        const res = await manufacturerService.setAvatar(publicId);
+                        if (res?.profile?.avatar?.url || res?.profile?.avatarUrl) {
+                            savedUrl = res.profile.avatar?.url ?? res.profile.avatarUrl;
+                        }
+                    } catch (e) {
+                        console.error("Failed to sync avatar to backend:", e);
+                        throw e;
+                    }
+                }
+                updateProfile({ avatarUrl: savedUrl });
+            }}
         />
     );
 }
@@ -40,9 +59,11 @@ export function AvatarUploadForm({
     /** For the initials avatar while there's no photo. */
     name: string;
     avatarUrl: string | null;
-    onUploaded: (avatarUrl: string) => void;
+    onUploaded: (avatarUrl: string, publicId?: string) => void | Promise<void>;
 }) {
     const [isUploading, setIsUploading] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const { data: currentUser } = useCurrentUser();
 
     const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -60,18 +81,40 @@ export function AvatarUploadForm({
         }
 
         setIsUploading(true);
+        setProgress(0);
         try {
-            // No backend is wired up yet — simulate the upload and show the
-            // chosen file from a local object URL until the API returns one.
-            await new Promise((resolve) => setTimeout(resolve, 800));
-            const previousUrl = avatarUrl;
-            onUploaded(URL.createObjectURL(file));
-            if (previousUrl?.startsWith("blob:")) URL.revokeObjectURL(previousUrl);
+            let uploadedUrl: string;
+            let uploadedPublicId: string | undefined;
+
+            try {
+                const res = await mediaService.uploadFile(file, "avatar", (p) => setProgress(p));
+                uploadedUrl = res.url;
+                uploadedPublicId = res.publicId;
+            } catch (mediaErr) {
+                console.warn("Backend media signature upload failed, falling back to frontend upload:", mediaErr);
+                const { promise } = uploadFileToCloudinary({
+                    file,
+                    category: "profile",
+                    visibility: "public",
+                    user: currentUser,
+                    onProgress: (p) => setProgress(p),
+                });
+                const res = await promise;
+                uploadedUrl = res.url;
+                uploadedPublicId = res.publicId;
+            }
+
+            await onUploaded(uploadedUrl, uploadedPublicId);
             toast.success("Profile photo updated successfully");
-        } catch {
-            toast.error("Couldn't upload your photo. Please try again.");
+        } catch (err: unknown) {
+            const message =
+                (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ||
+                (err as Error)?.message ||
+                "Couldn't upload your photo. Please try again.";
+            toast.error(message);
         } finally {
             setIsUploading(false);
+            setProgress(0);
         }
     };
 
@@ -88,8 +131,9 @@ export function AvatarUploadForm({
                     <Camera className="size-5" strokeWidth={1.75} />
                 </span>
                 {isUploading && (
-                    <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
-                        <Loader2 className="size-6 animate-spin text-white" />
+                    <span className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-black/50 text-white">
+                        <Loader2 className="size-6 animate-spin" />
+                        <span className="text-[10px] font-semibold mt-1">{progress}%</span>
                     </span>
                 )}
                 <input

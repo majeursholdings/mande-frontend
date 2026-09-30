@@ -186,7 +186,7 @@ function ProductionStepRow({
                 {canSendProof && (
                     <JobDetailCompletionUpload
                         title={step.state === "sent-back" ? `New proof of the ${step.label.toLowerCase()}` : `Proof of the ${step.label.toLowerCase()}`}
-                        description={`Up to ${MAX_STEP_PROOF_PHOTOS} photos of this step. Once it's approved, ${
+                        description={`At least 3 photos (up to ${MAX_STEP_PROOF_PHOTOS}) of this step. Once it's approved, ${
                             paysLabel ? `${paysLabel} and ` : ""
                         }the next step opens.`}
                         photoLabel={`${step.label} photos`}

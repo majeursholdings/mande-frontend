@@ -28,12 +28,16 @@ export default function SettingsTabs<T extends string>({
     header,
     tabs,
     defaultValue,
+    value,
+    onValueChange,
     label,
 }: {
     /** Above the tabs, e.g. the avatar — divided from them on desktop. */
     header?: ReactNode;
     tabs: SettingsTab<T>[];
-    defaultValue: T;
+    defaultValue?: T;
+    value?: T;
+    onValueChange?: (value: T) => void;
     /** Names the tab list for screen readers. */
     label: string;
 }) {
@@ -41,7 +45,9 @@ export default function SettingsTabs<T extends string>({
 
     return (
         <Tabs.Root
+            value={value}
             defaultValue={defaultValue}
+            onValueChange={(next) => onValueChange?.(next as T)}
             orientation={isDesktop ? "vertical" : "horizontal"}
             className="flex flex-col gap-8 lg:flex-row lg:gap-0"
         >

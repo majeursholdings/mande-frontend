@@ -5,9 +5,11 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
+import { cleanupFormFieldUploads, clearFormUploadedFiles } from "@/components/form/fileInput";
 import { FEEDBACK_CATEGORY_OPTIONS } from "@/constant/support";
 import type { ManufacturerFeedback } from "@/constant/manufacturer";
 import { FormSubmitButton } from "./formButtons";
+import { supportService } from "@/lib/services/supportService";
 
 type SupportFeedbackFormValues = {
     category: ManufacturerFeedback["category"] | "";
@@ -53,6 +55,8 @@ const FIELDS: FormFieldConfig[] = [
         accept: "image/*",
         maxFiles: 1,
         maxSizeMB: 5,
+        uploadCategory: "support",
+        uploadVisibility: "private",
     },
 ];
 
@@ -74,20 +78,36 @@ export default function SupportFeedbackForm({
     const handleSubmit = async ({ category, message, screenshot }: SupportFeedbackFormValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate the request so the flow
-            // is testable end-to-end. The screenshot shows from a local
-            // object URL until the API returns the uploaded one.
-            await new Promise((resolve) => setTimeout(resolve, 800));
             const [file] = Array.from(screenshot ?? []);
+            const fileObj = file as unknown;
+            const publicId =
+                fileObj && typeof fileObj === "object" && "publicId" in fileObj && typeof fileObj.publicId === "string"
+                    ? fileObj.publicId
+                    : undefined;
+            const screenshotUrl =
+                fileObj && typeof fileObj === "object" && "url" in fileObj && typeof fileObj.url === "string"
+                    ? fileObj.url
+                    : file instanceof File
+                      ? URL.createObjectURL(file)
+                      : null;
+
+            await supportService.sendFeedback({
+                category: category as ManufacturerFeedback["category"],
+                message: message.trim(),
+                screenshot: publicId,
+            });
+
             onSend({
                 category: category as ManufacturerFeedback["category"],
                 message: message.trim(),
-                screenshotUrl: file ? URL.createObjectURL(file) : null,
+                screenshotUrl,
             });
+            clearFormUploadedFiles("screenshot");
             methods.reset(SUPPORT_FEEDBACK_DEFAULT_VALUES);
             setFormKey((key) => key + 1);
             toast.success("Thanks — we've received your feedback");
         } catch {
+            await cleanupFormFieldUploads("screenshot");
             toast.error("Couldn't send your feedback. Please try again.");
         } finally {
             setIsLoading(false);

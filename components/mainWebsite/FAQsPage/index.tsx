@@ -2,23 +2,11 @@ import Link from "next/link";
 import { MessageCircleQuestion } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { CONTACT_URL } from "@/constant/navigation";
-import { CONTACT_DETAILS, WEBSITE_FAQ_GROUPS } from "@/constant/website";
+import { CONTACT_DETAILS, getWebsiteFaqGroups } from "@/constant/website";
+import { getWebsitePlans } from "@/lib/services/websiteService";
 import PageHero from "../common/pageHero";
 import SectionWrapper from "../common/sectionWrapper";
 import { WEBSITE_PRIMARY_BUTTON } from "../common/buttonStyles";
-
-// For search engines — the questions and answers as FAQPage structured data
-const FAQ_STRUCTURED_DATA = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: WEBSITE_FAQ_GROUPS.flatMap((group) =>
-        group.faqs.map((faq) => ({
-            "@type": "Question",
-            name: faq.question,
-            acceptedAnswer: { "@type": "Answer", text: faq.answer },
-        })),
-    ),
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FAQs — the questions in groups (getting started, jobs, payments, plans,
@@ -26,13 +14,30 @@ const FAQ_STRUCTURED_DATA = {
 // row on phones. Then a way to ask anything else.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function FAQsPage() {
+export default async function FAQsPage() {
+    const plansData = await getWebsitePlans();
+    const discountPercent = plansData?.discountPercent ?? 0;
+    const faqGroups = getWebsiteFaqGroups(discountPercent);
+
+    // For search engines — the questions and answers as FAQPage structured data
+    const faqStructuredData = {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: faqGroups.flatMap((group) =>
+            group.faqs.map((faq) => ({
+                "@type": "Question",
+                name: faq.question,
+                acceptedAnswer: { "@type": "Answer", text: faq.answer },
+            })),
+        ),
+    };
+
     return (
         <>
             <script
                 type="application/ld+json"
-                // Static data from constant/website.ts — no user input
-                dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_STRUCTURED_DATA) }}
+                // Generated from live plan data and platform rules — no user input
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(faqStructuredData) }}
             />
 
             <PageHero
@@ -44,7 +49,7 @@ export default function FAQsPage() {
             <SectionWrapper containerClassName="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-16">
                 <nav aria-label="FAQ topics" className="lg:sticky lg:top-24 lg:w-60 lg:shrink-0">
                     <ul className="-mx-2.5 flex gap-2 overflow-x-auto px-2.5 pb-1 [scrollbar-width:none] lg:mx-0 lg:flex-col lg:gap-1 lg:overflow-visible lg:px-0 [&::-webkit-scrollbar]:hidden">
-                        {WEBSITE_FAQ_GROUPS.map((group) => (
+                        {faqGroups.map((group) => (
                             <li key={group.id} className="shrink-0">
                                 <a
                                     href={`#${group.id}`}
@@ -58,7 +63,7 @@ export default function FAQsPage() {
                 </nav>
 
                 <div className="flex min-w-0 flex-1 flex-col gap-12">
-                    {WEBSITE_FAQ_GROUPS.map((group) => (
+                    {faqGroups.map((group) => (
                         <section key={group.id} id={group.id} aria-labelledby={`${group.id}-title`} className="scroll-mt-24">
                             <h2 id={`${group.id}-title`} className="mb-4 text-2xl tracking-tight md:text-3xl">
                                 {group.title}

@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
+import { jobsService } from "@/lib/services/jobsService";
 import {
     MAX_JOB_REJECTIONS,
     getJobPaymentInput,
@@ -44,6 +47,7 @@ export type JobDetailState = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function useJobDetailState(job: Job) {
+    const queryClient = useQueryClient();
     const { receivePayment } = useManufacturerWallet();
     const [storedState, setState] = useState<JobDetailState>({
         status: job.status,
@@ -66,34 +70,54 @@ export function useJobDetailState(job: Job) {
         }, 3000);
     };
 
-    const acceptJob = () => {
+    const acceptJob = async () => {
         const acceptedAt = new Date().toISOString();
         setState((s) => ({ ...s, status: "in-progress", dateAssigned: acceptedAt }));
         // The first part of the pay is released the moment they say yes
         const [firstPayment] = getJobPayments(getJobPaymentInput({ ...job, dateAssigned: acceptedAt })).payments;
-        receivePayment({
-            id: getPayoutId(job.id, firstPayment.milestone, SIGNED_IN_MANUFACTURER_ID),
-            amount: firstPayment.amount,
-            label: firstPayment.label,
-            projectName: job.title,
-        });
+        if (firstPayment) {
+            receivePayment({
+                id: getPayoutId(job.id, firstPayment.milestone, SIGNED_IN_MANUFACTURER_ID),
+                amount: firstPayment.amount,
+                label: firstPayment.label,
+                projectName: job.title,
+            });
+        }
         showBanner("Job accepted — your first payment is in your wallet");
+        try {
+            await jobsService.acceptJob(job.id);
+            queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+        } catch (err) {
+            console.error("Failed to accept job on server:", err);
+        }
     };
 
-    const declineJob = () => {
+    const declineJob = async (reason = "Declined by manufacturer") => {
         setState((s) => ({ ...s, status: "cancelled" }));
         showBanner("Job has been declined");
+        try {
+            await jobsService.declineJob(job.id, reason);
+            queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+        } catch (err) {
+            console.error("Failed to decline job on server:", err);
+        }
     };
 
     // Not once they're past the Materials step — the materials money is spent
-    const cancelJob = () => {
+    const cancelJob = async (reason = "Cancelled by manufacturer") => {
         if (!canCancelJob(state.stepSubmissions)) return;
         setState((s) => ({ ...s, status: "cancelled" }));
         showBanner("Job has been cancelled");
+        try {
+            await jobsService.cancelJob(job.id, reason);
+            queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+        } catch (err) {
+            console.error("Failed to cancel job on server:", err);
+        }
     };
 
     // Asks for a later due date — one request at a time, for the lead to decide
-    const reportDelay = ({ requestedDueDate, reason }: { requestedDueDate: string; reason: string }) => {
+    const reportDelay = async ({ requestedDueDate, reason }: { requestedDueDate: string; reason: string }) => {
         if (state.extensionRequests.some((request) => request.status === "pending")) return;
         const request: TimelineExtensionRecord = {
             id: `ext-${Date.now()}`,
@@ -107,6 +131,12 @@ export function useJobDetailState(job: Job) {
         };
         setState((s) => ({ ...s, extensionRequests: [request, ...s.extensionRequests] }));
         showBanner("Delay reported — waiting for your project lead");
+        try {
+            await jobsService.requestExtension(job.id, { requestedDueDate, reason });
+            queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+        } catch (err) {
+            console.error("Failed to report delay on server:", err);
+        }
     };
 
     const purchaseMaterials = () => {
@@ -115,7 +145,7 @@ export function useJobDetailState(job: Job) {
 
     // Proof goes in for the step they're on, or one that was sent back —
     // steps open in order, each once the one before it is approved
-    const submitStepProof = (step: ProductionStepKey, imageUrls: string[], note?: string) => {
+    const submitStepProof = async (step: ProductionStepKey, imageUrls: string[], note?: string) => {
         const target = getStepProgress(state.stepSubmissions).find((progress) => progress.key === step);
         if (state.status !== "in-progress" || (target?.state !== "current" && target?.state !== "sent-back")) return;
         setState((s) => ({
@@ -126,9 +156,15 @@ export function useJobDetailState(job: Job) {
             ],
         }));
         showBanner("Proof sent for review");
+        try {
+            await jobsService.submitStepProof(job.id, step, { photos: imageUrls, note });
+            queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+        } catch (err) {
+            console.error("Failed to submit step proof on server:", err);
+        }
     };
 
-    const uploadCompletionPhoto = (imageUrls: string[]) => {
+    const uploadCompletionPhoto = async (imageUrls: string[]) => {
         setState((s) => ({
             ...s,
             completionImageUrls: imageUrls,
@@ -136,12 +172,18 @@ export function useJobDetailState(job: Job) {
             submittedForReviewAt: new Date().toISOString(),
         }));
         showBanner("Job marked as done");
+        try {
+            await jobsService.submitFinishedWork(job.id, imageUrls);
+            queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+        } catch (err) {
+            console.error("Failed to submit finished work on server:", err);
+        }
     };
 
     // New photo proof replaces the rejected submission and sends the job
     // back to the admin for review (which also completes the derived
     // "Redeliver" step). Blocked once the job hits MAX_JOB_REJECTIONS.
-    const resubmitForReview = (imageUrls: string[]) => {
+    const resubmitForReview = async (imageUrls: string[]) => {
         if (state.status !== "rejected" || state.rejections.length >= MAX_JOB_REJECTIONS) return;
         setState((s) => ({
             ...s,
@@ -150,6 +192,12 @@ export function useJobDetailState(job: Job) {
             submittedForReviewAt: new Date().toISOString(),
         }));
         showBanner("Job resubmitted for review");
+        try {
+            await jobsService.submitFinishedWork(job.id, imageUrls);
+            queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+        } catch (err) {
+            console.error("Failed to resubmit work on server:", err);
+        }
     };
 
     return {

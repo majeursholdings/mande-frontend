@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
+import { manufacturerService } from "@/lib/services/manufacturerService";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
 import Notice from "@/components/manufacturerPlatform/notice";
 import { getVerificationAfterSave } from "@/constant/manufacturer";
@@ -63,11 +64,12 @@ export default function BusinessDocumentsForm() {
     const handleSubmit = async (values: BusinessDocumentsFormValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate the request so the flow
-            // is testable end-to-end.
-            await new Promise((resolve) => setTimeout(resolve, 800));
             const companyTaxNumber = values.taxNumber.trim();
             const businessLicenseNumber = values.licenseNumber.trim();
+            await manufacturerService.submitBusinessDocuments({
+                companyTaxNumber: companyTaxNumber || undefined,
+                businessLicenseNumber: businessLicenseNumber || undefined,
+            });
             updateProfile({
                 companyTaxNumber,
                 companyTaxNumberVerification: getVerificationAfterSave(

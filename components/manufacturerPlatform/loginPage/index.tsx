@@ -4,17 +4,23 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import { FormFieldConfig } from "@/components/form/types";
 import { validators } from "@/components/form/form.validators";
 import AuthScreenLayout from "../authScreenLayout";
 import { GoogleIcon, FacebookIcon } from "../socialIcons";
-import { loadRegistrationProgress } from "../registrationPage/registrationProgress";
 import {
     ARTISAN_FORGOT_PASSWORD_URL,
     ARTISAN_SIGNUP_URL,
 } from "@/constant/navigation";
+import { MANUFACTURER_DASHBOARD_URL } from "@/constant/manufacturer";
+import { authService, type LoginMfaRequiredResponse } from "@/lib/services/authService";
+import { MandeApiError } from "@/lib/types/api";
+import { queryKeys } from "@/lib/queryKeys";
+import { useRedirectIfAuthenticated } from "@/hooks/useAuthRedirect";
+import { OtpCodeDialog } from "../otpVerificationDialog";
 
 type LoginFormValues = {
     email: string;
@@ -28,9 +34,24 @@ const LOGIN_DEFAULT_VALUES: LoginFormValues = {
     rememberMe: false,
 };
 
+/** Where to land: `?next=` when it's a path on this platform, else the dashboard. */
+function landingUrl(): string {
+    if (typeof window === "undefined") return MANUFACTURER_DASHBOARD_URL;
+    const next = new URLSearchParams(window.location.search).get("next");
+    return next && next.startsWith("/manufacturer/") && !next.startsWith("//") && !next.includes("\\")
+        ? next
+        : MANUFACTURER_DASHBOARD_URL;
+}
+
 export default function ManufacLoginPage() {
     const router = useRouter();
+    const queryClient = useQueryClient();
     const [isLoading, setIsLoading] = useState(false);
+    const [challenge, setChallenge] = useState<(LoginMfaRequiredResponse & { email: string }) | null>(null);
+
+    // Redirect to respective dashboard if already authenticated with a valid token
+    useRedirectIfAuthenticated();
+
     const methods = useForm<LoginFormValues>({
         mode: "onTouched",
         defaultValues: LOGIN_DEFAULT_VALUES,
@@ -72,26 +93,65 @@ export default function ManufacLoginPage() {
         toast.info(`Sign in with ${provider} isn't available yet.`);
     };
 
-    const handleSubmit = async ({ email }: LoginFormValues) => {
+    const handleSubmit = async ({ email, password, rememberMe }: LoginFormValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate the request so the flow
-            // is testable end-to-end.
-            await new Promise((resolve) => setTimeout(resolve, 800));
+            const trimmedEmail = email.trim().toLowerCase();
+            const result = await authService.login({
+                email: trimmedEmail,
+                password,
+                rememberMe,
+                role: "manufacturer",
+            });
 
-            // Someone who dropped off mid sign-up goes back to finish it, at
-            // the step they'd reached. (The API will say this on login; for
-            // now it's the progress saved in this browser.)
-            const unfinished = loadRegistrationProgress();
-            if (unfinished?.values.email?.toLowerCase() === email.trim().toLowerCase()) {
-                toast.info("Welcome back! Let's finish setting up your account.");
-                router.push(ARTISAN_SIGNUP_URL);
+            if ("mfaRequired" in result && result.mfaRequired) {
+                setChallenge({ ...result, email: trimmedEmail });
                 return;
             }
 
+            if ("user" in result) {
+                if (result.user.role !== "manufacturer") {
+                    await authService.logout().catch(() => undefined);
+                    toast.error("That email or password isn't right.");
+                    return;
+                }
+
+                queryClient.setQueryData(queryKeys.auth.profile(), result.user);
+                toast.success("Logged in successfully");
+                router.replace(landingUrl());
+            }
+        } catch (error) {
+            if (error instanceof MandeApiError) {
+                toast.error(error.message || "That email or password isn't right.");
+            } else {
+                toast.error("That email or password isn't right.");
+            }
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleOtpVerified = async (code: string) => {
+        if (!challenge) return;
+        setIsLoading(true);
+        try {
+            const result = await authService.login2FA(challenge.mfaToken, code);
+            if (result.user.role !== "manufacturer") {
+                await authService.logout().catch(() => undefined);
+                setChallenge(null);
+                toast.error("That email or password isn't right.");
+                return;
+            }
+            queryClient.setQueryData(queryKeys.auth.profile(), result.user);
             toast.success("Logged in successfully");
-        } catch {
-            toast.error("Invalid email or password");
+            setChallenge(null);
+            router.replace(landingUrl());
+        } catch (error) {
+            if (error instanceof MandeApiError) {
+                toast.error(error.message || "That code isn't right or has expired.");
+            } else {
+                toast.error("That code isn't right or has expired.");
+            }
         } finally {
             setIsLoading(false);
         }
@@ -101,11 +161,14 @@ export default function ManufacLoginPage() {
         <AuthScreenLayout>
             <div className="flex flex-col gap-6">
                 <div className="flex flex-col gap-2">
+                    <span className="text-xs font-semibold font-text uppercase tracking-wider text-secondary-700">
+                        Manufacturer Platform
+                    </span>
                     <h1 className="text-2xl font-bold font-text text-[#1F2937]">
                         Log in to <span className="text-secondary-700">Mande!</span>
                     </h1>
                     <p className="text-sm font-normal font-text text-[#6B7280]">
-                        Welcome back, log into your account.
+                        Welcome back, log into your manufacturer account.
                     </p>
                 </div>
 
@@ -154,6 +217,17 @@ export default function ManufacLoginPage() {
                     </Link>
                 </p>
             </div>
+
+            {challenge && (
+                <OtpCodeDialog
+                    open={Boolean(challenge)}
+                    onOpenChange={(open) => !open && setChallenge(null)}
+                    title="Enter your code"
+                    email={challenge.email}
+                    channel={challenge.method}
+                    onVerified={handleOtpVerified}
+                />
+            )}
         </AuthScreenLayout>
     );
 }

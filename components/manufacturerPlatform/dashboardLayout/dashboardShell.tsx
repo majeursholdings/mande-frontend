@@ -16,10 +16,15 @@ import { NotificationsProvider } from "./notificationsContext";
 import { RecentSearchesProvider } from "./recentSearchesContext";
 import { LeadReviewsProvider } from "./leadReviewsContext";
 import LeadReviewPrompt from "./leadReviewPrompt";
+import SessionGuard from "./sessionGuard";
+import { ManufacturerLogoutProvider } from "./logoutContext";
+import { ARTISAN_LOGIN_URL } from "@/constant/navigation";
 
 export default function DashboardShell({ children }: { children: ReactNode }) {
     return (
-        <ManufacturerAccountProvider>
+        <SessionGuard role="manufacturer" loginUrl={ARTISAN_LOGIN_URL}>
+            <ManufacturerLogoutProvider>
+                <ManufacturerAccountProvider>
             {/* Suspended: only the appeal screen, in place of the whole dashboard */}
             <AccountGate>
                 <ManufacturerProfileProvider>
@@ -50,5 +55,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
                 </ManufacturerProfileProvider>
             </AccountGate>
         </ManufacturerAccountProvider>
+            </ManufacturerLogoutProvider>
+        </SessionGuard>
     );
 }

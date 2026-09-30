@@ -28,6 +28,7 @@ import {
 } from "./registrationProgress";
 import { REGISTRATION_STEPS } from "@/constant/manufacturer";
 import { ARTISAN_LOGIN_URL } from "@/constant/navigation";
+import { useRedirectIfAuthenticated } from "@/hooks/useAuthRedirect";
 
 const hasValue = (value: unknown): boolean => {
     if (typeof value === "boolean") return value === true;
@@ -46,6 +47,7 @@ const simulateRequest = (ms = 800) =>
 const subscribeToNothing = () => () => {};
 
 export default function ManufacRegPage({ initialPlan }: { initialPlan?: string }) {
+    useRedirectIfAuthenticated();
     // undefined on the server and during hydration — the wizard waits for it,
     // so it mounts on the right step instead of jumping there afterwards
     const savedProgress = useSyncExternalStore(

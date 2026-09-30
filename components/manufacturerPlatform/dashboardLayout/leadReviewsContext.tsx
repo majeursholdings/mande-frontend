@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { JOBS, type Job } from "@/constant/manufacturer";
+import { jobsService } from "@/lib/services/jobsService";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LeadReviewsProvider — the manufacturer's ratings of their jobs' project
@@ -16,7 +17,7 @@ export type LeadReview = NonNullable<Job["leadReview"]>;
 
 type LeadReviewsContextValue = {
     getLeadReview: (jobId: string) => LeadReview | null;
-    submitLeadReview: (jobId: string, review: Pick<LeadReview, "rating" | "comment">) => void;
+    submitLeadReview: (jobId: string, review: Pick<LeadReview, "rating" | "comment">) => void | Promise<void>;
     /** Completed jobs whose lead they haven't rated, and haven't put off — newest first. */
     jobsToRate: Job[];
     /** Closes the prompt for a job, until they next open the platform. */
@@ -39,8 +40,14 @@ export function LeadReviewsProvider({ children }: { children: ReactNode }) {
 
     const value: LeadReviewsContextValue = {
         getLeadReview: (jobId) => reviews[jobId] ?? null,
-        submitLeadReview: (jobId, review) =>
-            setReviews((current) => ({ ...current, [jobId]: { ...review, createdAt: new Date().toISOString() } })),
+        submitLeadReview: async (jobId, review) => {
+            setReviews((current) => ({ ...current, [jobId]: { ...review, createdAt: new Date().toISOString() } }));
+            try {
+                await jobsService.rateLead(jobId, review);
+            } catch (err) {
+                console.error("Failed to rate lead on server:", err);
+            }
+        },
         jobsToRate,
         putOff: (jobId) => setPutOffJobIds((current) => (current.includes(jobId) ? current : [...current, jobId])),
     };

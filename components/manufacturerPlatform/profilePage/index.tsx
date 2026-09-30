@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Headset, LogOut, Scale, Settings, ShieldCheck, UsersRound } from "lucide-react";
 import {
     MANUFACTURER_COMMUNITY_URL,
@@ -12,8 +11,8 @@ import {
     STAFF_RANGE_OPTIONS,
     getOptionLabel,
 } from "@/constant/manufacturer";
-import { ARTISAN_LOGIN_URL } from "@/constant/navigation";
 import { useManufacturerProfile } from "../dashboardLayout/manufacturerProfileContext";
+import { useLogout } from "../dashboardLayout/logoutContext";
 import LinkList, { type LinkListItem } from "../linkList";
 import ProfileCard from "./profileCard";
 import ProfileStatCard from "./profileStatCard";
@@ -58,6 +57,7 @@ function formatRange(label: string): string {
 
 export default function ManufacturerProfilePage() {
     const { profile } = useManufacturerProfile();
+    const { requestLogout } = useLogout();
 
     return (
         <div className="flex flex-col gap-6">
@@ -85,13 +85,14 @@ export default function ManufacturerProfilePage() {
             </div>
 
             {/* Mobile only — the desktop sidebar has its own Logout, the bottom nav doesn't */}
-            <Link
-                href={ARTISAN_LOGIN_URL}
-                className="lg:hidden mx-auto flex items-center gap-2 py-2 text-base font-medium font-text text-secondary-600"
+            <button
+                type="button"
+                onClick={requestLogout}
+                className="lg:hidden mx-auto flex items-center gap-2 py-2 text-base font-medium font-text text-secondary-600 cursor-pointer"
             >
                 <LogOut className="size-5" strokeWidth={1.75} />
                 Logout
-            </Link>
+            </button>
         </div>
     );
 }
