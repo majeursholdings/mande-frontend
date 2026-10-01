@@ -1,6 +1,6 @@
 import { api } from "@/lib/api";
 import { PRICING_PLANS, type PricingPlan } from "@/constant/sampleData";
-import type { SuperAdminInviteRecord, SuperAdminRecord } from "@/constant/sampleDb";
+import type { SuperAdminInviteRecord, SuperAdminRecord, TwoFactorMethod } from "@/constant/sampleDb";
 import type { ApiKey, PlatformSettings, SuperAdminRole } from "@/constant/superAdmin";
 import type { ApiKeyDraft } from "@/components/superAdminPlatform/form/apiKeyForm";
 import type { PlanChanges } from "@/components/superAdminPlatform/settingsContext";
