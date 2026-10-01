@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { maskEmail } from "@/lib/utils";
 import { authService } from "@/lib/services/authService";
 import OtpVerificationForm from "@/components/manufacturerPlatform/form/otpVerificationForm";
-import { useAdminProfile } from "@/components/adminPlatform/dashboardLayout/adminProfileContext";
+import { useOptionalAdminProfile } from "@/components/adminPlatform/dashboardLayout/adminProfileContext";
 import PasswordConfirmForm from "./form/passwordConfirmForm";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -21,6 +21,8 @@ import PasswordConfirmForm from "./form/passwordConfirmForm";
 export default function ReauthSteps({
     confirmLabel,
     action,
+    email: emailProp,
+    twoFactorMethod: twoFactorMethodProp,
     onConfirmed,
     onCancel,
 }: {
@@ -28,15 +30,24 @@ export default function ReauthSteps({
     confirmLabel: string;
     /** Optional specific action identifier (e.g. "add_super_admin") */
     action?: string;
+    /** Optional email override when used outside admin context */
+    email?: string;
+    /** Optional two-factor method override */
+    twoFactorMethod?: "email" | "app" | null;
     /** Runs once both check out — make the change with X-Reauth-Token. */
     onConfirmed: (reauthToken: string) => void | Promise<void>;
     onCancel: () => void;
 }) {
-    const { profile } = useAdminProfile();
+    const adminContext = useOptionalAdminProfile();
+    const effectiveEmail = emailProp ?? adminContext?.profile.email ?? "";
+    const effectiveMethod =
+        twoFactorMethodProp !== undefined
+            ? twoFactorMethodProp
+            : (adminContext?.profile.security.twoFactorMethod ?? null);
     const [step, setStep] = useState<"password" | "code">("password");
     const [password, setPassword] = useState("");
-    const usesApp = profile.security.twoFactorMethod === "app";
-    const sentTo = maskEmail(profile.email);
+    const usesApp = effectiveMethod === "app";
+    const sentTo = maskEmail(effectiveEmail);
     const targetAction =
         action ??
         (confirmLabel.toLowerCase().includes("super admin") || confirmLabel.toLowerCase().includes("invite")

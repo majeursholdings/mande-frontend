@@ -217,12 +217,26 @@ export const authService = {
    * Setup Authenticator App 2FA
    */
   async setup2FAApp(reauthToken: string): Promise<{ secret: string; otpauthUrl: string }> {
-    const { data } = await api.post<{ secret: string; otpauthUrl: string }>(
+    const { data } = await api.post<{ secret: string; otpauthUrl?: string; otpauthUri?: string }>(
       "/auth/2fa/app/setup",
       {},
       { headers: { "X-Reauth-Token": reauthToken } }
     );
-    return data;
+    return {
+      secret: data.secret,
+      otpauthUrl: data.otpauthUrl || data.otpauthUri || "",
+    };
+  },
+
+  /**
+   * Send code to email for enabling 2FA
+   */
+  async sendEmailTwoFactorCode(reauthToken: string): Promise<void> {
+    await api.post(
+      "/auth/2fa/email/send-code",
+      {},
+      { headers: { "X-Reauth-Token": reauthToken } }
+    );
   },
 
   /**

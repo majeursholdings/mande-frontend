@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Mail, QrCode, Smartphone, type LucideIcon } from "lucide-react";
+import { Copy, Mail, Smartphone, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn, maskEmail } from "@/lib/utils";
 import {
@@ -11,13 +11,10 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import OtpVerificationForm from "@/components/manufacturerPlatform/form/otpVerificationForm";
+import ReauthSteps from "@/components/superAdminPlatform/reauthSteps";
+import { authService } from "@/lib/services/authService";
 import type { TwoFactorMethod } from "@/constant/manufacturer";
-import { OtpCodeDialog } from "../otpVerificationDialog";
 import { useManufacturerProfile } from "../dashboardLayout/manufacturerProfileContext";
-
-// Sample secret until the API issues one per manufacturer (along with the
-// QR code for its otpauth:// URI) when they start authenticator setup
-const SAMPLE_AUTHENTICATOR_KEY = "JBSWY3DPEHPK3PXP";
 
 const METHODS: {
     method: TwoFactorMethod;
@@ -45,11 +42,7 @@ type PendingChange =
     | { action: "disable"; method: TwoFactorMethod }
     | null;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TwoFactorSettings — one method at a time, email or authenticator app.
-// Turning a method on (or switching to it) verifies a code from it first;
-// turning it off verifies a code from the current method.
-// ─────────────────────────────────────────────────────────────────────────────
+type SetupPhase = "reauth" | "verify";
 
 /** The signed-in manufacturer's two-factor settings. */
 export default function TwoFactorSettings() {
@@ -63,7 +56,7 @@ export default function TwoFactorSettings() {
     );
 }
 
-/** TwoFactorSettings for any account — e.g. an admin's. */
+/** TwoFactorSettings for any account (admin, super admin, manufacturer). */
 export function TwoFactorMethods({
     email,
     activeMethod,
@@ -76,14 +69,24 @@ export function TwoFactorMethods({
     onChange: (method: TwoFactorMethod | null) => void;
 }) {
     const [pending, setPending] = useState<PendingChange>(null);
+    const [phase, setPhase] = useState<SetupPhase>("reauth");
+    const [reauthToken, setReauthToken] = useState("");
+    const [appSecret, setAppSecret] = useState("");
+    const [otpauthUrl, setOtpauthUrl] = useState("");
 
     const closeDialog = (open: boolean) => {
-        if (!open) setPending(null);
+        if (!open) {
+            setPending(null);
+            setPhase("reauth");
+            setReauthToken("");
+            setAppSecret("");
+            setOtpauthUrl("");
+        }
     };
 
     const applyMethod = (method: TwoFactorMethod | null) => {
         onChange(method);
-        setPending(null);
+        closeDialog(false);
         toast.success(
             method ? "Two-factor authentication is on" : "Two-factor authentication is off",
         );
@@ -121,9 +124,10 @@ export function TwoFactorMethods({
                             </div>
                             <button
                                 type="button"
-                                onClick={() =>
-                                    setPending({ action: isActive ? "disable" : "enable", method })
-                                }
+                                onClick={() => {
+                                    setPhase("reauth");
+                                    setPending({ action: isActive ? "disable" : "enable", method });
+                                }}
                                 className={cn(
                                     "h-9 shrink-0 rounded-button border px-4 text-sm font-medium font-text transition-colors duration-200 cursor-pointer",
                                     isActive
@@ -138,51 +142,156 @@ export function TwoFactorMethods({
                 })}
             </ul>
 
-            <OtpCodeDialog
-                email={email}
+            {/* Turn off 2FA Dialog */}
+            <Dialog open={pending?.action === "disable"} onOpenChange={closeDialog}>
+                <DialogContent showCloseButton={false} className="max-w-100">
+                    <div className="flex flex-col gap-1">
+                        <DialogTitle>Turn off two-factor authentication</DialogTitle>
+                        <DialogDescription>
+                            Confirm your password and verification code to disable two-factor authentication.
+                        </DialogDescription>
+                    </div>
+                    <ReauthSteps
+                        confirmLabel="Turn off"
+                        action="change_2fa"
+                        email={email}
+                        twoFactorMethod={activeMethod}
+                        onConfirmed={async (token) => {
+                            try {
+                                await authService.disable2FA(token);
+                                applyMethod(null);
+                            } catch (err) {
+                                const message = err instanceof Error ? err.message : "Couldn't turn off two-factor authentication.";
+                                toast.error(message);
+                            }
+                        }}
+                        onCancel={() => closeDialog(false)}
+                    />
+                </DialogContent>
+            </Dialog>
+
+            {/* Turn on Email 2FA Dialog */}
+            <Dialog
                 open={pending?.action === "enable" && pending.method === "email"}
                 onOpenChange={closeDialog}
-                title="Turn on email verification"
-                intro="We'll ask for a code from your email when you log in and before sensitive actions."
-                channel="email"
-                confirmLabel="Turn on"
-                onVerified={() => applyMethod("email")}
-            />
+            >
+                <DialogContent showCloseButton={false} className="max-w-100">
+                    <div className="flex flex-col gap-1">
+                        <DialogTitle>Turn on email verification</DialogTitle>
+                        <DialogDescription>
+                            {phase === "reauth"
+                                ? "Confirm your password and current authentication code first."
+                                : `Enter the 6-digit code we sent to ${maskEmail(email)}.`}
+                        </DialogDescription>
+                    </div>
 
-            <AuthenticatorSetupDialog
+                    {phase === "reauth" ? (
+                        <ReauthSteps
+                            confirmLabel="Continue"
+                            action="enable_2fa"
+                            email={email}
+                            twoFactorMethod={activeMethod}
+                            onConfirmed={async (token) => {
+                                setReauthToken(token);
+                                try {
+                                    await authService.sendEmailTwoFactorCode(token);
+                                    toast.success(`Verification code sent to ${maskEmail(email)}`);
+                                    setPhase("verify");
+                                } catch {
+                                    toast.error("Couldn't send the verification code. Please try again.");
+                                }
+                            }}
+                            onCancel={() => closeDialog(false)}
+                        />
+                    ) : (
+                        <OtpVerificationForm
+                            resendTo={maskEmail(email)}
+                            confirmLabel="Turn on"
+                            onVerified={async (code) => {
+                                try {
+                                    await authService.enable2FA("email", code, reauthToken);
+                                    applyMethod("email");
+                                } catch (err) {
+                                    const message = err instanceof Error ? err.message : "Couldn't verify the code. Please try again.";
+                                    toast.error(message);
+                                }
+                            }}
+                            onResend={async () => {
+                                await authService.sendEmailTwoFactorCode(reauthToken);
+                            }}
+                            onCancel={() => closeDialog(false)}
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Turn on Authenticator App 2FA Dialog */}
+            <Dialog
                 open={pending?.action === "enable" && pending.method === "app"}
                 onOpenChange={closeDialog}
-                onVerified={() => applyMethod("app")}
-            />
+            >
+                <DialogContent showCloseButton={false} className="max-w-100">
+                    <div className="flex flex-col gap-1">
+                        <DialogTitle>Set up authenticator app</DialogTitle>
+                        <DialogDescription>
+                            {phase === "reauth"
+                                ? "Confirm your password and current authentication code first."
+                                : "Use an app like Google Authenticator or Microsoft Authenticator."}
+                        </DialogDescription>
+                    </div>
 
-            <OtpCodeDialog
-                email={email}
-                open={pending?.action === "disable"}
-                onOpenChange={closeDialog}
-                title="Turn off two-factor authentication"
-                intro="Your account will only be protected by your password."
-                channel={pending?.method ?? activeMethod ?? "email"}
-                confirmLabel="Turn off"
-                onVerified={() => applyMethod(null)}
-            />
+                    {phase === "reauth" ? (
+                        <ReauthSteps
+                            confirmLabel="Continue"
+                            action="enable_2fa"
+                            email={email}
+                            twoFactorMethod={activeMethod}
+                            onConfirmed={async (token) => {
+                                setReauthToken(token);
+                                try {
+                                    const setup = await authService.setup2FAApp(token);
+                                    setAppSecret(setup.secret);
+                                    setOtpauthUrl(setup.otpauthUrl);
+                                    setPhase("verify");
+                                } catch {
+                                    toast.error("Couldn't start authenticator setup. Please try again.");
+                                }
+                            }}
+                            onCancel={() => closeDialog(false)}
+                        />
+                    ) : (
+                        <AuthenticatorSetupBody
+                            secret={appSecret}
+                            otpauthUrl={otpauthUrl}
+                            reauthToken={reauthToken}
+                            onVerified={() => applyMethod("app")}
+                            onCancel={() => closeDialog(false)}
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
         </>
     );
 }
 
-function AuthenticatorSetupDialog({
-    open,
-    onOpenChange,
+function AuthenticatorSetupBody({
+    secret,
+    otpauthUrl,
+    reauthToken,
     onVerified,
+    onCancel,
 }: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
+    secret: string;
+    otpauthUrl: string;
+    reauthToken: string;
     onVerified: () => void;
+    onCancel: () => void;
 }) {
-    const groupedKey = SAMPLE_AUTHENTICATOR_KEY.match(/.{1,4}/g)?.join(" ") ?? "";
+    const groupedKey = secret.match(/.{1,4}/g)?.join(" ") ?? secret;
 
     const copyKey = async () => {
         try {
-            await navigator.clipboard.writeText(SAMPLE_AUTHENTICATOR_KEY);
+            await navigator.clipboard.writeText(secret);
             toast.success("Setup key copied");
         } catch {
             toast.error("Couldn't copy the key. Please copy it manually.");
@@ -190,47 +299,51 @@ function AuthenticatorSetupDialog({
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent showCloseButton={false} className="max-w-100">
-                <div className="flex flex-col gap-1">
-                    <DialogTitle>Set up authenticator app</DialogTitle>
-                    <DialogDescription>
-                        Use an app like Google Authenticator or Microsoft Authenticator.
-                    </DialogDescription>
-                </div>
-                <OtpVerificationForm
-                    confirmLabel="Turn on"
-                    onVerified={onVerified}
-                    onCancel={() => onOpenChange(false)}
-                >
-                    <ol className="flex flex-col gap-4 text-sm font-text text-mist-700">
-                        <li className="flex flex-col gap-3">
-                            <span>1. Scan this QR code with your authenticator app.</span>
-                            {/* The API's QR code image goes here */}
-                            <span className="mx-auto flex size-36 items-center justify-center rounded-lg border border-dashed border-mist-300 bg-mist-50">
-                                <QrCode className="size-16 text-mist-400" strokeWidth={1.25} />
-                            </span>
-                            <span className="text-xs text-mist-500">
-                                Can&apos;t scan it? Enter this key in the app instead:
-                            </span>
-                            <span className="flex items-center justify-between gap-3 rounded-lg bg-mist-50 px-3.5 py-2.5">
-                                <code className="font-mono text-sm tracking-wider text-mist-950">
-                                    {groupedKey}
-                                </code>
-                                <button
-                                    type="button"
-                                    onClick={copyKey}
-                                    aria-label="Copy setup key"
-                                    className="flex size-8 items-center justify-center rounded-md text-mist-600 hover:bg-mist-100 cursor-pointer"
-                                >
-                                    <Copy className="size-4" />
-                                </button>
-                            </span>
-                        </li>
-                        <li>2. Enter the 6-digit code the app shows.</li>
-                    </ol>
-                </OtpVerificationForm>
-            </DialogContent>
-        </Dialog>
+        <OtpVerificationForm
+            confirmLabel="Turn on"
+            onVerified={async (code) => {
+                try {
+                    await authService.enable2FA("app", code, reauthToken);
+                    onVerified();
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : "That code isn't right. Check the app and try again.";
+                    toast.error(message);
+                }
+            }}
+            onCancel={onCancel}
+        >
+            <ol className="flex flex-col gap-4 text-sm font-text text-mist-700">
+                <li className="flex flex-col gap-3">
+                    <span>1. Scan this QR code or enter the key into your authenticator app.</span>
+                    {otpauthUrl ? (
+                        <div className="mx-auto flex size-40 items-center justify-center rounded-lg border border-mist-200 bg-white p-2 shadow-xs">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(otpauthUrl)}`}
+                                alt="Authenticator QR Code"
+                                className="size-36"
+                            />
+                        </div>
+                    ) : null}
+                    <span className="text-xs text-mist-500">
+                        Can&apos;t scan it? Enter this key in the app instead:
+                    </span>
+                    <span className="flex items-center justify-between gap-3 rounded-lg bg-mist-50 px-3.5 py-2.5">
+                        <code className="font-mono text-sm tracking-wider text-mist-950">
+                            {groupedKey}
+                        </code>
+                        <button
+                            type="button"
+                            onClick={copyKey}
+                            aria-label="Copy setup key"
+                            className="flex size-8 items-center justify-center rounded-md text-mist-600 hover:bg-mist-100 cursor-pointer"
+                        >
+                            <Copy className="size-4" />
+                        </button>
+                    </span>
+                </li>
+                <li>2. Enter the 6-digit code the app shows.</li>
+            </ol>
+        </OtpVerificationForm>
     );
 }

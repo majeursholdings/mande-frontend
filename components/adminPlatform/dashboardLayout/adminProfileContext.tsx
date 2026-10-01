@@ -79,3 +79,7 @@ export function useAdminProfile() {
     if (!context) throw new Error("useAdminProfile must be used within an AdminProfileProvider");
     return context;
 }
+
+export function useOptionalAdminProfile() {
+    return useContext(AdminProfileContext);
+}
