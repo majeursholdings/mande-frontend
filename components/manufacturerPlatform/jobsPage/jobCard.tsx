@@ -7,6 +7,7 @@ import {
     type Job,
     type OpenJob,
 } from "@/constant/manufacturer";
+import { getSampleCategoryPhoto } from "@/constant/sampleDb";
 import { formatShortDuration, getTimeAgoLabel } from "@/lib/date";
 import ApplyNowButton from "./applyNowButton";
 
@@ -17,6 +18,7 @@ import ApplyNowButton from "./applyNowButton";
 /** A job assigned to the manufacturer, with its status — opening it in the manufacturer's jobs unless `href` says otherwise. */
 export default function JobCard({ job, href }: { job: Job; href?: string }) {
     const config = JOB_STATUS_CONFIG[job.status];
+    const displayImageUrl = job.imageUrl || getSampleCategoryPhoto(job.category);
 
     return (
         <JobCardFrame
@@ -26,6 +28,8 @@ export default function JobCard({ job, href }: { job: Job; href?: string }) {
             description={job.description}
             price={job.price}
             duration={formatShortDuration(new Date(job.startDate ?? job.dateAssigned ?? job.dueDate), new Date(job.dueDate))}
+            imageUrl={displayImageUrl}
+            category={job.category}
             trailing={<StatusBadge label={config.badgeLabel} tone={config.tone} variant="pill" />}
         />
     );
@@ -33,6 +37,8 @@ export default function JobCard({ job, href }: { job: Job; href?: string }) {
 
 /** An open job — always with its photo, and an "Apply now" button that becomes "Applied". */
 export function OpenJobCard({ job }: { job: OpenJob }) {
+    const displayImageUrl = job.imageUrl || getSampleCategoryPhoto(job.category);
+
     return (
         <JobCardFrame
             href={`${MANUFACTURER_JOBS_URL}/${job.id}`}
@@ -41,7 +47,8 @@ export function OpenJobCard({ job }: { job: OpenJob }) {
             description={job.description}
             price={job.price}
             duration={formatShortDuration(new Date(job.startDate || job.postedAt), new Date(job.dueDate))}
-            imageUrl={job.imageUrl}
+            imageUrl={displayImageUrl}
+            category={job.category}
             trailing={<ApplyNowButton jobId={job.id} jobTitle={job.title} />}
         />
     );

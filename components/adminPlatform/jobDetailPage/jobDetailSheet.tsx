@@ -413,6 +413,20 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
                         <JobStatusBadge status={status} />
                     </DetailRow>
                     <DetailRow label="Description">{job.description}</DetailRow>
+                    {job.deliveryLocation && (
+                        <DetailRow label="Delivery location">
+                            <span>
+                                {[
+                                    job.deliveryLocation.street,
+                                    job.deliveryLocation.city,
+                                    job.deliveryLocation.state,
+                                    job.deliveryLocation.country,
+                                ]
+                                    .filter(Boolean)
+                                    .join(", ")}
+                            </span>
+                        </DetailRow>
+                    )}
                 </dl>
 
                 {status === "in-progress" && (

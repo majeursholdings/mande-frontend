@@ -28,6 +28,12 @@ export interface CreateJobPayload {
   amountKobo: number;
   dueDate: string;
   startDate?: string | null;
+  deliveryLocation?: {
+    street?: string;
+    city: string;
+    state: string;
+    country?: string;
+  } | null;
   image?: { publicId: string; name?: string } | null;
   attachments?: { publicId: string; name?: string }[];
   projectLeadIds?: string[];
@@ -41,6 +47,12 @@ export interface UpdateJobPayload {
   amountKobo?: number;
   dueDate?: string;
   startDate?: string | null;
+  deliveryLocation?: {
+    street?: string;
+    city: string;
+    state: string;
+    country?: string;
+  } | null;
   image?: { publicId: string; name?: string } | null;
   attachments?: { publicId: string; name?: string }[];
   projectLeadIds?: string[];

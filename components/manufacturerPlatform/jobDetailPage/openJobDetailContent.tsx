@@ -98,6 +98,14 @@ export default function OpenJobDetailContent({
                         <dt className="text-mist-400">Description</dt>
                         <dd className="text-mist-700">{job.description}</dd>
                     </div>
+                    {job.deliveryLocation && (
+                        <div className="flex flex-col gap-1">
+                            <dt className="text-mist-400">Delivery location</dt>
+                            <dd className="text-mist-700">
+                                {[job.deliveryLocation.city, job.deliveryLocation.state].filter(Boolean).join(", ")}
+                            </dd>
+                        </div>
+                    )}
                 </dl>
 
                 {job.attachments.length > 0 && (

@@ -6,7 +6,10 @@ export default function nextConfig(phase: string): NextConfig {
   return {
     images: {
       // Job photos come from the API as Cloudinary links
-      remotePatterns: [{ protocol: "https", hostname: "res.cloudinary.com", pathname: "/**" }],
+      remotePatterns: [
+        { protocol: "https", hostname: "res.cloudinary.com", pathname: "/**" },
+        { protocol: "https", hostname: "api.cloudinary.com", pathname: "/**" },
+      ],
     },
     experimental: {
       // Dev-only workaround for a Next.js 16.3 dev-server bug: it never marks

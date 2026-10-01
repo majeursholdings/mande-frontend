@@ -52,6 +52,10 @@ type DetailsValues = {
 type ScheduleValues = {
     dueDate: string;
     description: string;
+    deliveryStreet?: string;
+    deliveryCity: string;
+    deliveryState: string;
+    deliveryCountry?: string;
 };
 
 type AttachmentsValues = {
@@ -152,6 +156,10 @@ export default function JobFormDialog({
         defaultValues: {
             dueDate: job?.dueDate ?? "",
             description: job?.description ?? "",
+            deliveryStreet: job?.deliveryLocation?.street ?? "",
+            deliveryCity: job?.deliveryLocation?.city ?? "",
+            deliveryState: job?.deliveryLocation?.state ?? "",
+            deliveryCountry: job?.deliveryLocation?.country ?? "NG",
         },
     });
     const attachments = useForm<AttachmentsValues>({ defaultValues: { documents: null, images: null } });
@@ -245,6 +253,38 @@ export default function JobFormDialog({
             },
         },
         {
+            name: "deliveryStreet",
+            type: "text",
+            label: labelWithNote("Delivery street", "optional"),
+            placeholder: "e.g. 14 Victoria Island Way",
+        },
+        {
+            name: "deliveryCity",
+            type: "text",
+            label: "Delivery city",
+            placeholder: "e.g. Lagos",
+            validation: {
+                required: "Delivery city is required",
+                validate: notBlank("Delivery city is required"),
+            },
+        },
+        {
+            name: "deliveryState",
+            type: "text",
+            label: "Delivery state",
+            placeholder: "e.g. Lagos",
+            validation: {
+                required: "Delivery state is required",
+                validate: notBlank("Delivery state is required"),
+            },
+        },
+        {
+            name: "deliveryCountry",
+            type: "text",
+            label: labelWithNote("Delivery country", "optional"),
+            placeholder: "e.g. NG",
+        },
+        {
             name: "description",
             type: "textarea",
             label: "Description",
@@ -313,6 +353,12 @@ export default function JobFormDialog({
                 startDate: job?.startDate ?? null,
                 dueDate: scheduleValues.dueDate,
                 description: scheduleValues.description.trim(),
+                deliveryLocation: scheduleValues.deliveryCity && scheduleValues.deliveryState ? {
+                    street: scheduleValues.deliveryStreet?.trim() || "",
+                    city: scheduleValues.deliveryCity.trim(),
+                    state: scheduleValues.deliveryState.trim(),
+                    country: scheduleValues.deliveryCountry?.trim() || "NG",
+                } : null,
                 ...(picksLead && detailsValues.projectLeadId ? { projectLeadIds: [detailsValues.projectLeadId] } : {}),
                 attachments: [
                     ...keptAttachments,

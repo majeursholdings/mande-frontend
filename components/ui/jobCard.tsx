@@ -1,17 +1,18 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Clock } from "lucide-react";
 import { formatPrice } from "@/lib/currency";
+import { getSampleCategoryPhoto } from "@/constant/sampleDb";
 
 /**
- * A job as a card — shared by the website's open jobs and the manufacturer
+ * A job as a card: shared by the website's open jobs and the manufacturer
  * platform's job lists, so a job looks the same wherever it's listed: its
- * photo (when there is one), the title and a line under it, a short
+ * photo (or category sample fallback), the title and a line under it, a short
  * description, then the pay and how long the job runs, with a status or an
- * action beside them. The title's link is stretched over the whole card, so
- * the card is clickable while a button beside the price (e.g. "Apply now")
- * still works — a button can't sit inside a link.
+ * action beside them. The title's link is stretched over the whole card.
  */
 export default function JobCard({
     href,
@@ -22,6 +23,8 @@ export default function JobCard({
     duration,
     trailing,
     imageUrl,
+    category,
+    fallbackImageUrl,
 }: {
     href: string;
     title: string;
@@ -35,16 +38,27 @@ export default function JobCard({
     /** Beside the price — a status badge or an action. */
     trailing?: ReactNode;
     imageUrl?: string;
+    category?: string;
+    fallbackImageUrl?: string;
 }) {
+    const fallback = fallbackImageUrl || (category ? getSampleCategoryPhoto(category) : "/sample-image/table.webp");
+    const [failedUrl, setFailedUrl] = useState<string | null>(null);
+    const displaySrc = imageUrl && imageUrl !== failedUrl ? imageUrl : fallback;
+
     return (
         <div className="relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-white transition-colors hover:border-mist-300 has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-secondary-300">
-            {imageUrl && (
-                <div className="relative aspect-4/3 shrink-0 bg-mist-100">
+            {displaySrc && (
+                <div className="relative aspect-4/3 shrink-0 bg-mist-100 overflow-hidden">
                     <Image
-                        src={imageUrl}
-                        // The title right below says what it is
+                        src={displaySrc}
                         alt=""
                         fill
+                        unoptimized={displaySrc.startsWith("http") || displaySrc.startsWith("data:") || displaySrc.startsWith("blob:")}
+                        onError={() => {
+                            if (imageUrl) {
+                                setFailedUrl(imageUrl);
+                            }
+                        }}
                         sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                         className="object-cover"
                     />

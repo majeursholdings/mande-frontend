@@ -983,6 +983,12 @@ export type JobRecord = {
     dateAssigned: string | null;
     status: JobRecordStatus;
     description: string;
+    deliveryLocation?: {
+        street?: string;
+        city: string;
+        state: string;
+        country?: string;
+    } | null;
     /** A photo of the furniture to make — shown with open jobs. */
     imageUrl: string;
     imagePublicId?: string;

@@ -43,6 +43,7 @@ export type AdminJobDraft = Pick<
     | "startDate"
     | "dueDate"
     | "description"
+    | "deliveryLocation"
     | "attachments"
 > & {
     /**
@@ -244,6 +245,12 @@ type ServerStaffJob = {
     completedAt?: string | null;
     completedBy?: string | null;
     faultReport?: { reason: string; reportedAt: string } | null;
+    deliveryLocation?: {
+        street?: string;
+        city: string;
+        state: string;
+        country?: string;
+    } | null;
     applications?: {
         id: string;
         manufacturer?: { id: string; name: string; companyName: string | null };
@@ -290,6 +297,14 @@ function transformStaffJobToAdminJob(serverJob: ServerStaffJob): AdminJob {
         dateAssigned: serverJob.dateAssigned ? new Date(serverJob.dateAssigned).toISOString() : null,
         status: serverJob.status,
         description: serverJob.description ?? "",
+        deliveryLocation: serverJob.deliveryLocation
+            ? {
+                  street: serverJob.deliveryLocation.street || "",
+                  city: serverJob.deliveryLocation.city,
+                  state: serverJob.deliveryLocation.state,
+                  country: serverJob.deliveryLocation.country || "NG",
+              }
+            : null,
         imageUrl,
         imagePublicId: serverJob.image?.publicId,
         attachments: (serverJob.attachments ?? []).map((att) => ({
@@ -548,31 +563,28 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
             faultReport: null,
             applications: [],
         };
-        setLocallyCreatedJobs((prev) => [createdJob, ...prev]);
 
-        try {
-            const payload: CreateJobPayload = {
-                title: draft.title,
-                description: draft.description,
-                category: draft.category,
-                amountKobo: Math.round(draft.amount * 100),
-                dueDate: new Date(draft.dueDate).toISOString(),
-                startDate: draft.startDate ? new Date(draft.startDate).toISOString() : null,
-                ...(imageAttachment ? { image: { publicId: imageAttachment.publicId!, name: imageAttachment.name } } : {}),
-                ...(otherAttachments.length > 0
-                    ? { attachments: otherAttachments.map((a) => ({ publicId: a.publicId!, name: a.name })) }
-                    : {}),
-                ...(cleanProjectLeadIds && cleanProjectLeadIds.length > 0 ? { projectLeadIds: cleanProjectLeadIds } : {}),
-                ...(cleanManufacturerIds && cleanManufacturerIds.length > 0 ? { manufacturerIds: cleanManufacturerIds } : {}),
-            };
+        const payload: CreateJobPayload = {
+            title: draft.title,
+            description: draft.description,
+            category: draft.category,
+            amountKobo: Math.round(draft.amount * 100),
+            dueDate: new Date(draft.dueDate).toISOString(),
+            startDate: draft.startDate ? new Date(draft.startDate).toISOString() : null,
+            ...(draft.deliveryLocation ? { deliveryLocation: draft.deliveryLocation } : {}),
+            ...(imageAttachment ? { image: { publicId: imageAttachment.publicId!, name: imageAttachment.name } } : {}),
+            ...(otherAttachments.length > 0
+                ? { attachments: otherAttachments.map((a) => ({ publicId: a.publicId!, name: a.name })) }
+                : {}),
+            ...(cleanProjectLeadIds && cleanProjectLeadIds.length > 0 ? { projectLeadIds: cleanProjectLeadIds } : {}),
+            ...(cleanManufacturerIds && cleanManufacturerIds.length > 0 ? { manufacturerIds: cleanManufacturerIds } : {}),
+        };
 
-            const response = await jobsService.createJob(payload);
-            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-            return response?.job ? transformStaffJobToAdminJob(response.job) : createdJob;
-        } catch (err) {
-            setLocallyCreatedJobs((prev) => prev.filter((j) => j.id !== createdJob.id));
-            throw err;
-        }
+        const response = await jobsService.createJob(payload);
+        const savedJob = response?.job ? transformStaffJobToAdminJob(response.job) : createdJob;
+        setLocallyCreatedJobs((prev) => [savedJob, ...prev.filter((j) => j.id !== savedJob.id)]);
+        await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+        return savedJob;
     };
 
     const resolveJobId = useCallback(
@@ -614,6 +626,7 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
                 amountKobo: Math.round(draft.amount * 100),
                 dueDate: new Date(draft.dueDate).toISOString(),
                 startDate: draft.startDate ? new Date(draft.startDate).toISOString() : null,
+                ...(draft.deliveryLocation ? { deliveryLocation: draft.deliveryLocation } : {}),
                 ...(imagePayload ? { image: imagePayload } : {}),
                 ...(otherAttachments.length > 0
                     ? { attachments: otherAttachments.map((a) => ({ publicId: a.publicId!, name: a.name })) }

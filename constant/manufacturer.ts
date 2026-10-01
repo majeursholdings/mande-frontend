@@ -26,6 +26,7 @@ import {
     getManufacturer,
     getManufacturerShare,
     getProjectLead,
+    getSampleCategoryPhoto,
     getSubscriptionPayments,
     isOpenJobRecord,
     settleJobRecord,
@@ -320,6 +321,8 @@ export type Job = {
     price: number;
     /** A COMPANY_SPECIALITY_OPTIONS value, e.g. "upholstery". */
     category: string;
+    imageUrl?: string;
+    deliveryLocation?: { city: string; state: string } | null;
     status: JobStatus;
     assignee: JobAssignee | null;
     attachments: JobAttachment[];
@@ -485,6 +488,8 @@ function toManufacturerJob(
         commentCount: record.notes.length,
         price: getManufacturerShare(record, manufacturerId),
         category: record.category,
+        imageUrl: record.imageUrl || getSampleCategoryPhoto(record.category),
+        deliveryLocation: record.deliveryLocation ? { city: record.deliveryLocation.city, state: record.deliveryLocation.state } : null,
         status: outcome === "awaiting" ? "pending" : isTheirs ? record.status : "cancelled",
         // Who they call about the job — its project lead
         assignee: lead ? { name: lead.name, role: "Project lead", phone: lead.phone } : null,
@@ -616,6 +621,7 @@ export type OpenJob = {
     postedAt: string;
     /** A photo of the furniture to make — every open job has one. */
     imageUrl: string;
+    deliveryLocation?: { city: string; state: string } | null;
     attachments: JobAttachment[];
 };
 
@@ -639,6 +645,7 @@ export const OPEN_JOBS: OpenJob[] = RECORDS.filter(isOpenJobRecord).map((record)
     dueDate: record.dueDate,
     postedAt: record.createdAt,
     imageUrl: record.imageUrl,
+    deliveryLocation: record.deliveryLocation ? { city: record.deliveryLocation.city, state: record.deliveryLocation.state } : null,
     attachments: record.attachments.map(({ name, url }) => ({ name, url })),
 }));
 

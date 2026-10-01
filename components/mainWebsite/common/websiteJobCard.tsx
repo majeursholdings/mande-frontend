@@ -21,6 +21,7 @@ export default function WebsiteJobCard({ job }: { job: WebsiteJob }) {
             price={fromKobo(job.amountKobo)}
             duration={formatShortDuration(new Date(job.startDate || job.postedAt), new Date(job.dueDate))}
             imageUrl={displayImageUrl}
+            category={job.category}
             trailing={
                 <span className="inline-flex h-8 items-center gap-1 rounded-button bg-primary-950 px-3 text-xs font-medium font-text text-mist-100">
                     Apply now

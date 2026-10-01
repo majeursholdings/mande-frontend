@@ -29,6 +29,7 @@ export type WebsiteJob = {
     startDate: string;
     dueDate: string;
     postedAt: string;
+    deliveryLocation?: { city: string; state: string } | null;
     image: { url: string | null; name: string | null; kind: "image" | "document" } | null;
 };
 
