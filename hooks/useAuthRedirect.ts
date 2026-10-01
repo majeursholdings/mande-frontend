@@ -19,10 +19,14 @@ export function getDashboardUrlForRole(role?: string): string {
     }
 }
 
-export function useRedirectIfAuthenticated() {
+/**
+ * Sends a signed-in visitor on to their dashboard. `enabled: false` holds off,
+ * e.g. while a sign-up that signs them in part way through is still going.
+ */
+export function useRedirectIfAuthenticated({ enabled = true }: { enabled?: boolean } = {}) {
     const { data: currentUser, isPending } = useCurrentUser();
 
-    if (!isPending && currentUser && currentUser.status === "active") {
+    if (enabled && !isPending && currentUser && currentUser.status === "active") {
         let destination = getDashboardUrlForRole(currentUser.role);
         if (typeof window !== "undefined") {
             const next = new URLSearchParams(window.location.search).get("next");

@@ -65,6 +65,12 @@ export const queryKeys = {
       [...queryKeys.wallet.all, "transactions", filters] as const,
   },
 
+  // Plan (the signed-in manufacturer's subscription)
+  subscription: {
+    all: ["subscription"] as const,
+    details: () => [...queryKeys.subscription.all, "details"] as const,
+  },
+
   // Notifications
   notifications: {
     all: ["notifications"] as const,

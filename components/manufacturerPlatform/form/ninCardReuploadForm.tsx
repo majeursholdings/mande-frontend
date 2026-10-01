@@ -41,8 +41,8 @@ const FIELDS: FormFieldConfig[] = [
         capture: "environment",
         maxFiles: 1,
         maxSizeMB: 5,
-        uploadCategory: "profile",
-        uploadVisibility: "private",
+        // Signed by the API, which only takes its own uploads with the NIN
+        uploadPurpose: "nin-card",
         validation: { required: "Add a photo of your NIN card" },
     },
 ];

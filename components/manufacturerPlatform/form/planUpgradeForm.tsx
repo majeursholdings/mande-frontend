@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatBalance, formatPrice } from "@/lib/currency";
 import { formatOrdinalDate } from "@/lib/date";
+import { getErrorMessage } from "@/lib/api";
 import MainForm, { CheckboxInput } from "@/components/form";
 import { getPlanPrice, requiresBusinessDocuments, type PricingPlan } from "@/constant/sampleData";
 import { hasBusinessDocuments, type ManufacturerSubscription } from "@/constant/manufacturer";
@@ -47,8 +48,8 @@ export default function PlanUpgradeForm({
     discountPercent?: number;
 }) {
     const { profile } = useManufacturerProfile();
-    const { wallet, payFromBalance } = useManufacturerWallet();
-    const { savedCards, addCard, upgradePlan } = useManufacturerSubscription();
+    const { wallet } = useManufacturerWallet();
+    const { savedCards, upgradePlan } = useManufacturerSubscription();
     const [isLoading, setIsLoading] = useState(false);
 
     const cycle = subscription.billingCycle;
@@ -78,25 +79,25 @@ export default function PlanUpgradeForm({
 
     const handleSubmit = async ({ paymentMethod, saveCard }: PlanUpgradeFormValues) => {
         setIsLoading(true);
+        let redirected = false;
         try {
-            if (paymentMethod === WALLET) {
-                payFromBalance(amountDue, `${newPlan.name} plan upgrade`);
-                await upgradePlan(newPlan.id, { from: "wallet" });
-            } else if (paymentMethod.startsWith("card:")) {
-                const cardId = paymentMethod.slice("card:".length);
-                await upgradePlan(newPlan.id, { from: "card", cardId });
-            } else {
-                if (saveCard) {
-                    addCard({ id: `card-${Date.now()}`, brand: "Mastercard", last4: "5100", expiry: "12/28" });
-                }
-                await upgradePlan(newPlan.id, { from: "new-card", saveCard });
+            const pay = paymentMethod === WALLET
+                ? ({ from: "wallet" } as const)
+                : paymentMethod.startsWith("card:")
+                  ? ({ from: "card", cardId: paymentMethod.slice("card:".length) } as const)
+                  : ({ from: "new-card", saveCard } as const);
+            // A new card is entered on the payment partner's checkout, which
+            // sends them back to the Plan tab (it confirms the payment there)
+            ({ redirected } = await upgradePlan(newPlan.id, pay));
+            if (!redirected) {
+                toast.success(`You're now on the ${newPlan.name} plan`);
+                onUpgraded();
             }
-            toast.success(`You're now on the ${newPlan.name} plan`);
-            onUpgraded();
-        } catch {
-            toast.error("Payment didn't go through. Please try again.");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Payment didn't go through. Please try again."));
         } finally {
-            setIsLoading(false);
+            // Stays loading while the browser leaves for the checkout
+            if (!redirected) setIsLoading(false);
         }
     };
 
@@ -148,7 +149,7 @@ export default function PlanUpgradeForm({
                                 subtitle={
                                     canPayFromWallet
                                         ? `${formatBalance(wallet.balance)} available`
-                                        : `Not enough balance — ${formatBalance(wallet.balance)} available`
+                                        : `Not enough balance (${formatBalance(wallet.balance)} available)`
                                 }
                             />
                             {savedCards.map((card) => (

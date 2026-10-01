@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -8,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
 import { formatOrdinalDate } from "@/lib/date";
 import { queryKeys } from "@/lib/queryKeys";
+import { getErrorMessage } from "@/lib/api";
 import { superAdminService } from "@/lib/services/superAdminService";
 import { Button } from "@/components/ui/button";
 import ListPrice from "@/components/ui/listPrice";
@@ -36,7 +38,9 @@ type PlanDialog = "upgrade" | "downgrade" | "cancel";
 //   Upgrade   → pay the difference (wallet or card), applies now
 //   Downgrade → confirm, applies when the billing period ends
 //   Cancel    → confirm, the plan ends when the billing period ends
-// A pending downgrade or cancellation can be undone until then.
+// A pending downgrade or cancellation can be undone until then. An upgrade
+// paid with a new card comes back here from the payment partner's checkout
+// with ?reference=…, which is checked before the new plan shows.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function PlanTab() {
@@ -47,11 +51,48 @@ export default function PlanTab() {
     const discountPercent = plansData?.discountPercent ?? 0;
     const plans = plansData?.plans ?? PRICING_PLANS;
 
-    const { subscription, keepCurrentPlan, scheduleDowngrade, cancelPlan } =
+    const { subscription, isLoading, keepCurrentPlan, scheduleDowngrade, cancelPlan, confirmPayment } =
         useManufacturerSubscription();
+    const router = useRouter();
+    const pathname = usePathname();
+    const returnedReference = useSearchParams().get("reference");
+    const [isConfirming, setIsConfirming] = useState(!!returnedReference);
+
+    // Back from the checkout: check the upgrade's payment once, then drop
+    // ?reference from the address (unless it's still pending, so a refresh checks again)
+    const confirmStarted = useRef(false);
+    useEffect(() => {
+        if (!returnedReference || confirmStarted.current) return;
+        confirmStarted.current = true;
+        void (async () => {
+            try {
+                const payment = await confirmPayment(returnedReference);
+                if (payment?.status === "pending") {
+                    toast.info("We're still confirming your payment. Refresh this page in a minute to check again.");
+                    return;
+                }
+                if (payment?.status === "succeeded") toast.success("Payment successful. Your new plan is active.");
+                else toast.error(payment?.failureReason || "Payment didn't go through. Please try again.");
+                router.replace(`${pathname}?tab=plan`);
+            } catch (err) {
+                toast.error(getErrorMessage(err, "Couldn't check your payment. Refresh this page to try again."));
+            } finally {
+                setIsConfirming(false);
+            }
+        })();
+    }, [returnedReference, confirmPayment, pathname, router]);
     const [dialog, setDialog] = useState<PlanDialog | null>(null);
     // Kept after closing so the dialog's content stays put while it animates out
     const [targetPlanId, setTargetPlanId] = useState<string | null>(null);
+
+    if (isLoading || isConfirming) {
+        return (
+            <div className="flex items-center justify-center gap-2 py-12 text-sm font-text text-mist-500" aria-busy>
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+                {isConfirming ? "Checking your payment..." : "Loading your plan..."}
+            </div>
+        );
+    }
 
     const currentPlan = plans.find((p) => p.id === subscription.planId) ?? getPricingPlan(subscription.planId);
     if (!currentPlan) {
@@ -77,12 +118,12 @@ export default function PlanTab() {
         },
     });
 
-    const handleKeepPlan = () => {
+    const handleKeepPlan = async () => {
         try {
-            keepCurrentPlan();
+            await keepCurrentPlan();
             toast.success(`You'll stay on the ${currentPlan.name} plan`);
-        } catch {
-            toast.error("Couldn't update your plan. Please try again.");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't update your plan. Please try again."));
         }
     };
 
@@ -230,9 +271,9 @@ description="Upgrades start straight away, and you pay the difference for the re
                     <ConfirmActions
                         confirmLabel="Switch plan"
                         onCancel={closeDialog}
-                        onConfirm={() => {
+                        onConfirm={async () => {
                             if (!targetPlan) return;
-                            scheduleDowngrade(targetPlan.id);
+                            await scheduleDowngrade(targetPlan.id);
                             toast.success(`Your plan changes to ${targetPlan.name} on ${periodEnd}`);
                             closeDialog();
                         }}
@@ -254,8 +295,8 @@ description="Upgrades start straight away, and you pay the difference for the re
                         cancelLabel="Keep plan"
                         tone="danger"
                         onCancel={closeDialog}
-                        onConfirm={() => {
-                            cancelPlan();
+                        onConfirm={async () => {
+                            await cancelPlan();
                             toast.success(`Your plan will end on ${periodEnd}`);
                             closeDialog();
                         }}
@@ -279,7 +320,7 @@ function PlanFeatures({ plan }: { plan: PricingPlan }) {
     );
 }
 
-function InlineAction({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+function InlineAction({ onClick, children }: { onClick: () => void | Promise<void>; children: ReactNode }) {
     return (
         <button
             type="button"
@@ -291,7 +332,7 @@ function InlineAction({ onClick, children }: { onClick: () => void; children: Re
     );
 }
 
-/** Cancel + confirm buttons for a plan confirmation dialog, with the request simulated. */
+/** Cancel + confirm buttons for a plan confirmation dialog; `onConfirm` makes the change. */
 function ConfirmActions({
     confirmLabel,
     cancelLabel = "Cancel",
@@ -302,7 +343,7 @@ function ConfirmActions({
     confirmLabel: string;
     cancelLabel?: string;
     tone?: "primary" | "danger";
-    onConfirm: () => void;
+    onConfirm: () => Promise<void>;
     onCancel: () => void;
 }) {
     const [isLoading, setIsLoading] = useState(false);
@@ -310,12 +351,9 @@ function ConfirmActions({
     const handleConfirm = async () => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate the request so the flow
-            // is testable end-to-end.
-            await new Promise((resolve) => setTimeout(resolve, 800));
-            onConfirm();
-        } catch {
-            toast.error("Couldn't update your plan. Please try again.");
+            await onConfirm();
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't update your plan. Please try again."));
         } finally {
             setIsLoading(false);
         }

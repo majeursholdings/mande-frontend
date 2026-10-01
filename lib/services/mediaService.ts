@@ -34,12 +34,14 @@ export const mediaService = {
   async uploadFile(
     file: File,
     purpose: UploadPurpose,
-    onProgress?: (percent: number) => void
+    onProgress?: (percent: number) => void,
+    signal?: AbortSignal
   ): Promise<UploadResult> {
     // 1. Get upload signature from backend
     const { data: signatureData } = await api.post<SignatureResponse>(
       "/media/signature",
-      { purpose }
+      { purpose },
+      { signal }
     );
 
     // 2. Direct upload to Cloudinary via FormData
@@ -59,6 +61,7 @@ export const mediaService = {
       resource_type: string;
     }>(signatureData.uploadUrl, formData, {
       headers: { "Content-Type": "multipart/form-data" },
+      signal,
       onUploadProgress: (progressEvent) => {
         if (onProgress && progressEvent.total) {
           const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);

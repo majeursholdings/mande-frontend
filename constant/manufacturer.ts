@@ -1123,7 +1123,8 @@ export type ManufacturerSubscription = {
 
 export type SavedCard = {
     id: string;
-    brand: "Visa" | "Mastercard" | "Verve";
+    /** As the payment partner names it, e.g. "Visa", "Mastercard", "Verve". */
+    brand: string;
     last4: string;
     /** "MM/YY" */
     expiry: string;

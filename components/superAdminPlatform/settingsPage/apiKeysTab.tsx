@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { CircleCheck, KeyRound, Plus, Trash2 } from "lucide-react";
+import { Check, CircleCheck, Copy, KeyRound, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatOrdinalDate } from "@/lib/date";
+import { API_BASE_URL } from "@/lib/api";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import SettingsSection from "@/components/manufacturerPlatform/settingsSection";
 import { API_KEY_GROUPS, API_PROVIDERS, type ApiKey, type ApiProvider } from "@/constant/superAdmin";
@@ -89,6 +90,14 @@ export default function ApiKeysTab() {
                                             Add keys
                                         </button>
                                     </div>
+
+                                    {provider.webhook && (
+                                        <WebhookUrl
+                                            label={provider.label}
+                                            url={`${API_BASE_URL}${provider.webhook.path}`}
+                                            where={provider.webhook.where}
+                                        />
+                                    )}
 
                                     {keys.length === 0 ? (
                                         <p className="rounded-lg bg-mist-50 px-4 py-5 text-center text-sm font-text text-mist-500">
@@ -203,6 +212,51 @@ export default function ApiKeysTab() {
                     )}
                 </DialogContent>
             </Dialog>
+        </div>
+    );
+}
+
+/** The address a payment platform sends its payment updates to, to copy into its dashboard. */
+function WebhookUrl({ label, url, where }: { label: string; url: string; where: string }) {
+    const [copied, setCopied] = useState(false);
+    // The platform's servers can't reach a local address, so updates never arrive there
+    const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/)/.test(url);
+
+    const copy = async () => {
+        try {
+            await navigator.clipboard.writeText(url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch {
+            toast.error("Couldn't copy it. Select the address and copy it instead.");
+        }
+    };
+
+    return (
+        <div className="flex flex-col gap-2 rounded-lg bg-mist-50 px-4 py-3">
+            <p className="text-xs font-medium font-text text-mist-900">Webhook URL</p>
+            <div className="flex items-center gap-2">
+                <code className="min-w-0 flex-1 break-all font-mono text-xs text-mist-700">{url}</code>
+                <button
+                    type="button"
+                    onClick={copy}
+                    aria-label={`Copy the ${label} webhook URL`}
+                    className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-white px-2.5 text-xs font-medium font-text text-mist-900 transition-colors hover:bg-mist-50 cursor-pointer"
+                >
+                    {copied ? <Check className="size-3.5" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
+                    {copied ? "Copied" : "Copy"}
+                </button>
+            </div>
+            <p className="text-xs font-text text-mist-500">
+                Paste it on your {label} dashboard under {where}. {label} uses it to confirm payments, even when
+                someone closes the page before they&apos;re sent back.
+            </p>
+            {isLocal && (
+                <p className="text-xs font-text text-warning-700">
+                    This is a local address, which {label} can&apos;t reach. Use the deployed API&apos;s address, or a
+                    tunnel to this machine, to get updates while testing.
+                </p>
+            )}
         </div>
     );
 }

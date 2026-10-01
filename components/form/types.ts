@@ -1,5 +1,6 @@
 import { HTMLAttributes, ReactNode } from "react";
 import { FieldValues, RegisterOptions, UseFormReturn } from "react-hook-form";
+import type { UploadPurpose } from "@/lib/services/mediaService";
 
 export type FieldType =
     | "text"
@@ -66,6 +67,12 @@ export type FormFieldConfig = {
     trailingSlot?: ReactNode; // e.g. a "Forgot password?" link next to a checkbox
     uploadCategory?: string; // e.g. "jobcreation", "jobProof", "profile", "identity"
     uploadVisibility?: "public" | "private"; // defaults to "private" (or "public" for avatars/public showcases)
+    /**
+     * Uploads through the API's signed media flow for this purpose instead of
+     * the app's own Cloudinary route. Set it when the file is sent on to an
+     * API endpoint, which only accepts files it signed (e.g. "nin-card").
+     */
+    uploadPurpose?: UploadPurpose;
 };
 
 export type MainFormProps<T extends FieldValues = FieldValues> = {

@@ -1,5 +1,6 @@
 import { isSoloPlan, type BillingCycle } from "@/constant/sampleData";
 import type { AddressFormValues } from "@/components/manufacturerPlatform/form/addressFields";
+import type { CloudinaryUploadResult } from "@/lib/services/cloudinaryService";
 
 export {
     SOLO_PLAN_ID,
@@ -14,6 +15,7 @@ export type RegistrationFormValues = AddressFormValues & {
     firstName: string;
     lastName: string;
     email: string;
+    phone: string;
     password: string;
     agreeToTerms: boolean;
     // Step 2 — verify email
@@ -28,8 +30,8 @@ export type RegistrationFormValues = AddressFormValues & {
     businessLicenseNumber: string;
     /** The 11-digit National Identification Number, checked with the national records. Never saved in the browser. */
     ninNumber: string;
-    /** Photo of the manufacturer's NIN (National Identification Number) card. */
-    ninCard: FileList | null;
+    /** Photo of the manufacturer's NIN (National Identification Number) card, uploaded as soon as it's picked. */
+    ninCard: CloudinaryUploadResult | null;
     // Step 5 — company specifications
     staffRange: string;
     specialities: string[];
@@ -41,6 +43,7 @@ export const REGISTRATION_DEFAULT_VALUES: RegistrationFormValues = {
     firstName: "",
     lastName: "",
     email: "",
+    phone: "",
     password: "",
     agreeToTerms: false,
     otp: "",
@@ -68,7 +71,7 @@ export function getStepRequiredFields(
 ): (keyof RegistrationFormValues)[] {
     switch (stepIndex) {
         case 0:
-            return ["firstName", "lastName", "email", "password", "agreeToTerms"];
+            return ["firstName", "lastName", "email", "phone", "password", "agreeToTerms"];
         case 1:
             return ["otp"];
         case 2:

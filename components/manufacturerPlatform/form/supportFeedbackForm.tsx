@@ -57,8 +57,8 @@ const FIELDS: FormFieldConfig[] = [
         accept: "image/*",
         maxFiles: 1,
         maxSizeMB: 5,
-        uploadCategory: "support",
-        uploadVisibility: "private",
+        // Signed by the API, which only takes its own uploads with the feedback
+        uploadPurpose: "feedback-screenshot",
     },
 ];
 

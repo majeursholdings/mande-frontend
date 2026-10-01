@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import MainForm from "@/components/form";
 import OtpInput from "@/components/form/otpInput";
 import { useCountdown } from "@/hooks/useCountdown";
+import { getErrorMessage } from "@/lib/api";
+import { authService } from "@/lib/services/authService";
 import StepFooter from "../stepFooter";
 import StepHeader from "../stepHeader";
 import { RegistrationFormValues } from "../types";
@@ -37,10 +39,15 @@ export default function VerifyEmailStep({
 
     const { secondsLeft, restart } = useCountdown(OTP_RESEND_SECONDS);
 
-    const handleResend = () => {
+    const handleResend = async () => {
         if (secondsLeft > 0) return;
         restart();
-        toast.success(`A new verification code was sent to ${email}`);
+        try {
+            await authService.resendVerification(email);
+            toast.success(`A new verification code was sent to ${email}`);
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't send a new code. Please try again."));
+        }
     };
 
     const code = field.value ?? "";

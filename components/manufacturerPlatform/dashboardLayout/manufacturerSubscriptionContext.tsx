@@ -1,85 +1,123 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     MANUFACTURER_SAVED_CARDS,
     MANUFACTURER_SUBSCRIPTION,
     type ManufacturerSubscription,
     type SavedCard,
 } from "@/constant/manufacturer";
+import { queryKeys } from "@/lib/queryKeys";
+import {
+    subscriptionService,
+    type SubscriptionPayment,
+    type SubscriptionView,
+    type UpgradePlanPayload,
+} from "@/lib/services/subscriptionService";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ManufacturerSubscriptionProvider — the manufacturer's plan and saved cards,
-// for the edit profile Plan tab. Upgrades apply straight away (they're paid
-// for up front); downgrades and cancellations wait for the end of the billing
-// period. Seeded from sample data and updated locally for now; once the
-// backend is connected, load these from the API and let it apply the changes.
+// from the API, for the edit profile Plan tab (and the screens that check the
+// plan). Upgrades apply straight away (they're paid for up front); downgrades
+// and cancellations wait for the end of the billing period. Every change is
+// made by the API, and its answer replaces what's shown. Until the plan has
+// loaded (or if it can't), the sample plan stands in, as the wallet does.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { subscriptionService, type UpgradePlanPayload } from "@/lib/services/subscriptionService";
+/** Where the payment partner's checkout sends them back to after paying for an upgrade. */
+export const PLAN_SETTINGS_PATH = "/manufacturer/profile/settings?tab=plan";
 
 type ManufacturerSubscriptionContextValue = {
     subscription: ManufacturerSubscription;
     savedCards: SavedCard[];
-    /** Moves to `planId` now — also undoes a pending cancellation or downgrade. */
-    upgradePlan: (planId: string, pay?: UpgradePlanPayload["pay"]) => void | Promise<void>;
+    /** True until the plan has loaded from the API. */
+    isLoading: boolean;
+    /**
+     * Moves to `planId` now, paid as `pay` says (also undoes a pending
+     * cancellation or downgrade). Paying with a new card leaves for the
+     * payment partner's checkout: `redirected` is then true, and the plan
+     * changes once confirmPayment sees it paid.
+     */
+    upgradePlan: (planId: string, pay: UpgradePlanPayload["pay"]) => Promise<{ redirected: boolean }>;
+    /** Checks a payment the checkout sent them back from, and shows the plan it led to. */
+    confirmPayment: (reference: string) => Promise<SubscriptionPayment | null>;
     /** Moves to `planId` when the current period ends. */
-    scheduleDowngrade: (planId: string) => void | Promise<void>;
+    scheduleDowngrade: (planId: string) => Promise<void>;
     /** Keeps the current plan — drops a scheduled downgrade or cancellation. */
-    keepCurrentPlan: () => void | Promise<void>;
+    keepCurrentPlan: () => Promise<void>;
     /** Ends the plan when the current period ends. */
-    cancelPlan: () => void | Promise<void>;
-    addCard: (card: SavedCard) => void;
+    cancelPlan: () => Promise<void>;
 };
 
 const ManufacturerSubscriptionContext =
     createContext<ManufacturerSubscriptionContextValue | null>(null);
 
-export function ManufacturerSubscriptionProvider({ children }: { children: ReactNode }) {
-    const [subscription, setSubscription] = useState(MANUFACTURER_SUBSCRIPTION);
-    const [savedCards, setSavedCards] = useState(MANUFACTURER_SAVED_CARDS);
+/** "visa " → "Visa", the way the card is named on screen. */
+const toCardBrand = (brand: string) => {
+    const name = brand.trim();
+    return name ? name.charAt(0).toUpperCase() + name.slice(1) : "Card";
+};
 
-    const update = (changes: Partial<ManufacturerSubscription>) =>
-        setSubscription((current) => ({ ...current, ...changes }));
+function toSubscription(view: SubscriptionView["subscription"]): ManufacturerSubscription | null {
+    if (!view) return null;
+    return {
+        planId: view.planId,
+        billingCycle: view.billingCycle,
+        renewsAt: view.renewsAt ?? new Date().toISOString(),
+        cancelAtPeriodEnd: view.cancelAtPeriodEnd,
+        scheduledPlanId: view.scheduledPlanId,
+    };
+}
+
+export function ManufacturerSubscriptionProvider({ children }: { children: ReactNode }) {
+    const queryClient = useQueryClient();
+    const { data, isPending } = useQuery({
+        queryKey: queryKeys.subscription.details(),
+        queryFn: () => subscriptionService.getSubscription(),
+        retry: false,
+    });
+
+    /** Shows what the API answered with (every plan route answers with the whole plan). */
+    const show = (view: SubscriptionView): void => {
+        queryClient.setQueryData<SubscriptionView>(queryKeys.subscription.details(), {
+            subscription: view.subscription,
+            cards: view.cards,
+            payments: view.payments,
+        });
+    };
 
     const value: ManufacturerSubscriptionContextValue = {
-        subscription,
-        savedCards,
+        subscription: toSubscription(data?.subscription ?? null) ?? MANUFACTURER_SUBSCRIPTION,
+        savedCards: data
+            ? data.cards.map((card) => ({ id: card.id, brand: toCardBrand(card.brand), last4: card.last4, expiry: card.expiry }))
+            : MANUFACTURER_SAVED_CARDS,
+        isLoading: isPending,
         upgradePlan: async (planId, pay) => {
-            update({ planId, cancelAtPeriodEnd: false, scheduledPlanId: null });
-            try {
-                if (pay) {
-                    await subscriptionService.upgradePlan({ planId, pay });
+            const result = await subscriptionService.upgradePlan({
+                planId,
+                pay: pay.from === "new-card" ? { ...pay, returnPath: PLAN_SETTINGS_PATH } : pay,
+            });
+            if (result.checkoutUrl) {
+                if (!result.checkoutUrl.startsWith("https://")) {
+                    throw new Error("Payments aren't available right now. Please try again later.");
                 }
-            } catch (err) {
-                console.error("Failed to upgrade plan on server:", err);
+                window.location.assign(result.checkoutUrl);
+                return { redirected: true };
             }
+            show(result);
+            // A wallet payment moved money: show the new balance
+            if (pay.from === "wallet") await queryClient.invalidateQueries({ queryKey: queryKeys.wallet.all });
+            return { redirected: false };
         },
-        scheduleDowngrade: async (planId) => {
-            update({ scheduledPlanId: planId, cancelAtPeriodEnd: false });
-            try {
-                await subscriptionService.scheduleDowngrade(planId);
-            } catch (err) {
-                console.error("Failed to schedule downgrade on server:", err);
-            }
+        confirmPayment: async (reference) => {
+            const { payment, ...view } = await subscriptionService.confirmPayment(reference);
+            show(view);
+            return payment;
         },
-        keepCurrentPlan: async () => {
-            update({ scheduledPlanId: null, cancelAtPeriodEnd: false });
-            try {
-                await subscriptionService.keepCurrentPlan();
-            } catch (err) {
-                console.error("Failed to keep current plan on server:", err);
-            }
-        },
-        cancelPlan: async () => {
-            update({ cancelAtPeriodEnd: true, scheduledPlanId: null });
-            try {
-                await subscriptionService.cancelPlan();
-            } catch (err) {
-                console.error("Failed to cancel plan on server:", err);
-            }
-        },
-        addCard: (card) => setSavedCards((current) => [...current, card]),
+        scheduleDowngrade: async (planId) => show(await subscriptionService.scheduleDowngrade(planId)),
+        keepCurrentPlan: async () => show(await subscriptionService.keepCurrentPlan()),
+        cancelPlan: async () => show(await subscriptionService.cancelPlan()),
     };
 
     return (

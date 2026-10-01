@@ -326,6 +326,11 @@ export const API_PROVIDERS: {
     hasEncryptionKey: boolean;
     /** Flutterwave proves its webhooks with a secret hash set on its dashboard. */
     hasWebhookSecret: boolean;
+    /**
+     * Payment platforms tell the API about payments and transfers here (under
+     * the API's base URL). Set as the webhook URL on the platform's dashboard.
+     */
+    webhook: { path: string; where: string } | null;
 }[] = [
     {
         value: "paystack",
@@ -339,6 +344,7 @@ export const API_PROVIDERS: {
         hasPublicKey: true,
         hasEncryptionKey: false,
         hasWebhookSecret: false,
+        webhook: { path: "/webhooks/paystack", where: "Settings, API Keys & Webhooks, as the Test or Live Webhook URL (to match the keys)" },
     },
     {
         value: "flutterwave",
@@ -352,6 +358,7 @@ export const API_PROVIDERS: {
         hasPublicKey: true,
         hasEncryptionKey: true,
         hasWebhookSecret: true,
+        webhook: { path: "/webhooks/flutterwave", where: "Settings, Webhooks, with the same secret hash you add here" },
     },
     {
         value: "youverify",
@@ -362,6 +369,7 @@ export const API_PROVIDERS: {
         hasPublicKey: false,
         hasEncryptionKey: false,
         hasWebhookSecret: false,
+        webhook: null,
     },
 ];
 

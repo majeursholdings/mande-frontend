@@ -1,12 +1,11 @@
 import type { RegistrationFormValues } from "./types";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Saved sign-up progress — a stand-in for the backend's record of an
-// unfinished registration. The account exists once step 1 (name, email,
-// password) is done; from then on each finished step is saved, so someone
-// who drops off can come back — by reopening sign-up, or by logging in — to
-// the step they'd reached. Until the API is connected this lives in the
-// browser's localStorage. Passwords, codes and uploaded files are never saved.
+// Saved sign-up progress. The account exists on the API once step 1 (name,
+// email, phone, password) is done; from then on each finished step is saved
+// here, in the browser's localStorage, so someone who drops off (or leaves
+// for the payment partner's checkout) comes back to the step they'd reached.
+// Passwords, codes, the NIN and uploaded files are never saved.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const STORAGE_KEY = "mande:manufacturer-registration";
