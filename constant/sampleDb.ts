@@ -360,6 +360,7 @@ export type DeletionRequestRecord = {
 
 export type ManufacturerRecord = {
     id: string;
+    userId?: string | null;
     companyName: string;
     firstName: string;
     lastName: string;
@@ -730,6 +731,7 @@ export function registerManufacturers(
         const record: ManufacturerRecord = {
             ...(existing ?? {}),
             id: m.id,
+            userId: (m.userId as string) || existing?.userId || null,
             firstName,
             lastName,
             contactName,

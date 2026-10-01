@@ -97,6 +97,7 @@ const DOCUMENT_FIELDS: Record<
 /** Shape of a manufacturer from the staff list endpoint. */
 type ServerManufacturer = {
     id: string;
+    userId?: string | null;
     firstName: string;
     lastName: string;
     companyName: string;
@@ -116,6 +117,7 @@ type ServerManufacturer = {
 /** Build a full ManufacturerRecord from a server list item with sensible defaults for fields the list doesn't carry. */
 const toManufacturerRecord = (sm: ServerManufacturer): ManufacturerRecord => ({
     id: sm.id,
+    userId: sm.userId ?? null,
     firstName: sm.firstName ?? "",
     lastName: sm.lastName ?? "",
     contactName: `${sm.firstName ?? ""} ${sm.lastName ?? ""}`.trim() || sm.companyName,
@@ -180,11 +182,19 @@ export function AdminManufacturersProvider({ children }: { children: ReactNode }
         if (serverData && Array.isArray(serverData.manufacturers) && serverData.manufacturers.length > 0) {
             const serverManufacturers = serverData.manufacturers as ServerManufacturer[];
             const serverIds = new Set(serverManufacturers.map((sm) => sm.id));
-            // Keep sample manufacturers that don't clash with server data
-            const sampleOnly = ADMIN_MANUFACTURERS.filter((m) => !serverIds.has(m.id));
+            const serverEmails = new Set(
+                serverManufacturers.map((sm) => sm.email?.toLowerCase()).filter(Boolean) as string[],
+            );
+            // Keep sample manufacturers that do not clash with server data by id or email
+            const sampleOnly = ADMIN_MANUFACTURERS.filter(
+                (m) => !serverIds.has(m.id) && !serverEmails.has(m.email.toLowerCase()),
+            );
             // Merge server data over matching sample entries, or create new records
             const fromServer = serverManufacturers.map((sm) => {
-                const sample = ADMIN_MANUFACTURERS.find((m) => m.id === sm.id);
+                const smEmail = sm.email?.toLowerCase();
+                const sample = ADMIN_MANUFACTURERS.find(
+                    (m) => m.id === sm.id || (smEmail && m.email.toLowerCase() === smEmail),
+                );
                 const deletionRequest = sm.deletionRequest
                     ? {
                           reason: sm.deletionRequest.reason,
@@ -204,11 +214,15 @@ export function AdminManufacturersProvider({ children }: { children: ReactNode }
                 if (sample) {
                     return {
                         ...sample,
+                        id: sm.id,
+                        userId: sm.userId ?? sample.userId ?? null,
                         firstName: sm.firstName ?? sample.firstName,
                         lastName: sm.lastName ?? sample.lastName,
                         contactName: `${sm.firstName ?? ""} ${sm.lastName ?? ""}`.trim() || sample.contactName,
                         companyName: sm.companyName ?? sample.companyName,
+                        email: sm.email ?? sample.email,
                         phone: sm.phone ?? sample.phone,
+                        avatarUrl: sm.avatar?.url ?? sample.avatarUrl,
                         accountStatus: sm.accountStatus ?? sample.accountStatus,
                         deletionRequest,
                     };

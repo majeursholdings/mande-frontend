@@ -157,6 +157,7 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
         if (raw) {
             const fromApi: Partial<ManufacturerRecord> & { id: string } = {
                 id: raw.id,
+                userId: raw.userId ?? null,
                 companyName: raw.companyName,
                 firstName: raw.firstName,
                 lastName: raw.lastName,
