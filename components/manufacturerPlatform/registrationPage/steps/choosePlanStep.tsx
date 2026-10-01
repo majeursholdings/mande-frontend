@@ -142,7 +142,7 @@ export default function ChoosePlanStep({
                                 <div className="flex items-start gap-3 rounded-xl border border-primary-200 bg-primary-50 px-4 py-3.5 text-sm font-text">
                                     <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary-600" />
                                     <p className="text-primary-800">
-                                        <span className="font-medium">{plan.name}</span> paid —{" "}
+                                        <span className="font-medium">{plan.name}</span> paid:{" "}
                                         {formatPrice(price)} per {PER[billingCycle]}. Contact
                                         support if you need to change plans.
                                     </p>

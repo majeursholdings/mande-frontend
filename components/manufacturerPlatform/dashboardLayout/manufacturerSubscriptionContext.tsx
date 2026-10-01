@@ -34,6 +34,20 @@ type ManufacturerSubscriptionContextValue = {
     /** True until the plan has loaded from the API. */
     isLoading: boolean;
     /**
+     * A plan was never paid for (the sign-up payment failed or was left): the
+     * dashboard waits behind the payment screen until it is (see PlanPaymentGate).
+     */
+    needsFirstPayment: boolean;
+    /** The newest plan payment, e.g. to offer a retry when it failed. Null when there's none. */
+    latestPayment: SubscriptionPayment | null;
+    /**
+     * Pays for `planId` in full through the payment partner's checkout, for a
+     * plan that isn't active (never paid for, lapsed or ended). Leaves the
+     * page; the checkout comes back to `returnPath` with ?reference=…, for
+     * confirmPayment.
+     */
+    payForPlan: (planId: string, billingCycle: ManufacturerSubscription["billingCycle"], returnPath: string) => Promise<void>;
+    /**
      * Moves to `planId` now, paid as `pay` says (also undoes a pending
      * cancellation or downgrade). Paying with a new card leaves for the
      * payment partner's checkout: `redirected` is then true, and the plan
@@ -64,10 +78,19 @@ function toSubscription(view: SubscriptionView["subscription"]): ManufacturerSub
     return {
         planId: view.planId,
         billingCycle: view.billingCycle,
+        status: view.status,
         renewsAt: view.renewsAt ?? new Date().toISOString(),
         cancelAtPeriodEnd: view.cancelAtPeriodEnd,
         scheduledPlanId: view.scheduledPlanId,
     };
+}
+
+/** Leaves for the payment partner's checkout (only ever an https link from the API). */
+function goToCheckout(checkoutUrl: string) {
+    if (!checkoutUrl.startsWith("https://")) {
+        throw new Error("Payments aren't available right now. Please try again later.");
+    }
+    window.location.assign(checkoutUrl);
 }
 
 export function ManufacturerSubscriptionProvider({ children }: { children: ReactNode }) {
@@ -93,16 +116,19 @@ export function ManufacturerSubscriptionProvider({ children }: { children: React
             ? data.cards.map((card) => ({ id: card.id, brand: toCardBrand(card.brand), last4: card.last4, expiry: card.expiry }))
             : MANUFACTURER_SAVED_CARDS,
         isLoading: isPending,
+        needsFirstPayment: !!data && (!data.subscription || data.subscription.status === "pending_payment"),
+        latestPayment: data?.payments[0] ?? null,
+        payForPlan: async (planId, billingCycle, returnPath) => {
+            const { checkoutUrl } = await subscriptionService.startCheckout({ planId, billingCycle, saveCard: true, returnPath });
+            goToCheckout(checkoutUrl);
+        },
         upgradePlan: async (planId, pay) => {
             const result = await subscriptionService.upgradePlan({
                 planId,
                 pay: pay.from === "new-card" ? { ...pay, returnPath: PLAN_SETTINGS_PATH } : pay,
             });
             if (result.checkoutUrl) {
-                if (!result.checkoutUrl.startsWith("https://")) {
-                    throw new Error("Payments aren't available right now. Please try again later.");
-                }
-                window.location.assign(result.checkoutUrl);
+                goToCheckout(result.checkoutUrl);
                 return { redirected: true };
             }
             show(result);

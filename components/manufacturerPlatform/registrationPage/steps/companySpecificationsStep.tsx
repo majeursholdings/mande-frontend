@@ -17,7 +17,8 @@ import {
 export type CompanySpecificationsStepProps = {
     methods: UseFormReturn<RegistrationFormValues>;
     onSubmit: (values: RegistrationFormValues) => void;
-    onBack: () => void;
+    /** Left out where there's no step to go back to (the dashboard's SignUpGate). */
+    onBack?: () => void;
     isLoading: boolean;
 };
 

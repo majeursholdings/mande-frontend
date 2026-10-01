@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { jobsService } from "@/lib/services/jobsService";
+import type { ProofPhoto } from "@/components/manufacturerPlatform/form/jobDetailCompletionUploadForm";
 import {
     MAX_JOB_REJECTIONS,
     getJobPaymentInput,
@@ -136,9 +137,14 @@ export function useJobDetailState(job: Job) {
 
     // Proof goes in for the step they're on, or one that was sent back —
     // steps open in order, each once the one before it is approved
-    const submitStepProof = async (step: ProductionStepKey, imageUrls: string[], note?: string) => {
+    // The photo handlers below send to the API first and only then show the
+    // change; a failure is thrown back to the upload form, which says why
+    // and keeps the photos to try again.
+    const submitStepProof = async (step: ProductionStepKey, photos: ProofPhoto[], note?: string) => {
         const target = getStepProgress(state.stepSubmissions).find((progress) => progress.key === step);
         if (state.status !== "in-progress" || (target?.state !== "current" && target?.state !== "sent-back")) return;
+        await jobsService.submitStepProof(job.id, step, { photos: photos.map((photo) => photo.publicId), note });
+        const imageUrls = photos.map((photo) => photo.url);
         setState((s) => ({
             ...s,
             stepSubmissions: [
@@ -147,48 +153,35 @@ export function useJobDetailState(job: Job) {
             ],
         }));
         showBanner("Proof sent for review");
-        try {
-            await jobsService.submitStepProof(job.id, step, { photos: imageUrls, note });
-            queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-        } catch (err) {
-            console.error("Failed to submit step proof on server:", err);
-        }
+        void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
     };
 
-    const uploadCompletionPhoto = async (imageUrls: string[]) => {
+    const uploadCompletionPhoto = async (photos: ProofPhoto[]) => {
+        await jobsService.submitFinishedWork(job.id, photos.map((photo) => photo.publicId));
         setState((s) => ({
             ...s,
-            completionImageUrls: imageUrls,
+            completionImageUrls: photos.map((photo) => photo.url),
             status: "in-review",
             submittedForReviewAt: new Date().toISOString(),
         }));
         showBanner("Job marked as done");
-        try {
-            await jobsService.submitFinishedWork(job.id, imageUrls);
-            queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-        } catch (err) {
-            console.error("Failed to submit finished work on server:", err);
-        }
+        void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
     };
 
     // New photo proof replaces the rejected submission and sends the job
     // back to the admin for review (which also completes the derived
     // "Redeliver" step). Blocked once the job hits MAX_JOB_REJECTIONS.
-    const resubmitForReview = async (imageUrls: string[]) => {
+    const resubmitForReview = async (photos: ProofPhoto[]) => {
         if (state.status !== "rejected" || state.rejections.length >= MAX_JOB_REJECTIONS) return;
+        await jobsService.submitFinishedWork(job.id, photos.map((photo) => photo.publicId));
         setState((s) => ({
             ...s,
-            completionImageUrls: imageUrls,
+            completionImageUrls: photos.map((photo) => photo.url),
             status: "in-review",
             submittedForReviewAt: new Date().toISOString(),
         }));
         showBanner("Job resubmitted for review");
-        try {
-            await jobsService.submitFinishedWork(job.id, imageUrls);
-            queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-        } catch (err) {
-            console.error("Failed to resubmit work on server:", err);
-        }
+        void queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
     };
 
     return {

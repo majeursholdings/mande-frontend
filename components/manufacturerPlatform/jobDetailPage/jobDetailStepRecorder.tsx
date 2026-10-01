@@ -12,7 +12,7 @@ import {
     type ProductionStepKey,
     type StepProgress,
 } from "@/constant/jobWorkflow";
-import JobDetailCompletionUpload from "@/components/manufacturerPlatform/form/jobDetailCompletionUploadForm";
+import JobDetailCompletionUpload, { type ProofPhoto } from "@/components/manufacturerPlatform/form/jobDetailCompletionUploadForm";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // JobDetailStepRecorder — the manufacturer's production steps, in order. The
@@ -39,7 +39,7 @@ export default function JobDetailStepRecorder({
     /** Where each production step stands. */
     progress: StepProgress[];
     payments: JobPayment[];
-    onSubmitProof: (step: ProductionStepKey, imageUrls: string[], note?: string) => void;
+    onSubmitProof: (step: ProductionStepKey, photos: ProofPhoto[], note?: string) => Promise<void>;
     readOnly?: boolean;
 }) {
     return (
@@ -58,7 +58,7 @@ export default function JobDetailStepRecorder({
                                     step={stepProgress}
                                     payment={payment}
                                     readOnly={readOnly}
-                                    onSubmitProof={(imageUrls, note) => onSubmitProof(stepProgress.key, imageUrls, note)}
+                                    onSubmitProof={(photos, note) => onSubmitProof(stepProgress.key, photos, note)}
                                 />
                             ) : (
                                 <ReviewStepRow step={step} isComplete={index < completedCount} />
@@ -91,7 +91,7 @@ function ProductionStepRow({
     step: StepProgress;
     payment: JobPayment | undefined;
     readOnly: boolean;
-    onSubmitProof: (imageUrls: string[], note?: string) => void;
+    onSubmitProof: (photos: ProofPhoto[], note?: string) => Promise<void>;
 }) {
     const latest = step.submissions.at(-1);
     const canSendProof = !readOnly && (step.state === "current" || step.state === "sent-back");

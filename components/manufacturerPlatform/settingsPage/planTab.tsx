@@ -29,16 +29,27 @@ import PlanUpgradeForm from "@/components/manufacturerPlatform/form/planUpgradeF
 import { FormCancelButton } from "@/components/manufacturerPlatform/form/formButtons";
 import Notice from "../notice";
 import SettingsSection from "../settingsSection";
-import { useManufacturerSubscription } from "../dashboardLayout/manufacturerSubscriptionContext";
+import { PLAN_SETTINGS_PATH, useManufacturerSubscription } from "../dashboardLayout/manufacturerSubscriptionContext";
+import type { ManufacturerSubscription } from "@/constant/manufacturer";
 
 type PlanDialog = "upgrade" | "downgrade" | "cancel";
+
+/** The badge beside the plan's name. Only an active plan can be changed or cancelled. */
+const STATUS_BADGE: Record<ManufacturerSubscription["status"], { label: string; className: string }> = {
+    active: { label: "Active", className: "bg-primary-50 text-primary-700" },
+    past_due: { label: "Payment due", className: "bg-error-50 text-error-600" },
+    pending_payment: { label: "Not paid", className: "bg-error-50 text-error-600" },
+    cancelled: { label: "Ended", className: "bg-mist-100 text-mist-600" },
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PlanTab — the current plan, switching plans, and cancelling.
 //   Upgrade   → pay the difference (wallet or card), applies now
 //   Downgrade → confirm, applies when the billing period ends
 //   Cancel    → confirm, the plan ends when the billing period ends
-// A pending downgrade or cancellation can be undone until then. An upgrade
+// A pending downgrade or cancellation can be undone until then. A plan
+// that isn't active (it lapsed or ended) is paid for in full instead, any
+// plan they choose; a failed payment can be tried again from here. An upgrade
 // paid with a new card comes back here from the payment partner's checkout
 // with ?reference=…, which is checked before the new plan shows.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -51,8 +62,18 @@ export default function PlanTab() {
     const discountPercent = plansData?.discountPercent ?? 0;
     const plans = plansData?.plans ?? PRICING_PLANS;
 
-    const { subscription, isLoading, keepCurrentPlan, scheduleDowngrade, cancelPlan, confirmPayment } =
-        useManufacturerSubscription();
+    const {
+        subscription,
+        isLoading,
+        latestPayment,
+        payForPlan,
+        keepCurrentPlan,
+        scheduleDowngrade,
+        cancelPlan,
+        confirmPayment,
+    } = useManufacturerSubscription();
+    // The plan whose checkout is opening, while the browser leaves for it
+    const [payingPlanId, setPayingPlanId] = useState<string | null>(null);
     const router = useRouter();
     const pathname = usePathname();
     const returnedReference = useSearchParams().get("reference");
@@ -118,6 +139,35 @@ export default function PlanTab() {
         },
     });
 
+    const isActive = subscription.status === "active";
+    const badge = isActive && subscription.cancelAtPeriodEnd
+        ? { label: "Cancelled", className: "bg-warning-50 text-warning-700" }
+        : STATUS_BADGE[subscription.status];
+
+    /** An inactive plan: pays for `planId` in full through the checkout, which comes back here. */
+    const handlePayForPlan = async (planId: string, billingCycle = cycle) => {
+        setPayingPlanId(planId);
+        try {
+            await payForPlan(planId, billingCycle, PLAN_SETTINGS_PATH);
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Payment didn't go through. Please try again."));
+            setPayingPlanId(null);
+        }
+    };
+
+    // A failed payment can be tried again: on an inactive plan by paying for
+    // it in full, or, for a failed upgrade, by opening the upgrade again
+    const failedPayment = latestPayment?.status === "failed" ? latestPayment : null;
+    const failedUpgradePlan = failedPayment?.kind === "upgrade"
+        ? plans.find((p) => p.id === failedPayment.planId && getPlanPrice(p, cycle, discountPercent) > currentPrice)
+        : undefined;
+    const canRetry = !!failedPayment && (!isActive || !!failedUpgradePlan);
+    const handleRetry = () => {
+        if (!failedPayment) return;
+        if (!isActive) void handlePayForPlan(failedPayment.planId, failedPayment.billingCycle);
+        else if (failedUpgradePlan) openDialog("upgrade", failedUpgradePlan.id);
+    };
+
     const handleKeepPlan = async () => {
         try {
             await keepCurrentPlan();
@@ -135,15 +185,8 @@ export default function PlanTab() {
                         <div className="flex flex-col gap-1">
                             <p className="flex items-center gap-2 text-lg font-semibold font-text text-mist-950">
                                 {currentPlan.name}
-                                <span
-                                    className={cn(
-                                        "rounded-full px-2 py-0.5 text-[11px] font-medium",
-                                        subscription.cancelAtPeriodEnd
-                                            ? "bg-warning-50 text-warning-700"
-                                            : "bg-primary-50 text-primary-700",
-                                    )}
-                                >
-                                    {subscription.cancelAtPeriodEnd ? "Cancelled" : "Active"}
+                                <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", badge.className)}>
+                                    {badge.label}
                                 </span>
                             </p>
                             <p className="text-[11px] font-medium font-text uppercase tracking-wide text-mist-500">
@@ -159,9 +202,41 @@ export default function PlanTab() {
                         </p>
                     </div>
                     <PlanFeatures plan={currentPlan} />
-                    <p className="text-sm font-text text-mist-600">
-                        {subscription.cancelAtPeriodEnd ? "Ends" : "Renews"} on {periodEnd}
-                    </p>
+                    {isActive && (
+                        <p className="text-sm font-text text-mist-600">
+                            {subscription.cancelAtPeriodEnd ? "Ends" : "Renews"} on {periodEnd}
+                        </p>
+                    )}
+
+                    {failedPayment && (
+                        <Notice tone="warning">
+                            Your payment of {formatPrice(failedPayment.amountKobo / 100)} didn&apos;t go through
+                            {failedPayment.failureReason ? ` (${failedPayment.failureReason})` : ""}.
+                        </Notice>
+                    )}
+                    {!isActive && (
+                        <Notice tone="warning">
+                            {subscription.status === "past_due"
+                                ? `Your plan ran out on ${periodEnd} and hasn't been renewed.`
+                                : subscription.status === "cancelled"
+                                  ? "Your plan has ended."
+                                  : "Your plan hasn't been paid for yet."}{" "}
+                            Until it&apos;s paid for, you won&apos;t be matched with new jobs.
+                        </Notice>
+                    )}
+                    {(canRetry || !isActive) && (
+                        <div>
+                            <Button
+                                type="button"
+                                onClick={canRetry ? handleRetry : () => void handlePayForPlan(currentPlan.id)}
+                                disabled={!!payingPlanId}
+                                className="h-10 rounded-button bg-secondary-700 px-5 text-sm font-medium font-text text-white hover:bg-secondary-900 cursor-pointer"
+                            >
+                                {payingPlanId && <Loader2 className="size-4 animate-spin" aria-hidden />}
+                                {canRetry ? "Retry payment" : `Pay ${formatPrice(currentPrice)}`}
+                            </Button>
+                        </div>
+                    )}
 
                     {scheduledPlan && (
                         <Notice>
@@ -183,7 +258,11 @@ export default function PlanTab() {
 
             <SettingsSection headingLevel="h3"
                 title="Change plan"
-description="Upgrades start straight away, and you pay the difference for the rest of this billing period. Downgrades start when it ends."
+                description={
+                    isActive
+                        ? "Upgrades start straight away, and you pay the difference for the rest of this billing period. Downgrades start when it ends."
+                        : "Pay for the plan you choose, and it starts straight away."
+                }
             >
                 <ul className="flex flex-col gap-3">
                     {plans.filter((plan) => plan.id !== currentPlan.id).map((plan) => {
@@ -205,27 +284,40 @@ description="Upgrades start straight away, and you pay the difference for the re
                                         {plan.targetAudience.toLowerCase()}
                                     </p>
                                 </div>
-                                <button
-                                    type="button"
-                                    disabled={isScheduled}
-                                    onClick={() =>
-                                        openDialog(isUpgrade ? "upgrade" : "downgrade", plan.id)
-                                    }
-                                    className={cn(
-                                        "h-9 shrink-0 rounded-button px-4 text-sm font-medium font-text transition-colors duration-200 cursor-pointer disabled:cursor-default",
-                                        isUpgrade
-                                            ? "bg-secondary-700 text-white hover:bg-secondary-900"
-                                            : "border border-border text-mist-700 enabled:hover:bg-mist-50 disabled:text-mist-400",
-                                    )}
-                                >
-                                    {isScheduled ? "Scheduled" : isUpgrade ? "Upgrade" : "Downgrade"}
-                                </button>
+                                {isActive ? (
+                                    <button
+                                        type="button"
+                                        disabled={isScheduled}
+                                        onClick={() =>
+                                            openDialog(isUpgrade ? "upgrade" : "downgrade", plan.id)
+                                        }
+                                        className={cn(
+                                            "h-9 shrink-0 rounded-button px-4 text-sm font-medium font-text transition-colors duration-200 cursor-pointer disabled:cursor-default",
+                                            isUpgrade
+                                                ? "bg-secondary-700 text-white hover:bg-secondary-900"
+                                                : "border border-border text-mist-700 enabled:hover:bg-mist-50 disabled:text-mist-400",
+                                        )}
+                                    >
+                                        {isScheduled ? "Scheduled" : isUpgrade ? "Upgrade" : "Downgrade"}
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        disabled={!!payingPlanId}
+                                        onClick={() => void handlePayForPlan(plan.id)}
+                                        className="flex h-9 shrink-0 items-center gap-2 rounded-button bg-secondary-700 px-4 text-sm font-medium font-text text-white transition-colors duration-200 cursor-pointer hover:bg-secondary-900 disabled:cursor-default disabled:opacity-60"
+                                    >
+                                        {payingPlanId === plan.id && <Loader2 className="size-4 animate-spin" aria-hidden />}
+                                        Pay {formatPrice(price)}
+                                    </button>
+                                )}
                             </li>
                         );
                     })}
                 </ul>
             </SettingsSection>
 
+            {isActive && (
             <SettingsSection headingLevel="h3"
                 title="Cancel plan"
                 description={`You'll keep ${currentPlan.name} until the end of this billing period, then it won't renew.`}
@@ -241,6 +333,7 @@ description="Upgrades start straight away, and you pay the difference for the re
                     </button>
                 </div>
             </SettingsSection>
+            )}
 
             <Dialog {...dialogProps("upgrade")}>
                 <DialogContent>

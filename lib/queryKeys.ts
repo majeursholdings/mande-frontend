@@ -65,6 +65,12 @@ export const queryKeys = {
       [...queryKeys.wallet.all, "transactions", filters] as const,
   },
 
+  // The signed-in manufacturer's standing (flags, suspensions, appeals)
+  account: {
+    all: ["account"] as const,
+    standing: () => [...queryKeys.account.all, "standing"] as const,
+  },
+
   // Plan (the signed-in manufacturer's subscription)
   subscription: {
     all: ["subscription"] as const,

@@ -15,7 +15,8 @@ import { isSoloPlan, RegistrationFormValues } from "../types";
 export type AboutCompanyStepProps = {
     methods: UseFormReturn<RegistrationFormValues>;
     onContinue: (values: RegistrationFormValues) => void;
-    onBack: () => void;
+    /** Left out where there's no step to go back to (the dashboard's SignUpGate). */
+    onBack?: () => void;
     isLoading: boolean;
 };
 

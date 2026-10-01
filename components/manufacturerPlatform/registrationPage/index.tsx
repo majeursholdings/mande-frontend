@@ -33,7 +33,7 @@ import { useRedirectIfAuthenticated } from "@/hooks/useAuthRedirect";
 import { MandeApiError, getErrorMessage, getStoredAccessToken } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { authService } from "@/lib/services/authService";
-import { manufacturerService } from "@/lib/services/manufacturerService";
+import { saveCompanyDetails, saveCompanySpecifications } from "./registrationRequests";
 import { subscriptionService, type SubscriptionPayment } from "@/lib/services/subscriptionService";
 
 const hasValue = (value: unknown): boolean => {
@@ -301,36 +301,10 @@ function RegistrationWizard({
         }
     };
 
-    // Step 4: saves the company details, then the NIN (its card photo was
-    // uploaded when it was picked) and any business documents
+    // Step 4: the company details, the NIN and any business documents
     const handleCompanyDetails = () =>
         runStep(
-            async () => {
-                const values = methods.getValues();
-                if (!values.ninCard?.publicId) {
-                    throw new Error("Wait for your NIN card photo to finish uploading");
-                }
-                await manufacturerService.updateCompanyInfo({
-                    companyName: values.companyName.trim(),
-                    streetAddress: values.streetAddress.trim(),
-                    city: values.city.trim(),
-                    state: values.state,
-                    country: values.country,
-                });
-                await manufacturerService.submitNin({
-                    ninNumber: values.ninNumber.trim(),
-                    image: values.ninCard.publicId,
-                });
-                const companyTaxNumber = values.companyTaxNumber.trim();
-                const businessLicenseNumber = values.businessLicenseNumber.trim();
-                // Optional on the Solo plan: only sent when there's one to check
-                if (companyTaxNumber || businessLicenseNumber) {
-                    await manufacturerService.submitBusinessDocuments({
-                        ...(companyTaxNumber && { companyTaxNumber }),
-                        ...(businessLicenseNumber && { businessLicenseNumber }),
-                    });
-                }
-            },
+            () => saveCompanyDetails(methods.getValues()),
             4,
             "Couldn't save your company details. Please try again.",
         );
@@ -338,14 +312,7 @@ function RegistrationWizard({
     const handleFinalSubmit = async () => {
         setIsLoading(true);
         try {
-            const { staffRange, specialities, productionLeadTime, materialsInventory } =
-                methods.getValues();
-            await manufacturerService.updateCompanyInfo({
-                staffRange,
-                specialities,
-                productionLeadTime,
-                materialsInventory,
-            });
+            await saveCompanySpecifications(methods.getValues());
             clearRegistrationProgress();
             await queryClient.invalidateQueries({ queryKey: queryKeys.auth.all });
             toast.success("Your manufacturer account has been created!");

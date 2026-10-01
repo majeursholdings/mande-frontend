@@ -1,18 +1,28 @@
 "use client";
 
+import { useState } from "react";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { Button } from "@/components/ui/button";
 import { JOB_DETAIL_PRIMARY_BUTTON_CLASS } from "@/components/manufacturerPlatform/jobDetailPage/styles";
-import { cleanupFormFieldUploads, clearFormUploadedFiles } from "@/components/form/fileInput";
+import { clearFormUploadedFiles } from "@/components/form/fileInput";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/api";
 
 import { MIN_STEP_PROOF_PHOTOS, MAX_STEP_PROOF_PHOTOS } from "@/constant/jobWorkflow";
+import type { CloudinaryUploadResult } from "@/lib/services/cloudinaryService";
 
 type CompletionFormValues = {
-    photo: FileList;
+    /** Uploaded as soon as they're picked (see the field's uploadPurpose). */
+    photo: CloudinaryUploadResult[];
     note?: string;
 };
+
+/** A photo sent as proof: the API takes the publicId; the url shows it straight away. */
+export type ProofPhoto = { publicId: string; url: string };
+
+/** The finished furniture can have up to 6 photos (the API's limit). */
+const MAX_COMPLETION_PHOTOS = 6;
 
 const NOTE_MAX_LENGTH = 500;
 
@@ -27,9 +37,9 @@ const getFields = (photoLabel: string, withNote: boolean): FormFieldConfig[] => 
             description: minPhotos > 1 ? `Upload at least ${minPhotos} photos (up to ${MAX_STEP_PROOF_PHOTOS})` : undefined,
             showPreview: true,
             multiple: true,
-            maxFiles: MAX_STEP_PROOF_PHOTOS,
-            uploadCategory: "jobProof",
-            uploadVisibility: "public",
+            maxFiles: withNote ? MAX_STEP_PROOF_PHOTOS : MAX_COMPLETION_PHOTOS,
+            // Signed by the API, which only takes its own uploads as proof
+            uploadPurpose: withNote ? "step-proof" : "completion-photo",
             validation: {
                 required: minPhotos > 1 ? `Upload at least ${minPhotos} photos` : "Upload at least one photo",
                 validate: (value: unknown) => {
@@ -75,7 +85,8 @@ export default function JobDetailCompletionUpload({
     photoLabel = "Furniture photo",
     withNote = false,
 }: {
-    onComplete: (imageUrls: string[], note?: string) => void;
+    /** Sends the photos; a rejection (shown as a toast) keeps them in the form to try again. */
+    onComplete: (photos: ProofPhoto[], note?: string) => Promise<void>;
     title?: string;
     description?: string;
     submitLabel?: string;
@@ -83,6 +94,8 @@ export default function JobDetailCompletionUpload({
     /** Adds an optional note to send with the photos. */
     withNote?: boolean;
 }) {
+    const [isLoading, setIsLoading] = useState(false);
+
     return (
         <div className="flex flex-col gap-3 rounded-xl border border-primary-200 bg-primary-50 p-4">
             <div>
@@ -95,28 +108,24 @@ export default function JobDetailCompletionUpload({
             <MainForm<CompletionFormValues>
                 fields={getFields(photoLabel, withNote)}
                 submitLabel={submitLabel}
+                isLoading={isLoading}
                 onSubmit={async (values) => {
+                    const minPhotos = withNote ? MIN_STEP_PROOF_PHOTOS : 1;
+                    const photos = (Array.isArray(values.photo) ? values.photo : [])
+                        .filter((file) => !!file?.publicId)
+                        .map((file) => ({ publicId: file.publicId, url: file.url }));
+                    if (photos.length < minPhotos) {
+                        toast.error(minPhotos > 1 ? `Upload at least ${minPhotos} photos` : "You need to add an image to submit");
+                        return;
+                    }
+                    setIsLoading(true);
                     try {
-                        const minPhotos = withNote ? MIN_STEP_PROOF_PHOTOS : 1;
-                        const files = Array.from(values.photo ?? []);
-                        if (files.length < minPhotos) {
-                            toast.error(minPhotos > 1 ? `Upload at least ${minPhotos} photos` : "You need to add an image to submit");
-                            return;
-                        }
-                        const urls = (files as Array<Record<string, unknown> | File>)
-                            .map((file) => {
-                                if (file && typeof file === "object" && "url" in file && typeof file.url === "string") {
-                                    return file.url;
-                                }
-                                if (file instanceof File) return URL.createObjectURL(file);
-                                return "";
-                            })
-                            .filter(Boolean);
+                        await onComplete(photos, values.note?.trim() || undefined);
                         clearFormUploadedFiles("photo");
-                        onComplete(urls, values.note?.trim() || undefined);
-                    } catch {
-                        await cleanupFormFieldUploads("photo");
-                        toast.error("Couldn't upload the photo. Please try again.");
+                    } catch (err) {
+                        toast.error(getErrorMessage(err, "Couldn't send the photos. Please try again."));
+                    } finally {
+                        setIsLoading(false);
                     }
                 }}
                 renderFooter={({ isLoading, canSubmit }) => (

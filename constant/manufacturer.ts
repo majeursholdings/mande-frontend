@@ -1113,6 +1113,12 @@ export type ManufacturerSubscription = {
     /** A PRICING_PLANS id, e.g. "workshop". */
     planId: string;
     billingCycle: BillingCycle;
+    /**
+     * "pending_payment": chosen at sign-up but never paid for. "past_due": the
+     * period ended without a renewal. "cancelled": ended after a cancellation.
+     * Only an active plan can be upgraded, downgraded or cancelled.
+     */
+    status: "active" | "past_due" | "pending_payment" | "cancelled";
     /** ISO date the current billing period ends and the plan renews. */
     renewsAt: string;
     /** Cancelled by the manufacturer — the plan stays active until renewsAt, then ends. */
@@ -1132,6 +1138,7 @@ export type SavedCard = {
 
 export const MANUFACTURER_SUBSCRIPTION: ManufacturerSubscription = {
     ...SIGNED_IN_MANUFACTURER.subscription,
+    status: "active",
     cancelAtPeriodEnd: false,
     scheduledPlanId: null,
 };

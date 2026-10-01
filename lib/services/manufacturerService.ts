@@ -29,6 +29,30 @@ export interface SubmitBusinessDocsPayload {
   businessLicenseNumber?: string;
 }
 
+/** A file the API keeps (private ones come with a short-lived link). */
+export interface ApiMedia {
+  url: string | null;
+  name: string | null;
+  kind: "document" | "image";
+  publicId: string;
+}
+
+/** The manufacturer's own standing: flagged or suspended, and their appeals (newest first). */
+export interface AccountStanding {
+  accountStatus: "active" | "flagged" | "suspended";
+  statusHistory: { status: "active" | "flagged" | "suspended"; reason: string | null; byName: string; at: string }[];
+  appeals: {
+    id: string;
+    message: string;
+    attachments: (ApiMedia | null)[];
+    sentAt: string;
+    status: "pending" | "approved" | "declined";
+    response: string | null;
+    decidedByName: string | null;
+    decidedAt: string | null;
+  }[];
+}
+
 export interface ListManufacturersQuery {
   status?: "active" | "flagged" | "suspended" | "deactivated";
   planId?: string;
@@ -105,13 +129,17 @@ export const manufacturerService = {
 
   // ── Manufacturer Self-Service: Account Standing & Appeals ────────────
 
-  async getAccountStatus() {
-    const { data } = await api.get("/account");
+  async getAccountStatus(): Promise<{ account: AccountStanding }> {
+    const { data } = await api.get<{ account: AccountStanding }>("/account");
     return data;
   },
 
-  async submitAppeal(payload: { message: string; attachments?: Array<{ publicId: string; name: string }> }) {
-    const { data } = await api.post("/account/appeals", payload);
+  /** Only while suspended, one at a time. Answers with the standing, the new appeal first. */
+  async submitAppeal(payload: {
+    message: string;
+    attachments?: Array<{ publicId: string; name: string }>;
+  }): Promise<{ account: AccountStanding }> {
+    const { data } = await api.post<{ account: AccountStanding }>("/account/appeals", payload);
     return data;
   },
 

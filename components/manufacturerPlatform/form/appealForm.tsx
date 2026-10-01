@@ -5,17 +5,24 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
-import { DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fileRules";
-import { cleanupFormFieldUploads, clearFormUploadedFiles } from "@/components/form/fileInput";
+import { API_DOCUMENT_ACCEPT, API_PHOTO_ACCEPT, DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fileRules";
+import { clearFormUploadedFiles } from "@/components/form/fileInput";
+import { getErrorMessage } from "@/lib/api";
+import type { CloudinaryUploadResult } from "@/lib/services/cloudinaryService";
 import { Button } from "@/components/ui/button";
 import type { JobAttachmentRecord } from "@/constant/sampleDb";
 import { JOB_DETAIL_PRIMARY_BUTTON_CLASS } from "@/components/manufacturerPlatform/jobDetailPage/styles";
 
 type AppealValues = {
     message: string;
-    photos: FileList | File[] | null;
-    documents: FileList | File[] | null;
+    /** Uploaded as soon as they're picked (see the fields' uploadPurpose). */
+    photos: CloudinaryUploadResult[] | null;
+    documents: CloudinaryUploadResult[] | null;
 };
+
+/** The API takes up to 5 files with an appeal, photos and documents together. */
+const MAX_ATTACHMENTS = 5;
+
 
 const MESSAGE_MIN_LENGTH = 20;
 const MESSAGE_MAX_LENGTH = 1000;
@@ -44,21 +51,22 @@ const FIELDS: FormFieldConfig[] = [
         name: "photos",
         type: "image",
         label: optional("Photos"),
-        description: `Images only, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+        description: `JPG, PNG or WebP, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+        accept: API_PHOTO_ACCEPT,
         multiple: true,
-        maxFiles: 5,
-        uploadCategory: "appeal",
-        uploadVisibility: "private",
+        maxFiles: MAX_ATTACHMENTS,
+        // Signed by the API, which only takes its own uploads with an appeal
+        uploadPurpose: "appeal-attachment",
     },
     {
         name: "documents",
         type: "file",
         label: optional("Documents"),
-        description: `Invoices, receipts or letters — PDF or Word, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+        description: `Invoices, receipts or letters as PDFs, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each. Up to ${MAX_ATTACHMENTS} files in all.`,
+        accept: API_DOCUMENT_ACCEPT,
         multiple: true,
-        maxFiles: 5,
-        uploadCategory: "appeal",
-        uploadVisibility: "private",
+        maxFiles: MAX_ATTACHMENTS,
+        uploadPurpose: "appeal-attachment",
     },
 ];
 
@@ -67,7 +75,8 @@ export default function AppealForm({
     onSend,
     onCancel,
 }: {
-    onSend: (appeal: { message: string; attachments: JobAttachmentRecord[] }) => void;
+    /** Sends the appeal; a rejection (shown as a toast) keeps the form filled in to try again. */
+    onSend: (appeal: { message: string; attachments: JobAttachmentRecord[] }) => Promise<void>;
     /** Shows a Cancel button — e.g. when the form is in a dialog. */
     onCancel?: () => void;
 }) {
@@ -78,37 +87,23 @@ export default function AppealForm({
     });
 
     const handleSubmit = async ({ message, photos, documents }: AppealValues) => {
+        const toAttachments = (files: CloudinaryUploadResult[] | null, kind: JobAttachmentRecord["kind"]) =>
+            (files ?? [])
+                .filter((file) => !!file?.publicId)
+                .map((file) => ({ name: file.originalName || file.name || "Attachment", url: file.url, kind, publicId: file.publicId }));
+        const attachments = [...toAttachments(photos, "image"), ...toAttachments(documents, "document")];
+        if (attachments.length > MAX_ATTACHMENTS) {
+            toast.error(`Add up to ${MAX_ATTACHMENTS} files in all`);
+            return;
+        }
         setIsLoading(true);
         try {
-            await new Promise((resolve) => setTimeout(resolve, 800));
-            const upload = (files: unknown, kind: JobAttachmentRecord["kind"]) =>
-                Array.from((files as Array<Record<string, unknown> | File>) ?? []).map((file) => {
-                    if (file && typeof file === "object" && "url" in file && typeof file.url === "string") {
-                        const f = file as { name?: string; originalName?: string; url: string };
-                        return {
-                            name: f.originalName || f.name || "attachment",
-                            url: f.url,
-                            kind,
-                        };
-                    }
-                    if (file instanceof File) {
-                        return { name: file.name, url: URL.createObjectURL(file), kind };
-                    }
-                    return { name: "attachment", url: "", kind };
-                });
-            onSend({
-                message: message.trim(),
-                attachments: [...upload(photos, "image"), ...upload(documents, "document")],
-            });
+            await onSend({ message: message.trim(), attachments });
             clearFormUploadedFiles("photos");
             clearFormUploadedFiles("documents");
-            toast.success("Appeal sent — we'll get back to you");
-        } catch {
-            await Promise.allSettled([
-                cleanupFormFieldUploads("photos"),
-                cleanupFormFieldUploads("documents"),
-            ]);
-            toast.error("Couldn't send your appeal. Please try again.");
+            toast.success("Appeal sent. We'll get back to you.");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't send your appeal. Please try again."));
         } finally {
             setIsLoading(false);
         }

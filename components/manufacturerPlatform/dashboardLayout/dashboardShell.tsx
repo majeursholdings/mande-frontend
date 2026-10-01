@@ -7,6 +7,7 @@ import MobileBottomNav from "./mobileBottomNav";
 import AccountGate from "./accountGate";
 import AccountStatusBanner from "./accountStatusBanner";
 import BusinessDocumentsGate from "./businessDocumentsGate";
+import SignUpGate from "./signUpGate";
 import { ManufacturerAccountProvider } from "./manufacturerAccountContext";
 import { ManufacturerProfileProvider } from "./manufacturerProfileContext";
 import { ManufacturerSubscriptionProvider } from "./manufacturerSubscriptionContext";
@@ -30,6 +31,8 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
                 <ManufacturerProfileProvider>
                     <ManufacturerWalletProvider>
                         <ManufacturerSubscriptionProvider>
+                            {/* Sign-up not finished (plan unpaid, company details missing): only those steps */}
+                            <SignUpGate>
                             <JobApplicationsProvider>
                                 <NotificationsProvider>
                                     <RecentSearchesProvider>
@@ -50,6 +53,7 @@ export default function DashboardShell({ children }: { children: ReactNode }) {
                                     </RecentSearchesProvider>
                                 </NotificationsProvider>
                             </JobApplicationsProvider>
+                            </SignUpGate>
                         </ManufacturerSubscriptionProvider>
                     </ManufacturerWalletProvider>
                 </ManufacturerProfileProvider>
