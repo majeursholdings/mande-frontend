@@ -64,7 +64,7 @@ export default function JobCard({
                     />
                 </div>
             )}
-            <div className="flex flex-1 flex-col gap-3 p-4">
+            <div className="flex flex-1 flex-col gap-3 p-4 @container">
                 <div>
                     <h4 className="text-sm font-semibold font-text text-mist-950">
                         <Link href={href} className="outline-none after:absolute after:inset-0">
@@ -75,8 +75,8 @@ export default function JobCard({
                 </div>
                 <p className="text-xs font-text text-mist-500 line-clamp-2">{description}</p>
                 {/* min-h fits a badge or button, so the feet line up across cards */}
-                <div className="mt-auto flex min-h-8 items-end justify-between gap-2 border-t border-border pt-3">
-                    <div className="flex min-w-0 flex-col gap-0.5">
+                <div className="mt-auto flex flex-col items-center @[220px]:flex-row @[220px]:items-end min-h-8 justify-between gap-2 border-t border-border pt-3">
+                    <div className="flex min-w-0 flex-col gap-0.5 items-center @[220px]:items-start">
                         <span className="text-sm font-semibold font-text text-mist-950">{formatPrice(price)}</span>
                         {duration && (
                             <span className="flex items-center gap-1 text-xs font-text text-mist-500">
@@ -91,7 +91,7 @@ export default function JobCard({
                     {/* Buttons sit above the stretched link and get their own clicks;
                         clicks on a badge still pass through to the card */}
                     {trailing && (
-                        <div className="pointer-events-none relative z-10 shrink-0 [&_button]:pointer-events-auto">
+                        <div className="pointer-events-none relative z-10 shrink-0 w-full *:w-full *:justify-center @[220px]:w-auto @[220px]:*:w-auto">
                             {trailing}
                         </div>
                     )}
