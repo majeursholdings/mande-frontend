@@ -624,6 +624,7 @@ export type OpenJob = {
     imageUrl: string;
     deliveryLocation?: { city: string; state: string } | null;
     attachments: JobAttachment[];
+    hasApplied?: boolean;
 };
 
 export const OPEN_JOB_SORT_OPTIONS: SelectFilterItem[] = [

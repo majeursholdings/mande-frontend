@@ -48,7 +48,7 @@ export default function JobCard({ job, href }: { job: Job; href?: string }) {
 
     return (
         <JobCardFrame
-            href={href ?? `${MANUFACTURER_JOBS_URL}/${job.id}`}
+            href={href ?? `${MANUFACTURER_JOBS_URL}/${job.code || job.id}`}
             title={job.title}
             meta={`${getJobCategoryLabel(job.category)} · ${job.assignedLabel}`}
             description={job.description}
@@ -73,7 +73,7 @@ export function OpenJobCard({ job }: { job: OpenJob }) {
 
     return (
         <JobCardFrame
-            href={`${MANUFACTURER_JOBS_URL}/${job.id}`}
+            href={`${MANUFACTURER_JOBS_URL}/${job.code || job.id}`}
             title={job.title}
             meta={`${getJobCategoryLabel(job.category)} · Posted ${getTimeAgoLabel(new Date(job.postedAt))}`}
             description={job.description}

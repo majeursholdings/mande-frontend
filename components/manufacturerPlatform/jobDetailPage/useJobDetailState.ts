@@ -36,16 +36,6 @@ export type JobDetailState = {
     banner: string | null;
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// useJobDetailState — local, ephemeral state for the actions a manufacturer
-// can take from the job detail panel (accept/decline, send proof of each
-// production step, mark as done, report a delay, purchase materials, cancel
-// until they're past the Materials step, resubmit a rejected job for review). Anything left unreviewed past its
-// deadline reads as approved automatically (see settleJob). The app has no
-// API/store layer yet, so this seeds from the static `Job` fixture and
-// resets on reload — same as every other mock-data screen in the app.
-// ─────────────────────────────────────────────────────────────────────────────
-
 export function useJobDetailState(job: Job) {
     const queryClient = useQueryClient();
     const { receivePayment } = useManufacturerWallet();
@@ -60,6 +50,7 @@ export function useJobDetailState(job: Job) {
         extensionRequests: job.extensionRequests,
         banner: null,
     });
+
     // A job held for further review waits for a super admin, not the clock
     const state = settleJob({ ...storedState, isHeldForReview: job.isHeldForReview });
 

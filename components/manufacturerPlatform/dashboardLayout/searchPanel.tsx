@@ -275,7 +275,7 @@ function JobSearchResult({ job, onSelect }: { job: Job; onSelect: () => void }) 
 
     return (
         <Link
-            href={`${MANUFACTURER_JOBS_URL}/${job.id}`}
+            href={`${MANUFACTURER_JOBS_URL}/${job.code || job.id}`}
             onClick={onSelect}
             className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 hover:bg-mist-50 transition-colors"
         >
@@ -302,7 +302,7 @@ function OpenJobSearchResult({
 }) {
     return (
         <Link
-            href={`${MANUFACTURER_JOBS_URL}/${job.id}`}
+            href={`${MANUFACTURER_JOBS_URL}/${job.code || job.id}`}
             onClick={onSelect}
             className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-mist-50 transition-colors"
         >
