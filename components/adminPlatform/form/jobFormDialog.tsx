@@ -6,7 +6,7 @@ import { ArrowLeft, FileText, ImageIcon, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
-import { DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fileRules";
+import { API_DOCUMENT_ACCEPT, API_PHOTO_ACCEPT, DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fileRules";
 import { cleanupFormFieldUploads, clearFormUploadedFiles } from "@/components/form/fileInput";
 import { Button } from "@/components/ui/button";
 import {
@@ -306,7 +306,8 @@ export default function JobFormDialog({
             name: "documents",
             type: "file",
             label: "Documents",
-            description: `PDF or Word, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+            description: `PDFs, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+            accept: API_DOCUMENT_ACCEPT,
             multiple: true,
             maxFiles: 5,
             uploadCategory: "jobcreation",
@@ -316,7 +317,8 @@ export default function JobFormDialog({
             name: "images",
             type: "image",
             label: "Images",
-            description: `Images only, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+            description: `JPG, PNG or WebP, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+            accept: API_PHOTO_ACCEPT,
             multiple: true,
             maxFiles: 10,
             uploadCategory: "jobcreation",

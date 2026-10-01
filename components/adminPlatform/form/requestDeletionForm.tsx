@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
-import { DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fileRules";
+import { API_DOCUMENT_ACCEPT, API_PHOTO_ACCEPT, DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fileRules";
 import { cleanupFormFieldUploads, clearFormUploadedFiles } from "@/components/form/fileInput";
 import { Button } from "@/components/ui/button";
 import type { AdminJobAttachment } from "@/constant/admin";
@@ -44,7 +44,8 @@ const FIELDS: FormFieldConfig[] = [
         name: "photos",
         type: "image",
         label: optional("Photos"),
-        description: `Screenshots or photos that back it up — images only, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+        description: `Screenshots or photos that back it up: JPG, PNG or WebP, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+        accept: API_PHOTO_ACCEPT,
         multiple: true,
         maxFiles: 5,
         uploadCategory: "deletionRequest",
@@ -54,7 +55,8 @@ const FIELDS: FormFieldConfig[] = [
         name: "documents",
         type: "file",
         label: optional("Documents"),
-        description: `PDF or Word, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+        description: `PDFs, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+        accept: API_DOCUMENT_ACCEPT,
         multiple: true,
         maxFiles: 5,
         uploadCategory: "deletionRequest",

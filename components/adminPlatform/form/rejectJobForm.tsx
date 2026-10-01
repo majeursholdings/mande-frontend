@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
-import { DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fileRules";
+import { API_DOCUMENT_ACCEPT, API_PHOTO_ACCEPT, DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fileRules";
 import { cleanupFormFieldUploads, clearFormUploadedFiles } from "@/components/form/fileInput";
 import { Button } from "@/components/ui/button";
 import type { AdminJobAttachment } from "@/constant/admin";
@@ -49,7 +49,8 @@ const FIELDS: FormFieldConfig[] = [
                 <span className="font-normal text-mist-400">(optional)</span>
             </>
         ),
-        description: `Photos that show the problems — images only, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+        description: `Photos that show the problems: JPG, PNG or WebP, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+        accept: API_PHOTO_ACCEPT,
         multiple: true,
         maxFiles: 5,
         uploadCategory: "jobProof",
@@ -64,7 +65,8 @@ const FIELDS: FormFieldConfig[] = [
                 <span className="font-normal text-mist-400">(optional)</span>
             </>
         ),
-        description: `Marked-up drawings or notes — PDF or Word, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+        description: `Marked-up drawings or notes as PDFs, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+        accept: API_DOCUMENT_ACCEPT,
         multiple: true,
         maxFiles: 5,
         uploadCategory: "jobProof",

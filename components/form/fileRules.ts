@@ -21,6 +21,14 @@ export const IMAGE_ACCEPT = "image/*, .heic, .heif";
 /** The picker filter for document fields — PDF or Word. */
 export const DOCUMENT_ACCEPT = `.pdf, .doc, .docx, ${DOCUMENT_TYPES.join(", ")}`;
 
+/**
+ * What the API keeps with a record (a job, an appeal, a review): JPG, PNG or
+ * WebP photos and PDF documents. It refuses Word files and other image
+ * types, so fields whose files go to the API narrow `accept` to these.
+ */
+export const API_PHOTO_ACCEPT = ".jpg, .jpeg, .png, .webp, image/jpeg, image/png, image/webp";
+export const API_DOCUMENT_ACCEPT = ".pdf, application/pdf";
+
 export const isImageFile = (file: File) => file.type.startsWith("image/") || IMAGE_EXTENSIONS.test(file.name);
 
 export const isDocumentFile = (file: File) =>

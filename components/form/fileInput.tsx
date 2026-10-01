@@ -139,7 +139,10 @@ export const FileInput = <T extends FieldValues = FieldValues>({
     const [isDragging, setIsDragging] = useState(false);
     const inputRef = useRef<HTMLInputElement | null>(null);
 
-    const { ref, ...rest } = register(
+    // Only the ref and name go on the <input>. The field's value is the
+    // uploaded files (set in syncFormValue), never the input's FileList: the
+    // registered onChange/onBlur read the DOM and would replace it with that.
+    const { ref, name } = register(
         field.name as Path<T>,
         field.validation as RegisterOptions<T, Path<T>>,
     );
@@ -208,16 +211,19 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                 setValueFn(field.name as Path<T>, completedUploads as unknown as PathValue<T, Path<T>>, {
                     shouldValidate: true,
                     shouldDirty: true,
+                    shouldTouch: true,
                 });
             } else {
                 setValueFn(field.name as Path<T>, (completedUploads[0] ?? null) as unknown as PathValue<T, Path<T>>, {
                     shouldValidate: true,
                     shouldDirty: true,
+                    shouldTouch: true,
                 });
             }
         }
 
-        // Also keep input files in sync
+        // Also keep the input's files in step (for the browser only: the
+        // form's value stays the uploads set above)
         if (inputRef.current) {
             try {
                 const dt = new DataTransfer();
@@ -225,12 +231,11 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                     .filter((item) => item.status === "completed" || item.status === "uploading")
                     .forEach((item) => dt.items.add(item.file));
                 inputRef.current.files = dt.files;
-                rest.onChange({ target: inputRef.current } as unknown as Event);
             } catch {
                 // Ignore environment restrictions
             }
         }
-    }, [field.name, field.multiple, setValueFn, rest]);
+    }, [field.name, field.multiple, setValueFn]);
 
     // Start upload for a file item
     const startUpload = useCallback(
@@ -483,7 +488,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                     multiple={field.multiple}
                     disabled={field.disabled}
                     className="hidden"
-                    {...rest}
+                    name={name}
                     ref={(e) => {
                         ref(e);
                         inputRef.current = e;
