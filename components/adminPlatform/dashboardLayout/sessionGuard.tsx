@@ -1,21 +1,37 @@
 "use client";
 
-import { useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { redirect, usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getDashboardUrlForRole } from "@/hooks/useAuthRedirect";
 
 let sessionExpiredAt = 0;
+const sessionListeners = new Set<() => void>();
+
+function notifySessionListeners() {
+    sessionListeners.forEach((listener) => listener());
+}
+
 if (typeof window !== "undefined") {
     window.addEventListener("mande:session-expired", () => {
         sessionExpiredAt = Date.now();
+        notifySessionListeners();
+    });
+    window.addEventListener("mande:auth_token_changed", (event: Event) => {
+        const customEvent = event as CustomEvent<{ token: string | null }>;
+        if (customEvent.detail?.token) {
+            sessionExpiredAt = 0;
+            notifySessionListeners();
+        }
     });
 }
 
 function subscribeSessionExpired(onStoreChange: () => void) {
-    window.addEventListener("mande:session-expired", onStoreChange);
-    return () => window.removeEventListener("mande:session-expired", onStoreChange);
+    sessionListeners.add(onStoreChange);
+    return () => {
+        sessionListeners.delete(onStoreChange);
+    };
 }
 
 function getSessionExpiredSnapshot() {
@@ -26,13 +42,8 @@ function getServerSessionExpiredSnapshot() {
     return 0;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SessionGuard — the dashboard only shows once the API says who's signed in
-// (from the access token, or the refresh cookie after a reload) and that
-// they have the platform's role. Anyone else goes to its log in, which
-// brings them back here after. A convenience, not the security: the API
-// checks every request itself.
-// ─────────────────────────────────────────────────────────────────────────────
+// SessionGuard: the dashboard only shows once the API confirms authentication
+// and the required platform role. Unauthenticated requests are redirected to login with next.
 
 export default function SessionGuard({
     role,
@@ -47,13 +58,20 @@ export default function SessionGuard({
     const { data: user, isPending } = useCurrentUser();
     const allowed = !!user && user.role === role && user.status === "active";
 
+    useEffect(() => {
+        if (allowed && sessionExpiredAt > 0) {
+            sessionExpiredAt = 0;
+            notifySessionListeners();
+        }
+    }, [allowed]);
+
     const sessionExpiredTime = useSyncExternalStore(
         subscribeSessionExpired,
         getSessionExpiredSnapshot,
         getServerSessionExpiredSnapshot
     );
 
-    if (sessionExpiredTime > 0) {
+    if (sessionExpiredTime > 0 && !allowed && !isPending) {
         redirect(`${loginUrl}?next=${encodeURIComponent(pathname)}`);
     }
 

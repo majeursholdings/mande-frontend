@@ -19,15 +19,23 @@ export function getDashboardUrlForRole(role?: string): string {
     }
 }
 
-/**
- * When a browser has a valid token and visits a login or sign-up page,
- * redirect them immediately to their respective dashboard page.
- */
 export function useRedirectIfAuthenticated() {
     const { data: currentUser, isPending } = useCurrentUser();
 
     if (!isPending && currentUser && currentUser.status === "active") {
-        const destination = getDashboardUrlForRole(currentUser.role);
+        let destination = getDashboardUrlForRole(currentUser.role);
+        if (typeof window !== "undefined") {
+            const next = new URLSearchParams(window.location.search).get("next");
+            const rolePrefix =
+                currentUser.role === "super_admin"
+                    ? "/super-admin/"
+                    : currentUser.role === "admin"
+                      ? "/admin/"
+                      : "/manufacturer/";
+            if (next && next.startsWith(rolePrefix) && !next.startsWith("//") && !next.includes("\\")) {
+                destination = next;
+            }
+        }
         redirect(destination);
     }
 
