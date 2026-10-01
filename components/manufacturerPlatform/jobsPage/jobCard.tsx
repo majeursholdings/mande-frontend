@@ -11,14 +11,40 @@ import { getSampleCategoryPhoto } from "@/constant/sampleDb";
 import { formatShortDuration, getTimeAgoLabel } from "@/lib/date";
 import ApplyNowButton from "./applyNowButton";
 
-// The manufacturer platform's job cards — the shared job card (also on the
-// website's open jobs), with a status for their own jobs and "Apply now" on
-// open ones.
 
-/** A job assigned to the manufacturer, with its status — opening it in the manufacturer's jobs unless `href` says otherwise. */
+function getAttachedImage(attachments?: Array<{ url?: string; name?: string; kind?: string }>): string | null {
+    if (!attachments || attachments.length === 0) return null;
+    const found = attachments.find((att) => {
+        if (!att?.url) return false;
+        if (att.kind === "image") return true;
+        const url = att.url.toLowerCase();
+        const name = (att.name ?? "").toLowerCase();
+        return (
+            url.includes(".png") ||
+            url.includes(".jpg") ||
+            url.includes(".jpeg") ||
+            url.includes(".webp") ||
+            url.includes(".svg") ||
+            name.endsWith(".png") ||
+            name.endsWith(".jpg") ||
+            name.endsWith(".jpeg") ||
+            name.endsWith(".webp") ||
+            name.endsWith(".svg")
+        );
+    });
+    return found?.url ?? null;
+}
+
+/** A job assigned to the manufacturer, with its status. Opens the job unless href says otherwise. */
 export default function JobCard({ job, href }: { job: Job; href?: string }) {
     const config = JOB_STATUS_CONFIG[job.status];
-    const displayImageUrl = job.imageUrl || getSampleCategoryPhoto(job.category);
+    const categoryPhoto = getSampleCategoryPhoto(job.category);
+    const attachedImage = getAttachedImage(job.attachments);
+    const displayImageUrl =
+        (job.imageUrl && job.imageUrl !== categoryPhoto ? job.imageUrl : "") ||
+        attachedImage ||
+        job.imageUrl ||
+        categoryPhoto;
 
     return (
         <JobCardFrame
@@ -35,9 +61,15 @@ export default function JobCard({ job, href }: { job: Job; href?: string }) {
     );
 }
 
-/** An open job — always with its photo, and an "Apply now" button that becomes "Applied". */
+/** An open job, always with its attached photo and an Apply now button. */
 export function OpenJobCard({ job }: { job: OpenJob }) {
-    const displayImageUrl = job.imageUrl || getSampleCategoryPhoto(job.category);
+    const categoryPhoto = getSampleCategoryPhoto(job.category);
+    const attachedImage = getAttachedImage(job.attachments);
+    const displayImageUrl =
+        (job.imageUrl && job.imageUrl !== categoryPhoto ? job.imageUrl : "") ||
+        attachedImage ||
+        job.imageUrl ||
+        categoryPhoto;
 
     return (
         <JobCardFrame

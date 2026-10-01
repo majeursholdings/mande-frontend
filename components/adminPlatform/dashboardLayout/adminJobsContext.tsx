@@ -263,7 +263,25 @@ type ServerStaffJob = {
 function transformStaffJobToAdminJob(serverJob: ServerStaffJob): AdminJob {
     const category = serverJob.category ?? "wood";
     const fallbackPhoto = getSampleCategoryPhoto(category);
-    const imageUrl = serverJob.image?.url || fallbackPhoto;
+    const attachedImage = (serverJob.attachments ?? []).find((a) => {
+        if (!a?.url) return false;
+        if (a.kind === "image") return true;
+        const url = a.url.toLowerCase();
+        const name = (a.name ?? "").toLowerCase();
+        return (
+            url.includes(".png") ||
+            url.includes(".jpg") ||
+            url.includes(".jpeg") ||
+            url.includes(".webp") ||
+            url.includes(".svg") ||
+            name.endsWith(".png") ||
+            name.endsWith(".jpg") ||
+            name.endsWith(".jpeg") ||
+            name.endsWith(".webp") ||
+            name.endsWith(".svg")
+        );
+    });
+    const imageUrl = serverJob.image?.url || attachedImage?.url || fallbackPhoto;
 
     if (serverJob.manufacturers && serverJob.manufacturers.length > 0) {
         registerManufacturers(serverJob.manufacturers);
@@ -531,9 +549,14 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
         const now = new Date().toISOString();
         const cleanProjectLeadIds = draft.projectLeadIds?.filter((id) => /^[a-f\d]{24}$/i.test(id));
         const cleanManufacturerIds = draft.manufacturerIds?.filter((id) => /^[a-f\d]{24}$/i.test(id));
+        const isImage = (a: { kind?: string; url?: string; name?: string }) =>
+            a.kind === "image" ||
+            /\.(png|jpe?g|webp|svg|gif)($|\?)/i.test(a.url ?? "") ||
+            /\.(png|jpe?g|webp|svg|gif)$/i.test(a.name ?? "");
 
-        const imageAttachment = draft.attachments?.find((a) => a.kind === "image" && a.publicId);
-        const otherAttachments = (draft.attachments ?? []).filter((a) => a !== imageAttachment && a.publicId);
+        const imageAttachment = draft.attachments?.find((a) => isImage(a) && a.url);
+        const imageWithPublicId = draft.attachments?.find((a) => isImage(a) && a.publicId);
+        const otherAttachments = (draft.attachments ?? []).filter((a) => a !== imageWithPublicId && a.publicId);
         const fallbackPhoto = getSampleCategoryPhoto(draft.category);
         const imageUrl = imageAttachment?.url || fallbackPhoto;
 
@@ -546,7 +569,7 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
             status: "pending",
             dateAssigned: null,
             imageUrl,
-            imagePublicId: imageAttachment?.publicId,
+            imagePublicId: imageWithPublicId?.publicId,
             notes: [],
             createdAt: now,
             stepSubmissions: [],
@@ -611,7 +634,12 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
             const existingJob = jobs.find((job) => job.id === realId || job.code.toLowerCase() === realId.toLowerCase());
             const cleanProjectLeadIds = draft.projectLeadIds?.filter((leadId) => /^[a-f\d]{24}$/i.test(leadId));
 
-            const imageAttachment = draft.attachments?.find((a) => a.kind === "image" && a.publicId);
+            const isImage = (a: { kind?: string; url?: string; name?: string }) =>
+                a.kind === "image" ||
+                /\.(png|jpe?g|webp|svg|gif)($|\?)/i.test(a.url ?? "") ||
+                /\.(png|jpe?g|webp|svg|gif)$/i.test(a.name ?? "");
+
+            const imageAttachment = draft.attachments?.find((a) => isImage(a) && a.publicId);
             const otherAttachments = (draft.attachments ?? []).filter((a) => a !== imageAttachment && a.publicId);
             const imagePayload = imageAttachment
                 ? { publicId: imageAttachment.publicId!, name: imageAttachment.name }
