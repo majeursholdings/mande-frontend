@@ -14,6 +14,7 @@ export interface BackendSuperAdminUser {
   superAdminRole: SuperAdminRole;
   status: string;
   twoFactorOn: boolean;
+  twoFactorMethod?: TwoFactorMethod | null;
   joinedAt: string;
 }
 
@@ -68,7 +69,7 @@ export const superAdminService = {
       phone: "",
       avatarUrl: user.avatar?.publicId ?? null,
       joinedAt: user.joinedAt,
-      twoFactorMethod: user.twoFactorOn ? "email" : "app",
+      twoFactorMethod: user.twoFactorMethod || "email",
       role: user.superAdminRole,
     }));
   },

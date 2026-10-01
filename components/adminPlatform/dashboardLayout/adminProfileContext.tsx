@@ -56,7 +56,7 @@ export function AdminProfileProvider({ children }: { children: ReactNode }) {
             position: ((p.position as AdminProfile["position"]) ?? initialProfile.position),
             avatarUrl: resolvedAvatarUrl,
             security: {
-                twoFactorMethod: currentUser?.twoFactorMethod ?? initialProfile.security?.twoFactorMethod,
+                twoFactorMethod: currentUser?.twoFactorMethod || initialProfile.security?.twoFactorMethod || "email",
             },
             notificationPreferences: overrides.notificationPreferences ?? p.notificationPreferences ?? initialProfile.notificationPreferences,
         };

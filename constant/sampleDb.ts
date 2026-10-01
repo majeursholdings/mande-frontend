@@ -107,7 +107,7 @@ function projectLead({
 
 export const PROJECT_LEADS: ProjectLeadRecord[] = [
     projectLead({ id: "lead-latade", firstName: "Latade", lastName: "Dipe", position: "quality-assurance-manager", joined: -540, phone: "+234 812 555 0163", twoFactorMethod: "email" }),
-    projectLead({ id: "lead-mark", firstName: "Mark", lastName: "Wilson", position: "inventory-manager", joined: -480, phone: "+234 813 555 0142", twoFactorMethod: "app" }),
+    projectLead({ id: "lead-mark", firstName: "Mark", lastName: "Wilson", position: "inventory-manager", joined: -480, phone: "+234 813 555 0142", twoFactorMethod: "email" }),
     projectLead({ id: "lead-austin", firstName: "Austin", lastName: "Campbell", position: "furniture-surveyor", joined: -400, phone: "+234 814 555 0187" }),
     projectLead({ id: "lead-joke", firstName: "Joke", lastName: "Phillips", position: "quality-assurance-manager", joined: -310, phone: "+234 816 555 0129", twoFactorMethod: "email" }),
     projectLead({ id: "lead-ted", firstName: "Ted", lastName: "Lasso", position: "furniture-surveyor", joined: -200, phone: "+234 815 555 0110" }),
@@ -185,7 +185,7 @@ export const SUPER_ADMINS: SuperAdminRecord[] = [
         phone: "+234 818 555 0101",
         avatarUrl: null,
         joinedAt: daysFromNow(-900),
-        twoFactorMethod: "app",
+        twoFactorMethod: "email",
         role: "owner",
     },
     {

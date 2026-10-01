@@ -143,7 +143,7 @@ export function mapApiProfileToManufacturerProfile(
             twoFactorMethod:
                 data.twoFactorMethod === "app" || data.twoFactorMethod === "email"
                     ? data.twoFactorMethod
-                    : fallback.security.twoFactorMethod,
+                    : "email",
         },
     };
 }
