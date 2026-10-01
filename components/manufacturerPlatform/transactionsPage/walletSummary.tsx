@@ -50,11 +50,27 @@ export function getWalletFigures({
     ];
 }
 
-/**
- * The other money figures, a step down from the balance — one card, as rows
- * on phones and three columns from sm.
- */
-export default function WalletSummary({ figures }: { figures: WalletFigure[] }) {
+export default function WalletSummary({
+    figures,
+    isLoading,
+}: {
+    figures: WalletFigure[];
+    isLoading?: boolean;
+}) {
+    if (isLoading) {
+        return (
+            <div className="grid divide-y divide-border rounded-xl border border-border bg-white sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+                {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex flex-col gap-2 p-5 animate-pulse">
+                        <div className="h-4 w-28 rounded bg-mist-100" />
+                        <div className="h-6 w-24 rounded bg-mist-200" />
+                        <div className="h-3 w-32 rounded bg-mist-100" />
+                    </div>
+                ))}
+            </div>
+        );
+    }
+
     return (
         <ul className="grid divide-y divide-border rounded-xl border border-border bg-white sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             {figures.map(({ label, amount, hint, icon: Icon }) => (

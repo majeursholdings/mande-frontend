@@ -47,6 +47,7 @@ interface ApiTransactionItem {
 
 type ManufacturerWalletContextValue = {
     wallet: ManufacturerWallet;
+    isLoading?: boolean;
     setBankAccount: (bankAccount: ManufacturerBankAccount | null) => void;
     /** Takes `amount` off the balance and records it as a withdrawal. */
     withdraw: (amount: number, reauthToken?: string) => void | Promise<void>;
@@ -64,7 +65,7 @@ export function ManufacturerWalletProvider({ children }: { children: ReactNode }
     const [balanceDelta, setBalanceDelta] = useState(0);
     const [localTransactions, setLocalTransactions] = useState<ManufacturerTransaction[]>([]);
 
-    const { data: serverWallet } = useQuery({
+    const { data: serverWallet, isPending: isWalletPending } = useQuery({
         queryKey: queryKeys.wallet.details(),
         queryFn: async () => {
             const { data } = await api.get<{ wallet: ApiWalletData }>("/wallet");
@@ -73,7 +74,7 @@ export function ManufacturerWalletProvider({ children }: { children: ReactNode }
         retry: false,
     });
 
-    const { data: serverTransactions } = useQuery({
+    const { data: serverTransactions, isPending: isTxPending } = useQuery({
         queryKey: queryKeys.wallet.transactions(),
         queryFn: async () => {
             const { data } = await api.get<{ transactions: ApiTransactionItem[] }>("/wallet/transactions");
@@ -165,6 +166,7 @@ export function ManufacturerWalletProvider({ children }: { children: ReactNode }
 
     const value: ManufacturerWalletContextValue = {
         wallet,
+        isLoading: isWalletPending || isTxPending,
         setBankAccount,
         withdraw: async (amount, reauthToken) => {
             debit(amount, "withdrawal", "Withdrawal to bank account");

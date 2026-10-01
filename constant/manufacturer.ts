@@ -175,6 +175,7 @@ export type DashboardStat = {
     id: string;
     label: string;
     value: string;
+    subtext?: string;
     icon: "jobs" | "amount" | "delivery" | "quality";
 };
 

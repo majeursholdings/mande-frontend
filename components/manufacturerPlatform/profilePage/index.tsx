@@ -14,8 +14,8 @@ import {
 import { useManufacturerProfile } from "../dashboardLayout/manufacturerProfileContext";
 import { useLogout } from "../dashboardLayout/logoutContext";
 import LinkList, { type LinkListItem } from "../linkList";
-import ProfileCard from "./profileCard";
-import ProfileStatCard from "./profileStatCard";
+import ProfileCard, { ProfileCardSkeleton } from "./profileCard";
+import ProfileStatCard, { ProfileStatCardSkeleton } from "./profileStatCard";
 
 const PROFILE_LINKS: LinkListItem[] = [
     {
@@ -50,13 +50,13 @@ const PROFILE_LINKS: LinkListItem[] = [
     },
 ];
 
-/** "21 to 30" → "21 - 30" — the stat cards show ranges with a dash. */
+/** "21 to 30" -> "21 - 30". */
 function formatRange(label: string): string {
     return label.replace(" to ", " - ");
 }
 
 export default function ManufacturerProfilePage() {
-    const { profile } = useManufacturerProfile();
+    const { profile, isLoading } = useManufacturerProfile();
     const { requestLogout } = useLogout();
 
     return (
@@ -64,27 +64,40 @@ export default function ManufacturerProfilePage() {
             <h1 className="text-2xl font-semibold font-text text-mist-950">Profile</h1>
 
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-                <ProfileCard profile={profile} className="lg:w-65 lg:shrink-0" />
+                {isLoading ? (
+                    <ProfileCardSkeleton className="lg:w-65 lg:shrink-0" />
+                ) : (
+                    <ProfileCard profile={profile} className="lg:w-65 lg:shrink-0" />
+                )}
 
                 <div className="flex min-w-0 flex-1 flex-col gap-8 lg:gap-6">
                     <div className="grid grid-cols-2 gap-4 lg:gap-6">
-                        <ProfileStatCard
-                            label="Number of Staff"
-                            value={formatRange(getOptionLabel(STAFF_RANGE_OPTIONS, profile.staffRange))}
-                        />
-                        <ProfileStatCard
-                            label="Avg. Production Time"
-                            value={formatRange(
-                                getOptionLabel(PRODUCTION_LEAD_TIME_OPTIONS, profile.productionLeadTime),
-                            )}
-                        />
+                        {isLoading ? (
+                            <>
+                                <ProfileStatCardSkeleton />
+                                <ProfileStatCardSkeleton />
+                            </>
+                        ) : (
+                            <>
+                                <ProfileStatCard
+                                    label="Number of Staff"
+                                    value={formatRange(getOptionLabel(STAFF_RANGE_OPTIONS, profile.staffRange))}
+                                />
+                                <ProfileStatCard
+                                    label="Avg. Production Time"
+                                    value={formatRange(
+                                        getOptionLabel(PRODUCTION_LEAD_TIME_OPTIONS, profile.productionLeadTime),
+                                    )}
+                                />
+                            </>
+                        )}
                     </div>
 
                     <LinkList items={PROFILE_LINKS} />
                 </div>
             </div>
 
-            {/* Mobile only — the desktop sidebar has its own Logout, the bottom nav doesn't */}
+            {/* Mobile only - the desktop sidebar has its own Logout, the bottom nav doesn't */}
             <button
                 type="button"
                 onClick={requestLogout}

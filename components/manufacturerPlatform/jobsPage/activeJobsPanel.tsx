@@ -12,6 +12,10 @@ import {
     type Job,
     type JobsFilter,
 } from "@/constant/manufacturer";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
+import { jobsService } from "@/lib/services/jobsService";
+import { mapApiJobToManufacturerJob, type ApiJobPayload } from "@/lib/mappers/jobMappers";
 import EmptyState from "../dashboardPage/emptyState";
 import JobCard from "./jobCard";
 import { FilterChips, FilterDropdown, type FilterOption } from "./jobFilters";
@@ -41,21 +45,31 @@ function sortJobs(jobs: Job[], sortBy: string): Job[] {
     return jobs;
 }
 
-/**
- * Jobs assigned to the manufacturer, filtered by status — chips from md up,
- * a dropdown on phones. Also the admin's view of a manufacturer's jobs,
- * given their `jobs` and where each card opens.
- */
 export default function ActiveJobsPanel({
-    jobs: allJobs = JOBS,
+    jobs: initialJobs,
     getJobHref,
     emptyDescription = "Jobs you're assigned will show up here. Apply for open jobs to get started.",
 }: {
     jobs?: Job[];
-    /** Where a card opens — the manufacturer's own job page by default. */
     getJobHref?: (job: Job) => string;
     emptyDescription?: string;
 } = {}) {
+    const isExternalJobs = initialJobs !== undefined;
+
+    const { data: apiData, isPending } = useQuery({
+        queryKey: queryKeys.jobs.lists(),
+        queryFn: () => jobsService.getMyJobs(),
+        enabled: !isExternalJobs,
+    });
+
+    const allJobs = useMemo(() => {
+        if (isExternalJobs) return initialJobs ?? [];
+        if (apiData?.jobs) {
+            return apiData.jobs.map((j: ApiJobPayload) => mapApiJobToManufacturerJob(j));
+        }
+        return JOBS;
+    }, [isExternalJobs, initialJobs, apiData]);
+
     const [filter, setFilter] = useState<JobsFilter>("all");
     const [sortBy, setSortBy] = useState("");
 
@@ -69,6 +83,20 @@ export default function ActiveJobsPanel({
             { all: sorted } as Record<JobsFilter, Job[]>,
         );
     }, [allJobs, sortBy]);
+
+    if (!isExternalJobs && isPending) {
+        return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                    <div key={i} className="h-64 rounded-xl border border-border bg-white p-4 animate-pulse">
+                        <div className="h-32 w-full rounded-lg bg-mist-100 mb-3" />
+                        <div className="h-4 w-3/4 rounded bg-mist-200 mb-2" />
+                        <div className="h-3 w-1/2 rounded bg-mist-100" />
+                    </div>
+                ))}
+            </div>
+        );
+    }
 
     if (allJobs.length === 0) {
         return <EmptyState title="No active jobs" description={emptyDescription} />;

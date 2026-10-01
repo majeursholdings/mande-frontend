@@ -2,20 +2,31 @@
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { MANUFACTURER_JOBS_URL, OPEN_JOBS } from "@/constant/manufacturer";
+import { MANUFACTURER_JOBS_URL, OPEN_JOBS, type OpenJob } from "@/constant/manufacturer";
+import { queryKeys } from "@/lib/queryKeys";
+import { jobsService } from "@/lib/services/jobsService";
+import { mapApiOpenJobToOpenJob, type ApiJobPayload } from "@/lib/mappers/jobMappers";
 import { useJobApplications } from "../dashboardLayout/jobApplicationsContext";
 import { OpenJobCard } from "../jobsPage/jobCard";
 import { getJobSlotsHint } from "../jobsPage/jobSlotsSummary";
 import EmptyState from "./emptyState";
 
-const NEWEST_OPEN_JOBS = [...OPEN_JOBS]
-    .sort((a, b) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime())
-    .slice(0, 4);
-
-/** The newest open jobs, with how many more the manufacturer's plan lets them apply for. */
 export default function OpenJobsSection() {
     const { slots, plan } = useJobApplications();
+
+    const { data, isPending } = useQuery({
+        queryKey: queryKeys.jobs.openJobs({ limit: 4 }),
+        queryFn: () => jobsService.getOpenJobs({ limit: 4 }),
+    });
+
+    const openJobs: OpenJob[] =
+        data?.jobs && data.jobs.length > 0
+            ? (data.jobs as ApiJobPayload[]).map((j: ApiJobPayload) => mapApiOpenJobToOpenJob(j)).slice(0, 4)
+            : isPending
+              ? []
+              : OPEN_JOBS.slice(0, 4);
 
     return (
         <section>
@@ -40,15 +51,24 @@ export default function OpenJobsSection() {
                 </Link>
             </div>
 
-            {NEWEST_OPEN_JOBS.length === 0 ? (
+            {isPending ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="h-64 rounded-xl border border-border bg-white p-4 animate-pulse">
+                            <div className="h-32 w-full rounded-lg bg-mist-100 mb-3" />
+                            <div className="h-4 w-3/4 rounded bg-mist-200 mb-2" />
+                            <div className="h-3 w-1/2 rounded bg-mist-100" />
+                        </div>
+                    ))}
+                </div>
+            ) : openJobs.length === 0 ? (
                 <EmptyState
                     title="No open jobs"
                     description="New jobs will show up here as soon as they're posted"
                 />
             ) : (
-                // Phones: a swipeable row with the next card peeking in; a grid from sm up
                 <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
-                    {NEWEST_OPEN_JOBS.map((job) => (
+                    {openJobs.map((job) => (
                         <div key={job.id} className="w-[78%] shrink-0 snap-start sm:w-auto">
                             <OpenJobCard job={job} />
                         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
@@ -89,6 +89,18 @@ export default function ProfileBasicInfoForm() {
         },
     });
     const { isDirty } = methods.formState;
+
+    useEffect(() => {
+        if (!isDirty) {
+            methods.reset({
+                firstName: profile.firstName,
+                lastName: profile.lastName,
+                email: profile.email,
+                phoneNumber: profile.phoneNumber,
+                dateOfBirth: profile.dateOfBirth ?? "",
+            });
+        }
+    }, [profile, isDirty, methods]);
 
     const handleSubmit = async (values: BasicInfoFormValues) => {
         setIsLoading(true);

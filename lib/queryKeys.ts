@@ -20,6 +20,8 @@ export const queryKeys = {
     openJobs: (filters?: Record<string, unknown>) =>
       [...queryKeys.jobs.all, "open", filters] as const,
     steps: (jobId: string) => [...queryKeys.jobs.detail(jobId), "steps"] as const,
+    overview: () => [...queryKeys.jobs.all, "overview"] as const,
+    reviews: () => [...queryKeys.jobs.all, "reviews"] as const,
   },
 
   // Manufacturers
@@ -30,7 +32,18 @@ export const queryKeys = {
       [...queryKeys.manufacturers.lists(), filters] as const,
     details: () => [...queryKeys.manufacturers.all, "detail"] as const,
     detail: (id: string) => [...queryKeys.manufacturers.details(), id] as const,
+    dashboard: () => [...queryKeys.manufacturers.all, "dashboard"] as const,
     kyc: (id: string) => [...queryKeys.manufacturers.detail(id), "kyc"] as const,
+  },
+
+  // Manufacturer Self Profile
+  profile: {
+    details: () => ["profile", "details"] as const,
+  },
+
+  // Support Feedback
+  support: {
+    feedback: (filters?: Record<string, unknown>) => ["support", "feedback", filters] as const,
   },
 
   // Staff & Project Leads

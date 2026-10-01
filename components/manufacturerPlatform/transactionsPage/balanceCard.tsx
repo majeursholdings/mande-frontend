@@ -1,12 +1,13 @@
 import { cn } from "@/lib/utils";
 import { formatBalance } from "@/lib/currency";
 
-/** The balance — the page's headline, in a maroon card. */
 export default function BalanceCard({
     balance,
+    isLoading,
     className,
 }: {
     balance: number;
+    isLoading?: boolean;
     className?: string;
 }) {
     return (
@@ -18,7 +19,11 @@ export default function BalanceCard({
         >
             <MandeMark className="absolute -top-1 right-2 size-16 text-white/15 lg:size-20" />
             <p className="text-sm font-text text-white/75">Your balance</p>
-            <p className="text-2xl font-semibold font-text lg:text-3xl">{formatBalance(balance)}</p>
+            {isLoading ? (
+                <div className="h-9 w-36 rounded bg-white/20 animate-pulse my-1" />
+            ) : (
+                <p className="text-2xl font-semibold font-text lg:text-3xl">{formatBalance(balance)}</p>
+            )}
             <p className="text-xs font-text text-white/60">Available to withdraw</p>
         </div>
     );

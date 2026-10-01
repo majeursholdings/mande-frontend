@@ -169,3 +169,33 @@ export function ProfileDetailsCard({
         </section>
     );
 }
+
+export function ProfileCardSkeleton({ className }: { className?: string }) {
+    return (
+        <section
+            className={cn(
+                "relative flex flex-col gap-5 border-b border-border pb-6 lg:rounded-xl lg:border lg:bg-white lg:p-5 animate-pulse",
+                className
+            )}
+        >
+            <div className="flex flex-col items-center gap-3 text-center lg:items-start lg:text-left">
+                <div className="size-22 rounded-full bg-mist-200" />
+                <div className="flex flex-col items-center gap-2 lg:items-start">
+                    <div className="h-5 w-32 bg-mist-200 rounded" />
+                    <div className="h-3 w-20 bg-mist-200 rounded" />
+                </div>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-5 border-t border-border pt-5 lg:grid-cols-1">
+                {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="flex min-w-0 items-start gap-3">
+                        <div className="size-8 lg:size-10 rounded-lg bg-mist-200 shrink-0" />
+                        <div className="flex-1 space-y-1">
+                            <div className="h-3 w-16 bg-mist-200 rounded" />
+                            <div className="h-4 w-28 bg-mist-200 rounded" />
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </section>
+    );
+}

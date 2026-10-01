@@ -7,6 +7,10 @@ import {
     getJobCategoryLabel,
     type OpenJob,
 } from "@/constant/manufacturer";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
+import { jobsService } from "@/lib/services/jobsService";
+import { mapApiOpenJobToOpenJob, type ApiJobPayload } from "@/lib/mappers/jobMappers";
 import { useJobApplications } from "../dashboardLayout/jobApplicationsContext";
 import EmptyState from "../dashboardPage/emptyState";
 import { OpenJobCard } from "./jobCard";
@@ -43,13 +47,24 @@ function sortOpenJobs(jobs: OpenJob[], sortBy: string): OpenJob[] {
     return jobs;
 }
 
-/** Open jobs to apply for, under how many job slots the plan has left. */
 export default function OpenJobsPanel() {
     const { getApplication } = useJobApplications();
     const [filter, setFilter] = useState<OpenJobsFilter>("all");
     const [sortBy, setSortBy] = useState("");
 
-    const sortedJobs = useMemo(() => sortOpenJobs(OPEN_JOBS, sortBy), [sortBy]);
+    const { data: apiData, isPending } = useQuery({
+        queryKey: queryKeys.jobs.openJobs(),
+        queryFn: () => jobsService.getOpenJobs(),
+    });
+
+    const openJobsList = useMemo(() => {
+        if (apiData?.jobs && apiData.jobs.length > 0) {
+            return apiData.jobs.map((j: ApiJobPayload) => mapApiOpenJobToOpenJob(j));
+        }
+        return isPending ? [] : OPEN_JOBS;
+    }, [apiData, isPending]);
+
+    const sortedJobs = useMemo(() => sortOpenJobs(openJobsList, sortBy), [openJobsList, sortBy]);
     const appliedJobs = sortedJobs.filter((job) => getApplication(job.id));
     const jobs = filter === "applied" ? appliedJobs : sortedJobs;
 
@@ -70,7 +85,17 @@ export default function OpenJobsPanel() {
                 <SortByDropdown items={OPEN_JOB_SORT_OPTIONS} value={sortBy} onChange={setSortBy} />
             </div>
 
-            {jobs.length === 0 ? (
+            {isPending ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <div key={i} className="h-64 rounded-xl border border-border bg-white p-4 animate-pulse">
+                            <div className="h-32 w-full rounded-lg bg-mist-100 mb-3" />
+                            <div className="h-4 w-3/4 rounded bg-mist-200 mb-2" />
+                            <div className="h-3 w-1/2 rounded bg-mist-100" />
+                        </div>
+                    ))}
+                </div>
+            ) : jobs.length === 0 ? (
                 filter === "applied" ? (
                     <EmptyState
                         title="No applications yet"

@@ -139,7 +139,41 @@ export const jobsService = {
     return data;
   },
 
-  // ── Staff & Admin Jobs ─────────────────────────────────────────────
+  async getReviews() {
+    const { data } = await api.get<{
+      reviews: Array<{
+        id: string;
+        jobId: string;
+        jobCode: string;
+        jobTitle: string;
+        rating: number;
+        comment: string;
+        author: string;
+        createdAt: string;
+      }>;
+      overview: {
+        averageRating: number;
+        totalReviews: number;
+        fiveStarCount: number;
+        positiveRate: number;
+      };
+    }>("/my-jobs/reviews");
+    return data;
+  },
+
+  async getOverview() {
+    const { data } = await api.get<{
+      overview: {
+        activeCount: number;
+        inReviewCount: number;
+        completedCount: number;
+        openMarketCount: number;
+      };
+    }>("/my-jobs/overview");
+    return data.overview;
+  },
+
+  // Staff & Admin Jobs
 
   async getStaffJobs(params: JobQueryFilters = {}) {
     const { data } = await api.get("/jobs", { params });

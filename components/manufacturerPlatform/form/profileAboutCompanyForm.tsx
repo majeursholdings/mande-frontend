@@ -117,7 +117,7 @@ export default function ProfileAboutCompanyForm() {
     const { profile } = useManufacturerProfile();
     return (
         <AboutCompanyForm
-            key={`${profile.companyTaxNumber}|${profile.businessLicenseNumber}`}
+            key={`${profile.companyName}|${profile.companyTaxNumber}|${profile.businessLicenseNumber}|${profile.companyAddress.streetAddress}|${profile.companyAddress.city}|${profile.staffRange}|${profile.specialities.join(",")}`}
         />
     );
 }
@@ -191,6 +191,10 @@ function AboutCompanyForm() {
             const businessLicenseNumber = values.businessLicenseNumber.trim();
 
             await manufacturerService.updateCompanyInfo({
+                streetAddress: companyAddress.streetAddress,
+                city: companyAddress.city,
+                state: companyAddress.state,
+                country: companyAddress.country,
                 specialities: values.specialities,
                 staffRange: values.staffRange,
             });

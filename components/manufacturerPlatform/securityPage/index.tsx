@@ -10,7 +10,7 @@ export default function ManufacturerSecurityPage() {
         <div className="flex flex-col gap-8">
             <PageHeader
                 title="Security"
-                description="Keep your account safe — your password, how you log in, and two-factor authentication."
+                description="Keep your account safe: your password, how you log in, and two-factor authentication."
                 backLink={MANUFACTURER_PROFILE_BACK_LINK}
             />
 
@@ -26,7 +26,7 @@ export default function ManufacturerSecurityPage() {
                 </SettingsSection>
                 <SettingsSection
                     title="Two-factor authentication"
-                    description="Add a second step to confirm it's you when you log in — a code from your email or an authenticator app."
+                    description="Add a second step to confirm it's you when you log in: a code from your email or an authenticator app."
                 >
                     <TwoFactorSettings />
                 </SettingsSection>

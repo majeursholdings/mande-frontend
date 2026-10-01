@@ -10,10 +10,16 @@ import FeedbackCategoryBadge from "./feedbackCategoryBadge";
 const PREVIEW_COUNT = 3;
 
 /**
- * The feedback the manufacturer has sent, newest first — to read back, not
- * change: sent feedback can't be edited or deleted.
+ * The feedback the manufacturer has sent, newest first: to read back, not
+ * change: sent feedback cannot be edited or deleted.
  */
-export default function FeedbackHistory({ feedback }: { feedback: ManufacturerFeedback[] }) {
+export default function FeedbackHistory({
+    feedback,
+    isLoading = false,
+}: {
+    feedback: ManufacturerFeedback[];
+    isLoading?: boolean;
+}) {
     const [showAll, setShowAll] = useState(false);
     const shown = showAll ? feedback : feedback.slice(0, PREVIEW_COUNT);
     const hiddenCount = feedback.length - shown.length;
@@ -23,7 +29,23 @@ export default function FeedbackHistory({ feedback }: { feedback: ManufacturerFe
             title="Your feedback"
             description="Everything you've shared with us, newest first. Feedback can't be edited or deleted once it's sent."
         >
-            {feedback.length === 0 ? (
+            {isLoading ? (
+                <div className="flex flex-col gap-3">
+                    {[1, 2, 3].map((i) => (
+                        <div
+                            key={i}
+                            className="flex flex-col gap-3 rounded-xl border border-border bg-white p-5 animate-pulse"
+                        >
+                            <div className="flex items-center justify-between">
+                                <div className="h-5 w-20 rounded-full bg-mist-200" />
+                                <div className="h-4 w-28 rounded bg-mist-200" />
+                            </div>
+                            <div className="h-4 w-full rounded bg-mist-200" />
+                            <div className="h-4 w-3/4 rounded bg-mist-200" />
+                        </div>
+                    ))}
+                </div>
+            ) : feedback.length === 0 ? (
                 <p className="rounded-xl border border-dashed border-border px-5 py-8 text-center text-sm font-text text-mist-500">
                     Feedback you send will show up here.
                 </p>

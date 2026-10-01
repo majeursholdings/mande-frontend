@@ -5,12 +5,13 @@ export default function EmptyState({
     title = "No Jobs",
     description = "There are no recent jobs to display",
     icon: Icon = ClipboardList,
-    /** Smaller icon/padding — for use inside a single kanban column or the mobile accordion. */
+    action,
     compact = false,
 }: {
     title?: string;
     description?: string;
     icon?: LucideIcon;
+    action?: React.ReactNode;
     compact?: boolean;
 }) {
     return (
@@ -33,6 +34,7 @@ export default function EmptyState({
             </span>
             <h4 className="text-sm font-semibold font-text text-mist-900">{title}</h4>
             <p className="text-xs font-text text-mist-500 max-w-56">{description}</p>
+            {action && <div className="mt-2">{action}</div>}
         </div>
     );
 }

@@ -1,41 +1,76 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
+import { manufacturerService } from "@/lib/services/manufacturerService";
+import { mapApiProfileToManufacturerProfile } from "@/lib/mappers/profileMappers";
 import {
-    MANUFACTURER_PROFILE,
+    EMPTY_MANUFACTURER_PROFILE,
     type ManufacturerProfile,
     type ManufacturerSecurity,
 } from "@/constant/manufacturer";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ManufacturerProfileProvider — the signed-in manufacturer's profile, shared by
+// The signed-in manufacturer's profile, shared by
 // the top bars, the profile page and the edit profile forms so a saved change
-// (a new name, photo or company detail) shows everywhere at once. Seeded from
-// sample data and updated locally for now; once the backend is connected,
-// start from EMPTY_MANUFACTURER_PROFILE, load the profile from the API, and
-// persist updates there.
-// ─────────────────────────────────────────────────────────────────────────────
+// (a new name, photo or company detail) shows everywhere at once.
+// Loaded from the API with live state synchronization.
 
 type ManufacturerProfileContextValue = {
     profile: ManufacturerProfile;
+    isLoading: boolean;
     updateProfile: (changes: Partial<ManufacturerProfile>) => void;
-    /** Updates security settings from their latest value — safe to call after an await. */
+    /** Updates security settings from their latest value - safe to call after an await. */
     updateSecurity: (update: (security: ManufacturerSecurity) => ManufacturerSecurity) => void;
+    refetchProfile: () => void;
 };
 
 const ManufacturerProfileContext = createContext<ManufacturerProfileContextValue | null>(null);
 
 export function ManufacturerProfileProvider({ children }: { children: ReactNode }) {
-    const [profile, setProfile] = useState(MANUFACTURER_PROFILE);
+    const [overrides, setOverrides] = useState<Partial<ManufacturerProfile>>({});
+    const [securityOverrides, setSecurityOverrides] = useState<Partial<ManufacturerSecurity>>({});
+
+    const { data, isLoading, refetch } = useQuery({
+        queryKey: queryKeys.profile.details(),
+        queryFn: () => manufacturerService.getProfile(),
+        staleTime: 60_000,
+    });
+
+    const baseProfile = useMemo(
+        () => mapApiProfileToManufacturerProfile(data, EMPTY_MANUFACTURER_PROFILE),
+        [data]
+    );
+
+    const profile: ManufacturerProfile = useMemo(() => {
+        return {
+            ...baseProfile,
+            ...overrides,
+            security: {
+                ...baseProfile.security,
+                ...securityOverrides,
+            },
+        };
+    }, [baseProfile, overrides, securityOverrides]);
 
     const updateProfile = (changes: Partial<ManufacturerProfile>) =>
-        setProfile((current) => ({ ...current, ...changes }));
+        setOverrides((current) => ({ ...current, ...changes }));
 
     const updateSecurity = (update: (security: ManufacturerSecurity) => ManufacturerSecurity) =>
-        setProfile((current) => ({ ...current, security: update(current.security) }));
+        setSecurityOverrides((current) => update({ ...baseProfile.security, ...current }));
 
     return (
-        <ManufacturerProfileContext.Provider value={{ profile, updateProfile, updateSecurity }}>
+        <ManufacturerProfileContext.Provider
+            value={{
+                profile,
+                isLoading,
+                updateProfile,
+                updateSecurity,
+                refetchProfile: () => {
+                    void refetch();
+                },
+            }}
+        >
             {children}
         </ManufacturerProfileContext.Provider>
     );

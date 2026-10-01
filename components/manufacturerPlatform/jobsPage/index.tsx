@@ -8,18 +8,14 @@ import {
 import SwipeableTabs from "../swipeableTabs";
 import ActiveJobsPanel from "./activeJobsPanel";
 import OpenJobsPanel from "./openJobsPanel";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Jobs — two tabs: open jobs any manufacturer can apply for, and active jobs
-// already assigned to this one. Swipeable on phones. The open tab is where
-// the plan's concurrent job limit shows up: each active job and application
-// uses a slot, and applying needs a free one.
-// ─────────────────────────────────────────────────────────────────────────────
+import JobsOverviewCards from "./jobsOverviewCards";
 
 export default function ManufacturerJobsPage({ initialTab }: { initialTab: JobsPageTab }) {
     return (
         <div className="flex flex-col gap-6 z-1">
             <h1 className="text-2xl font-semibold font-text text-mist-950">Jobs</h1>
+
+            <JobsOverviewCards />
 
             <SwipeableTabs<JobsPageTab>
                 label="Jobs"

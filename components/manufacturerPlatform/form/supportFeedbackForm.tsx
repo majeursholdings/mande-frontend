@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { cleanupFormFieldUploads, clearFormUploadedFiles } from "@/components/form/fileInput";
 import { FEEDBACK_CATEGORY_OPTIONS } from "@/constant/support";
 import type { ManufacturerFeedback } from "@/constant/manufacturer";
+import { queryKeys } from "@/lib/queryKeys";
 import { FormSubmitButton } from "./formButtons";
 import { supportService } from "@/lib/services/supportService";
 
@@ -60,15 +62,16 @@ const FIELDS: FormFieldConfig[] = [
     },
 ];
 
-/** Sending feedback to support — `onSend` gets it once it's gone, to show in their history. */
+/** Sending feedback to support: onSend gets it once it is gone, to show in their history. */
 export default function SupportFeedbackForm({
     onSend,
 }: {
-    onSend: (feedback: Pick<ManufacturerFeedback, "category" | "message" | "screenshotUrl">) => void;
+    onSend?: (feedback: Pick<ManufacturerFeedback, "category" | "message" | "screenshotUrl">) => void;
 }) {
+    const queryClient = useQueryClient();
     const [isLoading, setIsLoading] = useState(false);
-    // Bumped after sending to remount the form — the upload field keeps its
-    // preview in its own state, which a form reset doesn't clear
+    // Bumped after sending to remount the form: the upload field keeps its
+    // preview in its own state, which a form reset does not clear
     const [formKey, setFormKey] = useState(0);
     const methods = useForm<SupportFeedbackFormValues>({
         mode: "onTouched",
@@ -97,15 +100,16 @@ export default function SupportFeedbackForm({
                 screenshot: publicId,
             });
 
-            onSend({
+            onSend?.({
                 category: category as ManufacturerFeedback["category"],
                 message: message.trim(),
                 screenshotUrl,
             });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.support.feedback() });
             clearFormUploadedFiles("screenshot");
             methods.reset(SUPPORT_FEEDBACK_DEFAULT_VALUES);
             setFormKey((key) => key + 1);
-            toast.success("Thanks — we've received your feedback");
+            toast.success("Thanks, we've received your feedback");
         } catch {
             await cleanupFormFieldUploads("screenshot");
             toast.error("Couldn't send your feedback. Please try again.");

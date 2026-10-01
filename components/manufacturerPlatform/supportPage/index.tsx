@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Headset } from "lucide-react";
 import {
     Accordion,
@@ -12,20 +13,44 @@ import SupportFeedbackForm from "@/components/manufacturerPlatform/form/supportF
 import { Button } from "@/components/ui/button";
 import { PRIMARY_BUTTON_CLASS } from "@/components/manufacturerPlatform/form/formButtons";
 import {
-    MANUFACTURER_FEEDBACK,
     MANUFACTURER_PROFILE_BACK_LINK,
     type ManufacturerFeedback,
 } from "@/constant/manufacturer";
 import { SUPPORT_FAQS, SUPPORT_HOURS } from "@/constant/support";
+import { supportService } from "@/lib/services/supportService";
+import { queryKeys } from "@/lib/queryKeys";
 import PageHeader from "../pageHeader";
 import SettingsSection from "../settingsSection";
 import FeedbackHistory from "./feedbackHistory";
 import { openSupportChat } from "./supportChat";
 
 export default function ManufacturerSupportPage() {
-    // Seeded from sample data and kept locally for now — once the backend is
-    // connected, load it from the API, and add what the API returns on send
-    const [feedback, setFeedback] = useState<ManufacturerFeedback[]>(MANUFACTURER_FEEDBACK);
+    const { data, isLoading } = useQuery({
+        queryKey: queryKeys.support.feedback(),
+        queryFn: () => supportService.listFeedback(),
+        staleTime: 30_000,
+    });
+
+    const feedback: ManufacturerFeedback[] = useMemo(() => {
+        if (!data?.feedback || !Array.isArray(data.feedback)) {
+            return [];
+        }
+        return data.feedback.map((item: {
+            id?: string;
+            _id?: string;
+            category: ManufacturerFeedback["category"];
+            message: string;
+            screenshot?: { url?: string } | null;
+            screenshotUrl?: string | null;
+            sentAt?: string | null;
+        }) => ({
+            id: item.id || String(item._id || ""),
+            category: item.category,
+            message: item.message,
+            screenshotUrl: item.screenshot?.url || item.screenshotUrl || null,
+            sentAt: item.sentAt ? new Date(item.sentAt).toISOString() : new Date().toISOString(),
+        }));
+    }, [data]);
 
     return (
         <div className="flex flex-col gap-8">
@@ -72,17 +97,10 @@ export default function ManufacturerSupportPage() {
                     title="Share feedback"
                     description="Tell us what's working, what isn't, or what you'd like to see. We read every message."
                 >
-                    <SupportFeedbackForm
-                        onSend={(sent) =>
-                            setFeedback((current) => [
-                                { id: `feedback-${Date.now()}`, sentAt: new Date().toISOString(), ...sent },
-                                ...current,
-                            ])
-                        }
-                    />
+                    <SupportFeedbackForm />
                 </SettingsSection>
 
-                <FeedbackHistory feedback={feedback} />
+                <FeedbackHistory feedback={feedback} isLoading={isLoading} />
             </div>
         </div>
     );

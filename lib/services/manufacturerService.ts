@@ -9,6 +9,10 @@ export interface BasicInfoPayload {
 
 export interface CompanyInfoPayload {
   companyName?: string;
+  streetAddress?: string;
+  city?: string;
+  state?: string;
+  country?: string;
   specialities?: string[];
   staffRange?: string;
   productionLeadTime?: string;
@@ -44,7 +48,19 @@ export interface StaffDeactivatePayload {
 }
 
 export const manufacturerService = {
-  // ── Manufacturer Self-Service: Profile ───────────────────────────────
+  // Manufacturer Self-Service: Profile
+
+  async getDashboard() {
+    const { data } = await api.get<{
+      dashboard: {
+        jobs: { total: number; active: number };
+        wallet: { totalMadeKobo: number; balanceKobo: number };
+        deliveryRate: { user: number; platform: number };
+        starRate: { user: number; platform: number };
+      };
+    }>("/manufacturer/dashboard");
+    return data.dashboard;
+  },
 
   async getProfile() {
     const { data } = await api.get("/profile");
