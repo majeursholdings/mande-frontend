@@ -983,6 +983,7 @@ export type JobRecord = {
     description: string;
     /** A photo of the furniture to make — shown with open jobs. */
     imageUrl: string;
+    imagePublicId?: string;
     attachments: JobAttachmentRecord[];
     /** Newest first. */
     notes: JobNoteRecord[];

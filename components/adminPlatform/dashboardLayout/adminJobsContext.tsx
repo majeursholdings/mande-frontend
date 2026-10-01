@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
-import { jobsService, type UpdateJobPayload } from "@/lib/services/jobsService";
+import { jobsService, type CreateJobPayload, type UpdateJobPayload } from "@/lib/services/jobsService";
 import {
     ADMIN_JOBS,
     MAX_ADMIN_JOB_REJECTIONS,
@@ -190,8 +190,8 @@ type ServerStaffJob = {
     dueDate: string;
     dateAssigned?: string | null;
     description?: string;
-    image?: { url: string | null; name: string | null; kind: "image" | "document" } | null;
-    attachments?: { url: string | null; name: string | null; kind: "image" | "document" }[];
+    image?: { url: string | null; name: string | null; kind: "image" | "document"; publicId?: string } | null;
+    attachments?: { url: string | null; name: string | null; kind: "image" | "document"; publicId?: string }[];
     notes?: { id: string; authorName: string; authorRole: string; message: string; createdAt: string }[];
     createdAt: string;
     currentStep?: ProductionStepKey;
@@ -291,10 +291,12 @@ function transformStaffJobToAdminJob(serverJob: ServerStaffJob): AdminJob {
         status: serverJob.status,
         description: serverJob.description ?? "",
         imageUrl,
+        imagePublicId: serverJob.image?.publicId,
         attachments: (serverJob.attachments ?? []).map((att) => ({
             name: att.name ?? "Attachment.pdf",
             url: att.url ?? "/job-spec.pdf",
             kind: att.kind ?? (att.name?.endsWith(".pdf") ? "document" : "image"),
+            publicId: att.publicId,
         })),
         notes: (serverJob.notes ?? []).map((note) => ({
             id: String(note.id),
@@ -515,6 +517,11 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
         const cleanProjectLeadIds = draft.projectLeadIds?.filter((id) => /^[a-f\d]{24}$/i.test(id));
         const cleanManufacturerIds = draft.manufacturerIds?.filter((id) => /^[a-f\d]{24}$/i.test(id));
 
+        const imageAttachment = draft.attachments?.find((a) => a.kind === "image" && a.publicId);
+        const otherAttachments = (draft.attachments ?? []).filter((a) => a !== imageAttachment && a.publicId);
+        const fallbackPhoto = getSampleCategoryPhoto(draft.category);
+        const imageUrl = imageAttachment?.url || fallbackPhoto;
+
         const createdJob: AdminJob = {
             ...draft,
             manufacturerIds: cleanManufacturerIds ?? [],
@@ -523,8 +530,8 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
             projectLeadIds: cleanProjectLeadIds ?? (leadId && /^[a-f\d]{24}$/i.test(leadId) ? [leadId] : []),
             status: "pending",
             dateAssigned: null,
-            // No photo upload yet — a stand-in for its category
-            imageUrl: getSampleCategoryPhoto(draft.category),
+            imageUrl,
+            imagePublicId: imageAttachment?.publicId,
             notes: [],
             createdAt: now,
             stepSubmissions: [],
@@ -544,13 +551,17 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
         setLocallyCreatedJobs((prev) => [createdJob, ...prev]);
 
         try {
-            const payload = {
+            const payload: CreateJobPayload = {
                 title: draft.title,
                 description: draft.description,
                 category: draft.category,
                 amountKobo: Math.round(draft.amount * 100),
                 dueDate: new Date(draft.dueDate).toISOString(),
                 startDate: draft.startDate ? new Date(draft.startDate).toISOString() : null,
+                ...(imageAttachment ? { image: { publicId: imageAttachment.publicId!, name: imageAttachment.name } } : {}),
+                ...(otherAttachments.length > 0
+                    ? { attachments: otherAttachments.map((a) => ({ publicId: a.publicId!, name: a.name })) }
+                    : {}),
                 ...(cleanProjectLeadIds && cleanProjectLeadIds.length > 0 ? { projectLeadIds: cleanProjectLeadIds } : {}),
                 ...(cleanManufacturerIds && cleanManufacturerIds.length > 0 ? { manufacturerIds: cleanManufacturerIds } : {}),
             };
@@ -588,6 +599,14 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
             const existingJob = jobs.find((job) => job.id === realId || job.code.toLowerCase() === realId.toLowerCase());
             const cleanProjectLeadIds = draft.projectLeadIds?.filter((leadId) => /^[a-f\d]{24}$/i.test(leadId));
 
+            const imageAttachment = draft.attachments?.find((a) => a.kind === "image" && a.publicId);
+            const otherAttachments = (draft.attachments ?? []).filter((a) => a !== imageAttachment && a.publicId);
+            const imagePayload = imageAttachment
+                ? { publicId: imageAttachment.publicId!, name: imageAttachment.name }
+                : existingJob?.imagePublicId
+                  ? { publicId: existingJob.imagePublicId }
+                  : undefined;
+
             const updatePayload: UpdateJobPayload = {
                 title: draft.title,
                 description: draft.description,
@@ -595,6 +614,10 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
                 amountKobo: Math.round(draft.amount * 100),
                 dueDate: new Date(draft.dueDate).toISOString(),
                 startDate: draft.startDate ? new Date(draft.startDate).toISOString() : null,
+                ...(imagePayload ? { image: imagePayload } : {}),
+                ...(otherAttachments.length > 0
+                    ? { attachments: otherAttachments.map((a) => ({ publicId: a.publicId!, name: a.name })) }
+                    : {}),
             };
 
             if (cleanProjectLeadIds && cleanProjectLeadIds.length > 0) {
