@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { BadgeCheck, ClipboardList, UserRoundPlus, type LucideIcon } from "lucide-react";
 import { FAQ_URL } from "@/constant/navigation";
 import CtaBand from "../common/ctaBand";
@@ -22,7 +23,7 @@ const APPLY_STEPS: { icon: LucideIcon; title: string; description: string }[] = 
     {
         icon: BadgeCheck,
         title: "Build and get paid",
-        description: "Send photos at each stage of the build — you're paid as each one is approved.",
+        description: "Send photos at each stage of the build. You're paid as each one is approved.",
     },
 ];
 
@@ -32,19 +33,19 @@ const APPLY_STEPS: { icon: LucideIcon; title: string; description: string }[] = 
 // profile, so each card leads to sign-up.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default async function OpenJobsPage() {
-    const jobs = await getWebsiteOpenJobs();
-
+export default function OpenJobsPage() {
     return (
         <>
             <PageHero
                 eyebrow="Open jobs"
                 title="Find your next furniture job."
-                description="Real furniture projects, paid in stages as you build. Apply with a MANDE profile — your pay is protected from the first cut."
+                description="Real furniture projects, paid in stages as you build. Apply with a MANDE profile: your pay is protected from the first cut."
             />
 
             <SectionWrapper>
-                {jobs && jobs.length > 0 ? <OpenJobsBrowser jobs={jobs} /> : <NoOpenJobs unavailable={jobs === null} />}
+                <Suspense fallback={<OpenJobsBrowser jobs={[]} loading />}>
+                    <OpenJobs />
+                </Suspense>
             </SectionWrapper>
 
             <SectionWrapper className="bg-mist-200" containerClassName="flex flex-col gap-8 md:gap-12">
@@ -75,4 +76,10 @@ export default async function OpenJobsPage() {
             />
         </>
     );
+}
+
+/** Every open job, streamed in under the hero. */
+async function OpenJobs() {
+    const jobs = await getWebsiteOpenJobs();
+    return jobs && jobs.length > 0 ? <OpenJobsBrowser jobs={jobs} /> : <NoOpenJobs unavailable={jobs === null} />;
 }

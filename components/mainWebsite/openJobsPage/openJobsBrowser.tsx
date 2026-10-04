@@ -6,7 +6,9 @@ import { FilterChips } from "@/components/manufacturerPlatform/jobsPage/jobFilte
 import { SortByDropdown } from "@/components/manufacturerPlatform/jobsPage/sortByDropdown";
 import { OPEN_JOB_SORT_OPTIONS, getJobCategoryLabel } from "@/constant/manufacturer";
 import type { WebsiteJob } from "@/lib/services/websiteService";
+import { Skeleton } from "@/components/ui/skeleton";
 import WebsiteJobCard from "../common/websiteJobCard";
+import JobCardsSkeleton from "../common/jobCardsSkeleton";
 
 function sortJobs(jobs: WebsiteJob[], sortBy: string): WebsiteJob[] {
     const sorted = [...jobs];
@@ -30,7 +32,14 @@ function sortJobs(jobs: WebsiteJob[], sortBy: string): WebsiteJob[] {
  * Every open job — searchable by name, what it is or its category, filtered
  * to a category, and sorted. Newest first until a sort is picked.
  */
-export default function OpenJobsBrowser({ jobs }: { jobs: WebsiteJob[] }) {
+export default function OpenJobsBrowser({
+    jobs,
+    loading = false,
+}: {
+    jobs: WebsiteJob[];
+    /** While the jobs stream in: the controls show, with skeletons for the counts and cards. */
+    loading?: boolean;
+}) {
     const [query, setQuery] = useState("");
     const [category, setCategory] = useState("all");
     const [sortBy, setSortBy] = useState("");
@@ -64,6 +73,7 @@ export default function OpenJobsBrowser({ jobs }: { jobs: WebsiteJob[] }) {
                         value={query}
                         onChange={(event) => setQuery(event.target.value)}
                         placeholder="Search by job, e.g. sofa or wardrobe"
+                        disabled={loading}
                         className="h-11 w-full rounded-lg border border-border bg-white pr-4 pl-10 text-sm font-text text-mist-900 outline-none transition-all duration-200 placeholder:text-mist-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
                     />
                 </label>
@@ -72,17 +82,22 @@ export default function OpenJobsBrowser({ jobs }: { jobs: WebsiteJob[] }) {
 
             <FilterChips<string>
                 label="Category"
-                options={[{ value: "all", label: "All jobs", count: jobs.length }, ...categories]}
+                options={[{ value: "all", label: "All jobs", count: loading ? null : jobs.length }, ...categories]}
                 value={category}
                 onChange={setCategory}
             />
 
-            {shown.length === 0 ? (
+            {loading ? (
+                <>
+                    <Skeleton aria-hidden className="h-4 w-24" />
+                    <JobCardsSkeleton count={6} />
+                </>
+            ) : shown.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 rounded-[10px] border border-dashed border-mist-300 px-6 py-16 text-center">
                     <BriefcaseBusiness className="size-8 text-mist-400" strokeWidth={1.5} aria-hidden />
                     <p className="text-lg font-medium">No jobs match</p>
                     <p className="max-w-sm text-sm font-light text-mist-600">
-                        Try another word, or look through every category — new jobs are posted often.
+                        Try another word, or look through every category. New jobs are posted often.
                     </p>
                     <button
                         type="button"

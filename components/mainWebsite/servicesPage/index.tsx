@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import Image from "next/image";
+import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import {
     ArrowRight,
@@ -17,7 +19,8 @@ import {
 } from "lucide-react";
 import { JOB_BONUS_PERCENT, JOB_PAYMENT_SCHEDULE } from "@/constant/jobWorkflow";
 import { COMMUNITY_URL, CONTACT_URL, FAQ_URL, OPEN_JOBS_URL } from "@/constant/navigation";
-import { NOT_INCLUDED, PRICING_PLANS } from "@/constant/sampleData";
+import { NOT_INCLUDED } from "@/constant/plans";
+import { getMachineAccess, getWebsitePlans } from "@/lib/services/websiteService";
 import { SUPPORT_HOURS } from "@/constant/support";
 import CtaBand from "../common/ctaBand";
 import PageHero from "../common/pageHero";
@@ -90,14 +93,6 @@ const BOOKING_STEPS: { icon: LucideIcon; title: string; description: string }[] 
         description: "Bring your drawings and materials. Our team at the factory gets you set up.",
     },
 ];
-
-// What each plan gets at the factory, from the plans' own features — the
-// same "Easy access to top machinery" row the pricing section shows
-const MACHINE_ACCESS_BY_PLAN = PRICING_PLANS.map((plan) => {
-    const value = plan.features.find((feature) => feature.label === "Easy access to top machinery")?.value;
-    const isIncluded = !!value && value !== NOT_INCLUDED;
-    return { id: plan.id, name: plan.name, isIncluded, detail: isIncluded ? `${value} machine time` : NOT_INCLUDED };
-});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Services — what MANDE gives its makers, led by access to the country's top
@@ -188,23 +183,9 @@ export default function ServicesPage() {
 
                 <div className="flex flex-col gap-6">
                     <h3 className="text-2xl tracking-tight md:text-3xl">Access by plan</h3>
-                    <ul className="grid grid-cols-1 gap-5 md:grid-cols-3 lg:gap-6">
-                        {MACHINE_ACCESS_BY_PLAN.map((plan) => (
-                            <li
-                                key={plan.id}
-                                className={
-                                    plan.isIncluded
-                                        ? "flex flex-col gap-1 rounded-[10px] border border-primary-300 bg-white p-6"
-                                        : "flex flex-col gap-1 rounded-[10px] border border-border bg-white/60 p-6"
-                                }
-                            >
-                                <p className="text-sm font-light text-mist-600">{plan.name}</p>
-                                <p className={plan.isIncluded ? "text-2xl font-medium text-primary-900" : "text-2xl font-light text-mist-500"}>
-                                    {plan.detail}
-                                </p>
-                            </li>
-                        ))}
-                    </ul>
+                    <Suspense fallback={<MachineAccessByPlanSkeleton />}>
+                        <MachineAccessByPlan />
+                    </Suspense>
                 </div>
 
                 <div className="flex flex-col gap-6">
@@ -234,5 +215,57 @@ export default function ServicesPage() {
                 secondaryLink={{ label: "Contact us", href: CONTACT_URL }}
             />
         </>
+    );
+}
+
+/**
+ * What each plan gets at the factory, from the plans' own features: the
+ * same "Easy access to top machinery" row the pricing section shows.
+ */
+async function MachineAccessByPlan() {
+    const plans = (await getWebsitePlans())?.plans ?? [];
+    if (plans.length === 0) {
+        return (
+            <p className="text-base font-light text-mist-700">
+                The plans couldn&apos;t be loaded right now. Please refresh the page in a minute.
+            </p>
+        );
+    }
+    const accessByPlan = plans.map((plan) => {
+        const value = getMachineAccess(plan);
+        return { id: plan.id, name: plan.name, isIncluded: !!value, detail: value ? `${value} machine time` : NOT_INCLUDED };
+    });
+
+    return (
+        <ul className="grid grid-cols-1 gap-5 md:grid-cols-3 lg:gap-6">
+            {accessByPlan.map((plan) => (
+                <li
+                    key={plan.id}
+                    className={
+                        plan.isIncluded
+                            ? "flex flex-col gap-1 rounded-[10px] border border-primary-300 bg-white p-6"
+                            : "flex flex-col gap-1 rounded-[10px] border border-border bg-white/60 p-6"
+                    }
+                >
+                    <p className="text-sm font-light text-mist-600">{plan.name}</p>
+                    <p className={plan.isIncluded ? "text-2xl font-medium text-primary-900" : "text-2xl font-light text-mist-500"}>
+                        {plan.detail}
+                    </p>
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+function MachineAccessByPlanSkeleton() {
+    return (
+        <ul aria-hidden className="grid grid-cols-1 gap-5 md:grid-cols-3 lg:gap-6">
+            {[1, 2, 3].map((i) => (
+                <li key={i} className="flex flex-col gap-2 rounded-[10px] border border-border bg-white p-6">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-8 w-44" />
+                </li>
+            ))}
+        </ul>
     );
 }

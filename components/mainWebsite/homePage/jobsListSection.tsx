@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import Link from "next/link";
+import JobCardsSkeleton from "../common/jobCardsSkeleton";
 import SectionHeading from "../common/sectionHeading";
 import SectionWrapper from "../common/sectionWrapper";
 import WebsiteJobCard from "../common/websiteJobCard";
@@ -8,9 +10,7 @@ import { OPEN_JOBS_URL } from "@/constant/navigation";
 import { getWebsiteOpenJobs } from "@/lib/services/websiteService";
 
 /** The newest open jobs — the rest are on the Open Jobs page. */
-export default async function JobsListSection() {
-    const jobs = await getWebsiteOpenJobs(6);
-
+export default function JobsListSection() {
     return (
         <SectionWrapper containerClassName="flex flex-col items-start gap-8 md:gap-12">
             <div className="w-full space-y-6 md:space-y-8">
@@ -20,16 +20,23 @@ export default async function JobsListSection() {
                         Discover more jobs
                     </Link>
                 </div>
-                {jobs && jobs.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6 w-full">
-                        {jobs.map((job) => (
-                            <WebsiteJobCard key={job.id} job={job} />
-                        ))}
-                    </div>
-                ) : (
-                    <NoOpenJobs unavailable={jobs === null} />
-                )}
+                <Suspense fallback={<JobCardsSkeleton count={6} />}>
+                    <LatestJobs />
+                </Suspense>
             </div>
         </SectionWrapper>
+    );
+}
+
+async function LatestJobs() {
+    const jobs = await getWebsiteOpenJobs(6);
+    if (!jobs || jobs.length === 0) return <NoOpenJobs unavailable={jobs === null} />;
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6 w-full">
+            {jobs.map((job) => (
+                <WebsiteJobCard key={job.id} job={job} />
+            ))}
+        </div>
     );
 }

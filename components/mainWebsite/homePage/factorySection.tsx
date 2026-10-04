@@ -1,17 +1,13 @@
+import { Suspense } from "react";
 import Image from "next/image";
+import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import { Factory } from "lucide-react";
 import { SERVICES_URL } from "@/constant/navigation";
-import { NOT_INCLUDED, PRICING_PLANS } from "@/constant/sampleData";
+import { getMachineAccess, getWebsitePlans } from "@/lib/services/websiteService";
 import SectionHeading from "../common/sectionHeading";
 import SectionWrapper from "../common/sectionWrapper";
 import { WEBSITE_OUTLINE_BUTTON, WEBSITE_PRIMARY_BUTTON } from "../common/buttonStyles";
-
-// The plans with machine access, and their discount — the pricing section's "Easy access to top machinery" row
-const MACHINE_DISCOUNTS = PRICING_PLANS.flatMap((plan) => {
-    const value = plan.features.find((feature) => feature.label === "Easy access to top machinery")?.value;
-    return value && value !== NOT_INCLUDED ? [{ id: plan.id, name: plan.name, value }] : [];
-});
 
 /** Machine access at the Lagos factory — the lead service, with a way to the Services page. */
 export default function FactorySection() {
@@ -38,16 +34,9 @@ export default function FactorySection() {
                         can take on bigger, more precise jobs without buying the equipment yourself.
                     </p>
                 </div>
-                {MACHINE_DISCOUNTS.length > 0 && (
-                    <ul className="flex flex-wrap gap-3">
-                        {MACHINE_DISCOUNTS.map((plan) => (
-                            <li key={plan.id} className="rounded-full bg-white px-4 py-1.5 text-sm">
-                                <span className="font-medium text-primary-900">{plan.value}</span>{" "}
-                                <span className="font-light text-mist-700">on {plan.name}</span>
-                            </li>
-                        ))}
-                    </ul>
-                )}
+                <Suspense fallback={<MachineDiscountsSkeleton />}>
+                    <MachineDiscounts />
+                </Suspense>
                 <div className="flex flex-wrap items-center gap-3">
                     <Link href={`${SERVICES_URL}#machine-access`} className={WEBSITE_PRIMARY_BUTTON}>
                         Explore machine access
@@ -58,5 +47,38 @@ export default function FactorySection() {
                 </div>
             </div>
         </SectionWrapper>
+    );
+}
+
+/** The plans with machine access, and their discount: the pricing section's "Easy access to top machinery" row. */
+async function MachineDiscounts() {
+    const plans = (await getWebsitePlans())?.plans ?? [];
+    const discounts = plans.flatMap((plan) => {
+        const value = getMachineAccess(plan);
+        return value ? [{ id: plan.id, name: plan.name, value }] : [];
+    });
+    if (discounts.length === 0) return null;
+
+    return (
+        <ul className="flex flex-wrap gap-3">
+            {discounts.map((plan) => (
+                <li key={plan.id} className="rounded-full bg-white px-4 py-1.5 text-sm">
+                    <span className="font-medium text-primary-900">{plan.value}</span>{" "}
+                    <span className="font-light text-mist-700">on {plan.name}</span>
+                </li>
+            ))}
+        </ul>
+    );
+}
+
+function MachineDiscountsSkeleton() {
+    return (
+        <ul aria-hidden className="flex flex-wrap gap-3">
+            {[1, 2].map((i) => (
+                <li key={i}>
+                    <Skeleton className="h-8 w-40 rounded-full" />
+                </li>
+            ))}
+        </ul>
     );
 }
