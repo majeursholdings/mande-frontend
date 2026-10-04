@@ -5,12 +5,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { Clock } from "lucide-react";
 import { formatPrice } from "@/lib/currency";
-import { getSampleCategoryPhoto } from "@/constant/sampleDb";
+import { DEFAULT_IMAGE } from "@/constant/global";
 
 /**
  * A job as a card: shared by the website's open jobs and the manufacturer
  * platform's job lists, so a job looks the same wherever it's listed: its
- * photo (or category sample fallback), the title and a line under it, a short
+ * photo (or the default image), the title and a line under it, a short
  * description, then the pay and how long the job runs, with a status or an
  * action beside them. The title's link is stretched over the whole card.
  */
@@ -23,7 +23,6 @@ export default function JobCard({
     duration,
     trailing,
     imageUrl,
-    category,
     fallbackImageUrl,
 }: {
     href: string;
@@ -38,10 +37,9 @@ export default function JobCard({
     /** Beside the price — a status badge or an action. */
     trailing?: ReactNode;
     imageUrl?: string;
-    category?: string;
     fallbackImageUrl?: string;
 }) {
-    const fallback = fallbackImageUrl || (category ? getSampleCategoryPhoto(category) : "/sample-image/table.webp");
+    const fallback = fallbackImageUrl || DEFAULT_IMAGE;
     const [failedUrl, setFailedUrl] = useState<string | null>(null);
     const displaySrc = imageUrl && imageUrl !== failedUrl ? imageUrl : fallback;
 

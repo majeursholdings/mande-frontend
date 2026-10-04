@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Leaf } from "lucide-react";
 import { cn } from "@/lib/utils";
 import UserAvatar from "@/components/ui/userAvatar";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export type NotificationListItem = {
     id: string;
@@ -27,8 +28,14 @@ export default function NotificationsList({
     onLinkClick,
     onMarkAsRead,
     className,
+    loading = false,
+    error,
 }: {
     items: NotificationListItem[];
+    /** Still loading: skeleton rows under the real heading. */
+    loading?: boolean;
+    /** Couldn't load: shown in place of the list. */
+    error?: ReactNode;
     hasUnread: boolean;
     onMarkAllAsRead: () => void;
     /** A link in a notification was clicked — close whatever the list is shown in. */
@@ -43,13 +50,28 @@ export default function NotificationsList({
                 <button
                     type="button"
                     onClick={onMarkAllAsRead}
-                    disabled={!hasUnread}
+                    disabled={loading || !hasUnread}
                     className="text-xs font-medium font-text text-secondary-600 enabled:hover:underline enabled:cursor-pointer disabled:text-mist-400"
                 >
                     Mark all as read
                 </button>
             </div>
-            {items.length === 0 ? (
+            {loading ? (
+                <ul className="flex flex-col divide-y divide-border" aria-busy>
+                    {Array.from({ length: 4 }, (_, i) => (
+                        <li key={i} className="flex items-start gap-3 px-1 py-3">
+                            <Skeleton className="size-9 shrink-0 rounded-full" />
+                            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-2/3" />
+                                <Skeleton className="h-3 w-14" />
+                            </div>
+                        </li>
+                    ))}
+                </ul>
+            ) : error ? (
+                <p role="alert" className="py-8 text-center text-sm font-text text-error-600">{error}</p>
+            ) : items.length === 0 ? (
                 <p className="py-8 text-center text-sm font-text text-mist-500">You&apos;re all caught up.</p>
             ) : (
                 <ul className="flex flex-col divide-y divide-border">
