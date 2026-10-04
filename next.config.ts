@@ -9,6 +9,8 @@ export default function nextConfig(phase: string): NextConfig {
       remotePatterns: [
         { protocol: "https", hostname: "res.cloudinary.com", pathname: "/**" },
         { protocol: "https", hostname: "api.cloudinary.com", pathname: "/**" },
+        // Pictures in blog posts and help articles, from the CMS (Sanity)
+        { protocol: "https", hostname: "cdn.sanity.io", pathname: "/images/**" },
       ],
     },
     experimental: {

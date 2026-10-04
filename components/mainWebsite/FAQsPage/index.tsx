@@ -1,19 +1,17 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MessageCircleQuestion } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { CONTACT_URL } from "@/constant/navigation";
-import { CONTACT_DETAILS, getWebsiteFaqGroups } from "@/constant/website";
+import { getFaqTokens } from "@/constant/website";
+import { fillFaqTokens, getFaqGroups } from "@/lib/cms/faq";
 import { getWebsitePlans, toPricingPlan } from "@/lib/services/websiteService";
 import PageHero from "../common/pageHero";
 import SectionWrapper from "../common/sectionWrapper";
-import { WEBSITE_PRIMARY_BUTTON } from "../common/buttonStyles";
+import StillHaveAQuestion from "../common/stillHaveAQuestion";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// FAQs — the questions in groups (getting started, jobs, payments, plans,
-// account), with jump links to each: beside them on desktop, a scrolling
-// row on phones. Then a way to ask anything else.
+// FAQs — the questions in groups (topics from the CMS), with jump links to
+// each: beside them on desktop, a scrolling row on phones. Then a way to ask
+// anything else.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function FAQsPage() {
@@ -26,7 +24,7 @@ export default function FAQsPage() {
             />
 
             <SectionWrapper containerClassName="flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-16">
-                {/* Some answers name the plans and their prices, so the questions stream in with them */}
+                {/* The questions stream in from the CMS, with the plans some answers name */}
                 <Suspense fallback={<FaqsSkeleton />}>
                     <Faqs />
                 </Suspense>
@@ -35,42 +33,24 @@ export default function FAQsPage() {
     );
 }
 
-/** Below the questions: a way to ask anything else. */
-function StillHaveAQuestion() {
-    return (
-        <div className="flex flex-col items-start gap-4 rounded-[10px] bg-mist-200 p-6 md:flex-row md:items-center md:justify-between md:p-8">
-            <div className="flex gap-4">
-                <MessageCircleQuestion className="mt-0.5 size-6 shrink-0 text-primary-800" strokeWidth={1.5} aria-hidden />
-                <div className="flex flex-col gap-1">
-                    <p className="text-lg font-medium">Still have a question?</p>
-                    <p className="text-sm font-light text-mist-700">
-                        Our team is here {CONTACT_DETAILS.hours}.
-                    </p>
-                </div>
-            </div>
-            <Link href={CONTACT_URL} className={WEBSITE_PRIMARY_BUTTON}>
-                Contact us
-            </Link>
-        </div>
-    );
-}
-
 async function Faqs() {
-    const plansData = await getWebsitePlans();
+    const [groups, plansData] = await Promise.all([getFaqGroups("website").catch(() => null), getWebsitePlans()]);
     const plans = (plansData?.plans ?? []).map(toPricingPlan);
+    // Some answers name the plans and their prices, filled in from the API
+    const faqGroups = groups && fillFaqTokens(groups, getFaqTokens(plansData?.discountPercent ?? 0, plans));
 
-    if (plans.length === 0) {
+    if (!faqGroups || faqGroups.length === 0) {
         return (
             <div className="flex min-w-0 flex-1 flex-col gap-12">
-                <p className="text-base font-light text-mist-700">
-                    The FAQs couldn&apos;t be loaded right now. Please refresh the page in a minute.
+                <p className="text-base font-light text-mist-700" role={faqGroups ? undefined : "alert"}>
+                    {faqGroups
+                        ? "Our FAQs will appear here soon. In the meantime, our team is happy to help."
+                        : "The FAQs couldn't be loaded right now. Please refresh the page in a minute."}
                 </p>
                 <StillHaveAQuestion />
             </div>
         );
     }
-
-    const faqGroups = getWebsiteFaqGroups(plansData?.discountPercent ?? 0, plans);
 
     // For search engines: the questions and answers as FAQPage structured data
     const faqStructuredData = {
@@ -89,7 +69,7 @@ async function Faqs() {
         <>
             <script
                 type="application/ld+json"
-                // Generated from live plan data and platform rules, no user input
+                // From the CMS, live plan data and platform rules, no user input
                 dangerouslySetInnerHTML={{ __html: JSON.stringify(faqStructuredData) }}
             />
 
@@ -117,7 +97,7 @@ async function Faqs() {
                         <div className="rounded-[10px] border border-border bg-white px-5 md:px-6">
                             <Accordion multiple>
                                 {group.faqs.map((faq) => (
-                                    <AccordionItem key={faq.question} value={faq.question}>
+                                    <AccordionItem key={faq.key} value={faq.key}>
                                         <AccordionTrigger className="py-5 text-base font-normal hover:text-primary-800 focus-visible:text-primary-800">
                                             {faq.question}
                                         </AccordionTrigger>

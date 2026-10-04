@@ -2,7 +2,8 @@ import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { formatOrdinalDate } from "@/lib/date";
 import type { LegalDocument, LegalDocumentSummary } from "@/lib/cms/legal";
-import { LegalContents, LegalDocumentBody } from "@/components/common/legalDocument";
+import { getRichTextHeadings } from "@/lib/cms/richText";
+import { RichText, RichTextContents } from "@/components/common/richText";
 import { CONTACT_URL, LEGALS_URL, getLegalDocumentUrl } from "@/constant/navigation";
 import SectionWrapper from "../common/sectionWrapper";
 
@@ -41,7 +42,7 @@ export default function LegalDocumentView({
 
             <SectionWrapper containerClassName="flex gap-16">
                 <div className="flex min-w-0 max-w-3xl flex-1 flex-col gap-12">
-                    <LegalDocumentBody document={document} variant="website" />
+                    <RichText value={document.body} />
 
                     <p className="border-t border-border pt-8 text-base font-light text-mist-700">
                         Questions about this policy?{" "}
@@ -79,7 +80,7 @@ export default function LegalDocumentView({
                     )}
                 </div>
 
-                <LegalContents document={document} variant="website" className="hidden w-60 shrink-0 lg:block" />
+                <RichTextContents headings={getRichTextHeadings(document.body)} className="hidden w-60 shrink-0 lg:block" />
             </SectionWrapper>
         </>
     );

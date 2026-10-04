@@ -5,13 +5,12 @@ import { LEGALS_URL, getLegalDocumentUrl } from "@/constant/navigation";
 
 type Props = { params: Promise<{ slug: string }> };
 
-// Built ahead for the documents that live here, and anything else is a real
-// 404 rather than a page. The terms and privacy policy have their own
-// addresses — next.config.ts redirects /legals/<their slug> there.
-export const dynamicParams = false;
-
+// Built ahead for the documents in the CMS when the site is built; one added
+// later is built on its first visit, and an unknown slug is a 404. The terms
+// and privacy policy have their own addresses (next.config.ts redirects
+// /legals/<their slug> there).
 export async function generateStaticParams() {
-    const documents = await getLegalDocuments();
+    const documents = await getLegalDocuments().catch(() => []);
     return documents
         .filter((document) => getLegalDocumentUrl(document.slug) === `${LEGALS_URL}/${document.slug}`)
         .map((document) => ({ slug: document.slug }));

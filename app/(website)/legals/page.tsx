@@ -11,5 +11,5 @@ export const metadata: Metadata = pageMetadata({
 });
 
 export default async function LegalsRoute() {
-    return <LegalIndexPage documents={await getLegalDocuments()} />;
+    return <LegalIndexPage documents={await getLegalDocuments().catch(() => null)} />;
 }

@@ -1,4 +1,5 @@
 import {
+    BookOpen,
     BriefcaseBusiness,
     CircleHelp,
     Factory,
@@ -6,10 +7,20 @@ import {
     Info,
     LifeBuoy,
     MessageSquareText,
+    Newspaper,
     UsersRound,
     type LucideIcon,
 } from "lucide-react";
-import { ABOUT_URL, COMMUNITY_URL, CONTACT_URL, FAQ_URL, OPEN_JOBS_URL, SERVICES_URL } from "@/constant/navigation";
+import {
+    ABOUT_URL,
+    BLOG_URL,
+    COMMUNITY_URL,
+    CONTACT_URL,
+    FAQ_URL,
+    KNOWLEDGE_BASE_URL,
+    OPEN_JOBS_URL,
+    SERVICES_URL,
+} from "@/constant/navigation";
 
 // The website menu's icons, by where each item goes (the menu data in
 // constant/navigation.ts stays import-free — next.config.ts reads it). A
@@ -19,9 +30,11 @@ const ICONS: Record<string, LucideIcon> = {
     [OPEN_JOBS_URL]: BriefcaseBusiness,
     [SERVICES_URL]: Factory,
     [COMMUNITY_URL]: UsersRound,
+    [BLOG_URL]: Newspaper,
     [ABOUT_URL]: Info,
     [CONTACT_URL]: MessageSquareText,
     [FAQ_URL]: CircleHelp,
+    [KNOWLEDGE_BASE_URL]: BookOpen,
     "Help Center": LifeBuoy,
 };
 

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { formatOrdinalDate } from "@/lib/date";
 import type { LegalDocument } from "@/lib/cms/legal";
-import { LegalContents, LegalDocumentBody } from "@/components/common/legalDocument";
+import { getRichTextHeadings } from "@/lib/cms/richText";
+import { RichText, RichTextContents } from "@/components/common/richText";
 import { MANUFACTURER_LEGAL_BACK_LINK, MANUFACTURER_SUPPORT_URL } from "@/constant/manufacturer";
 import PageHeader from "../pageHeader";
 
@@ -16,7 +17,7 @@ export default function LegalDocumentPage({ document }: { document: LegalDocumen
 
             <div className="flex gap-12">
                 <div className="flex min-w-0 max-w-3xl flex-1 flex-col gap-8">
-                    <LegalDocumentBody document={document} />
+                    <RichText value={document.body} variant="dashboard" />
                     <p className="border-t border-border pt-6 text-sm font-text text-mist-500">
                         Questions about this policy?{" "}
                         <Link
@@ -28,7 +29,11 @@ export default function LegalDocumentPage({ document }: { document: LegalDocumen
                     </p>
                 </div>
 
-                <LegalContents document={document} className="hidden w-56 shrink-0 xl:block" />
+                <RichTextContents
+                    headings={getRichTextHeadings(document.body)}
+                    variant="dashboard"
+                    className="hidden w-56 shrink-0 xl:block"
+                />
             </div>
         </div>
     );

@@ -7,7 +7,12 @@ import PageHero from "../common/pageHero";
 import SectionWrapper from "../common/sectionWrapper";
 
 /** Legal information — every policy that applies on MANDE, each opening its own page. */
-export default function LegalIndexPage({ documents }: { documents: LegalDocumentSummary[] }) {
+export default function LegalIndexPage({
+    documents,
+}: {
+    /** null when they couldn't be loaded. */
+    documents: LegalDocumentSummary[] | null;
+}) {
     return (
         <>
             <PageHero
@@ -17,7 +22,11 @@ export default function LegalIndexPage({ documents }: { documents: LegalDocument
             />
 
             <SectionWrapper containerClassName="flex flex-col gap-8">
-                {documents.length === 0 ? (
+                {documents === null ? (
+                    <p role="alert" className="rounded-[10px] border border-dashed border-mist-300 px-6 py-16 text-center text-base font-light text-mist-600">
+                        Our legal documents couldn&apos;t be loaded right now. Please refresh the page in a minute.
+                    </p>
+                ) : documents.length === 0 ? (
                     <p className="rounded-[10px] border border-dashed border-mist-300 px-6 py-16 text-center text-base font-light text-mist-600">
                         Our legal documents will appear here.
                     </p>

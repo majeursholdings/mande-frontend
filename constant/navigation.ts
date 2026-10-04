@@ -6,6 +6,8 @@ export const COMMUNITY_URL = "/community";
 export const CONTACT_URL = "/contact-mande";
 export const FAQ_URL = "/faq";
 export const LEGALS_URL = "/legals";
+export const KNOWLEDGE_BASE_URL = "/knowledge-base";
+export const BLOG_URL = "/blog";
 export const TERMS_URL = "/terms-and-conditions";
 export const PRIVACY_POLICY_URL = "/privacy-policy";
 
@@ -47,6 +49,10 @@ export const mainmenu:Mainmenu[] = [
         href: COMMUNITY_URL,
     },
     {
+        label: "Blog",
+        href: BLOG_URL,
+    },
+    {
         label: "Help Center",
         subMenu: [
             {
@@ -58,6 +64,11 @@ export const mainmenu:Mainmenu[] = [
                 label: "Frequently Asked Questions",
                 href: FAQ_URL,
                 description: "Jobs, payments, plans and your account",
+            },
+            {
+                label: "Knowledge Base",
+                href: KNOWLEDGE_BASE_URL,
+                description: "Step-by-step guides to using MANDE",
             },
         ],
     },
@@ -85,8 +96,16 @@ export const footerMenu: Mainmenu[] = [
         href: CONTACT_URL,
     },
     {
+        label: "Blog",
+        href: BLOG_URL,
+    },
+    {
         label: "FAQs",
         href: FAQ_URL,
+    },
+    {
+        label: "Knowledge base",
+        href: KNOWLEDGE_BASE_URL,
     },
     {
         label: "Terms",
@@ -101,6 +120,12 @@ export const footerMenu: Mainmenu[] = [
         href: LEGALS_URL,
     },
 ];
+
+/** A help article's page. */
+export const getKnowledgeBaseArticleUrl = (slug: string) => `${KNOWLEDGE_BASE_URL}/${slug}`;
+
+/** A blog post's page. */
+export const getBlogPostUrl = (slug: string) => `${BLOG_URL}/${slug}`;
 
 /** The Mande website's homepage — where the sign-in screens' logo goes. */
 export const MANDE_WEBSITE_URL = "/";

@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Community — Mande's social channels. Set each `href` to the channel's own
 // URL (they point at the platforms' home pages until then). A good candidate
-// to move into the CMS with the legal documents — see lib/cms/legal.ts.
+// to move into the CMS with the legal documents (see lib/cms/client.ts).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type CommunityPlatform =

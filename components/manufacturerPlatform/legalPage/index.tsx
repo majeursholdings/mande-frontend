@@ -3,13 +3,15 @@ import { formatOrdinalDate } from "@/lib/date";
 import type { LegalDocumentSummary } from "@/lib/cms/legal";
 import { MANUFACTURER_LEGAL_URL, MANUFACTURER_PROFILE_BACK_LINK } from "@/constant/manufacturer";
 import EmptyState from "../dashboardPage/emptyState";
+import LoadError from "../loadError";
 import LinkList from "../linkList";
 import PageHeader from "../pageHeader";
 
 export default function ManufacturerLegalPage({
     documents,
 }: {
-    documents: LegalDocumentSummary[];
+    /** null when they couldn't be loaded. */
+    documents: LegalDocumentSummary[] | null;
 }) {
     return (
         <div className="flex flex-col gap-6">
@@ -19,7 +21,9 @@ export default function ManufacturerLegalPage({
                 backLink={MANUFACTURER_PROFILE_BACK_LINK}
             />
 
-            {documents.length > 0 ? (
+            {documents === null ? (
+                <LoadError>Our legal documents couldn&apos;t be loaded. Please refresh the page to try again.</LoadError>
+            ) : documents.length > 0 ? (
                 <LinkList
                     className="max-w-2xl"
                     items={documents.map((document) => ({

@@ -16,15 +16,22 @@ import {
     MANUFACTURER_PROFILE_BACK_LINK,
     type ManufacturerFeedback,
 } from "@/constant/manufacturer";
-import { SUPPORT_FAQS, SUPPORT_HOURS } from "@/constant/support";
+import { SUPPORT_HOURS } from "@/constant/support";
+import type { Faq } from "@/lib/cms/faq";
 import { supportService } from "@/lib/services/supportService";
 import { queryKeys } from "@/lib/queryKeys";
 import PageHeader from "../pageHeader";
 import SettingsSection from "../settingsSection";
 import FeedbackHistory from "./feedbackHistory";
+import LoadError from "../loadError";
 import { openSupportChat } from "./supportChat";
 
-export default function ManufacturerSupportPage() {
+export default function ManufacturerSupportPage({
+    faqs,
+}: {
+    /** From the CMS; null when they couldn't be loaded. */
+    faqs: Faq[] | null;
+}) {
     const { data, isPending, isError } = useQuery({
         queryKey: queryKeys.support.feedback(),
         queryFn: () => supportService.listFeedback(),
@@ -80,18 +87,27 @@ export default function ManufacturerSupportPage() {
                     </Button>
                 </div>
 
-                <SettingsSection title="Frequently asked questions">
-                    <div className="rounded-xl border border-border bg-white px-5">
-                        <Accordion>
-                            {SUPPORT_FAQS.map((faq) => (
-                                <AccordionItem key={faq.question} value={faq.question}>
-                                    <AccordionTrigger>{faq.question}</AccordionTrigger>
-                                    <AccordionContent>{faq.answer}</AccordionContent>
-                                </AccordionItem>
-                            ))}
-                        </Accordion>
-                    </div>
-                </SettingsSection>
+                {/* Left out until there are some */}
+                {faqs === null ? (
+                    <SettingsSection title="Frequently asked questions">
+                        <LoadError>The FAQs couldn&apos;t be loaded. Please refresh the page to try again.</LoadError>
+                    </SettingsSection>
+                ) : (
+                    faqs.length > 0 && (
+                        <SettingsSection title="Frequently asked questions">
+                            <div className="rounded-xl border border-border bg-white px-5">
+                                <Accordion>
+                                    {faqs.map((faq) => (
+                                        <AccordionItem key={faq.key} value={faq.key}>
+                                            <AccordionTrigger>{faq.question}</AccordionTrigger>
+                                            <AccordionContent>{faq.answer}</AccordionContent>
+                                        </AccordionItem>
+                                    ))}
+                                </Accordion>
+                            </div>
+                        </SettingsSection>
+                    )
+                )}
 
                 <SettingsSection
                     title="Share feedback"
