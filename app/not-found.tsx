@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import Footer from "@/components/mainWebsite/navigations/footer";
@@ -23,7 +24,9 @@ const QUICK_LINKS: { label: string; description: string; href: string }[] = [
 export default function NotFound() {
     return (
         <>
-            <OfferBar />
+            <Suspense fallback={null}>
+                <OfferBar />
+            </Suspense>
             <Header />
             <main className="flex flex-1 flex-col">
                 <section className="flex flex-1 items-center bg-mist-200 px-2.5 py-16 md:py-24">
