@@ -35,7 +35,11 @@ export function exportToCSV<TRow extends object>(
             .trim();
 
     const escape = (val: unknown) => {
-        const str = val == null ? "" : String(val);
+        let str = val == null ? "" : String(val);
+        // A cell starting with = + - @ (or a tab / carriage return) runs as a
+        // formula in Excel and Sheets, and names and descriptions come from
+        // users: a leading ' makes it plain text. Numbers are left alone.
+        if (typeof val !== "number" && /^[=+\-@\t\r]/.test(str)) str = `'${str}`;
         // Wrap in quotes if the value contains a comma, quote, or newline
         return /[",\n\r]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
     };

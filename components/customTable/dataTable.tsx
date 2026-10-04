@@ -25,6 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { TableIdContext, useTableParam } from "./tableContext";
 import { TableDialog } from "./tableDialog";
 import { RowActionsMenu } from "./rowActionsMenu";
+import { Skeleton } from "@/components/ui/skeleton";
 import { TableSkeletonRows } from "./tableSkeletonRows";
 import type {
     ColumnDef,
@@ -69,10 +70,13 @@ function PaginationBar({
     page,
     pagination,
     onPageChange,
+    loading = false,
 }: {
     page: number;
     pagination: PaginationMeta;
     onPageChange: (page: number) => void;
+    /** The rows are still loading: the count is a skeleton and the buttons are off. */
+    loading?: boolean;
 }) {
     const totalPages = Math.max(1, pagination.totalPages);
     const { rowsPerPage, total } = pagination;
@@ -84,11 +88,15 @@ function PaginationBar({
 
     return (
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-gray-200">
-            <span className="text-sm text-gray-500 font-text">{label}</span>
+            {loading ? (
+                <Skeleton className="h-4 w-32 rounded" />
+            ) : (
+                <span className="text-sm text-gray-500 font-text">{label}</span>
+            )}
             <div className="flex items-center gap-1">
                 <button
                     onClick={() => onPageChange(page - 1)}
-                    disabled={page <= 1}
+                    disabled={loading || page <= 1}
                     className="p-1.5 rounded-button border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                 >
                     <ChevronLeft className="size-4 text-gray-600" />
@@ -118,7 +126,7 @@ function PaginationBar({
                 )}
                 <button
                     onClick={() => onPageChange(page + 1)}
-                    disabled={page >= totalPages}
+                    disabled={loading || page >= totalPages}
                     className="p-1.5 rounded-button border border-gray-200 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
                 >
                     <ChevronRight className="size-4 text-gray-600" />
@@ -144,6 +152,8 @@ export interface DataTableProps<TRow extends { id: string }> {
     pagination?: PaginationMeta;
     toolbar?: ReactNode;
     loading?: boolean;
+    /** The rows couldn't load: shown in place of the rows, under the real headers. */
+    error?: ReactNode;
     emptyMessage?: string;
     /** Eye icon — "link" navigates, "popup" fires onClick */
     viewAction?: ViewAction<TRow>;
@@ -220,6 +230,7 @@ function DataTableContent<TRow extends { id: string }>({
     onRowClick,
     compact = false,
     loading = false,
+    error,
     emptyMessage = "No results match your filters.",
 }: DataTableProps<TRow>) {
     const page = Math.max(1, rawPage);
@@ -346,6 +357,16 @@ function DataTableContent<TRow extends { id: string }>({
                     <TableBody>
                         {loading ? (
                             <TableSkeletonRows cols={colCount} />
+                        ) : error ? (
+                            <TableRow>
+                                <TableCell
+                                    colSpan={colCount}
+                                    role="alert"
+                                    className={`text-center ${px} py-8 md:py-16 text-error-600 text-sm`}
+                                >
+                                    {error}
+                                </TableCell>
+                            </TableRow>
                         ) : rows.length === 0 ? (
                             <TableRow>
                                 <TableCell
@@ -440,6 +461,7 @@ function DataTableContent<TRow extends { id: string }>({
                         page={page}
                         pagination={pagination}
                         onPageChange={(p) => onPageChange?.(p)}
+                        loading={loading}
                     />
                 )}
             </div>

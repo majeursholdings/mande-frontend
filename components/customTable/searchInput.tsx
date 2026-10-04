@@ -1,6 +1,7 @@
 "use client";
 
-import { useContext } from "react";
+import { useContext, useState } from "react";
+import { useDebouncedCallback } from "use-debounce";
 import { Search } from "lucide-react";
 import { TableIdContext, useTableParam } from "./tableContext";
 
@@ -19,7 +20,18 @@ export function SearchInput({
 }: SearchInputProps) {
     const tableId = useContext(TableIdContext);
     const { getParam, setParam } = useTableParam(tableId);
-    const value = getParam(paramKey) ?? "";
+    const urlValue = getParam(paramKey) ?? "";
+    // What's typed shows at once; the address (which every table and filter
+    // on the page reads) follows a moment after typing stops, so each
+    // keystroke doesn't re-render the page
+    const [value, setValue] = useState(urlValue);
+    const [syncedUrlValue, setSyncedUrlValue] = useState(urlValue);
+    if (urlValue !== syncedUrlValue) {
+        // Changed from elsewhere (back button, a link, "clear filters"): show that
+        setSyncedUrlValue(urlValue);
+        setValue(urlValue);
+    }
+    const writeToUrl = useDebouncedCallback((next: string) => setParam(paramKey, next), 250);
 
     return (
         <div className="relative flex items-center w-full max-w-sm">
@@ -27,7 +39,10 @@ export function SearchInput({
             <input
                 type="text"
                 value={value}
-                onChange={(e) => setParam(paramKey, e.target.value)}
+                onChange={(e) => {
+                    setValue(e.target.value);
+                    writeToUrl(e.target.value);
+                }}
                 placeholder={placeholder}
                 className={[
                     "w-full pl-9 pr-4 py-2 rounded-xs cursor-pointer",

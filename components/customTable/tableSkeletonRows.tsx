@@ -1,4 +1,5 @@
 import { TableRow, TableCell } from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TableSkeletonRows
@@ -11,7 +12,7 @@ export function TableSkeletonRows({ cols }: { cols: number }) {
                 <TableRow key={i}>
                     {Array.from({ length: cols }).map((_, j) => (
                         <TableCell key={j}>
-                            <div className="h-8 bg-gray-100 rounded animate-pulse w-3/4" />
+                            <Skeleton className="h-5 w-3/4 rounded" />
                         </TableCell>
                     ))}
                 </TableRow>
