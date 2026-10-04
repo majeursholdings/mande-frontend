@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { ARTISAN_SIGNUP_URL, OPEN_JOBS_URL } from "@/constant/navigation";
 import { getWebsitePlans } from "@/lib/services/websiteService";
@@ -9,7 +10,7 @@ import { WEBSITE_ON_DARK_BUTTON, WEBSITE_ON_DARK_OUTLINE_BUTTON } from "./button
  * The closing band on a website page, in the pricing section's dark green:
  * a line to sign up on, with the sign-up button and a second link.
  */
-export default async function CtaBand({
+export default function CtaBand({
     title = "Ready to take on your next furniture job?",
     description = "Create your profile, choose a plan and start applying for jobs. You're paid as each stage is approved.",
     secondaryLink = { label: "Browse open jobs", href: OPEN_JOBS_URL },
@@ -20,23 +21,19 @@ export default async function CtaBand({
     secondaryLink?: { label: string; href: string };
     offerText?: string | null;
 }) {
-    let resolvedOffer = offerText;
-    if (resolvedOffer === undefined) {
-        const plansData = await getWebsitePlans();
-        const discountPercent = plansData?.discountPercent ?? 0;
-        resolvedOffer = discountPercent > 0 ? `Every plan is ${discountPercent}% off for now` : null;
-    }
-
     return (
         <SectionWrapper
             className="border-t border-b border-primary-900/30 bg-[#031b11] text-mist-100"
             containerClassName="flex flex-col items-start gap-6 md:flex-row md:items-center md:justify-between md:gap-10"
         >
             <div className="flex max-w-175 flex-col gap-3">
-                {resolvedOffer && (
-                    <span className="w-fit rounded-full bg-primary-500/15 px-3 py-1 text-sm font-medium text-primary-300">
-                        {resolvedOffer}
-                    </span>
+                {offerText === undefined ? (
+                    // The plans' offer streams in; nothing holds its place, as there may be none
+                    <Suspense fallback={null}>
+                        <PlanOffer />
+                    </Suspense>
+                ) : (
+                    offerText && <OfferPill>{offerText}</OfferPill>
                 )}
                 <SectionHeading as="h2">{title}</SectionHeading>
                 <p className="text-base font-light text-mist-300">{description}</p>
@@ -51,4 +48,18 @@ export default async function CtaBand({
             </div>
         </SectionWrapper>
     );
+}
+
+function OfferPill({ children }: { children: React.ReactNode }) {
+    return (
+        <span className="w-fit rounded-full bg-primary-500/15 px-3 py-1 text-sm font-medium text-primary-300">
+            {children}
+        </span>
+    );
+}
+
+/** "Every plan is X% off for now", while the plans have an offer. */
+async function PlanOffer() {
+    const discountPercent = (await getWebsitePlans())?.discountPercent ?? 0;
+    return discountPercent > 0 ? <OfferPill>Every plan is {discountPercent}% off for now</OfferPill> : null;
 }

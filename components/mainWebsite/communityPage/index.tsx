@@ -3,9 +3,8 @@ import Link from "next/link";
 import {
     ChannelCard,
     FeaturedChannel,
-    TestimonialCard,
 } from "@/components/manufacturerPlatform/communityPage";
-import { COMMUNITY_CHANNELS, COMMUNITY_TESTIMONIALS, FEATURED_COMMUNITY_CHANNEL } from "@/constant/community";
+import { COMMUNITY_CHANNELS, FEATURED_COMMUNITY_CHANNEL } from "@/constant/community";
 import { SERVICES_URL } from "@/constant/navigation";
 import CtaBand from "../common/ctaBand";
 import PageHero from "../common/pageHero";
@@ -15,9 +14,9 @@ import { WEBSITE_PRIMARY_BUTTON } from "../common/buttonStyles";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Community — where makers on MANDE meet: the WhatsApp channel first (new
-// jobs are announced there), the other channels, what members say, and the
-// Lagos factory, where they meet in person. The same channels and quotes as
-// the manufacturer platform's community page.
+// jobs are announced there), the other channels, and the Lagos factory,
+// where they meet in person. The same channels as the manufacturer
+// platform's community page.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function CommunityPage() {
@@ -42,19 +41,6 @@ export default function CommunityPage() {
                         ))}
                     </ul>
                 </div>
-            </SectionWrapper>
-
-            <SectionWrapper className="bg-mist-200" containerClassName="flex flex-col gap-8 md:gap-12">
-                <SectionHeading as="h2" className="max-w-175">
-                    What makers are saying.
-                </SectionHeading>
-                <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-                    {COMMUNITY_TESTIMONIALS.map((testimonial) => (
-                        <li key={testimonial.id}>
-                            <TestimonialCard testimonial={testimonial} />
-                        </li>
-                    ))}
-                </ul>
             </SectionWrapper>
 
             <SectionWrapper containerClassName="flex flex-col gap-8 md:flex-row md:items-center md:gap-12">
