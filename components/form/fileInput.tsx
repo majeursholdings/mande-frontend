@@ -26,8 +26,6 @@ import {
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
-    uploadFileToCloudinary,
-    deleteCloudinaryAsset,
     generateRenamedFileName,
     resolveUserUploadInfo,
     type CloudinaryUploadResult,
@@ -79,11 +77,7 @@ export function clearFormUploadedFiles(fieldName: string): void {
 /** Marks an upload signed by the API (see FormFieldConfig.uploadPurpose). */
 const API_UPLOAD_CATEGORY_PREFIX = "api:";
 
-// The app's delete route can't remove a file the API signed. That's fine: a
-// file the API never claimed isn't attached to anything.
-const isApiUpload = (file: CloudinaryUploadResult) => file.category.startsWith(API_UPLOAD_CATEGORY_PREFIX);
-
-/** Uploads `file` through the API's signed media flow, in the shape the app's own uploads take. */
+/** Uploads `file` through the API's signed media flow, in the shape a form keeps it. */
 function uploadFileThroughApi(
     file: File,
     purpose: UploadPurpose,
@@ -111,16 +105,13 @@ function uploadFileThroughApi(
     return { promise, cancel: () => controller.abort() };
 }
 
+/**
+ * Forgets a field's uploads after a failed submit. Nothing is deleted: the
+ * app can't remove files (only the API holds the Cloudinary secret), and a
+ * file the API never claimed isn't attached to anything.
+ */
 export async function cleanupFormFieldUploads(fieldName: string): Promise<void> {
-    const files = activeFormUploadsRegistry.get(fieldName);
-    if (files && files.length > 0) {
-        await Promise.allSettled(
-            files
-                .filter((file) => !isApiUpload(file))
-                .map((file) => deleteCloudinaryAsset(file.publicId, file.resourceType))
-        );
-        activeFormUploadsRegistry.delete(fieldName);
-    }
+    activeFormUploadsRegistry.delete(fieldName);
 }
 
 export const FileInput = <T extends FieldValues = FieldValues>({
@@ -240,24 +231,22 @@ export const FileInput = <T extends FieldValues = FieldValues>({
     // Start upload for a file item
     const startUpload = useCallback(
         (item: FileItemState) => {
-            const category = field.uploadCategory || (field.type === "image" ? "jobcreation" : "jobcreation");
-            const visibility = field.uploadVisibility || (field.type === "image" ? "public" : "private");
-
             const onProgress = (percent: number) => {
                 setItems((prev) =>
                     prev.map((it) => (it.id === item.id ? { ...it, progress: percent } : it))
                 );
             };
 
-            const { promise, cancel } = field.uploadPurpose
-                ? uploadFileThroughApi(item.file, field.uploadPurpose, onProgress)
-                : uploadFileToCloudinary({
-                      file: item.file,
-                      category,
-                      visibility,
-                      user: currentUser,
-                      onProgress,
-                  });
+            if (!field.uploadPurpose) {
+                // A developer error: the API won't sign an upload without knowing what it's for
+                console.error(`File field "${field.name}" has no uploadPurpose`);
+                setItems((prev) =>
+                    prev.map((it) => (it.id === item.id ? { ...it, status: "error" as const, error: "Uploads aren't set up for this field" } : it))
+                );
+                return;
+            }
+
+            const { promise, cancel } = uploadFileThroughApi(item.file, field.uploadPurpose, onProgress);
 
             // Store cancel function on item
             setItems((prev) =>
@@ -298,7 +287,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                     toast.error(`Failed to upload ${item.originalName}: ${message}`);
                 });
         },
-        [currentUser, field.uploadCategory, field.uploadVisibility, field.uploadPurpose, field.type, syncFormValue]
+        [field.name, field.uploadPurpose, syncFormValue]
     );
 
     // Handle file selection (drag & drop or click)
@@ -380,20 +369,9 @@ export const FileInput = <T extends FieldValues = FieldValues>({
         toast.info(`Stopped upload for ${item.originalName}`);
     };
 
-    // User removes a completed file -> deletes from Cloudinary
-    const handleRemoveFile = async (item: FileItemState) => {
-        // If file had completed upload, delete asset from Cloudinary
-        if (item.uploaded?.publicId && !isApiUpload(item.uploaded)) {
-            toast.loading(`Deleting ${item.originalName}...`, { id: `del-${item.id}` });
-            try {
-                await deleteCloudinaryAsset(item.uploaded.publicId, item.uploaded.resourceType);
-                toast.success(`Deleted ${item.originalName}`, { id: `del-${item.id}` });
-            } catch (err) {
-                console.error("Failed to delete Cloudinary asset:", err);
-                toast.error("Failed to delete from storage", { id: `del-${item.id}` });
-            }
-        }
-
+    // User removes a file. It's only dropped from the form: an upload the
+    // API never claims isn't attached to anything.
+    const handleRemoveFile = (item: FileItemState) => {
         if (item.previewUrl) {
             URL.revokeObjectURL(item.previewUrl);
         }
@@ -633,7 +611,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                                                 ? "bg-[#EF4444] text-white hover:bg-red-700"
                                                 : "bg-white text-mist-700 hover:bg-red-50 hover:text-red-600 border border-mist-200",
                                         )}
-                                        title="Remove file (deletes from storage)"
+                                        title="Remove file"
                                     >
                                         <X className="size-3.5" />
                                     </button>

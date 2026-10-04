@@ -65,12 +65,11 @@ export type FormFieldConfig = {
     showPreview?: boolean;
     clearable?: boolean; // for select — an × in the field clears the choice
     trailingSlot?: ReactNode; // e.g. a "Forgot password?" link next to a checkbox
-    uploadCategory?: string; // e.g. "jobcreation", "jobProof", "profile", "identity"
-    uploadVisibility?: "public" | "private"; // defaults to "private" (or "public" for avatars/public showcases)
     /**
-     * Uploads through the API's signed media flow for this purpose instead of
-     * the app's own Cloudinary route. Set it when the file is sent on to an
-     * API endpoint, which only accepts files it signed (e.g. "nin-card").
+     * What a file/image field's uploads are for (e.g. "nin-card"). Files are
+     * uploaded through the API's signed media flow under this purpose, and the
+     * endpoint the form submits to only accepts files signed for it. Required
+     * for "file" and "image" fields.
      */
     uploadPurpose?: UploadPurpose;
 };
