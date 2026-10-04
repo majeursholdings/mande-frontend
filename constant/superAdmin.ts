@@ -14,29 +14,20 @@ import {
     ADMIN_NOTIFICATION_CHANNELS,
     ADMIN_NOTIFICATION_TYPES,
     type AdminNavItem,
-    type AdminNotification,
     type AdminNotificationChannel,
     type AdminNotificationPreferences,
     type AdminNotificationType,
     type AdminProfile,
 } from "@/constant/admin";
 import {
-    FAULT_REPORT_DAYS,
-    JOB_BONUS_PERCENT,
-    JOB_PAYMENT_SCHEDULE,
-    MAX_EXTENSION_PERCENT,
-    MAX_JOB_REJECTIONS,
-    REJECTION_CHARGE_PERCENT,
-    REVIEW_WINDOW_HOURS,
     type JobPaymentMilestone,
 } from "@/constant/jobWorkflow";
 import { SUPER_ADMIN_DASHBOARD_URL } from "@/constant/navigation";
-import { MAX_JOB_MANUFACTURERS, SIGNED_IN_SUPER_ADMIN_ID, SUPER_ADMINS, type SuperAdminRecord } from "@/constant/sampleDb";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The super admin platform. It shares the admin's dashboard chrome (see
 // components/adminPlatform/dashboardLayout/staffPlatformContext.tsx) and
-// reads the same sample database, across every manufacturer and admin.
+// reads the same API records, across every manufacturer and admin.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─── Dashboard navigation ─────────────────────────────────────────────────────
@@ -129,29 +120,24 @@ export function superAdminCan(role: SuperAdminRole, permission: SuperAdminPermis
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
 
-const ME = SUPER_ADMINS.find((superAdmin) => superAdmin.id === SIGNED_IN_SUPER_ADMIN_ID) as SuperAdminRecord;
-
-/** The signed-in super admin's role. From the API's /auth/me once it's connected. */
-export const SUPER_ADMIN_ROLE: SuperAdminRole = ME.role;
-
 const EVERY_CHANNEL = Object.fromEntries(
     ADMIN_NOTIFICATION_CHANNELS.map(({ value }) => [value, true]),
 ) as Record<AdminNotificationChannel, boolean>;
 
 /**
- * The signed-in super admin, in the staff profile shape the dashboard's top
- * bars read. Super admins have no position. Sample data until the API is
- * connected.
+ * A signed-in super admin's profile, in the staff profile shape the
+ * dashboard's top bars read, before their account has loaded: blank. Super
+ * admins have no position. The real one comes from /auth/me.
  */
-export const SUPER_ADMIN_PROFILE: AdminProfile = {
-    firstName: ME.firstName,
-    lastName: ME.lastName,
-    email: ME.email,
-    phone: ME.phone,
-    position: "",
-    avatarUrl: ME.avatarUrl,
-    joinedAt: ME.joinedAt,
-    security: { twoFactorMethod: ME.twoFactorMethod },
+export const BLANK_SUPER_ADMIN_PROFILE: AdminProfile = {
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    position: "" as AdminProfile["position"],
+    avatarUrl: null,
+    joinedAt: "",
+    security: { twoFactorMethod: null },
     // Every notification, in the app and by email, until they have a Settings page to choose
     notificationPreferences: Object.fromEntries(
         ADMIN_NOTIFICATION_TYPES.map(({ value }) => [value, EVERY_CHANNEL]),
@@ -181,62 +167,9 @@ export const SUPER_ADMIN_NOTIFICATION_TYPES: { value: AdminNotificationType; lab
     },
 ];
 
-export const SUPER_ADMIN_NOTIFICATIONS: AdminNotification[] = [
-    {
-        id: "super-notif-1",
-        type: "reviews",
-        actorName: "Demi Semande",
-        message: [{ strong: "Demi Semande" }, " has marked the ", { strong: "Metal Fabrication" }, " job as done."],
-        timestamp: "1 hr ago",
-        isRead: false,
-    },
-    {
-        id: "super-notif-2",
-        type: "job-responses",
-        actorName: "Samuel Vava",
-        message: [{ strong: "Samuel Vava" }, " declined the ", { strong: "4 Desks" }, " job."],
-        timestamp: "2 hrs ago",
-        isRead: false,
-    },
-    {
-        id: "super-notif-3",
-        type: "delays",
-        actorName: "Tunde Bakare",
-        message: [{ strong: "Tunde Bakare" }, " asked for more time on the ", { strong: "Solid Oak Dining Table" }, " job."],
-        timestamp: "12 hrs ago",
-        isRead: false,
-    },
-    {
-        id: "super-notif-4",
-        type: "applications",
-        actorName: "Kesi Nwosu",
-        message: [{ strong: "Kesi Nwosu" }, " applied for the ", { strong: "Walnut Media Wall Unit" }, " job."],
-        timestamp: "yesterday",
-        isRead: true,
-    },
-    {
-        id: "super-notif-5",
-        type: "job-responses",
-        actorName: "Demi Semande",
-        message: [{ strong: "Demi Semande" }, " accepted the ", { strong: "Metal Fabrication" }, " job."],
-        timestamp: "3 days ago",
-        isRead: true,
-    },
-    {
-        id: "super-notif-6",
-        type: "appeals",
-        actorName: "Bidemi Brown",
-        message: [{ strong: "Bidemi Brown" }, " appealed the suspension of ", { strong: "Brown Furnitures" }, "."],
-        timestamp: "1 week ago",
-        isRead: true,
-    },
-];
-
 // ─── Settings ─────────────────────────────────────────────────────────────────
-// What a super admin changes from Settings. Seeded from the values the
-// platform runs on today, and kept for the session until the API is
-// connected — then Settings reads and saves these there, and the platform
-// (prices, job payments, review windows) follows what's saved.
+// What a super admin changes from Settings, read from and saved to the API;
+// the platform (prices, job payments, review windows) follows what's saved.
 
 /** The rules every job follows, platform-wide. */
 export type PlatformSettings = {
@@ -258,20 +191,6 @@ export type PlatformSettings = {
     maxManufacturersPerJob: number;
     /** Whether new manufacturers can sign up. */
     manufacturerSignUpsOpen: boolean;
-};
-
-export const PLATFORM_SETTINGS: PlatformSettings = {
-    paymentSchedule: Object.fromEntries(
-        JOB_PAYMENT_SCHEDULE.map(({ milestone, percent }) => [milestone, percent]),
-    ) as Record<JobPaymentMilestone, number>,
-    bonusPercent: JOB_BONUS_PERCENT,
-    rejectionChargePercent: REJECTION_CHARGE_PERCENT,
-    reviewWindowHours: REVIEW_WINDOW_HOURS,
-    faultReportDays: FAULT_REPORT_DAYS,
-    maxRejections: MAX_JOB_REJECTIONS,
-    maxExtensionPercent: MAX_EXTENSION_PERCENT,
-    maxManufacturersPerJob: MAX_JOB_MANUFACTURERS,
-    manufacturerSignUpsOpen: true,
 };
 
 /**
@@ -403,46 +322,3 @@ export type ApiKey = {
     addedAt: string;
 };
 
-const daysAgo = (days: number) => new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-
-export const API_KEYS: ApiKey[] = [
-    {
-        id: "key-paystack-main",
-        provider: "paystack",
-        name: "Main account",
-        mode: "live",
-        publicKey: "pk_live_4f1c9e2a7b3d8f0e6a5c1b9d2e7f3a8c4b6d0e1f",
-        secretKeyLast4: "9a2c",
-        hasEncryptionKey: false,
-        hasWebhookSecret: false,
-        isActive: true,
-        addedBy: "Tobi Adeyemi",
-        addedAt: daysAgo(120),
-    },
-    {
-        id: "key-paystack-old",
-        provider: "paystack",
-        name: "Old account",
-        mode: "live",
-        publicKey: "pk_live_0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1b",
-        secretKeyLast4: "c07d",
-        hasEncryptionKey: false,
-        hasWebhookSecret: false,
-        isActive: false,
-        addedBy: "Ashley Cole",
-        addedAt: daysAgo(420),
-    },
-    {
-        id: "key-paystack-test",
-        provider: "paystack",
-        name: "Testing",
-        mode: "test",
-        publicKey: "pk_test_8b2d4f6a1c3e5b7d9f0a2c4e6b8d0f1a3c5e7b9d",
-        secretKeyLast4: "41fe",
-        hasEncryptionKey: false,
-        hasWebhookSecret: false,
-        isActive: false,
-        addedBy: "Ashley Cole",
-        addedAt: daysAgo(300),
-    },
-];

@@ -359,46 +359,4 @@ export function canReportFault(
     );
 }
 
-// ─── Sample data ─────────────────────────────────────────────────────────────
 
-/**
- * Sample proof for the first `approved` steps — sent one after another
- * between `from` and `to`, each approved by `reviewer` two hours after it
- * was sent — then proof of the steps after them still waiting for review,
- * one per `waitingSince` date.
- */
-export function sampleStepSubmissions({
-    approved,
-    from,
-    to,
-    reviewer,
-    imageUrl,
-    waitingSince = [],
-}: {
-    approved: number;
-    from: Date;
-    to: Date;
-    reviewer: string;
-    imageUrl: string;
-    waitingSince?: Date[];
-}): StepSubmission[] {
-    const gap = (to.getTime() - from.getTime()) / (approved + 1);
-    const submissions: StepSubmission[] = JOB_PRODUCTION_STEPS.slice(0, approved).map(({ key }, index) => {
-        const submittedAt = new Date(from.getTime() + gap * (index + 1));
-        return {
-            step: key,
-            imageUrls: [imageUrl],
-            submittedAt: submittedAt.toISOString(),
-            review: {
-                outcome: "approved",
-                at: new Date(submittedAt.getTime() + 2 * HOUR_MS).toISOString(),
-                by: reviewer,
-            },
-        };
-    });
-    waitingSince.forEach((submittedAt, index) => {
-        const step = JOB_PRODUCTION_STEPS[approved + index];
-        if (step) submissions.push({ step: step.key, imageUrls: [imageUrl], submittedAt: submittedAt.toISOString(), review: null });
-    });
-    return submissions;
-}

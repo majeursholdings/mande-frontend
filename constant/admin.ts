@@ -1,14 +1,9 @@
 import type { SelectOption } from "@/components/form/types";
 import type { StatusTone } from "@/components/customTable/statusBadge";
 import { JOB_PRODUCTION_STEPS, MAX_JOB_REJECTIONS as MAX_ADMIN_JOB_REJECTIONS } from "@/constant/jobWorkflow";
-import { getManufacturerTransactions, type ManufacturerTransaction } from "@/constant/manufacturer";
 import {
     JOB_DESCRIPTION_MAX_LENGTH,
-    MANUFACTURERS as ADMIN_MANUFACTURERS,
     MAX_JOB_MANUFACTURERS,
-    PROJECT_LEADS,
-    SAMPLE_JOBS as ADMIN_JOBS,
-    SIGNED_IN_LEAD_ID as ADMIN_ME_ID,
     formatJobCodeTimestamp,
     generateJobCode,
     getJobCategoryCode,
@@ -17,8 +12,6 @@ import {
     getProjectLead,
     registerProjectLeads,
     registerManufacturers,
-    getAllProjectLeads,
-    getSampleCategoryPhoto,
     isRejectionFinal,
     settleJobRecord as settleAdminJob,
     type JobApplicationRecord as AdminJobApplication,
@@ -33,7 +26,7 @@ import {
     type ProjectLeadRecord as AdminPerson,
     type TimelineExtensionRecord as AdminTimelineExtension,
     type TwoFactorMethod,
-} from "@/constant/sampleDb";
+} from "@/constant/platformRecords";
 import {
     LayoutGrid,
     ListChecks,
@@ -43,16 +36,12 @@ import {
     type LucideIcon,
 } from "lucide-react";
 
-// Jobs, manufacturers and project leads live in the one sample database both
-// platforms read (constant/sampleDb.ts) — here under the admin platform's names.
+// Job, manufacturer and project lead types and helpers live in constant/platformRecords.ts,
+// shared by both platforms: here under the admin platform's names.
 export {
-    ADMIN_JOBS,
-    ADMIN_MANUFACTURERS,
-    ADMIN_ME_ID,
     JOB_DESCRIPTION_MAX_LENGTH,
     MAX_ADMIN_JOB_REJECTIONS,
     MAX_JOB_MANUFACTURERS,
-    PROJECT_LEADS,
     formatJobCodeTimestamp,
     generateJobCode,
     getAdminJobPayments,
@@ -61,8 +50,6 @@ export {
     getProjectLead,
     registerProjectLeads,
     registerManufacturers,
-    getAllProjectLeads,
-    getSampleCategoryPhoto,
     isRejectionFinal,
     settleAdminJob,
 };
@@ -197,18 +184,20 @@ export type AdminProfile = Pick<
     notificationPreferences: AdminNotificationPreferences;
 };
 
-const ME = getProjectLead(ADMIN_ME_ID) as AdminPerson;
-
-/** The signed-in admin — their account in the sample database. Sample data until the API is connected. */
-export const ADMIN_PROFILE: AdminProfile = {
-    firstName: ME.firstName,
-    lastName: ME.lastName,
-    email: ME.email,
-    phone: ME.phone,
-    position: ME.position,
-    avatarUrl: ME.avatarUrl,
-    joinedAt: ME.joinedAt,
-    security: { twoFactorMethod: ME.twoFactorMethod },
+/**
+ * A signed-in admin's profile before their account has loaded: blank, with
+ * the default notification choices. The real one comes from /auth/me (see
+ * AdminProfileProvider).
+ */
+export const BLANK_ADMIN_PROFILE: AdminProfile = {
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    position: "" as AdminProfile["position"],
+    avatarUrl: null,
+    joinedAt: "",
+    security: { twoFactorMethod: null },
     // Everything in the app, and by email too but for chats, which they'd rather read in the app
     notificationPreferences: {
         applications: channelsOn(["in-app", "email"]),
@@ -237,86 +226,11 @@ export type AdminNotification = {
     isRead: boolean;
 };
 
-export const ADMIN_NOTIFICATIONS: AdminNotification[] = [
-    {
-        id: "admin-notif-1",
-        type: "reviews",
-        actorName: "Demi Semande",
-        message: [{ strong: "Demi Semande" }, " has marked the ", { strong: "Metal Fabrication" }, " job as done."],
-        timestamp: "12 hrs ago",
-        isRead: false,
-    },
-    {
-        id: "admin-notif-2",
-        type: "chats",
-        actorName: "Demi Semande",
-        message: [{ strong: "Demi Semande" }, " sent you a chat"],
-        link: { label: "View", href: ADMIN_JOBS_URL },
-        timestamp: "12 hrs ago",
-        isRead: false,
-    },
-    {
-        id: "admin-notif-3",
-        type: "job-responses",
-        actorName: "Samuel Vava",
-        message: [{ strong: "Samuel Vava" }, " declined the ", { strong: "4 Office Desks" }, " job"],
-        timestamp: "12 hrs ago",
-        isRead: false,
-    },
-    {
-        id: "admin-notif-4",
-        type: "chats",
-        actorName: "Demi Semande",
-        message: [{ strong: "Demi Semande" }, " sent you a chat"],
-        link: { label: "View", href: ADMIN_JOBS_URL },
-        timestamp: "3 days ago",
-        isRead: true,
-    },
-    {
-        id: "admin-notif-5",
-        type: "job-responses",
-        actorName: "Demi Semande",
-        message: [{ strong: "Demi Semande" }, " accepted the ", { strong: "Metal Fabrication" }, " job"],
-        timestamp: "3 days ago",
-        isRead: true,
-    },
-];
-
 // ─── Dashboard ────────────────────────────────────────────────────────────────
-// The dashboard's numbers are worked out from the jobs — see
+// The dashboard's numbers come from the API's /reports endpoints — see
 // components/adminPlatform/dashboardPage/dashboardStats.ts.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-/**
- * A manufacturer's transaction, with who it's for — a row of the admin
- * Transactions page and the dashboard's Recent Transactions. Seen from the
- * manufacturer's side, as on their own Transactions page: a job payment is
- * money in; a withdrawal or plan payment is money out.
- */
-export type AdminTransaction = ManufacturerTransaction & {
-    manufacturerId: string;
-    manufacturerName: string;
-    companyName: string;
-    avatarUrl: string | null;
-};
-
-/** Every manufacturer's transactions, newest first — plans they paid by card included. */
-export function getAdminTransactions(manufacturers: AdminManufacturer[], jobs: AdminJob[]): AdminTransaction[] {
-    return manufacturers
-        .flatMap((manufacturer) =>
-            getManufacturerTransactions(manufacturer.id, jobs, { includeCardPayments: true }).map(
-                (transaction): AdminTransaction => ({
-                    ...transaction,
-                    manufacturerId: manufacturer.id,
-                    manufacturerName: manufacturer.contactName,
-                    companyName: manufacturer.companyName,
-                    avatarUrl: manufacturer.avatarUrl,
-                }),
-            ),
-        )
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || a.id.localeCompare(b.id));
-}
 
 /**
  * A manufacturer's progress update waiting for an admin to check it — proof
@@ -325,7 +239,7 @@ export function getAdminTransactions(manufacturers: AdminManufacturer[], jobs: A
  */
 export type PendingProgressReview = {
     id: string;
-    /** An ADMIN_JOBS id — "Review" opens that job. */
+    /** A job id — "Review" opens that job. */
     jobId: string;
     jobCode?: string;
     jobTitle: string;

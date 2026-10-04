@@ -2,9 +2,8 @@ import type { SelectOption } from "@/components/form/types";
 import type { SelectFilterItem } from "@/components/customTable/types";
 import type { StatusTone } from "@/components/customTable/statusBadge";
 import { getCountryName } from "@/constant/africanCountries";
-import { formatCompactPrice } from "@/lib/currency";
 import { getTimeAgoLabel } from "@/lib/date";
-import { getPricingPlan, type BillingCycle } from "@/constant/sampleData";
+import { type BillingCycle } from "@/constant/plans";
 import {
     JOB_PRODUCTION_STEPS,
     MAX_JOB_REJECTIONS,
@@ -17,19 +16,10 @@ import {
     type StepSubmission,
 } from "@/constant/jobWorkflow";
 import {
-    SAMPLE_JOBS as JOB_RECORDS,
-    SAMPLE_SUPPORT_FEEDBACK,
-    SAMPLE_WALLET_DEBITS,
-    SIGNED_IN_MANUFACTURER_ID,
     getJobRecordCharges,
     getJobRecordPayouts,
-    getManufacturer,
     getManufacturerShare,
     getProjectLead,
-    getSampleCategoryPhoto,
-    getSubscriptionPayments,
-    isOpenJobRecord,
-    settleJobRecord,
     type DocumentVerification,
     type JobRecord,
     type ManufacturerAddress,
@@ -40,7 +30,7 @@ import {
     type SupportFeedbackRecord,
     type TimelineExtensionRecord,
     type TwoFactorMethod,
-} from "@/constant/sampleDb";
+} from "@/constant/platformRecords";
 import {
     LayoutGrid,
     ListChecks,
@@ -49,6 +39,7 @@ import {
     UserRound,
     type LucideIcon,
 } from "lucide-react";
+import { DEFAULT_IMAGE } from "@/constant/global";
 
 export type RegistrationStep = {
     label: string;
@@ -178,37 +169,6 @@ export type DashboardStat = {
     subtext?: string;
     icon: "jobs" | "amount" | "delivery" | "quality";
 };
-
-/**
- * The dashboard's headline numbers: jobs completed, everything paid into
- * the wallet for jobs, completed jobs out of every one finished (completed
- * or rejected for the last time), and the average rating from their leads.
- */
-export function getDashboardStats(jobs: Job[], totalPaid: number): DashboardStat[] {
-    const completed = jobs.filter((job) => job.status === "completed").length;
-    const closed = jobs.filter(
-        (job) => job.status === "rejected" && (job.rejections?.length ?? 0) >= MAX_JOB_REJECTIONS,
-    ).length;
-    const ratings = MANUFACTURER_REVIEWS.map((review) => review.rating);
-    const averageRating = ratings.length > 0 ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length : 0;
-
-    return [
-        { id: "jobs-completed", label: "Total Jobs Completed", value: String(completed), icon: "jobs" },
-        { id: "amount-made", label: "Total Amount Made", value: formatCompactPrice(totalPaid), icon: "amount" },
-        {
-            id: "delivery-rate",
-            label: "Delivery Success Rate",
-            value: `${completed + closed > 0 ? Math.round((completed / (completed + closed)) * 100) : 0}%`,
-            icon: "delivery",
-        },
-        {
-            id: "quality-rating",
-            label: "Quality Control Rating",
-            value: `${Math.round(averageRating * 10) / 10} /5`,
-            icon: "quality",
-        },
-    ];
-}
 
 export type JobStatus =
     | "pending"
@@ -341,7 +301,7 @@ export type Job = {
     faultReport?: JobFaultReport | null;
     /** Their requests for a later due date, newest first. */
     extensionRequests: TimelineExtensionRecord[];
-    /** The job's project lead — a PROJECT_LEADS id, who they rate once it's completed. Null before one's set. */
+    /** The job's project lead — a project lead's id, who they rate once it's completed. Null before one's set. */
     leadId: string | null;
     /** Their rating of the project lead, once they've given it. */
     leadReview: { rating: number; comment: string; createdAt: string } | null;
@@ -449,14 +409,11 @@ export const JOB_SORT_OPTIONS: SelectFilterItem[] = [
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** The sample records, with every auto-approval that's come due applied. */
-const RECORDS = JOB_RECORDS.map((record) => settleJobRecord(record));
-
 /**
  * The signed-in manufacturer's latest offer of a job — null if it was never
  * offered to them, or was withdrawn before they answered.
  */
-function getOwnAssignment(record: JobRecord, manufacturerId: string = SIGNED_IN_MANUFACTURER_ID) {
+function getOwnAssignment(record: JobRecord, manufacturerId: string) {
     const assignment = record.assignmentHistory.find((candidate) =>
         candidate.manufacturerIds.includes(manufacturerId),
     );
@@ -489,7 +446,7 @@ function toManufacturerJob(
         commentCount: record.notes.length,
         price: getManufacturerShare(record, manufacturerId),
         category: record.category,
-        imageUrl: record.imageUrl || getSampleCategoryPhoto(record.category),
+        imageUrl: record.imageUrl || DEFAULT_IMAGE,
         deliveryLocation: record.deliveryLocation ? { city: record.deliveryLocation.city, state: record.deliveryLocation.state } : null,
         status: outcome === "awaiting" ? "pending" : isTheirs ? record.status : "cancelled",
         // Who they call about the job — its project lead
@@ -514,8 +471,8 @@ function toManufacturerJob(
     };
 }
 
-/** Every job offered to a manufacturer, as they see it — from `records` (the sample database by default). */
-export function getManufacturerJobs(manufacturerId: string, records: JobRecord[] = RECORDS): Job[] {
+/** Every job offered to a manufacturer, as they see it, from the API's job `records`. */
+export function getManufacturerJobs(manufacturerId: string, records: JobRecord[]): Job[] {
     return records.flatMap((record) => {
         const assignment = getOwnAssignment(record, manufacturerId);
         return assignment && assignment.outcome !== "reassigned"
@@ -524,33 +481,8 @@ export function getManufacturerJobs(manufacturerId: string, records: JobRecord[]
     });
 }
 
-/** The signed-in manufacturer, from the sample database. */
-const SIGNED_IN_MANUFACTURER = getManufacturer(SIGNED_IN_MANUFACTURER_ID) as ManufacturerRecord;
-
-/** Every job offered to the signed-in manufacturer. */
-export const JOBS: Job[] = getManufacturerJobs(SIGNED_IN_MANUFACTURER_ID);
-
-/** The signed-in manufacturer's account status, its history, and their appeals. */
-export const MANUFACTURER_ACCOUNT: Pick<ManufacturerRecord, "accountStatus" | "statusHistory" | "appeals"> = {
-    accountStatus: SIGNED_IN_MANUFACTURER.accountStatus,
-    statusHistory: SIGNED_IN_MANUFACTURER.statusHistory,
-    appeals: SIGNED_IN_MANUFACTURER.appeals,
-};
-
 /** Feedback as the manufacturer sees theirs — their own, so no need to say whose. */
 export type ManufacturerFeedback = Omit<SupportFeedbackRecord, "manufacturerId">;
-
-/** What the signed-in manufacturer has shared from Talk to support › Share feedback, newest first. */
-export const MANUFACTURER_FEEDBACK: ManufacturerFeedback[] = SAMPLE_SUPPORT_FEEDBACK.filter(
-    (feedback) => feedback.manufacturerId === SIGNED_IN_MANUFACTURER_ID,
-);
-
-/** Dashboard "Recent Jobs": active jobs, newest assignment first (unassigned count as newest). */
-export const RECENT_JOBS: Job[] = JOBS.filter(
-    (job) => job.status === "pending" || job.status === "in-progress",
-)
-    .sort((a, b) => (a.assignedDaysAgo ?? -1) - (b.assignedDaysAgo ?? -1))
-    .slice(0, 4);
 
 /**
  * Whether an assigned job still takes up one of the plan's concurrent job
@@ -635,35 +567,12 @@ export const OPEN_JOB_SORT_OPTIONS: SelectFilterItem[] = [
     { label: "Pay", value: "price" },
 ];
 
-/** Jobs with no manufacturer yet — any manufacturer can apply. */
-export const OPEN_JOBS: OpenJob[] = RECORDS.filter(isOpenJobRecord).map((record) => ({
-    id: record.id,
-    code: record.code,
-    title: record.title,
-    description: record.description,
-    category: record.category,
-    price: record.amount,
-    startDate: record.startDate ?? record.createdAt,
-    dueDate: record.dueDate,
-    postedAt: record.createdAt,
-    imageUrl: record.imageUrl,
-    deliveryLocation: record.deliveryLocation ? { city: record.deliveryLocation.city, state: record.deliveryLocation.state } : null,
-    attachments: record.attachments.map(({ name, url }) => ({ name, url })),
-}));
-
 export type JobApplication = {
     /** An OPEN_JOBS id. */
     jobId: string;
     /** ISO date the manufacturer applied. */
     appliedAt: string;
 };
-
-/** The signed-in manufacturer's applications still waiting for an answer. */
-export const MANUFACTURER_JOB_APPLICATIONS: JobApplication[] = RECORDS.flatMap((record) =>
-    record.applications
-        .filter((application) => application.manufacturerId === SIGNED_IN_MANUFACTURER_ID && application.status === "pending")
-        .map((application) => ({ jobId: record.id, appliedAt: application.appliedAt })),
-);
 
 export type NotificationItem = {
     id: string;
@@ -676,51 +585,11 @@ export type NotificationItem = {
     avatarName?: string;
 };
 
-export const NOTIFICATIONS: NotificationItem[] = [
-    {
-        id: "notif-1",
-        message: "Metal Fabrication job is currently under review",
-        timestamp: "4 hrs ago",
-        isRead: false,
-    },
-    {
-        id: "notif-2",
-        message: "Latade Dipe sent an attachment to you",
-        timestamp: "12 hrs ago",
-        isRead: false,
-        avatarName: "Latade Dipe",
-    },
-    {
-        id: "notif-3",
-        message: "You have 3 pending jobs awaiting a response",
-        timestamp: "1 day ago",
-        isRead: false,
-    },
-    {
-        id: "notif-4",
-        message: "Latade Dipe has assigned a new job order to you.",
-        linkLabel: "View details",
-        href: MANUFACTURER_JOBS_URL,
-        timestamp: "3 days ago",
-        isRead: true,
-        avatarName: "Latade Dipe",
-    },
-    {
-        id: "notif-5",
-        message: "Latade Dipe is your project lead on the Metal Fabrication job",
-        timestamp: "4 days ago",
-        isRead: true,
-    },
-];
-
-export const RECENT_SEARCHES = ["Cushions", "Desks", "Fabrication"];
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Manufacturer profile — the signed-in manufacturer's account and company
-// details, wallet (balance, bank account, transactions) and reviews. Sample
-// data until the backend is connected. The EMPTY_* shapes (and an empty
-// reviews list) are what a brand-new account looks like — every profile
-// screen has an empty state for them.
+// details, wallet (balance, bank account, transactions) and reviews, as
+// the API returns them. The EMPTY_* shapes are what a brand-new account (or
+// one still loading) looks like — every profile screen has an empty state.
 // ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -768,7 +637,7 @@ export type {
     SocialLoginProvider,
     TwoFactorMethod,
     VerificationStatus,
-} from "@/constant/sampleDb";
+} from "@/constant/platformRecords";
 
 export const PENDING_VERIFICATION: DocumentVerification = { status: "pending", rejectionReason: null };
 
@@ -832,9 +701,6 @@ export function toManufacturerProfile(record: ManufacturerRecord): ManufacturerP
         security: record.security,
     };
 }
-
-/** The signed-in manufacturer's profile, from the sample database. */
-export const MANUFACTURER_PROFILE: ManufacturerProfile = toManufacturerProfile(SIGNED_IN_MANUFACTURER);
 
 /**
  * Where a one-time code for a sensitive action (password change, withdrawal)
@@ -905,19 +771,12 @@ export const TRANSACTION_SORT_OPTIONS: SelectFilterItem[] = [
 ];
 
 /**
- * A manufacturer's wallet transactions, newest first — every payment made to
- * them for a job (from `records`, the sample database by default), and what
- * came out: withdrawals, charges for rejected work, and plans paid from the
- * balance. With `includeCardPayments`, plans they paid by card too —
- * everything they've spent on the platform, for admins.
+ * A manufacturer's job money, newest first, worked out from `records`: every
+ * payment made to them for a job, and every charge for rejected work.
+ * Withdrawals and plan payments aren't in the jobs, so they're not here: the
+ * wallet and reports APIs have the full ledger.
  */
-export function getManufacturerTransactions(
-    manufacturerId: string,
-    records: JobRecord[] = RECORDS,
-    { includeCardPayments = false }: { includeCardPayments?: boolean } = {},
-): ManufacturerTransaction[] {
-    const manufacturer = getManufacturer(manufacturerId);
-    const planPayments = manufacturer ? getSubscriptionPayments(manufacturer) : [];
+export function getManufacturerTransactions(manufacturerId: string, records: JobRecord[]): ManufacturerTransaction[] {
     return [
         ...records
             .flatMap((record) => getJobRecordPayouts(record))
@@ -945,44 +804,8 @@ export function getManufacturerTransactions(
                     amount: charge.amount,
                 }),
             ),
-        ...SAMPLE_WALLET_DEBITS.filter((debit) => debit.manufacturerId === manufacturerId).map(
-            (debit): ManufacturerTransaction => ({
-                id: debit.id,
-                type: debit.type,
-                label: debit.label,
-                projectName: null,
-                date: debit.date,
-                amount: debit.amount,
-            }),
-        ),
-        ...planPayments
-            .filter((payment) => includeCardPayments || payment.paidFrom === "wallet")
-            .map(
-                (payment): ManufacturerTransaction => ({
-                    id: payment.id,
-                    type: "subscription",
-                    label: `${getPricingPlan(payment.planId)?.name ?? "Plan"} plan${payment.billingCycle === "annual" ? " (yearly)" : ""}`,
-                    projectName: null,
-                    date: payment.paidAt,
-                    amount: payment.amount,
-                    ...(payment.paidFrom === "card" && { paidByCard: true }),
-                }),
-            ),
     ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || a.id.localeCompare(b.id));
 }
-
-/** Newest first — the order the profile preview and "All" sort show. */
-const SAMPLE_TRANSACTIONS = getManufacturerTransactions(SIGNED_IN_MANUFACTURER_ID);
-
-/**
- * The signed-in manufacturer's plans paid by card — not wallet transactions,
- * so not in their wallet, but part of what they've spent on subscriptions.
- */
-export const MANUFACTURER_CARD_PLAN_PAYMENTS: ManufacturerTransaction[] = getManufacturerTransactions(
-    SIGNED_IN_MANUFACTURER_ID,
-    RECORDS,
-    { includeCardPayments: true },
-).filter((transaction) => transaction.paidByCard);
 
 export type TransactionSummary = {
     /** Paid in for jobs. */
@@ -1020,8 +843,6 @@ export function getTransactionSummary(transactions: ManufacturerTransaction[]): 
     return summary;
 }
 
-const SAMPLE_BALANCE = getTransactionSummary(SAMPLE_TRANSACTIONS).balance;
-
 /** Account numbers are 10-digit NUBANs. */
 export const BANK_ACCOUNT_NUMBER_LENGTH = 10;
 
@@ -1041,42 +862,6 @@ export const EMPTY_MANUFACTURER_WALLET: ManufacturerWallet = {
     transactions: [],
 };
 
-export const MANUFACTURER_WALLET: ManufacturerWallet = {
-    balance: SAMPLE_BALANCE,
-    bankAccount: SIGNED_IN_MANUFACTURER.bankAccount,
-    transactions: SAMPLE_TRANSACTIONS,
-};
-
-/**
- * Nigerian banks, labelled by name with the bank's code as the value. Sample
- * list until the banking API provides it.
- */
-export const NIGERIAN_BANKS: SelectOption[] = [
-    { label: "Access Bank", value: "044" },
-    { label: "Citibank Nigeria", value: "023" },
-    { label: "Ecobank Nigeria", value: "050" },
-    { label: "Fidelity Bank", value: "070" },
-    { label: "First Bank of Nigeria", value: "011" },
-    { label: "First City Monument Bank", value: "214" },
-    { label: "Globus Bank", value: "00103" },
-    { label: "Guaranty Trust Bank", value: "058" },
-    { label: "Heritage Bank", value: "030" },
-    { label: "Keystone Bank", value: "082" },
-    { label: "Kuda Bank", value: "50211" },
-    { label: "Moniepoint MFB", value: "50515" },
-    { label: "OPay", value: "999992" },
-    { label: "PalmPay", value: "999991" },
-    { label: "Polaris Bank", value: "076" },
-    { label: "Providus Bank", value: "101" },
-    { label: "Stanbic IBTC Bank", value: "221" },
-    { label: "Standard Chartered Bank", value: "068" },
-    { label: "Sterling Bank", value: "232" },
-    { label: "Union Bank of Nigeria", value: "032" },
-    { label: "United Bank for Africa", value: "033" },
-    { label: "Unity Bank", value: "215" },
-    { label: "Wema Bank", value: "035" },
-    { label: "Zenith Bank", value: "057" },
-];
 
 export type ManufacturerReview = {
     id: string;
@@ -1087,26 +872,9 @@ export type ManufacturerReview = {
     comment: string;
 };
 
-/**
- * Newest first — the order the profile preview and reviews page show. The
- * ratings leads left on the signed-in manufacturer's completed jobs.
- */
-export const MANUFACTURER_REVIEWS: ManufacturerReview[] = RECORDS.flatMap((record) =>
-    record.status === "completed" && record.manufacturerReview && getOwnAssignment(record)?.outcome === "accepted"
-        ? [{ jobId: record.id, ...record.manufacturerReview }]
-        : [],
-)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .map((review) => ({
-        id: `review-${review.jobId}`,
-        customerName: review.authorName,
-        rating: review.rating,
-        comment: review.comment,
-    }));
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Subscription — the manufacturer's plan (a PRICING_PLANS id) and the cards
-// saved for paying for it. Sample data until the backend is connected.
+// saved for paying for it, as the API returns them.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type ManufacturerSubscription = {
@@ -1136,13 +904,3 @@ export type SavedCard = {
     expiry: string;
 };
 
-export const MANUFACTURER_SUBSCRIPTION: ManufacturerSubscription = {
-    ...SIGNED_IN_MANUFACTURER.subscription,
-    status: "active",
-    cancelAtPeriodEnd: false,
-    scheduledPlanId: null,
-};
-
-export const MANUFACTURER_SAVED_CARDS: SavedCard[] = [
-    { id: "card-1", brand: "Visa", last4: "4242", expiry: "08/27" },
-];

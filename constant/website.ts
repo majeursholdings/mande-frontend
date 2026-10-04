@@ -12,12 +12,12 @@ import {
     REVIEW_WINDOW_HOURS,
 } from "@/constant/jobWorkflow";
 import {
-    PRICING_PLANS,
     getAnnualSavingPercent,
+    isSoloPlan,
     getPlanListPrice,
     getPlanPrice,
     type PricingPlan,
-} from "@/constant/sampleData";
+} from "@/constant/plans";
 import { SUPPORT_HOURS } from "@/constant/support";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -35,7 +35,7 @@ export type WebsiteFaqGroup = {
     faqs: WebsiteFaq[];
 };
 
-/** "Solo Artisan and Workshop" — lists the way people say them. */
+/** "Solo Artisan and Workshop": lists the way people say them. */
 function joinList(items: string[]): string {
     return items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`;
 }
@@ -51,7 +51,7 @@ const PAYMENT_SHARES = joinList(
     ),
 );
 
-export function formatPlanPricesList(discountPercent: number = 0, plans: PricingPlan[] = PRICING_PLANS): string {
+export function formatPlanPricesList(discountPercent: number, plans: PricingPlan[]): string {
     return joinList(
         plans.map((plan, index) => {
             const price = formatPrice(getPlanPrice(plan, "monthly", discountPercent));
@@ -61,16 +61,22 @@ export function formatPlanPricesList(discountPercent: number = 0, plans: Pricing
     );
 }
 
-const JOB_SLOTS = joinList(
-    PRICING_PLANS.map((plan) =>
-        plan.maxConcurrentJobs === null ? `unlimited on ${plan.name}` : `${plan.maxConcurrentJobs} on ${plan.name}`,
-    ),
-);
+const formatJobSlots = (plans: PricingPlan[]) =>
+    joinList(
+        plans.map((plan) =>
+            plan.maxConcurrentJobs === null ? `unlimited on ${plan.name}` : `${plan.maxConcurrentJobs} on ${plan.name}`,
+        ),
+    );
 
-export function getWebsiteFaqGroups(discountPercent: number = 0, plans: PricingPlan[] = PRICING_PLANS): WebsiteFaqGroup[] {
+/** The FAQs, with the plans' names, prices and job slots as the API has them. */
+export function getWebsiteFaqGroups(discountPercent: number, plans: PricingPlan[]): WebsiteFaqGroup[] {
+    const JOB_SLOTS = formatJobSlots(plans);
     const planNames = plans.map((plan) => plan.name);
     const planPrices = formatPlanPricesList(discountPercent, plans);
-    const annualSaving = getAnnualSavingPercent(plans[0]);
+    const annualSaving = plans[0] ? getAnnualSavingPercent(plans[0]) : 0;
+    // The plan that needs no business documents (see requiresBusinessDocuments), and the ones that do
+    const soloPlan = plans.find((plan) => isSoloPlan(plan.id));
+    const documentPlanNames = plans.filter((plan) => !isSoloPlan(plan.id)).map((plan) => plan.name);
 
     return [
         {
@@ -79,19 +85,22 @@ export function getWebsiteFaqGroups(discountPercent: number = 0, plans: PricingP
             faqs: [
                 {
                     question: "What is MANDE?",
-                    answer: "MANDE connects furniture makers and woodworkers with real furniture jobs. You take a job on, build it stage by stage, and get paid as each stage is approved — so your pay is protected from the first cut.",
+                    answer: "MANDE connects furniture makers and woodworkers with real furniture jobs. You take a job on, build it stage by stage, and get paid as each stage is approved, so your pay is protected from the first cut.",
                 },
                 {
                     question: "Who can join?",
-                    answer: `Furniture makers and workshops of any size, from a single artisan to a studio of ten or more. There are ${plans.length} plans — ${joinList(planNames)} — so you can pick the one that fits your team.`,
+                    answer: `Furniture makers and workshops of any size, from a single artisan to a studio of ten or more. There are ${plans.length} plans (${joinList(planNames)}), so you can pick the one that fits your team.`,
                 },
                 {
                     question: "How do I sign up?",
-                    answer: "Create your profile, choose a plan and upload a photo of your NIN card. Our team checks every NIN card before an account is verified — it usually takes 1–2 working days, and you'll get a notification once it's done.",
+                    answer: "Create your profile, choose a plan and upload a photo of your NIN card. Our team checks every NIN card before an account is verified. It usually takes 1–2 working days, and you'll get a notification once it's done.",
                 },
                 {
                     question: "Do I need business documents?",
-                    answer: `On the ${plans[0].name} plan, your NIN card is all you need. On ${joinList(planNames.slice(1))}, add your company tax number and business license number too.`,
+                    answer:
+                        soloPlan && documentPlanNames.length > 0
+                            ? `On the ${soloPlan.name} plan, your NIN card is all you need. On ${joinList(documentPlanNames)}, add your company tax number and business license number too.`
+                            : "Your NIN card, plus your company tax number and business license number if you're a registered business.",
                 },
             ],
         },
@@ -109,11 +118,11 @@ export function getWebsiteFaqGroups(discountPercent: number = 0, plans: PricingP
                 },
                 {
                     question: "How does a job run?",
-                    answer: `Every job moves through ${JOB_PRODUCTION_STEPS.length} stages — ${joinList(JOB_PRODUCTION_STEPS.map((step) => step.label))}. At each one you send up to ${MAX_STEP_PROOF_PHOTOS} photos as proof, and your project lead approves it.`,
+                    answer: `Every job moves through ${JOB_PRODUCTION_STEPS.length} stages: ${joinList(JOB_PRODUCTION_STEPS.map((step) => step.label))}. At each one you send up to ${MAX_STEP_PROOF_PHOTOS} photos as proof, and your project lead approves it.`,
                 },
                 {
                     question: "What if I can't meet the due date?",
-                    answer: `Report a delay from the job as early as you can and pick a new date — up to ${MAX_EXTENSION_PERCENT}% longer than the job's original timeline. Your project lead approves or declines it, and the customer is kept in the loop.`,
+                    answer: `Report a delay from the job as early as you can and pick a new date, up to ${MAX_EXTENSION_PERCENT}% longer than the job's original timeline. Your project lead approves or declines it, and the customer is kept in the loop.`,
                 },
                 {
                     question: "What happens if my finished work is rejected?",
@@ -131,15 +140,15 @@ export function getWebsiteFaqGroups(discountPercent: number = 0, plans: PricingP
                 },
                 {
                     question: "Is there a bonus?",
-                    answer: `Yes — ${JOB_BONUS_PERCENT}% of your labour on top, when you deliver on time with no stage sent back and no fault reported in the ${FAULT_REPORT_DAYS} days after sign-off.`,
+                    answer: `Yes: ${JOB_BONUS_PERCENT}% of your labour on top, when you deliver on time with no stage sent back and no fault reported in the ${FAULT_REPORT_DAYS} days after sign-off.`,
                 },
                 {
                     question: "How quickly is my work reviewed?",
-                    answer: `Project leads review each stage's proof. If no one has reviewed it within ${REVIEW_WINDOW_HOURS} hours, it's approved automatically — Sundays aren't counted.`,
+                    answer: `Project leads review each stage's proof. If no one has reviewed it within ${REVIEW_WINDOW_HOURS} hours, it's approved automatically (Sundays aren't counted).`,
                 },
                 {
                     question: "Who pays for materials?",
-                    answer: "Timber and fittings are bought out of the money held for the job — by you or by MANDE, decided job by job.",
+                    answer: "Timber and fittings are bought out of the money held for the job, by you or by MANDE, decided job by job.",
                 },
                 {
                     question: "How do withdrawals work?",
@@ -174,18 +183,16 @@ export function getWebsiteFaqGroups(discountPercent: number = 0, plans: PricingP
             faqs: [
                 {
                     question: "How do I keep my account safe?",
-                    answer: "Turn on two-factor authentication from Security — a code from your email or an authenticator app when you log in. Sensitive actions, like changing your password or withdrawing, ask for a code too.",
+                    answer: "Turn on two-factor authentication from Security: a code from your email or an authenticator app when you log in. Sensitive actions, like changing your password or withdrawing, ask for a code too.",
                 },
                 {
                     question: "What does it mean if my account is flagged or suspended?",
-                    answer: "A flagged account can hold one job at a time until the flag is lifted. A suspended account is paused — you can't take on or work on jobs, or withdraw — but you can send an appeal, and an admin will look at it.",
+                    answer: "A flagged account can hold one job at a time until the flag is lifted. A suspended account is paused (you can't take on or work on jobs, or withdraw), but you can send an appeal, and an admin will look at it.",
                 },
             ],
         },
     ];
 }
-
-export const WEBSITE_FAQ_GROUPS: WebsiteFaqGroup[] = getWebsiteFaqGroups(0);
 
 export const CONTACT_TOPIC_OPTIONS: SelectOption[] = [
     { label: "I'm a furniture maker", value: "maker" },
@@ -196,7 +203,7 @@ export const CONTACT_TOPIC_OPTIONS: SelectOption[] = [
 ];
 
 export const CONTACT_DETAILS = {
-    // Sample address on the company domain — confirm the real inbox before launch
+    // Confirm this inbox is set up before launch
     email: "hello@mande.com.ng",
     hours: SUPPORT_HOURS,
 };

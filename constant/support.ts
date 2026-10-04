@@ -1,8 +1,8 @@
 import type { SelectOption } from "@/components/form/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Talk to support — FAQs and feedback categories. Sample FAQs; like the legal
-// documents, they'd sit well in the CMS (see lib/cms/legal.ts).
+// Talk to support — FAQs and feedback categories. Like the legal documents,
+// the FAQs would sit well in the CMS (see lib/cms/legal.ts).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type SupportFaq = {
