@@ -11,16 +11,13 @@ import {
     type Job,
     type JobsFilter,
 } from "@/constant/manufacturer";
-import { useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@/lib/queryKeys";
-import { jobsService } from "@/lib/services/jobsService";
-import { mapApiJobToManufacturerJob, type ApiJobPayload } from "@/lib/mappers/jobMappers";
 import EmptyState from "../dashboardPage/emptyState";
 import JobCardSkeleton from "@/components/ui/jobCardSkeleton";
 import LoadError from "../loadError";
 import JobCard from "./jobCard";
 import { FilterChips, FilterDropdown, type FilterOption } from "./jobFilters";
 import { SortByDropdown } from "./sortByDropdown";
+import { useMyJobList } from "@/components/manufacturerPlatform/dashboardLayout/useManufacturerJobLists";
 
 function sortJobs(jobs: Job[], sortBy: string): Job[] {
     if (sortBy === "name") return [...jobs].sort((a, b) => a.title.localeCompare(b.title));
@@ -57,16 +54,9 @@ export default function ActiveJobsPanel({
 } = {}) {
     const isExternalJobs = initialJobs !== undefined;
 
-    const { data: apiData, isPending, isError } = useQuery({
-        queryKey: queryKeys.jobs.lists(),
-        queryFn: () => jobsService.getMyJobs(),
-        enabled: !isExternalJobs,
-    });
-
-    const allJobs = useMemo(() => {
-        if (isExternalJobs) return initialJobs ?? [];
-        return (apiData?.jobs ?? []).map((j: ApiJobPayload) => mapApiJobToManufacturerJob(j));
-    }, [isExternalJobs, initialJobs, apiData]);
+    // The same list (and cache) as the job slots and search use
+    const { jobs: myJobs, isPending, isError } = useMyJobList();
+    const allJobs = useMemo(() => (isExternalJobs ? (initialJobs ?? []) : myJobs), [isExternalJobs, initialJobs, myJobs]);
 
     const [filter, setFilter] = useState<JobsFilter>("all");
     const [sortBy, setSortBy] = useState("");

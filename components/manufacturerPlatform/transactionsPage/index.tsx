@@ -2,16 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { ReceiptText } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
 import {
     TRANSACTION_SORT_OPTIONS,
     getCurrentJobsWorth,
     getTransactionSummary,
-    type Job,
 } from "@/constant/manufacturer";
-import { queryKeys } from "@/lib/queryKeys";
-import { jobsService } from "@/lib/services/jobsService";
-import { mapApiJobToManufacturerJob, type ApiJobPayload } from "@/lib/mappers/jobMappers";
 import { useManufacturerWallet } from "../dashboardLayout/manufacturerWalletContext";
 import { SortByDropdown } from "../jobsPage/sortByDropdown";
 import EmptyState from "../dashboardPage/emptyState";
@@ -20,19 +15,13 @@ import BalanceCard from "./balanceCard";
 import TransactionsList, { sortTransactions } from "./transactionsList";
 import WalletActions from "./walletActions";
 import WalletSummary, { getWalletFigures } from "./walletSummary";
+import { useMyJobList } from "@/components/manufacturerPlatform/dashboardLayout/useManufacturerJobLists";
 
 export default function ManufacturerTransactionsPage() {
     const { wallet, isLoading: isWalletLoading, isError: isWalletError } = useManufacturerWallet();
     const [sortBy, setSortBy] = useState("");
 
-    const { data: jobsData, isPending: isJobsPending } = useQuery({
-        queryKey: queryKeys.jobs.lists(),
-        queryFn: () => jobsService.getMyJobs(),
-    });
-
-    const activeJobs: Job[] = useMemo(() => {
-        return (jobsData?.jobs ?? []).map((j: ApiJobPayload) => mapApiJobToManufacturerJob(j));
-    }, [jobsData]);
+    const { jobs: activeJobs, isPending: isJobsPending } = useMyJobList();
 
     const transactions = useMemo(
         () => sortTransactions(wallet.transactions, sortBy),

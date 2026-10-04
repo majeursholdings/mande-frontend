@@ -1,11 +1,14 @@
 import { api } from "@/lib/api";
 
+/**
+ * What the API's job lists take: a page size (up to 50) and a date cursor.
+ * Nothing else: they're strict, and an unknown key is a 422. Filter and
+ * search the loaded list instead.
+ */
 export interface JobQueryFilters {
-  status?: string;
-  category?: string;
-  search?: string;
-  page?: number;
   limit?: number;
+  /** ISO date: jobs created before it (the previous page's nextBefore). */
+  before?: string;
 }
 
 export interface StepProofPayload {

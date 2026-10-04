@@ -6,10 +6,6 @@ import {
     getJobCategoryLabel,
     type OpenJob,
 } from "@/constant/manufacturer";
-import { useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@/lib/queryKeys";
-import { jobsService } from "@/lib/services/jobsService";
-import { mapApiOpenJobToOpenJob, type ApiJobPayload } from "@/lib/mappers/jobMappers";
 import { useJobApplications } from "../dashboardLayout/jobApplicationsContext";
 import EmptyState from "../dashboardPage/emptyState";
 import JobCardSkeleton from "@/components/ui/jobCardSkeleton";
@@ -18,6 +14,7 @@ import { OpenJobCard } from "./jobCard";
 import { FilterChips } from "./jobFilters";
 import JobSlotsSummary from "./jobSlotsSummary";
 import { SortByDropdown } from "./sortByDropdown";
+import { useOpenJobList } from "@/components/manufacturerPlatform/dashboardLayout/useManufacturerJobLists";
 
 type OpenJobsFilter = "all" | "applied";
 
@@ -53,14 +50,8 @@ export default function OpenJobsPanel() {
     const [filter, setFilter] = useState<OpenJobsFilter>("all");
     const [sortBy, setSortBy] = useState("");
 
-    const { data: apiData, isPending, isError } = useQuery({
-        queryKey: queryKeys.jobs.openJobs(),
-        queryFn: () => jobsService.getOpenJobs(),
-    });
-
-    const openJobsList = useMemo(() => {
-        return (apiData?.jobs ?? []).map((j: ApiJobPayload) => mapApiOpenJobToOpenJob(j));
-    }, [apiData]);
+    // The same list (and cache) as the job slots and search use
+    const { jobs: openJobsList, isPending, isError } = useOpenJobList();
 
     const sortedJobs = useMemo(() => sortOpenJobs(openJobsList, sortBy), [openJobsList, sortBy]);
     const appliedJobs = sortedJobs.filter((job) => getApplication(job.id));
