@@ -3,11 +3,19 @@ import { Toaster } from "sonner";
 import { inter } from "./fonts";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { SITE_URL } from "@/lib/site";
+import { SITE_NAME } from "@/lib/seo";
 import { QueryProvider } from "@/components/providers/queryProvider";
 
 export const metadata: Metadata = {
-  title: "Mande",
-  description: "Mande Platform",
+  // Lets pages give relative canonical and Open Graph addresses
+  metadataBase: new URL(SITE_URL),
+  title: "MANDE | Grow your furniture business",
+  description:
+    "Find real furniture jobs, get paid as each stage is approved, and build on the country's top machines at our Lagos factory.",
+  applicationName: SITE_NAME,
+  openGraph: { siteName: SITE_NAME, locale: "en_NG", type: "website" },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({
