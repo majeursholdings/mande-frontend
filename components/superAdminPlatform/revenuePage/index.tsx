@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Banknote, Gift, Scale, TrendingUp, type LucideIcon } from "lucide-react";
 import {
     DataTable,
@@ -13,17 +14,19 @@ import UserAvatar from "@/components/ui/userAvatar";
 import { cn } from "@/lib/utils";
 import { formatCompactPrice, formatPrice } from "@/lib/currency";
 import { formatOrdinalDate } from "@/lib/date";
-import { useIsClient } from "@/hooks/useIsClient";
+import { queryKeys } from "@/lib/queryKeys";
+import { reportsService } from "@/lib/services/reportsService";
 import AdminPageHeader from "@/components/adminPlatform/pageHeader";
 import { StatCard, StatCardRow } from "@/components/adminPlatform/statCard";
-import { useAdminJobs } from "@/components/adminPlatform/dashboardLayout/adminJobsContext";
+import { ReportError, StatCardSkeleton } from "@/components/adminPlatform/dashboardPage/reportStates";
 import { useStaffPlatform } from "@/components/adminPlatform/dashboardLayout/staffPlatformContext";
 import {
     REVENUE_ENTRY_TYPES,
-    getRevenueEntries,
-    getRevenueSummary,
     getRevenueTypeLabel,
+    toRevenueEntry,
+    toRevenueSummary,
     type RevenueEntry,
+    type RevenueSummary,
 } from "./revenueStats";
 
 const TABLE_ID = "revenue";
@@ -36,20 +39,36 @@ const SORT_OPTIONS: SortOptionDef<RevenueEntry>[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SuperAdminRevenuePage — the platform's own money: what's come in from
+// SuperAdminRevenuePage: the platform's own money: what's come in from
 // manufacturers' plans and from charges for rejected work, the on-time
-// bonuses paid out of it, and what that leaves. Then every entry, to search,
-// filter by kind and sort. Worked out in the browser, as of now: the sample
-// payments are counted up to the moment the page opens.
+// bonuses paid out of it, and what that leaves (/reports/revenue/summary).
+// Then every entry (/reports/revenue), to search, filter by kind and sort.
+// The API pages by date, so every page is loaded up front (see
+// getAllPlatformRevenue) and the table searches, sorts and pages them here.
 // ─────────────────────────────────────────────────────────────────────────────
+
+const NO_SUMMARY: RevenueSummary = {
+    subscription: { total: 0, count: 0 },
+    charge: { total: 0, count: 0 },
+    bonus: { total: 0, count: 0 },
+    net: 0,
+};
 
 export default function SuperAdminRevenuePage() {
     const router = useRouter();
-    const { jobs } = useAdminJobs();
     const { getManufacturerUrl } = useStaffPlatform();
-    const isClient = useIsClient();
-    const entries = isClient ? getRevenueEntries(jobs) : [];
-    const summary = getRevenueSummary(entries);
+    const summaryQuery = useQuery({
+        queryKey: queryKeys.reports.revenueSummary(),
+        queryFn: () => reportsService.getRevenueSummary(),
+        staleTime: 30_000,
+    });
+    const entriesQuery = useQuery({
+        queryKey: queryKeys.reports.revenue({ all: true }),
+        queryFn: () => reportsService.getAllPlatformRevenue(),
+        staleTime: 30_000,
+    });
+    const entries = (entriesQuery.data ?? []).map(toRevenueEntry);
+    const summary = summaryQuery.data ? toRevenueSummary(summaryQuery.data.summary) : NO_SUMMARY;
 
     const { rows, pagination } = useTableRows({
         tableId: TABLE_ID,
@@ -156,26 +175,40 @@ export default function SuperAdminRevenuePage() {
                 description="What the platform has made: plan payments and charges for rejected work, less the on-time bonuses it pays."
             />
 
-            <StatCardRow>
-                {cards.map((card) => (
-                    <StatCard
-                        key={card.key}
-                        label={card.label}
-                        value={isClient ? formatCompactPrice(card.amount) : "…"}
-                        fullValue={isClient ? formatPrice(card.amount) : undefined}
-                        icon={card.icon}
-                        iconClassName={card.iconClassName}
-                        footer={isClient ? card.footer : "Adding it up"}
-                    />
-                ))}
-            </StatCardRow>
+            {summaryQuery.isError ? (
+                <ReportError message="Couldn't load the revenue totals. Please refresh to try again." />
+            ) : (
+                <StatCardRow>
+                    {cards.map((card) =>
+                        summaryQuery.isPending ? (
+                            <StatCardSkeleton
+                                key={card.key}
+                                label={card.label}
+                                icon={card.icon}
+                                iconClassName={card.iconClassName}
+                            />
+                        ) : (
+                            <StatCard
+                                key={card.key}
+                                label={card.label}
+                                value={formatCompactPrice(card.amount)}
+                                fullValue={formatPrice(card.amount)}
+                                icon={card.icon}
+                                iconClassName={card.iconClassName}
+                                footer={card.footer}
+                            />
+                        ),
+                    )}
+                </StatCardRow>
+            )}
 
             <DataTable
                 tableId={TABLE_ID}
                 columns={columns}
                 rows={rows}
                 pagination={pagination}
-                loading={!isClient}
+                loading={entriesQuery.isPending}
+                error={entriesQuery.isError ? "Couldn't load the revenue. Please refresh to try again." : undefined}
                 emptyMessage="No revenue matches your search."
                 onRowClick={(entry) => {
                     if (entry.companyName) router.push(getManufacturerUrl(entry.manufacturerId));

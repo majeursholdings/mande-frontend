@@ -7,7 +7,7 @@ import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { Button } from "@/components/ui/button";
 import { FormSubmitButton } from "@/components/adminPlatform/form/formButtons";
-import { NOT_INCLUDED, type PricingPlan } from "@/constant/sampleData";
+import { NOT_INCLUDED, type PricingPlan } from "@/constant/plans";
 import type { PlanChanges } from "../settingsContext";
 
 /** The feature that's also the plan's job limit (maxConcurrentJobs). */

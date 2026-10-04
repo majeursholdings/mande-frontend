@@ -39,8 +39,9 @@ type SuperAdminRow = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function SuperAdminsTab() {
-    const { superAdmins, invites, inviteSuperAdmin, resendInvite, cancelInvite, changeSuperAdminRole } =
+    const { superAdmins, invites, inviteSuperAdmin, resendInvite, cancelInvite, changeSuperAdminRole, sectionStatus } =
         useSuperAdminSettings();
+    const { isLoading, isError } = sectionStatus.superAdmins;
     const { profile } = useAdminProfile();
     const { permissions } = useStaffPlatform();
     const [isInviting, setIsInviting] = useState(false);
@@ -179,6 +180,8 @@ export default function SuperAdminsTab() {
                 rows={rows}
                 rowActions={rowActions}
                 compact
+                loading={isLoading}
+                error={isError && rows.length === 0 ? "We couldn't load the super admins. Please refresh the page." : undefined}
                 emptyMessage="No super admins yet."
             />
 

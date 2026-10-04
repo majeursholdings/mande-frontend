@@ -3,20 +3,30 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { CreditCard, Loader2, Mail, PauseCircle, Phone, Trash2, UserRoundX, type LucideIcon } from "lucide-react";
+import {
+    CreditCard,
+    Landmark,
+    Loader2,
+    Mail,
+    PauseCircle,
+    Phone,
+    Trash2,
+    UserRoundX,
+    type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatPrice } from "@/lib/currency";
+import { formatPrice, fromKobo } from "@/lib/currency";
 import { getRelativeTimeLabel } from "@/lib/date";
 import { AttachmentList } from "@/components/adminPlatform/jobDetailPage/detailParts";
 import { RatingStarsDisplay } from "@/components/adminPlatform/jobDetailPage/manufacturerRating";
 import { useStaffPlatform } from "@/components/adminPlatform/dashboardLayout/staffPlatformContext";
 import { getAdminManufacturer, getProjectLead } from "@/constant/admin";
-import { getPricingPlan } from "@/constant/sampleData";
 import { API_PROVIDERS, SUPER_ADMIN_SETTINGS_URL } from "@/constant/superAdmin";
 import { CONTACT_TOPIC_OPTIONS } from "@/constant/website";
 import type { SuperAdminAction } from "../actions/pendingActions";
+import { usePlans } from "@/hooks/usePlans";
 
-/** What each action's buttons do — the page opens the dialog for it. */
+/** What each action's buttons do: the page opens the dialog for it. */
 export type ActionHandlers = {
     onDeleteAccount: (manufacturerId: string) => void;
     onTurnDownDeletion: (manufacturerId: string) => void;
@@ -37,6 +47,7 @@ const ICONS: Record<SuperAdminAction["kind"], { icon: LucideIcon; className: str
     "account-deletion": { icon: Trash2, className: "bg-error-50 text-error-600", label: "Account closing" },
     "held-job": { icon: PauseCircle, className: "bg-warning-50 text-warning-700", label: "Low job rating" },
     "lead-rating": { icon: UserRoundX, className: "bg-indigo-50 text-indigo-600", label: "Low lead rating" },
+    "stuck-withdrawal": { icon: Landmark, className: "bg-warning-50 text-warning-700", label: "Stuck withdrawal" },
     "contact-message": { icon: Mail, className: "bg-primary-50 text-primary-700", label: "Contact message" },
     payments: { icon: CreditCard, className: "bg-error-50 text-error-600", label: "Payments" },
 };
@@ -48,6 +59,9 @@ const providerLabel = (provider: string | null) => API_PROVIDERS.find((option) =
 /** One thing waiting for a super admin: what it is, what's behind it, and the buttons to deal with it. */
 export default function ActionCard({ action, handlers, now }: { action: SuperAdminAction; handlers: ActionHandlers; now: Date }) {
     const { getManufacturerUrl, jobsUrl, permissions } = useStaffPlatform();
+    const jobLink = (jobId: string, code: string | undefined) =>
+        `${jobsUrl}?job=${encodeURIComponent(code ? code.toLowerCase() : jobId)}`;
+    const { getPlan } = usePlans();
     const { icon: Icon, className, label } = ICONS[action.kind];
     const since = action.at ? getRelativeTimeLabel(new Date(action.at), now) : null;
 
@@ -57,29 +71,31 @@ export default function ActionCard({ action, handlers, now }: { action: SuperAdm
 
     switch (action.kind) {
         case "account-deletion": {
-            const { manufacturer, request } = action;
-            title = `Delete the ${manufacturer.companyName} account?`;
+            const { request, manufacturer } = action;
+            const planName = manufacturer ? (getPlan(manufacturer.subscription?.planId)?.name ?? "no") : null;
+            const attachments = manufacturer?.deletionRequest?.attachments ?? [];
+            title = `Delete the ${request.companyName} account?`;
             body = (
                 <>
                     <p className="text-sm font-text text-mist-600">
-                        {request.requestedBy} asked to close {manufacturer.contactName}&apos;s account (
-                        {getPricingPlan(manufacturer.subscription?.planId ?? "growth")?.name ?? "no"} plan).
+                        {request.requestedByName} asked to close {request.manufacturerName}&apos;s account
+                        {planName ? ` (${planName} plan)` : ""}.
                     </p>
                     <blockquote className="rounded-lg bg-mist-50 px-4 py-3 text-sm font-text whitespace-pre-line text-mist-800">
                         {request.reason}
                     </blockquote>
-                    {request.attachments.length > 0 && <AttachmentList attachments={request.attachments} />}
+                    {attachments.length > 0 && <AttachmentList attachments={attachments} />}
                 </>
             );
             buttons = (
                 <>
-                    <Link href={getManufacturerUrl(manufacturer.id)} className={SECONDARY}>
+                    <Link href={getManufacturerUrl(request.manufacturerId)} className={SECONDARY}>
                         View account
                     </Link>
-                    <button type="button" onClick={() => handlers.onTurnDownDeletion(manufacturer.id)} className={SECONDARY}>
+                    <button type="button" onClick={() => handlers.onTurnDownDeletion(request.manufacturerId)} className={SECONDARY}>
                         Turn down
                     </button>
-                    <button type="button" onClick={() => handlers.onDeleteAccount(manufacturer.id)} className={DANGER}>
+                    <button type="button" onClick={() => handlers.onDeleteAccount(request.manufacturerId)} className={DANGER}>
                         Close account
                     </button>
                 </>
@@ -87,22 +103,26 @@ export default function ActionCard({ action, handlers, now }: { action: SuperAdm
             break;
         }
         case "held-job": {
-            const { job, review } = action;
-            const makers = job.manufacturerIds.map((id) => getAdminManufacturer(id)?.companyName).filter(Boolean).join(" & ");
-            title = `${review.authorName} rated ${job.title} ${review.rating} out of 5`;
+            const { held, job } = action;
+            const makers = job?.manufacturerIds.map((id) => getAdminManufacturer(id)?.companyName).filter(Boolean).join(" & ");
+            const photos = job?.completionImageUrls ?? [];
+            title = `${held.ratedByName ?? "The lead"} rated ${held.title} ${held.rating ?? 0} out of 5`;
             body = (
                 <>
                     <p className="text-sm font-text text-mist-600">
-                        The finished work by {makers || "the manufacturer"} ({formatPrice(job.amount)}) wasn&apos;t signed
-                        off. Sign it off to pay the final part, or reject it with what to fix.
+                        The finished work by {makers || "the manufacturer"}
+                        {job ? ` (${formatPrice(job.amount)})` : ""} wasn&apos;t signed off. Sign it off to pay the final
+                        part, or reject it with what to fix.
                     </p>
                     <div className="flex flex-col gap-2 rounded-lg bg-mist-50 px-4 py-3">
-                        <RatingStarsDisplay rating={review.rating} />
-                        <p className="text-sm font-text whitespace-pre-line text-mist-800">{review.comment}</p>
+                        <RatingStarsDisplay rating={held.rating ?? 0} />
+                        {held.comment && (
+                            <p className="text-sm font-text whitespace-pre-line text-mist-800">{held.comment}</p>
+                        )}
                     </div>
-                    {job.completionImageUrls.length > 0 && (
+                    {photos.length > 0 && (
                         <ul className="flex gap-2" aria-label="Photos of the finished furniture">
-                            {job.completionImageUrls.slice(0, 4).map((url, index) => (
+                            {photos.slice(0, 4).map((url, index) => (
                                 <li key={url} className="relative size-16 overflow-hidden rounded-lg bg-mist-100">
                                     <Image src={url} alt={`Photo ${index + 1}`} fill sizes="64px" className="object-cover" />
                                 </li>
@@ -113,13 +133,13 @@ export default function ActionCard({ action, handlers, now }: { action: SuperAdm
             );
             buttons = (
                 <>
-                    <Link href={`${jobsUrl}?job=${encodeURIComponent(job.code ? job.code.toLowerCase() : job.id)}`} className={SECONDARY}>
+                    <Link href={jobLink(held.jobId, job?.code)} className={SECONDARY}>
                         Open job
                     </Link>
-                    <button type="button" onClick={() => handlers.onReject(job.id)} className={SECONDARY}>
+                    <button type="button" onClick={() => handlers.onReject(held.jobId)} className={SECONDARY}>
                         Reject
                     </button>
-                    <button type="button" onClick={() => handlers.onSignOff(job.id)} className={PRIMARY}>
+                    <button type="button" onClick={() => handlers.onSignOff(held.jobId)} className={PRIMARY}>
                         Sign off
                     </button>
                 </>
@@ -127,19 +147,19 @@ export default function ActionCard({ action, handlers, now }: { action: SuperAdm
             break;
         }
         case "lead-rating": {
-            const { job, review } = action;
-            const lead = getProjectLead(review.leadId);
-            const maker = getAdminManufacturer(review.manufacturerId);
-            title = `${maker?.contactName ?? "A manufacturer"} rated ${lead?.name ?? "their lead"} ${review.rating} out of 5`;
+            const { rating, job } = action;
+            const lead = getProjectLead(rating.leadId);
+            const maker = getAdminManufacturer(rating.manufacturerId);
+            title = `${maker?.contactName ?? "A manufacturer"} rated ${lead?.name ?? "their lead"} ${rating.rating} out of 5`;
             body = (
                 <>
                     <p className="text-sm font-text text-mist-600">
-                        As project lead on {job.title}, for {maker?.companyName ?? "their company"}. Follow it up with{" "}
+                        As project lead on {rating.title}, for {maker?.companyName ?? "their company"}. Follow it up with{" "}
                         {lead?.firstName ?? "the lead"}, then note what you did.
                     </p>
                     <div className="flex flex-col gap-2 rounded-lg bg-mist-50 px-4 py-3">
-                        <RatingStarsDisplay rating={review.rating} />
-                        <p className="text-sm font-text whitespace-pre-line text-mist-800">{review.comment}</p>
+                        <RatingStarsDisplay rating={rating.rating} />
+                        <p className="text-sm font-text whitespace-pre-line text-mist-800">{rating.comment}</p>
                     </div>
                 </>
             );
@@ -151,17 +171,35 @@ export default function ActionCard({ action, handlers, now }: { action: SuperAdm
                             Call {lead.firstName}
                         </a>
                     )}
-                    <Link href={`${jobsUrl}?job=${encodeURIComponent(job.code ? job.code.toLowerCase() : job.id)}`} className={SECONDARY}>
+                    <Link href={jobLink(rating.jobId, job?.code)} className={SECONDARY}>
                         Open job
                     </Link>
                     <button
                         type="button"
-                        onClick={() => handlers.onFollowUp(job.id, review.manufacturerId)}
+                        onClick={() => handlers.onFollowUp(rating.jobId, rating.manufacturerId)}
                         className={PRIMARY}
                     >
                         Mark as followed up
                     </button>
                 </>
+            );
+            break;
+        }
+        case "stuck-withdrawal": {
+            const { withdrawal } = action;
+            const maker = getAdminManufacturer(withdrawal.manufacturerId);
+            const platform = withdrawal.provider ? providerLabel(withdrawal.provider) : "the payment platform";
+            title = `A ${formatPrice(fromKobo(withdrawal.amountKobo))} withdrawal hasn't gone through`;
+            body = (
+                <p className="text-sm font-text text-mist-600">
+                    {maker?.companyName ?? "A manufacturer"} withdrew it through {platform} and it&apos;s still waiting to be
+                    confirmed. Check reference {withdrawal.reference} with {platform}.
+                </p>
+            );
+            buttons = (
+                <Link href={getManufacturerUrl(withdrawal.manufacturerId)} className={SECONDARY}>
+                    View account
+                </Link>
             );
             break;
         }

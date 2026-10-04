@@ -8,17 +8,14 @@ import {
     type SelectFilterItem,
 } from "@/components/customTable";
 import { formatDayAndTime, getRelativeTimeLabel } from "@/lib/date";
-import { useIsClient } from "@/hooks/useIsClient";
 import AdminPageHeader from "@/components/adminPlatform/pageHeader";
-import { useAdminJobs } from "@/components/adminPlatform/dashboardLayout/adminJobsContext";
-import { useAdminManufacturers } from "@/components/adminPlatform/dashboardLayout/adminManufacturersContext";
 import { SUPER_ADMIN_REPORTING_URL } from "@/constant/superAdmin";
 import { ActivityAvatar, ActivityMessage } from "../activity/activityParts";
 import {
     ACTIVITY_ACTOR_LABELS,
     ACTIVITY_CATEGORIES,
     getActivityCategoryLabel,
-    getPlatformActivity,
+    usePlatformActivity,
     type ActivityActor,
     type ActivityCategory,
     type PlatformActivity,
@@ -56,21 +53,19 @@ function toRow(activity: PlatformActivity): ActivityRow {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SuperAdminActivityLogPage — everything that's happened on the platform
-// (see getPlatformActivity), newest first: search it, filter it by kind or
-// by who did it, and page back through it. Under Reporting. Worked out in
-// the browser, as of now, like the dashboard's card.
+// SuperAdminActivityLogPage: everything that's happened on the platform
+// (the API's activity feed, see usePlatformActivity), newest first: search
+// it, filter it by kind or by who did it, and page back through it. Under
+// Reporting.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function SuperAdminActivityLogPage() {
-    const { jobs } = useAdminJobs();
-    const { manufacturers } = useAdminManufacturers();
-    const isClient = useIsClient();
+    const feed = usePlatformActivity();
     const now = new Date();
 
     const { rows, pagination } = useTableRows({
         tableId: TABLE_ID,
-        data: isClient ? getPlatformActivity(jobs, manufacturers, undefined, now).map(toRow) : [],
+        data: feed.activity.map(toRow),
         searchFields: ["text"],
         filters: [
             { paramKey: "type", field: "category" },
@@ -145,7 +140,8 @@ export default function SuperAdminActivityLogPage() {
                 columns={columns}
                 rows={rows}
                 pagination={pagination}
-                loading={!isClient}
+                loading={feed.isPending}
+                error={feed.isError ? "Couldn't load the activity. Please refresh to try again." : undefined}
                 emptyMessage="No activity matches your search."
                 toolbar={
                     <TableToolbar

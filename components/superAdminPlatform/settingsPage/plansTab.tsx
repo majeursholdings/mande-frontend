@@ -7,9 +7,11 @@ import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import SettingsSection from "@/components/manufacturerPlatform/settingsSection";
-import { NOT_INCLUDED, type PricingPlan } from "@/constant/sampleData";
+import { NOT_INCLUDED, type PricingPlan } from "@/constant/plans";
 import PlanForm from "../form/planForm";
-import PlanOfferForm from "../form/planOfferForm";
+import PlanOfferForm, { PlanOfferFormSkeleton } from "../form/planOfferForm";
+import { Skeleton } from "@/components/ui/skeleton";
+import { LoadError } from "@/components/adminPlatform/emptyState";
 import { useSuperAdminSettings } from "../settingsContext";
 
 /** What a usual price comes to with the offer taken off. */
@@ -22,8 +24,13 @@ const withDiscount = (price: number, percent: number) => Math.round((price * (10
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function PlansTab() {
-    const { plans, discountPercent, updatePlan, setDiscountPercent } = useSuperAdminSettings();
+    const { plans, discountPercent, updatePlan, setDiscountPercent, sectionStatus } = useSuperAdminSettings();
+    const { isLoading, isError } = sectionStatus.plans;
     const [editing, setEditing] = useState<PricingPlan | null>(null);
+
+    if (isError && plans.length === 0) {
+        return <LoadError message="We couldn't load the plans. Please refresh the page." />;
+    }
 
     return (
         <div className="flex flex-col gap-6">
@@ -31,13 +38,25 @@ export default function PlansTab() {
                 headingLevel="h3"
                 title="Plan offer"
                 description={
-                    discountPercent > 0
+                    isLoading
+                        ? undefined
+                        : discountPercent > 0
                         ? `Every plan is ${discountPercent}% off for now. The website, sign-up and each manufacturer's plan settings show the discounted prices.`
                         : "No offer on for now. Set a discount to take it off every plan's price."
                 }
             >
-                <PlanOfferForm key={discountPercent} discountPercent={discountPercent} onSave={setDiscountPercent} />
+                {isLoading ? (
+                    <>
+                        {/* Where the offer's description goes, once it's known */}
+                        <Skeleton className="-mt-3 h-4 w-3/4" />
+                        <PlanOfferFormSkeleton />
+                    </>
+                ) : (
+                    <PlanOfferForm key={discountPercent} discountPercent={discountPercent} onSave={setDiscountPercent} />
+                )}
             </SettingsSection>
+
+            {isLoading && <PlanCardsSkeleton />}
 
             <ul className="flex flex-col gap-4">
                 {plans.map((plan) => (
@@ -131,5 +150,52 @@ export default function PlansTab() {
                 </DialogContent>
             </Dialog>
         </div>
+    );
+}
+
+/** The plans while they load: each card's labels and Edit plan show, what's in them is skeletons. */
+function PlanCardsSkeleton() {
+    return (
+        <ul className="flex flex-col gap-4" aria-busy="true">
+            {Array.from({ length: 3 }).map((_, index) => (
+                <li key={index} className="flex flex-col gap-4 rounded-xl border border-border bg-white p-5">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 flex-col gap-1.5">
+                            <Skeleton className="h-3.5 w-8" />
+                            <Skeleton className="h-5 w-32" />
+                            <Skeleton className="h-3.5 w-40" />
+                        </div>
+                        <button
+                            type="button"
+                            disabled
+                            className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs font-medium font-text text-mist-400"
+                        >
+                            <Pencil className="size-3.5" aria-hidden />
+                            Edit plan
+                        </button>
+                    </div>
+
+                    <dl className="grid grid-cols-2 gap-3">
+                        {["Monthly", "Yearly"].map((label) => (
+                            <div key={label} className="flex flex-col gap-1 rounded-lg bg-mist-50 px-3.5 py-2.5">
+                                <dt className="text-xs font-text text-mist-500">{label}</dt>
+                                <dd>
+                                    <Skeleton className="h-5 w-24" />
+                                </dd>
+                            </div>
+                        ))}
+                    </dl>
+
+                    <div className="flex flex-col gap-3">
+                        {Array.from({ length: 4 }).map((_, row) => (
+                            <div key={row} className="flex items-center justify-between gap-4">
+                                <Skeleton className="h-4 w-36" />
+                                <Skeleton className="h-4 w-16" />
+                            </div>
+                        ))}
+                    </div>
+                </li>
+            ))}
+        </ul>
     );
 }

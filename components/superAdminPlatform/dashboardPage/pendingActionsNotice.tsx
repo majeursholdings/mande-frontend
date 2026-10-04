@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { ChevronRight, ListTodo } from "lucide-react";
-import { useIsClient } from "@/hooks/useIsClient";
 import { SUPER_ADMIN_ACTIONS_URL } from "@/constant/superAdmin";
-import { ACTION_KINDS, useSuperAdminActions } from "../actions/pendingActions";
+import { ACTION_KINDS, useSuperAdminActionsQuery } from "../actions/pendingActions";
 
-/** Above the dashboard while anything's waiting for a super admin — what, and the way to Actions. */
+/**
+ * Above the dashboard while anything's waiting for a super admin: what, and
+ * the way to Actions. Nothing while the queue loads (or fails to): it only
+ * appears when there's something to do, so a placeholder would just jump.
+ */
 export default function PendingActionsNotice() {
-    const actions = useSuperAdminActions();
-    const isClient = useIsClient();
-    if (!isClient || actions.length === 0) return null;
+    const { actions, isPending, isError } = useSuperAdminActionsQuery();
+    if (isPending || isError || actions.length === 0) return null;
 
     const summary = ACTION_KINDS.flatMap(({ value, one, many }) => {
         const count = actions.filter((action) => action.kind === value).length;

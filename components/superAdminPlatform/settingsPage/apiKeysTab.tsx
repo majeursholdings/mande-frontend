@@ -8,6 +8,8 @@ import { formatOrdinalDate } from "@/lib/date";
 import { API_BASE_URL } from "@/lib/api";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import SettingsSection from "@/components/manufacturerPlatform/settingsSection";
+import { Skeleton } from "@/components/ui/skeleton";
+import { LoadError } from "@/components/adminPlatform/emptyState";
 import { API_KEY_GROUPS, API_PROVIDERS, type ApiKey, type ApiProvider } from "@/constant/superAdmin";
 import ApiKeyForm, { type ApiKeyDraft } from "../form/apiKeyForm";
 import ReauthSteps from "../reauthSteps";
@@ -46,7 +48,10 @@ type KeyDialog =
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function ApiKeysTab() {
-    const { apiKeys, addApiKey, setActiveApiKey, removeApiKey } = useSuperAdminSettings();
+    const { apiKeys, addApiKey, setActiveApiKey, removeApiKey, sectionStatus } = useSuperAdminSettings();
+    const { isLoading, isError } = sectionStatus.apiKeys;
+    // Couldn't load them, and there are none from before to show
+    const hasFailed = isError && apiKeys.length === 0;
     const [dialog, setDialog] = useState<KeyDialog>(null);
     const [draft, setDraft] = useState<ApiKeyDraft | null>(null);
     const close = () => {
@@ -61,6 +66,10 @@ export default function ApiKeysTab() {
                 Keys come from each platform&apos;s dashboard. You&apos;ll confirm it&apos;s you with your password and a
                 one-time code before a set is added or removed.
             </p>
+
+            {hasFailed && (
+                <LoadError message="We couldn't load the API keys. Please refresh the page." />
+            )}
 
             {API_KEY_GROUPS.map((group) => (
                 <SettingsSection key={group.value} headingLevel="h3" title={group.label} description={group.description}>
@@ -77,7 +86,11 @@ export default function ApiKeysTab() {
                                         <div className="flex min-w-0 flex-col gap-0.5">
                                             <h4 className="flex items-center gap-2 text-base font-semibold font-text text-mist-950">
                                                 {provider.label}
-                                                <ProviderStatus active={active} />
+                                                {isLoading ? (
+                                                    <Skeleton className="h-4.5 w-20 rounded-full" />
+                                                ) : (
+                                                    !hasFailed && <ProviderStatus active={active} />
+                                                )}
                                             </h4>
                                             <p className="text-sm font-text text-mist-500">{provider.description}</p>
                                         </div>
@@ -99,7 +112,19 @@ export default function ApiKeysTab() {
                                         />
                                     )}
 
-                                    {keys.length === 0 ? (
+                                    {isLoading ? (
+                                        <ul className="flex flex-col divide-y divide-border rounded-lg border border-border" aria-busy="true">
+                                            {Array.from({ length: 2 }).map((_, index) => (
+                                                <li key={index} className="flex items-center gap-4 px-4 py-3">
+                                                    <KeyRound className="size-4 shrink-0 text-mist-400" strokeWidth={1.75} aria-hidden />
+                                                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                                                        <Skeleton className="h-4 w-40" />
+                                                        <Skeleton className="h-3.5 w-56" />
+                                                    </div>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : hasFailed ? null : keys.length === 0 ? (
                                         <p className="rounded-lg bg-mist-50 px-4 py-5 text-center text-sm font-text text-mist-500">
                                             No keys yet.
                                         </p>

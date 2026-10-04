@@ -4,19 +4,17 @@ import { useState } from "react";
 import Link from "next/link";
 import { History } from "lucide-react";
 import { formatDayAndTime, getRelativeTimeLabel } from "@/lib/date";
-import { useIsClient } from "@/hooks/useIsClient";
 import { Skeleton } from "@/components/ui/skeleton";
 import DashboardCard from "@/components/adminPlatform/dashboardPage/dashboardCard";
 import PillSelect from "@/components/adminPlatform/dashboardPage/pillSelect";
+import { ReportError } from "@/components/adminPlatform/dashboardPage/reportStates";
 import EmptyState from "@/components/adminPlatform/emptyState";
-import { useAdminJobs } from "@/components/adminPlatform/dashboardLayout/adminJobsContext";
-import { useAdminManufacturers } from "@/components/adminPlatform/dashboardLayout/adminManufacturersContext";
 import { SUPER_ADMIN_ACTIVITY_LOG_URL } from "@/constant/superAdmin";
 import { ActivityAvatar, ActivityMessage } from "../activity/activityParts";
 import {
     ACTIVITY_ACTOR_LABELS,
     ACTIVITY_CATEGORIES,
-    getPlatformActivity,
+    usePlatformActivity,
     type ActivityCategory,
     type PlatformActivity,
 } from "../activity/platformActivity";
@@ -29,26 +27,19 @@ const CATEGORY_OPTIONS: { value: ActivityCategory | "all"; label: string }[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ActivityLogCard — the latest of everything happening on the platform: what
-// admins do to jobs and accounts, what manufacturers do on their jobs, with
-// their money and to their sign-in, the payments Mande makes and their
-// feedback. Filter by kind; "Show more" opens the full Activity Log. The
-// list is worked out in the browser, as of now: a server render (at build
-// time, for this static page) would list what had happened by then.
+// ActivityLogCard: the latest of everything happening on the platform, from
+// the API's activity feed: what admins do to jobs and accounts, what
+// manufacturers do on their jobs, with their money and to their sign-in,
+// the payments Mande makes and their feedback. Filter by kind; "Show more"
+// opens the full Activity Log.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function ActivityLogCard() {
-    const { jobs } = useAdminJobs();
-    const { manufacturers } = useAdminManufacturers();
+    const feed = usePlatformActivity();
     const [category, setCategory] = useState<ActivityCategory | "all">("all");
-    const isClient = useIsClient();
 
     const now = new Date();
-    const activity = isClient
-        ? getPlatformActivity(jobs, manufacturers, undefined, now).filter(
-              (entry) => category === "all" || entry.category === category,
-          )
-        : [];
+    const activity = feed.activity.filter((entry) => category === "all" || entry.category === category);
     // The full log opens on the same kind
     const logHref = category === "all" ? SUPER_ADMIN_ACTIVITY_LOG_URL : `${SUPER_ADMIN_ACTIVITY_LOG_URL}?activity_type=${category}`;
 
@@ -57,7 +48,9 @@ export default function ActivityLogCard() {
             title="Activity Log"
             action={<PillSelect label="Showing" value={category} options={CATEGORY_OPTIONS} onChange={setCategory} />}
         >
-            {!isClient ? (
+            {feed.isError ? (
+                <ReportError message="Couldn't load the activity. Please refresh to try again." />
+            ) : feed.isPending ? (
                 <ActivityListSkeleton />
             ) : activity.length === 0 ? (
                 <EmptyState
@@ -112,7 +105,7 @@ function ActivityRow({ activity, now }: { activity: PlatformActivity; now: Date 
     );
 }
 
-/** Rows the shape of the log's, until it's worked out in the browser. */
+/** Rows the shape of the log's, while it loads. */
 export function ActivityListSkeleton({ rows = SHOWN }: { rows?: number }) {
     return (
         <ul aria-hidden className="-my-3 flex flex-col divide-y divide-border">

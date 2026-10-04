@@ -3,26 +3,23 @@
 import Link from "next/link";
 import { ChevronRight, History } from "lucide-react";
 import { DataTable } from "@/components/customTable";
-import { useAdminJobs } from "@/components/adminPlatform/dashboardLayout/adminJobsContext";
-import { PROJECT_LEADS } from "@/constant/admin";
 import { SUPER_ADMIN_ACTIVITY_LOG_URL, SUPER_ADMIN_PROJECT_LEAD_REPORT_URL } from "@/constant/superAdmin";
 import JobActivityCard from "./jobActivityCard";
 import JobsDataCard from "./jobsDataCard";
 import { PROJECT_LEAD_REPORT_COLUMNS } from "./projectLeadReportColumns";
-import { getProjectLeadReport } from "./reportingStats";
+import { useProjectLeadReport } from "./reportingStats";
 
 const PREVIEW_ROWS = 5;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SuperAdminReportingPage — how the platform's work is going: the jobs by
+// SuperAdminReportingPage: how the platform's work is going: the jobs by
 // status and their key figures over a period, the project leads who handled
 // the most (the full report is a page of its own), and the way to the
 // Activity Log.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function SuperAdminReportingPage() {
-    const { jobs } = useAdminJobs();
-    const report = getProjectLeadReport(jobs, PROJECT_LEADS);
+    const report = useProjectLeadReport();
 
     return (
         <div className="flex flex-col gap-8 lg:gap-10">
@@ -57,7 +54,9 @@ export default function SuperAdminReportingPage() {
                 <DataTable
                     tableId="project-lead-report-preview"
                     columns={PROJECT_LEAD_REPORT_COLUMNS}
-                    rows={report.slice(0, PREVIEW_ROWS)}
+                    rows={report.rows.slice(0, PREVIEW_ROWS)}
+                    loading={report.isPending}
+                    error={report.isError ? "Couldn't load the project lead report. Please refresh to try again." : undefined}
                     emptyMessage="No project leads yet."
                 />
             </section>

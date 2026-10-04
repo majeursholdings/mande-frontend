@@ -9,12 +9,13 @@ import { formatPrice } from "@/lib/currency";
 import { queryKeys } from "@/lib/queryKeys";
 import { contactService } from "@/lib/services/contactService";
 import { MandeApiError } from "@/lib/types/api";
-import { useIsClient } from "@/hooks/useIsClient";
+import type { PendingActionsResponse } from "@/lib/services/reportsService";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import AdminPageHeader from "@/components/adminPlatform/pageHeader";
 import EmptyState from "@/components/adminPlatform/emptyState";
+import { ReportError } from "@/components/adminPlatform/dashboardPage/reportStates";
 import RejectJobForm from "@/components/adminPlatform/form/rejectJobForm";
 import { ManufacturerActionDialog } from "@/components/adminPlatform/manufacturersPage/manufacturerActions";
 import { useAdminJobs } from "@/components/adminPlatform/dashboardLayout/adminJobsContext";
@@ -22,7 +23,7 @@ import { useAdminManufacturers } from "@/components/adminPlatform/dashboardLayou
 import { MAX_ADMIN_JOB_REJECTIONS, getAdminManufacturer, getProjectLead } from "@/constant/admin";
 import { REJECTION_CHARGE_PERCENT, getRejectionCharge } from "@/constant/jobWorkflow";
 import FollowUpForm from "../form/followUpForm";
-import { ACTION_KINDS, useSuperAdminActions, type SuperAdminActionKind } from "../actions/pendingActions";
+import { ACTION_KINDS, useSuperAdminActionsQuery, type SuperAdminActionKind } from "../actions/pendingActions";
 import ActionCard from "./actionCard";
 
 type OpenDialog =
@@ -34,21 +35,21 @@ type OpenDialog =
 const DIALOG_BUTTON = "h-11 px-5 font-medium font-text rounded-button cursor-pointer transition-colors duration-300";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SuperAdminActionsPage — everything waiting for a super admin, in one queue
-// (see useSuperAdminActions): delete an account an admin asked to, or turn
+// SuperAdminActionsPage: everything waiting for a super admin, in one queue
+// (see useSuperAdminActionsQuery): delete an account an admin asked to, or turn
 // the request down; sign off or reject finished work a lead rated too low;
 // follow up a manufacturer's low rating of their lead; reply to a message
-// from the website's contact form; and fix anything stopping payments. Each
-// leaves the queue as soon as it's dealt with.
+// from the website's contact form; check withdrawals stuck with the payment
+// platform; and fix anything stopping payments. Each leaves the queue as
+// soon as it's dealt with.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function SuperAdminActionsPage() {
-    const actions = useSuperAdminActions();
+    const { actions, isPending, isError } = useSuperAdminActionsQuery();
     const { getJob, signOffHeldJob, rejectJob, followUpLeadReview } = useAdminJobs();
     const { getManufacturer, declineDeletionRequest } = useAdminManufacturers();
     const [kind, setKind] = useState<SuperAdminActionKind | "all">("all");
     const [dialog, setDialog] = useState<OpenDialog>(null);
-    const isClient = useIsClient();
     const queryClient = useQueryClient();
     const close = () => setDialog(null);
 
@@ -78,15 +79,44 @@ export default function SuperAdminActionsPage() {
           "the manufacturer"
         : "";
 
-    const run = (task: () => void, success: string, failure: string) => {
+    /** Takes a dealt-with action off the queue straight away, before the API's list catches up. */
+    const removeAction = (remove: (actions: PendingActionsResponse["actions"]) => PendingActionsResponse["actions"]) =>
+        queryClient.setQueryData<PendingActionsResponse>(queryKeys.reports.actions(), (data) =>
+            data ? { actions: remove(data.actions) } : data,
+        );
+    const refreshActions = () => queryClient.invalidateQueries({ queryKey: queryKeys.reports.actions() });
+
+    /**
+     * Does it, and once it's done takes it off the queue and reloads the
+     * queue. `refresh: false` for a change that's saved in the background
+     * (reloading now could bring the action back before it's saved).
+     */
+    const run = async (
+        task: () => Promise<void> | void,
+        success: string,
+        failure: string,
+        remove: (actions: PendingActionsResponse["actions"]) => PendingActionsResponse["actions"],
+        { refresh = true } = {},
+    ) => {
         try {
-            task();
+            await task();
+            removeAction(remove);
             toast.success(success);
+            if (refresh) void refreshActions();
         } catch {
             toast.error(failure);
+        } finally {
+            close();
         }
-        close();
     };
+    const withoutDeletion = (manufacturerId: string) => (pending: PendingActionsResponse["actions"]) => ({
+        ...pending,
+        deletionRequests: pending.deletionRequests.filter((request) => request.manufacturerId !== manufacturerId),
+    });
+    const withoutHeldJob = (jobId: string) => (pending: PendingActionsResponse["actions"]) => ({
+        ...pending,
+        heldJobs: pending.heldJobs.filter((held) => held.jobId !== jobId),
+    });
 
     return (
         <div className="flex flex-col gap-6">
@@ -119,14 +149,16 @@ export default function SuperAdminActionsPage() {
                                     kind === option.value ? "bg-white/20" : "bg-mist-100 text-mist-600",
                                 )}
                             >
-                                {isClient ? count : "…"}
+                                {isPending ? <Skeleton className="my-0.5 h-3.5 w-3" /> : count}
                             </span>
                         </button>
                     );
                 })}
             </div>
 
-            {!isClient ? (
+            {isError ? (
+                <ReportError message="Couldn't load what's waiting for you. Please refresh to try again." />
+            ) : isPending ? (
                 <ul aria-hidden className="flex flex-col gap-4">
                     {Array.from({ length: 3 }, (_, index) => (
                         <li key={index} className="flex gap-5 rounded-xl border border-border bg-white p-5">
@@ -174,6 +206,10 @@ export default function SuperAdminActionsPage() {
                 manufacturer={dialog?.kind === "delete" ? dialogManufacturer : undefined}
                 action={dialog?.kind === "delete" ? "delete" : null}
                 onClose={close}
+                onDeleted={() => {
+                    if (dialog?.kind === "delete") removeAction(withoutDeletion(dialog.manufacturerId));
+                    void refreshActions();
+                }}
             />
 
             <Dialog open={dialog?.kind === "turn-down" && !!dialogManufacturer} onOpenChange={(open) => !open && close()}>
@@ -198,6 +234,8 @@ export default function SuperAdminActionsPage() {
                                             () => declineDeletionRequest(dialogManufacturer.id),
                                             `Deletion request turned down. ${dialogManufacturer.companyName} stays`,
                                             "Couldn't turn the request down. Please try again.",
+                                            withoutDeletion(dialogManufacturer.id),
+                                            { refresh: false },
                                         )
                                     }
                                     className={`${DIALOG_BUTTON} bg-secondary-700 hover:bg-secondary-900 text-white`}
@@ -232,6 +270,7 @@ export default function SuperAdminActionsPage() {
                                             () => signOffHeldJob(dialogJob.id),
                                             `${dialogJob.title} is signed off`,
                                             "Couldn't sign the job off. Please try again.",
+                                            withoutHeldJob(dialogJob.id),
                                         )
                                     }
                                     className={`${DIALOG_BUTTON} bg-secondary-700 hover:bg-secondary-900 text-white`}
@@ -267,6 +306,7 @@ export default function SuperAdminActionsPage() {
                                         () => rejectJob(dialogJob.id, review),
                                         `${dialogJob.title} was rejected. ${jobMakers} has your review`,
                                         "Couldn't reject the job. Please try again.",
+                                        withoutHeldJob(dialogJob.id),
                                     )
                                 }
                             />
@@ -292,6 +332,13 @@ export default function SuperAdminActionsPage() {
                                     () => followUpLeadReview(dialogJob.id, dialog.manufacturerId, note),
                                     "Followed up. It's noted with the rating",
                                     "Couldn't save the follow-up. Please try again.",
+                                    (pending) => ({
+                                        ...pending,
+                                        leadRatings: pending.leadRatings.filter(
+                                            (rating) =>
+                                                !(rating.jobId === dialogJob.id && rating.manufacturerId === dialog.manufacturerId),
+                                        ),
+                                    }),
                                 )
                             }
                         />

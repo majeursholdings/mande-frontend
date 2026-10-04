@@ -1,21 +1,17 @@
-import {
-    ADMIN_JOB_STATUS_CONFIG,
-    ADMIN_POSITION_OPTIONS,
-    type AdminJob,
-    type AdminJobStatus,
-    type AdminPerson,
-} from "@/constant/admin";
-import { getJobRecordPayouts } from "@/constant/sampleDb";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+import { ADMIN_JOB_STATUS_CONFIG, ADMIN_POSITION_OPTIONS, type AdminJobStatus } from "@/constant/admin";
+import { queryKeys } from "@/lib/queryKeys";
+import { reportsService, type JobsReportPeriod, type ProjectLeadReportEntry } from "@/lib/services/reportsService";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// The Reporting page's numbers, worked out from the jobs, so they follow
-// along as admins and manufacturers act: jobs by status and the jobs' key
-// figures over a period, and how each project lead is doing.
+// The Reporting page's numbers, from the API: jobs by status and the jobs'
+// key figures over a period (/reports/jobs), and how each project lead is
+// doing (/reports/project-leads). Shaped here for the cards and tables.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-export type ReportPeriod = "all" | "year" | "month" | "week";
+export type ReportPeriod = JobsReportPeriod;
 
 export const REPORT_PERIOD_OPTIONS: { value: ReportPeriod; label: string }[] = [
     { value: "all", label: "All time" },
@@ -24,14 +20,13 @@ export const REPORT_PERIOD_OPTIONS: { value: ReportPeriod; label: string }[] = [
     { value: "week", label: "Last 7 days" },
 ];
 
-const PERIOD_DAYS: Record<Exclude<ReportPeriod, "all">, number> = { year: 365, month: 30, week: 7 };
-
-/** Whether `date` falls in the period up to `now`. */
-function isInPeriod(date: string | null, period: ReportPeriod, now: Date): boolean {
-    if (!date) return false;
-    const time = new Date(date).getTime();
-    if (time > now.getTime()) return false;
-    return period === "all" || time >= now.getTime() - PERIOD_DAYS[period] * DAY_MS;
+/** /reports/jobs for a period. Job Activity and Jobs Data share it (and its cache) when on the same period. */
+export function useJobsReport(period: ReportPeriod) {
+    return useQuery({
+        queryKey: queryKeys.reports.jobsReport(period),
+        queryFn: () => reportsService.getSuperAdminJobsReport(period),
+        staleTime: 30_000,
+    });
 }
 
 // ─── Job activity ────────────────────────────────────────────────────────────
@@ -39,83 +34,15 @@ function isInPeriod(date: string | null, period: ReportPeriod, now: Date): boole
 export type JobActivityCount = { status: AdminJobStatus; label: string; count: number };
 
 /** The bars' order, as in the design: closed first, finished last. */
-const ACTIVITY_STATUSES: AdminJobStatus[] = ["rejected", "pending", "in-progress", "in-review", "completed"];
+export const ACTIVITY_STATUSES: AdminJobStatus[] = ["rejected", "pending", "in-progress", "in-review", "completed"];
 
-/** The jobs created in the period, by where each is now. */
-export function getJobActivity(jobs: AdminJob[], period: ReportPeriod, now: Date = new Date()): JobActivityCount[] {
-    const created = jobs.filter((job) => isInPeriod(job.createdAt, period, now));
+/** The jobs created in the period, by where each is now: every status, 0 for one the API left out. */
+export function toJobActivity(activity: { status: AdminJobStatus; count: number }[] | undefined): JobActivityCount[] {
     return ACTIVITY_STATUSES.map((status) => ({
         status,
         label: ADMIN_JOB_STATUS_CONFIG[status].label,
-        count: created.filter((job) => job.status === status).length,
+        count: activity?.find((row) => row.status === status)?.count ?? 0,
     }));
-}
-
-// ─── Jobs data ───────────────────────────────────────────────────────────────
-
-export type JobsData = {
-    /** Created in the period. */
-    created: number;
-    /** What the jobs created in the period pay their manufacturers, in naira. */
-    value: number;
-    /** Paid out to manufacturers in the period, in naira. */
-    paidOut: number;
-    /** Signed off in the period. */
-    completed: number;
-    /** Of those, signed off by their due date. Null when none were signed off. */
-    onTimePercent: number | null;
-    /** From accepted to signed off, for those. Null when none were signed off. */
-    averageDaysToComplete: number | null;
-    /** Step proof sent back in the period. */
-    stepsSentBack: number;
-    /** Finished work rejected in the period. */
-    rejections: number;
-    /** Asked for in the period, and how many were given. */
-    extensionsRequested: number;
-    extensionsApproved: number;
-    /** Found in delivered work in the period. */
-    faults: number;
-};
-
-export function getJobsData(jobs: AdminJob[], period: ReportPeriod, now: Date = new Date()): JobsData {
-    const inPeriod = (date: string | null) => isInPeriod(date, period, now);
-    const created = jobs.filter((job) => inPeriod(job.createdAt));
-    const completed = jobs.filter((job) => inPeriod(job.completedAt));
-    const daysToComplete = completed.flatMap((job) =>
-        job.dateAssigned && job.completedAt
-            ? [(new Date(job.completedAt).getTime() - new Date(job.dateAssigned).getTime()) / DAY_MS]
-            : [],
-    );
-    const extensions = jobs.flatMap((job) => job.extensionRequests).filter((request) => inPeriod(request.requestedAt));
-
-    return {
-        created: created.length,
-        value: created.reduce((sum, job) => sum + job.amount, 0),
-        paidOut: jobs
-            .flatMap((job) => getJobRecordPayouts(job, now))
-            .filter((payout) => inPeriod(payout.paidAt))
-            .reduce((sum, payout) => sum + payout.amount, 0),
-        completed: completed.length,
-        onTimePercent:
-            completed.length === 0
-                ? null
-                : Math.round(
-                      (completed.filter((job) => new Date(job.completedAt as string) <= new Date(job.dueDate)).length /
-                          completed.length) *
-                          100,
-                  ),
-        averageDaysToComplete:
-            daysToComplete.length === 0
-                ? null
-                : Math.round(daysToComplete.reduce((sum, days) => sum + days, 0) / daysToComplete.length),
-        stepsSentBack: jobs
-            .flatMap((job) => job.stepSubmissions)
-            .filter((submission) => submission.review?.outcome === "sent-back" && inPeriod(submission.review.at)).length,
-        rejections: jobs.flatMap((job) => job.rejections).filter((rejection) => inPeriod(rejection.rejectedAt)).length,
-        extensionsRequested: extensions.length,
-        extensionsApproved: extensions.filter((request) => request.status === "approved").length,
-        faults: jobs.filter((job) => inPeriod(job.faultReport?.reportedAt ?? null)).length,
-    };
 }
 
 // ─── Project lead report ─────────────────────────────────────────────────────
@@ -135,23 +62,33 @@ export type ProjectLeadReportRow = {
     averageRating: number | null;
 };
 
-/** Each project lead's numbers — the most jobs handled first. */
-export function getProjectLeadReport(jobs: AdminJob[], leads: AdminPerson[]): ProjectLeadReportRow[] {
-    return leads
-        .map((lead): ProjectLeadReportRow => {
-            const ratings = jobs.flatMap((job) =>
-                job.leadReviews.filter((review) => review.leadId === lead.id).map((review) => review.rating),
-            );
-            return {
-                id: lead.id,
-                name: lead.name,
-                avatarUrl: lead.avatarUrl,
-                position: lead.position,
-                positionLabel: ADMIN_POSITION_OPTIONS.find((option) => option.value === lead.position)?.label ?? "",
-                jobsHandled: jobs.filter((job) => job.projectLeadIds.includes(lead.id)).length,
-                reviews: ratings.length,
-                averageRating: ratings.length === 0 ? null : ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length,
-            };
-        })
-        .sort((a, b) => b.jobsHandled - a.jobsHandled || a.name.localeCompare(b.name));
+function toProjectLeadReportRow(entry: ProjectLeadReportEntry): ProjectLeadReportRow {
+    return {
+        id: entry.id,
+        name: entry.name,
+        avatarUrl: entry.avatar?.url ?? null,
+        position: entry.position ?? "",
+        positionLabel: ADMIN_POSITION_OPTIONS.find((option) => option.value === entry.position)?.label ?? "",
+        jobsHandled: entry.jobsHandled,
+        reviews: entry.reviews,
+        averageRating: entry.averageRating,
+    };
+}
+
+/**
+ * Every project lead's numbers, the most jobs handled first. The whole
+ * report comes at once (it isn't paged), so the full report's search and
+ * position filter run on it here.
+ */
+export function useProjectLeadReport() {
+    const query = useQuery({
+        queryKey: queryKeys.reports.projectLeads(),
+        queryFn: () => reportsService.getProjectLeadsPerformance(),
+        staleTime: 30_000,
+    });
+    return {
+        rows: (query.data?.projectLeads ?? []).map(toProjectLeadReportRow),
+        isPending: query.isPending,
+        isError: query.isError,
+    };
 }

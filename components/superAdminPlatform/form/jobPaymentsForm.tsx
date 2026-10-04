@@ -5,6 +5,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import MainForm from "@/components/form";
+import FormFieldsSkeleton from "./formFieldsSkeleton";
 import type { FormFieldConfig } from "@/components/form/types";
 import { FormSubmitButton } from "@/components/adminPlatform/form/formButtons";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -47,6 +48,14 @@ const FIELDS: FormFieldConfig[] = [
         max: 50,
         validation: { required: "Enter a percent", validate: wholePercent(50) },
     },
+];
+
+// Two to a row from md
+const ROW_PAIRS: [string, string][] = [
+    ["accepted", "frame"],
+    ["assembly", "finishing"],
+    ["delivery", "signed-off"],
+    ["bonusPercent", "rejectionChargePercent"],
 ];
 
 type JobPaymentsChanges = Pick<PlatformSettings, "paymentSchedule" | "bonusPercent" | "rejectionChargePercent">;
@@ -118,12 +127,7 @@ export default function JobPaymentsForm({
             <MainForm<JobPaymentsValues>
                 methods={methods}
                 fields={FIELDS}
-                rowPairs={[
-                    ["accepted", "frame"],
-                    ["assembly", "finishing"],
-                    ["delivery", "signed-off"],
-                    ["bonusPercent", "rejectionChargePercent"],
-                ]}
+                rowPairs={ROW_PAIRS}
                 onSubmit={handleSubmit}
                 isLoading={isLoading}
                 hideRequiredMarks
@@ -157,5 +161,17 @@ export default function JobPaymentsForm({
                 </DialogContent>
             </Dialog>
         </>
+    );
+}
+
+/** The job payments while the platform rules load: the labels show, the percents are skeletons. */
+export function JobPaymentsFormSkeleton() {
+    return (
+        <FormFieldsSkeleton
+            fields={FIELDS.map(({ name, label, description }) => ({ name, label: String(label ?? ""), description: typeof description === "string" ? description : undefined }))}
+            rowPairs={ROW_PAIRS}
+            submitLabel="Save job payments"
+            footerClassName="justify-between"
+        />
     );
 }

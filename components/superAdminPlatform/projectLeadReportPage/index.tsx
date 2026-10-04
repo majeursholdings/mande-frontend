@@ -2,25 +2,25 @@
 
 import { DataTable, SelectFilter, TableToolbar, useTableRows } from "@/components/customTable";
 import AdminPageHeader from "@/components/adminPlatform/pageHeader";
-import { useAdminJobs } from "@/components/adminPlatform/dashboardLayout/adminJobsContext";
-import { ADMIN_POSITION_OPTIONS, PROJECT_LEADS } from "@/constant/admin";
+import { ADMIN_POSITION_OPTIONS } from "@/constant/admin";
 import { SUPER_ADMIN_REPORTING_URL } from "@/constant/superAdmin";
 import { PROJECT_LEAD_REPORT_COLUMNS } from "../reportingPage/projectLeadReportColumns";
-import { getProjectLeadReport } from "../reportingPage/reportingStats";
+import { useProjectLeadReport } from "../reportingPage/reportingStats";
 
 const TABLE_ID = "project-lead-report";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SuperAdminProjectLeadReportPage — every project lead's numbers (the
-// Reporting page shows the top few): search by name, filter by position,
-// ten to a page.
+// SuperAdminProjectLeadReportPage: every project lead's numbers, from
+// /reports/project-leads (the Reporting page shows the top few): search by
+// name, filter by position, ten to a page. The report isn't paged, so it's
+// fetched once and searched and filtered here.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function SuperAdminProjectLeadReportPage() {
-    const { jobs } = useAdminJobs();
+    const report = useProjectLeadReport();
     const { rows, pagination } = useTableRows({
         tableId: TABLE_ID,
-        data: getProjectLeadReport(jobs, PROJECT_LEADS),
+        data: report.rows,
         searchFields: ["name"],
         filters: [{ paramKey: "position", field: "position" }],
         rowsPerPage: 10,
@@ -38,6 +38,8 @@ export default function SuperAdminProjectLeadReportPage() {
                 columns={PROJECT_LEAD_REPORT_COLUMNS}
                 rows={rows}
                 pagination={pagination}
+                loading={report.isPending}
+                error={report.isError ? "Couldn't load the project lead report. Please refresh to try again." : undefined}
                 emptyMessage="No project leads match your search."
                 toolbar={
                     <TableToolbar

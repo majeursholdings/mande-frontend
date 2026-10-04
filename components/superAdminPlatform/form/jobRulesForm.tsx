@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
+import FormFieldsSkeleton from "./formFieldsSkeleton";
 import type { FormFieldConfig } from "@/components/form/types";
 import { FormSubmitButton } from "@/components/adminPlatform/form/formButtons";
 import type { PlatformSettings } from "@/constant/superAdmin";
@@ -111,6 +112,16 @@ export default function JobRulesForm({
                     />
                 </div>
             )}
+        />
+    );
+}
+
+/** This form while the values it edits load: the labels show, the values are skeletons. */
+export function JobRulesFormSkeleton() {
+    return (
+        <FormFieldsSkeleton
+            fields={FIELDS.map(({ name, label, description }) => ({ name, label: String(label ?? ""), description: typeof description === "string" ? description : undefined }))}
+            submitLabel="Save job rules"
         />
     );
 }
