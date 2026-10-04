@@ -7,6 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { API_BASE_URL } from "@/lib/api";
+import { NOT_INCLUDED, type PricingPlan } from "@/constant/plans";
 
 /** How often, in seconds, the website asks the API again. */
 const REVALIDATE_SECONDS = 60;
@@ -46,6 +47,26 @@ export type WebsitePlan = {
     maxConcurrentJobs: number | null;
     features: { label: string; value: string }[];
 };
+
+/** A website plan in the app's plan shape (prices in naira, before any offer). */
+export function toPricingPlan(plan: WebsitePlan): PricingPlan {
+    return {
+        id: plan.id,
+        tierNumber: plan.tierNumber,
+        name: plan.name,
+        targetAudience: plan.targetAudience,
+        monthlyPrice: Math.round(plan.monthlyPriceKobo / 100),
+        annualPrice: Math.round(plan.annualPriceKobo / 100),
+        maxConcurrentJobs: plan.maxConcurrentJobs,
+        features: plan.features,
+    };
+}
+
+/** "10% off" — a plan's machine-access discount, or null when the plan doesn't include it. */
+export function getMachineAccess(plan: { features: { label: string; value: string }[] }): string | null {
+    const value = plan.features.find((feature) => feature.label === "Easy access to top machinery")?.value;
+    return value && value !== NOT_INCLUDED ? value : null;
+}
 
 export type WebsitePlans = {
     plans: WebsitePlan[];
@@ -88,6 +109,13 @@ export async function getWebsiteOpenJobs(limit?: number): Promise<WebsiteJob[] |
         before = page.nextBefore;
     } while (before && jobs.length < wanted);
     return jobs;
+}
+
+/** One open job, as visitors see it. Null when it isn't open (taken, closed, or no such job) or the API can't be reached. */
+export async function getWebsiteOpenJob(jobId: string): Promise<WebsiteJob | null> {
+    if (!/^[a-f\d]{24}$/i.test(jobId)) return null;
+    const data = await getJson<{ job: WebsiteJob }>(`/open-jobs/${jobId}`);
+    return data?.job ?? null;
 }
 
 /** The plans and the offer on them now. Null when the API can't be reached. */

@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Legal documents (terms, privacy, payment policies…) — managed in the CMS,
-// most likely Sanity. Until it's connected these return sample content, with
-// the same shape the pages will get from the CMS.
+// most likely Sanity. Until it's connected the documents live here, in the
+// same shape the pages will get from the CMS.
 //
 // To connect Sanity: create a client with @sanity/client and replace the
 // bodies below with GROQ queries, e.g.
@@ -28,8 +28,8 @@ export type LegalDocument = LegalDocumentSummary & {
     sections: LegalSection[];
 };
 
-// Sample content — placeholder wording, not the final policies
-const SAMPLE_LEGAL_DOCUMENTS: LegalDocument[] = [
+// The policies, until they move into the CMS
+const LEGAL_DOCUMENTS: LegalDocument[] = [
     {
         slug: "terms-and-conditions",
         title: "Terms and conditions",
@@ -160,7 +160,7 @@ const SAMPLE_LEGAL_DOCUMENTS: LegalDocument[] = [
 ];
 
 export async function getLegalDocuments(): Promise<LegalDocumentSummary[]> {
-    return SAMPLE_LEGAL_DOCUMENTS.map(({ slug, title, summary, updatedAt }) => ({
+    return LEGAL_DOCUMENTS.map(({ slug, title, summary, updatedAt }) => ({
         slug,
         title,
         summary,
@@ -169,5 +169,5 @@ export async function getLegalDocuments(): Promise<LegalDocumentSummary[]> {
 }
 
 export async function getLegalDocument(slug: string): Promise<LegalDocument | null> {
-    return SAMPLE_LEGAL_DOCUMENTS.find((document) => document.slug === slug) ?? null;
+    return LEGAL_DOCUMENTS.find((document) => document.slug === slug) ?? null;
 }

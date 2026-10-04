@@ -134,11 +134,6 @@ export const jobsService = {
     return data;
   },
 
-  async confirmDelivery(jobId: string) {
-    const { data } = await api.post(`/my-jobs/${jobId}/delivery/confirm`);
-    return data;
-  },
-
   async getReviews() {
     const { data } = await api.get<{
       reviews: Array<{

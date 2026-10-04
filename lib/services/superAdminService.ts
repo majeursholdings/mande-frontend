@@ -1,6 +1,6 @@
 import { api } from "@/lib/api";
-import { PRICING_PLANS, type PricingPlan } from "@/constant/sampleData";
-import type { SuperAdminInviteRecord, SuperAdminRecord, TwoFactorMethod } from "@/constant/sampleDb";
+import type { PricingPlan } from "@/constant/plans";
+import type { SuperAdminInviteRecord, SuperAdminRecord, TwoFactorMethod } from "@/constant/platformRecords";
 import type { ApiKey, PlatformSettings, SuperAdminRole } from "@/constant/superAdmin";
 import type { ApiKeyDraft } from "@/components/superAdminPlatform/form/apiKeyForm";
 import type { PlanChanges } from "@/components/superAdminPlatform/settingsContext";
@@ -149,22 +149,16 @@ export const superAdminService = {
 
   async getPlans(): Promise<{ plans: PricingPlan[]; discountPercent: number }> {
     const { data } = await api.get<{ plans: BackendPlanView[]; discountPercent: number }>("/plans");
-    const plans: PricingPlan[] = data.plans.map((p) => {
-      const template = PRICING_PLANS.find((tpl) => tpl.id === p.id);
-      return {
-        id: p.id,
-        tierNumber: p.tierNumber,
-        name: p.name,
-        targetAudience: p.targetAudience,
-        monthlyPrice: Math.round(p.monthlyPriceKobo / 100),
-        annualPrice: Math.round(p.annualPriceKobo / 100),
-        maxConcurrentJobs: p.maxConcurrentJobs,
-        features: p.features,
-        buttonText: template?.buttonText ?? `Choose ${p.name}`,
-        ctaUrl: template?.ctaUrl ?? `/sign-up?plan=${p.id}`,
-        defaultStaffRange: template?.defaultStaffRange ?? "1",
-      };
-    });
+    const plans: PricingPlan[] = data.plans.map((p) => ({
+      id: p.id,
+      tierNumber: p.tierNumber,
+      name: p.name,
+      targetAudience: p.targetAudience,
+      monthlyPrice: Math.round(p.monthlyPriceKobo / 100),
+      annualPrice: Math.round(p.annualPriceKobo / 100),
+      maxConcurrentJobs: p.maxConcurrentJobs,
+      features: p.features,
+    }));
     return { plans, discountPercent: data.discountPercent };
   },
 

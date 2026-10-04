@@ -6,7 +6,7 @@ import type {
     JobRejection,
 } from "@/constant/manufacturer";
 import type { StepSubmission, JobFaultReport } from "@/constant/jobWorkflow";
-import type { TimelineExtensionRecord } from "@/constant/sampleDb";
+import type { TimelineExtensionRecord } from "@/constant/platformRecords";
 
 interface ApiMedia {
     url?: string;

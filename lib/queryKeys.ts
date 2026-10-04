@@ -115,5 +115,17 @@ export const queryKeys = {
     statistics: (range: string) =>
       [...queryKeys.reports.all, "statistics", range] as const,
     jobStatus: () => [...queryKeys.reports.all, "job-status"] as const,
+    pendingReviews: (limit?: number) => [...queryKeys.reports.all, "pending-reviews", limit] as const,
+    transactions: (filters?: Record<string, unknown>) =>
+      [...queryKeys.reports.all, "transactions", filters] as const,
+    transactionsSummary: (manufacturerId?: string) =>
+      [...queryKeys.reports.all, "transactions-summary", manufacturerId] as const,
+    revenue: (filters?: Record<string, unknown>) => [...queryKeys.reports.all, "revenue", filters] as const,
+    revenueSummary: () => [...queryKeys.reports.all, "revenue-summary"] as const,
+    jobsReport: (period: string) => [...queryKeys.reports.all, "jobs", period] as const,
+    projectLeads: (filters?: Record<string, unknown>) =>
+      [...queryKeys.reports.all, "project-leads", filters] as const,
+    actions: () => [...queryKeys.reports.all, "actions"] as const,
+    activity: (filters?: Record<string, unknown>) => [...queryKeys.reports.all, "activity", filters] as const,
   },
 };
