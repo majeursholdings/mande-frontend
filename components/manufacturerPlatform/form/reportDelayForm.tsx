@@ -5,6 +5,7 @@ import type { FormFieldConfig } from "@/components/form/types";
 import { formatDuration, formatOrdinalDate } from "@/lib/date";
 import { MAX_EXTENSION_PERCENT } from "@/constant/jobWorkflow";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/api";
 
 type ReportDelayFormValues = {
     newDueDate: string;
@@ -18,7 +19,7 @@ type ReportDelayFormProps = {
     /** ISO dates the job's original length is measured between — its start, and its first due date. */
     start: string;
     originalDueDate: string;
-    reportDelay: (request: { requestedDueDate: string; reason: string }) => void;
+    reportDelay: (request: { requestedDueDate: string; reason: string }) => Promise<void>;
     closeDialog: () => void;
 };
 
@@ -85,13 +86,13 @@ export default function ReportDelayForm({
         },
     ];
 
-    const handleFormSubmit = ({ newDueDate, delay }: ReportDelayFormValues) => {
+    const handleFormSubmit = async ({ newDueDate, delay }: ReportDelayFormValues) => {
         try {
-            reportDelay({ requestedDueDate: new Date(newDueDate).toISOString(), reason: delay.trim() });
+            await reportDelay({ requestedDueDate: new Date(newDueDate).toISOString(), reason: delay.trim() });
             closeDialog();
-            toast.success("Delay reported — waiting for your project lead");
-        } catch {
-            toast.error("Couldn't report the delay on this job. Please try again.");
+            toast.success("Delay reported. Waiting for your project lead");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't report the delay on this job. Please try again."));
         }
     };
 

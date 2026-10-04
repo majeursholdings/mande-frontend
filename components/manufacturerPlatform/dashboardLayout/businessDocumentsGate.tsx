@@ -8,10 +8,11 @@ import {
 } from "@/components/ui/dialog";
 import BusinessDocumentsForm from "@/components/manufacturerPlatform/form/businessDocumentsForm";
 import { hasBusinessDocuments } from "@/constant/manufacturer";
-import { getPricingPlan, requiresBusinessDocuments } from "@/constant/sampleData";
+import { requiresBusinessDocuments } from "@/constant/plans";
 import { useLogout } from "./logoutContext";
 import { useManufacturerProfile } from "./manufacturerProfileContext";
 import { useManufacturerSubscription } from "./manufacturerSubscriptionContext";
+import { usePlans } from "@/hooks/usePlans";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BusinessDocumentsGate — Solo plans don't need a company tax number or
@@ -22,12 +23,19 @@ import { useManufacturerSubscription } from "./manufacturerSubscriptionContext";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function BusinessDocumentsGate() {
-    const { profile } = useManufacturerProfile();
-    const { subscription } = useManufacturerSubscription();
+    const { profile, isLoading: isProfileLoading } = useManufacturerProfile();
+    const { subscription, isLoading: isSubscriptionLoading } = useManufacturerSubscription();
     const { requestLogout } = useLogout();
-    const plan = getPricingPlan(subscription.planId);
+    const planId = subscription?.planId ?? "";
+    const { getPlan } = usePlans();
+    const plan = getPlan(planId);
+    // Not until the profile has loaded: before then it has no documents on file
     const isRequired =
-        requiresBusinessDocuments(subscription.planId) && !hasBusinessDocuments(profile);
+        !isProfileLoading &&
+        !isSubscriptionLoading &&
+        !!planId &&
+        requiresBusinessDocuments(planId) &&
+        !hasBusinessDocuments(profile);
 
     return (
         // Ignores close requests (Escape, outside press) — it closes once the

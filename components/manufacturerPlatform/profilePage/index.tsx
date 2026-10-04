@@ -14,8 +14,8 @@ import {
 import { useManufacturerProfile } from "../dashboardLayout/manufacturerProfileContext";
 import { useLogout } from "../dashboardLayout/logoutContext";
 import LinkList, { type LinkListItem } from "../linkList";
-import ProfileCard, { ProfileCardSkeleton } from "./profileCard";
-import ProfileStatCard, { ProfileStatCardSkeleton } from "./profileStatCard";
+import ProfileCard from "./profileCard";
+import ProfileStatCard from "./profileStatCard";
 
 const PROFILE_LINKS: LinkListItem[] = [
     {
@@ -64,33 +64,22 @@ export default function ManufacturerProfilePage() {
             <h1 className="text-2xl font-semibold font-text text-mist-950">Profile</h1>
 
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-                {isLoading ? (
-                    <ProfileCardSkeleton className="lg:w-65 lg:shrink-0" />
-                ) : (
-                    <ProfileCard profile={profile} className="lg:w-65 lg:shrink-0" />
-                )}
+                <ProfileCard profile={profile} loading={isLoading} className="lg:w-65 lg:shrink-0" />
 
                 <div className="flex min-w-0 flex-1 flex-col gap-8 lg:gap-6">
                     <div className="grid grid-cols-2 gap-4 lg:gap-6">
-                        {isLoading ? (
-                            <>
-                                <ProfileStatCardSkeleton />
-                                <ProfileStatCardSkeleton />
-                            </>
-                        ) : (
-                            <>
-                                <ProfileStatCard
-                                    label="Number of Staff"
-                                    value={formatRange(getOptionLabel(STAFF_RANGE_OPTIONS, profile.staffRange))}
-                                />
-                                <ProfileStatCard
-                                    label="Avg. Production Time"
-                                    value={formatRange(
-                                        getOptionLabel(PRODUCTION_LEAD_TIME_OPTIONS, profile.productionLeadTime),
-                                    )}
-                                />
-                            </>
-                        )}
+                        <ProfileStatCard
+                            label="Number of Staff"
+                            value={formatRange(getOptionLabel(STAFF_RANGE_OPTIONS, profile.staffRange))}
+                            loading={isLoading}
+                        />
+                        <ProfileStatCard
+                            label="Avg. Production Time"
+                            value={formatRange(
+                                getOptionLabel(PRODUCTION_LEAD_TIME_OPTIONS, profile.productionLeadTime),
+                            )}
+                            loading={isLoading}
+                        />
                     </div>
 
                     <LinkList items={PROFILE_LINKS} />

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import { usePathname, useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, LogOut } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { toast } from "sonner";
 import LogoLink from "@/components/ui/logoLink";
 import { MANUFACTURER_DASHBOARD_URL } from "@/constant/manufacturer";
@@ -15,9 +15,10 @@ import ChoosePlanStep from "../registrationPage/steps/choosePlanStep";
 import AboutCompanyStep from "../registrationPage/steps/aboutCompanyStep";
 import CompanySpecificationsStep from "../registrationPage/steps/companySpecificationsStep";
 import { saveCompanyDetails, saveCompanySpecifications } from "../registrationPage/registrationRequests";
-import { REGISTRATION_DEFAULT_VALUES, getPricingPlan, type RegistrationFormValues } from "../registrationPage/types";
+import { REGISTRATION_DEFAULT_VALUES, type RegistrationFormValues } from "../registrationPage/types";
 import Notice from "../notice";
 import { useLogout } from "./logoutContext";
+import DashboardFrameSkeleton from "./dashboardFrameSkeleton";
 import { useManufacturerSubscription } from "./manufacturerSubscriptionContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -82,14 +83,8 @@ export default function SignUpGate({ children }: { children: ReactNode }) {
         })();
     }, [returnedReference, confirmPayment, pathname, router]);
 
-    if (isPlanLoading || isProfileLoading || isConfirming) {
-        return (
-            <div className="flex min-h-dvh items-center justify-center gap-2 bg-mist-50 text-sm font-text text-mist-500" aria-busy>
-                <Loader2 className="size-4 animate-spin" aria-hidden />
-                {isConfirming ? "Checking your payment..." : "Loading..."}
-            </div>
-        );
-    }
+    // Waits to know which screen to show: the dashboard or the sign-up steps
+    if (isPlanLoading || isProfileLoading || isConfirming) return <DashboardFrameSkeleton />;
 
     // A profile that couldn't load says nothing either way: let them in
     const profile = profileData?.profile;
@@ -113,15 +108,13 @@ function SignUpStepsScreen({ stage }: { stage: Stage }) {
 
     // Paying: starts on the plan they last tried to pay for (or chose at
     // sign-up). After that, their plan, which decides what step 4 asks for.
-    const unpaidPlanId = latestPayment?.planId ?? (subscription.status === "pending_payment" ? subscription.planId : "");
+    const unpaidPlanId = latestPayment?.planId ?? (subscription?.status === "pending_payment" ? subscription.planId : "");
     const methods = useForm<RegistrationFormValues>({
         mode: "onTouched",
         defaultValues: {
             ...REGISTRATION_DEFAULT_VALUES,
-            plan: stage === "payment" ? unpaidPlanId : subscription.planId,
-            billingCycle: latestPayment?.billingCycle ?? subscription.billingCycle,
-            // Step 5's team size starts from the plan's
-            staffRange: getPricingPlan(subscription.planId)?.defaultStaffRange ?? "",
+            plan: stage === "payment" ? unpaidPlanId : (subscription?.planId ?? ""),
+            billingCycle: latestPayment?.billingCycle ?? subscription?.billingCycle ?? REGISTRATION_DEFAULT_VALUES.billingCycle,
         },
     });
 

@@ -4,8 +4,6 @@ import { useMemo, useState } from "react";
 import { ReceiptText } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
-    JOBS,
-    MANUFACTURER_CARD_PLAN_PAYMENTS,
     TRANSACTION_SORT_OPTIONS,
     getCurrentJobsWorth,
     getTransactionSummary,
@@ -24,7 +22,7 @@ import WalletActions from "./walletActions";
 import WalletSummary, { getWalletFigures } from "./walletSummary";
 
 export default function ManufacturerTransactionsPage() {
-    const { wallet, isLoading: isWalletLoading } = useManufacturerWallet();
+    const { wallet, isLoading: isWalletLoading, isError: isWalletError } = useManufacturerWallet();
     const [sortBy, setSortBy] = useState("");
 
     const { data: jobsData, isPending: isJobsPending } = useQuery({
@@ -33,11 +31,8 @@ export default function ManufacturerTransactionsPage() {
     });
 
     const activeJobs: Job[] = useMemo(() => {
-        if (jobsData?.jobs && jobsData.jobs.length > 0) {
-            return jobsData.jobs.map((j: ApiJobPayload) => mapApiJobToManufacturerJob(j));
-        }
-        return isJobsPending ? [] : JOBS;
-    }, [jobsData, isJobsPending]);
+        return (jobsData?.jobs ?? []).map((j: ApiJobPayload) => mapApiJobToManufacturerJob(j));
+    }, [jobsData]);
 
     const transactions = useMemo(
         () => sortTransactions(wallet.transactions, sortBy),
@@ -45,7 +40,7 @@ export default function ManufacturerTransactionsPage() {
     );
     const hasTransactions = transactions.length > 0;
 
-    const summary = getTransactionSummary([...wallet.transactions, ...MANUFACTURER_CARD_PLAN_PAYMENTS]);
+    const summary = getTransactionSummary(wallet.transactions);
     const figures = getWalletFigures({
         earned: summary.earned,
         paymentCount: summary.counts.payment,
@@ -78,18 +73,14 @@ export default function ManufacturerTransactionsPage() {
                     )}
                 </div>
 
-                {isWalletLoading ? (
-                    <div className="flex flex-col gap-3 rounded-xl border border-border bg-white p-5 animate-pulse">
-                        {[1, 2, 3, 4].map((i) => (
-                            <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                                <div className="flex flex-col gap-1.5">
-                                    <div className="h-4 w-40 rounded bg-mist-200" />
-                                    <div className="h-3 w-24 rounded bg-mist-100" />
-                                </div>
-                                <div className="h-5 w-20 rounded bg-mist-100" />
-                            </div>
-                        ))}
-                    </div>
+                {isWalletError ? (
+                    <TransactionsList
+                        tableId="transactions"
+                        transactions={[]}
+                        error="Couldn't load your transactions. Please refresh the page to try again."
+                    />
+                ) : isWalletLoading ? (
+                    <TransactionsList tableId="transactions" transactions={[]} loading />
                 ) : hasTransactions ? (
                     <TransactionsList tableId="transactions" transactions={transactions} />
                 ) : (

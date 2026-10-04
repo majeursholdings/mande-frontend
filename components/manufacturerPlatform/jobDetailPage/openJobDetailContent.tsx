@@ -7,6 +7,7 @@ import { CheckCircle2, Loader2, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatOrdinalDate, getTimeAgoLabel } from "@/lib/date";
 import { formatPrice } from "@/lib/currency";
 import {
@@ -14,10 +15,10 @@ import {
     getJobCategoryLabel,
     type OpenJob,
 } from "@/constant/manufacturer";
-import { jobsService } from "@/lib/services/jobsService";
 import { useApplyForJob, useJobApplications } from "../dashboardLayout/jobApplicationsContext";
 import Notice from "../notice";
 import { JOB_DETAIL_PRIMARY_BUTTON_CLASS } from "./styles";
+import { getErrorMessage } from "@/lib/api";
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
     return (
@@ -43,7 +44,7 @@ export default function OpenJobDetailContent({
     job: OpenJob;
     closeSlot: ReactNode;
 }) {
-    const { getApplication, withdraw, slots, plan } = useJobApplications();
+    const { getApplication, withdraw, slots, plan, isLoading: isSlotsLoading } = useJobApplications();
     const { isApplying, applyForJob } = useApplyForJob(job.id);
     const [isWithdrawing, setIsWithdrawing] = useState(false);
     const application = getApplication(job.id);
@@ -53,12 +54,10 @@ export default function OpenJobDetailContent({
     const handleWithdraw = async () => {
         setIsWithdrawing(true);
         try {
-            await jobsService.withdrawApplication(job.id);
-            withdraw(job.id);
+            await withdraw(job.id);
             toast.success("Application withdrawn");
-        } catch {
-            withdraw(job.id);
-            toast.success("Application withdrawn");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't withdraw your application. Please try again."));
         } finally {
             setIsWithdrawing(false);
         }
@@ -133,7 +132,12 @@ export default function OpenJobDetailContent({
             </div>
 
             <div className="flex flex-col gap-3 border-t border-border px-4 py-4">
-                {application ? (
+                {isSlotsLoading ? (
+                    <>
+                        <Skeleton className="h-3 w-48" />
+                        <Skeleton className="h-11 w-full rounded-button" />
+                    </>
+                ) : application ? (
                     <>
                         <p className="flex items-center gap-2 text-sm font-medium font-text text-primary-700">
                             <CheckCircle2 className="size-4 shrink-0" />
@@ -182,7 +186,7 @@ export default function OpenJobDetailContent({
                     </>
                 ) : slots.accountHold ? (
                     <Notice tone="warning">
-                        Your account is flagged — you can hold one job at a time until the flag is lifted.
+                        Your account is flagged, so you can hold one job at a time until the flag is lifted.
                     </Notice>
                 ) : (
                     <>

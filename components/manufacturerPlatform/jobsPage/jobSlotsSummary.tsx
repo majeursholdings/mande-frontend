@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { Infinity as InfinityIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { MANUFACTURER_PLAN_SETTINGS_URL } from "@/constant/manufacturer";
-import type { PricingPlan } from "@/constant/sampleData";
+import type { PricingPlan } from "@/constant/plans";
 import { PRIMARY_BUTTON_CLASS } from "../form/formButtons";
 import {
     useJobApplications,
@@ -16,7 +17,7 @@ const plural = (count: number, noun: string) => `${count} ${noun}${count === 1 ?
 /** One line on how many more jobs the manufacturer can apply for — for the dashboard. */
 export function getJobSlotsHint({ used, limit, canApply, accountHold }: JobSlots, plan?: PricingPlan): string {
     const planName = plan?.name ?? "current";
-    if (accountHold === "flagged" && !canApply) return "Your account is flagged — you can hold one job at a time";
+    if (accountHold === "flagged" && !canApply) return "Your account is flagged, so you can hold one job at a time";
     if (limit === null) return `No limit on jobs with your ${planName} plan`;
     if (!canApply) return `All ${limit} job slots on your ${planName} plan are in use`;
     return `You can apply for ${plural(limit - used, "more job")} on your ${planName} plan`;
@@ -31,10 +32,26 @@ export function getJobSlotsHint({ used, limit, canApply, accountHold }: JobSlots
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function JobSlotsSummary() {
-    const { slots, plan } = useJobApplications();
+    const { slots, plan, isLoading } = useJobApplications();
     const { used, limit, canApply, activeJobCount, applicationCount, accountHold } = slots;
     const planName = plan?.name ?? "current";
     const breakdown = `${plural(activeJobCount, "active job")} · ${plural(applicationCount, "application")}`;
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col gap-3 rounded-xl border border-border bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                        <p className="text-sm font-semibold font-text text-mist-950">Job slots</p>
+                        <Skeleton className="mt-1 h-3 w-36" />
+                    </div>
+                    <Skeleton className="h-6 w-20" />
+                </div>
+                <Skeleton className="h-1.5 w-full rounded-full" />
+                <Skeleton className="h-3 w-3/4" />
+            </div>
+        );
+    }
 
     // A flag, not the plan, is what's holding them back — an upgrade won't help
     if (accountHold && !canApply) {

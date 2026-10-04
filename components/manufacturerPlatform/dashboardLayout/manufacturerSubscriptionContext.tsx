@@ -1,13 +1,8 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-    MANUFACTURER_SAVED_CARDS,
-    MANUFACTURER_SUBSCRIPTION,
-    type ManufacturerSubscription,
-    type SavedCard,
-} from "@/constant/manufacturer";
+import type { ManufacturerSubscription, SavedCard } from "@/constant/manufacturer";
 import { queryKeys } from "@/lib/queryKeys";
 import {
     subscriptionService,
@@ -22,17 +17,20 @@ import {
 // plan). Upgrades apply straight away (they're paid for up front); downgrades
 // and cancellations wait for the end of the billing period. Every change is
 // made by the API, and its answer replaces what's shown. Until the plan has
-// loaded (or if it can't), the sample plan stands in, as the wallet does.
+// loaded (or if it can't, or there's none) the subscription is null.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Where the payment partner's checkout sends them back to after paying for an upgrade. */
 export const PLAN_SETTINGS_PATH = "/manufacturer/profile/settings?tab=plan";
 
 type ManufacturerSubscriptionContextValue = {
-    subscription: ManufacturerSubscription;
+    /** Null until loaded, if it can't load, or when they've never had a plan. */
+    subscription: ManufacturerSubscription | null;
     savedCards: SavedCard[];
     /** True until the plan has loaded from the API. */
     isLoading: boolean;
+    /** True when the plan couldn't load. */
+    isError: boolean;
     /**
      * A plan was never paid for (the sign-up payment failed or was left): the
      * dashboard waits behind the payment screen until it is (see PlanPaymentGate).
@@ -95,56 +93,68 @@ function goToCheckout(checkoutUrl: string) {
 
 export function ManufacturerSubscriptionProvider({ children }: { children: ReactNode }) {
     const queryClient = useQueryClient();
-    const { data, isPending } = useQuery({
+    const { data, isPending, isError } = useQuery({
         queryKey: queryKeys.subscription.details(),
         queryFn: () => subscriptionService.getSubscription(),
         retry: false,
     });
 
-    /** Shows what the API answered with (every plan route answers with the whole plan). */
-    const show = (view: SubscriptionView): void => {
-        queryClient.setQueryData<SubscriptionView>(queryKeys.subscription.details(), {
-            subscription: view.subscription,
-            cards: view.cards,
-            payments: view.payments,
-        });
-    };
-
-    const value: ManufacturerSubscriptionContextValue = {
-        subscription: toSubscription(data?.subscription ?? null) ?? MANUFACTURER_SUBSCRIPTION,
-        savedCards: data
-            ? data.cards.map((card) => ({ id: card.id, brand: toCardBrand(card.brand), last4: card.last4, expiry: card.expiry }))
-            : MANUFACTURER_SAVED_CARDS,
-        isLoading: isPending,
-        needsFirstPayment: !!data && (!data.subscription || data.subscription.status === "pending_payment"),
-        latestPayment: data?.payments[0] ?? null,
-        payForPlan: async (planId, billingCycle, returnPath) => {
-            const { checkoutUrl } = await subscriptionService.startCheckout({ planId, billingCycle, saveCard: true, returnPath });
-            goToCheckout(checkoutUrl);
-        },
-        upgradePlan: async (planId, pay) => {
-            const result = await subscriptionService.upgradePlan({
-                planId,
-                pay: pay.from === "new-card" ? { ...pay, returnPath: PLAN_SETTINGS_PATH } : pay,
+    // The actions only need the query client, so they keep their identity across renders
+    const actions = useMemo(() => {
+        /** Shows what the API answered with (every plan route answers with the whole plan). */
+        const show = (view: SubscriptionView): void => {
+            queryClient.setQueryData<SubscriptionView>(queryKeys.subscription.details(), {
+                subscription: view.subscription,
+                cards: view.cards,
+                payments: view.payments,
             });
-            if (result.checkoutUrl) {
-                goToCheckout(result.checkoutUrl);
-                return { redirected: true };
-            }
-            show(result);
-            // A wallet payment moved money: show the new balance
-            if (pay.from === "wallet") await queryClient.invalidateQueries({ queryKey: queryKeys.wallet.all });
-            return { redirected: false };
-        },
-        confirmPayment: async (reference) => {
-            const { payment, ...view } = await subscriptionService.confirmPayment(reference);
-            show(view);
-            return payment;
-        },
-        scheduleDowngrade: async (planId) => show(await subscriptionService.scheduleDowngrade(planId)),
-        keepCurrentPlan: async () => show(await subscriptionService.keepCurrentPlan()),
-        cancelPlan: async () => show(await subscriptionService.cancelPlan()),
-    };
+        };
+
+        return {
+            payForPlan: async (planId, billingCycle, returnPath) => {
+                const { checkoutUrl } = await subscriptionService.startCheckout({ planId, billingCycle, saveCard: true, returnPath });
+                goToCheckout(checkoutUrl);
+            },
+            upgradePlan: async (planId, pay) => {
+                const result = await subscriptionService.upgradePlan({
+                    planId,
+                    pay: pay.from === "new-card" ? { ...pay, returnPath: PLAN_SETTINGS_PATH } : pay,
+                });
+                if (result.checkoutUrl) {
+                    goToCheckout(result.checkoutUrl);
+                    return { redirected: true };
+                }
+                show(result);
+                // A wallet payment moved money: show the new balance
+                if (pay.from === "wallet") await queryClient.invalidateQueries({ queryKey: queryKeys.wallet.all });
+                return { redirected: false };
+            },
+            confirmPayment: async (reference) => {
+                const { payment, ...view } = await subscriptionService.confirmPayment(reference);
+                show(view);
+                return payment;
+            },
+            scheduleDowngrade: async (planId) => show(await subscriptionService.scheduleDowngrade(planId)),
+            keepCurrentPlan: async () => show(await subscriptionService.keepCurrentPlan()),
+            cancelPlan: async () => show(await subscriptionService.cancelPlan()),
+        } satisfies Pick<
+            ManufacturerSubscriptionContextValue,
+            "payForPlan" | "upgradePlan" | "confirmPayment" | "scheduleDowngrade" | "keepCurrentPlan" | "cancelPlan"
+        >;
+    }, [queryClient]);
+
+    const value: ManufacturerSubscriptionContextValue = useMemo(
+        () => ({
+            subscription: toSubscription(data?.subscription ?? null),
+            savedCards: (data?.cards ?? []).map((card) => ({ id: card.id, brand: toCardBrand(card.brand), last4: card.last4, expiry: card.expiry })),
+            isLoading: isPending,
+            isError,
+            needsFirstPayment: !!data && (!data.subscription || data.subscription.status === "pending_payment"),
+            latestPayment: data?.payments[0] ?? null,
+            ...actions,
+        }),
+        [data, isPending, isError, actions],
+    );
 
     return (
         <ManufacturerSubscriptionContext.Provider value={value}>

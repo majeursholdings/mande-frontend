@@ -1,7 +1,7 @@
 import { StatusBadge, type StatusTone } from "@/components/customTable/statusBadge";
 import { getOptionLabel } from "@/constant/manufacturer";
 import { FEEDBACK_CATEGORY_OPTIONS } from "@/constant/support";
-import type { SupportFeedbackRecord } from "@/constant/sampleDb";
+import type { SupportFeedbackRecord } from "@/constant/platformRecords";
 
 const CATEGORY_TONES: Record<SupportFeedbackRecord["category"], StatusTone> = {
     feedback: "green",

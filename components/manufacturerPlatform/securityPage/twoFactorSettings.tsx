@@ -1,5 +1,6 @@
 "use client";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { Copy, Mail, Smartphone, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -46,9 +47,10 @@ type SetupPhase = "reauth" | "verify";
 
 /** The signed-in manufacturer's two-factor settings. */
 export default function TwoFactorSettings() {
-    const { profile, updateSecurity } = useManufacturerProfile();
+    const { profile, updateSecurity, isLoading } = useManufacturerProfile();
     return (
         <TwoFactorMethods
+            loading={isLoading}
             email={profile.email}
             activeMethod={profile.security.twoFactorMethod}
             onChange={(method) => updateSecurity((security) => ({ ...security, twoFactorMethod: method }))}
@@ -61,12 +63,15 @@ export function TwoFactorMethods({
     email,
     activeMethod,
     onChange,
+    loading = false,
 }: {
     /** Where emailed codes go. */
     email: string;
     /** Null while two-factor authentication is off. */
     activeMethod: TwoFactorMethod | null;
     onChange: (method: TwoFactorMethod | null) => void;
+    /** Skeletons in place of each method's state (and the email in it) while the account loads. */
+    loading?: boolean;
 }) {
     const [pending, setPending] = useState<PendingChange>(null);
     const [phase, setPhase] = useState<SetupPhase>("reauth");
@@ -112,16 +117,23 @@ export function TwoFactorMethods({
                             <div className="min-w-0 flex-1">
                                 <p className="flex items-center gap-2 text-sm font-medium font-text text-mist-950">
                                     {title}
-                                    {isActive && (
+                                    {!loading && isActive && (
                                         <span className="rounded-full bg-primary-50 px-2 py-0.5 text-[11px] font-medium text-primary-700">
                                             On
                                         </span>
                                     )}
                                 </p>
-                                <p className="text-xs font-text text-mist-500">
-                                    {description(email)}
-                                </p>
+                                {loading ? (
+                                    <Skeleton className="mt-1 h-3 w-48 max-w-full" />
+                                ) : (
+                                    <p className="text-xs font-text text-mist-500">
+                                        {description(email)}
+                                    </p>
+                                )}
                             </div>
+                            {loading ? (
+                                <Skeleton className="h-9 w-20 shrink-0 rounded-button" />
+                            ) : (
                             <button
                                 type="button"
                                 onClick={() => {
@@ -137,6 +149,7 @@ export function TwoFactorMethods({
                             >
                                 {isActive ? "Turn off" : activeMethod ? "Switch" : "Set up"}
                             </button>
+                            )}
                         </li>
                     );
                 })}

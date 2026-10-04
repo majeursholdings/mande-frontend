@@ -16,9 +16,10 @@ import {
     getVerificationAfterSave,
     type DocumentVerification,
 } from "@/constant/manufacturer";
-import { requiresBusinessDocuments } from "@/constant/sampleData";
+import { requiresBusinessDocuments } from "@/constant/plans";
 import { ADDRESS_ROW_PAIRS, getAddressFields, type AddressFormValues } from "./addressFields";
 import { FormSubmitButton } from "./formButtons";
+import FormFieldsSkeleton from "./formFieldsSkeleton";
 
 type AboutCompanyFormValues = AddressFormValues & {
     // Set at registration — shown for reference only
@@ -123,8 +124,8 @@ export default function ProfileAboutCompanyForm() {
 }
 
 function AboutCompanyForm() {
-    const { profile, updateProfile } = useManufacturerProfile();
-    const { subscription } = useManufacturerSubscription();
+    const { profile, updateProfile, isLoading: isProfileLoading } = useManufacturerProfile();
+    const { subscription, isLoading: isSubscriptionLoading } = useManufacturerSubscription();
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<AboutCompanyFormValues>({
         mode: "onTouched",
@@ -146,7 +147,7 @@ function AboutCompanyForm() {
     const licenseVerification = profile.businessLicenseNumber.trim()
         ? profile.businessLicenseNumberVerification
         : null;
-    const documentsRequired = requiresBusinessDocuments(subscription.planId);
+    const documentsRequired = !!subscription && requiresBusinessDocuments(subscription.planId);
 
     const fields: FormFieldConfig[] = [
         { name: "companyName", type: "text", label: "Company name", disabled: true },
@@ -244,12 +245,18 @@ function AboutCompanyForm() {
         }
     };
 
+    const rowPairs: [string, string][] = [["companyTaxNumber", "businessLicenseNumber"], ...ADDRESS_ROW_PAIRS];
+
+    if (isProfileLoading || isSubscriptionLoading) {
+        return <FormFieldsSkeleton fields={fields} rowPairs={rowPairs} />;
+    }
+
     return (
         <MainForm<AboutCompanyFormValues>
             methods={methods}
             fields={fields}
             description={description}
-            rowPairs={[["companyTaxNumber", "businessLicenseNumber"], ...ADDRESS_ROW_PAIRS]}
+            rowPairs={rowPairs}
             onSubmit={handleSubmit}
             isLoading={isLoading}
             renderFooter={({ isLoading, canSubmit }) => (

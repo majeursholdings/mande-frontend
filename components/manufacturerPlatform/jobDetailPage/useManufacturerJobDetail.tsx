@@ -10,8 +10,6 @@ import {
     type ApiJobPayload,
 } from "@/lib/mappers/jobMappers";
 import {
-    JOBS,
-    OPEN_JOBS,
     type Job,
     type OpenJob,
 } from "@/constant/manufacturer";
@@ -51,23 +49,7 @@ export async function fetchManufacturerJobDetail(
             };
         }
     } catch {
-        // Not found via API, fall through to static fixtures
-    }
-
-    // 3. Fallback to sample data (matching by id or code)
-    const lower = cleanId.toLowerCase();
-    const staticOpen = OPEN_JOBS.find(
-        (j) => j.id.toLowerCase() === lower || j.code?.toLowerCase() === lower,
-    );
-    if (staticOpen) {
-        return { type: "open", job: staticOpen };
-    }
-
-    const staticAssigned = JOBS.find(
-        (j) => j.id.toLowerCase() === lower || j.code?.toLowerCase() === lower,
-    );
-    if (staticAssigned) {
-        return { type: "assigned", job: staticAssigned };
+        // Not an open job either
     }
 
     return null;

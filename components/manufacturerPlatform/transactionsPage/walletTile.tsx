@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { ManufacturerBankAccount } from "@/constant/manufacturer";
 
 /** "Demi Semande • 0233000994" — how a bank account is summarised under its bank's name. */
@@ -13,11 +14,14 @@ export function WalletTile({
     title,
     subtitle,
     size = "md",
+    loading = false,
 }: {
     icon: LucideIcon;
     title: string;
     subtitle?: string;
     size?: "sm" | "md";
+    /** Skeletons in place of the title and subtitle, while what they show loads. */
+    loading?: boolean;
 }) {
     const isSmall = size === "sm";
     return (
@@ -31,6 +35,12 @@ export function WalletTile({
                 <Icon className={isSmall ? "size-4" : "size-5"} strokeWidth={1.75} />
             </span>
             {/* Wraps rather than truncates — the account number is what people check before a payout */}
+            {loading ? (
+                <div className="flex min-w-0 flex-col gap-1.5">
+                    <Skeleton className={isSmall ? "h-4 w-28" : "h-5 w-32"} />
+                    <Skeleton className={isSmall ? "h-3 w-40" : "h-4 w-44"} />
+                </div>
+            ) : (
             <div className="min-w-0 text-left">
                 <p
                     className={cn(
@@ -46,6 +56,7 @@ export function WalletTile({
                     </p>
                 )}
             </div>
+            )}
         </div>
     );
 }

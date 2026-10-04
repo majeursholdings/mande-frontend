@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { queryKeys } from "@/lib/queryKeys";
 import { jobsService } from "@/lib/services/jobsService";
 import type { ProofPhoto } from "@/components/manufacturerPlatform/form/jobDetailCompletionUploadForm";
 import {
     MAX_JOB_REJECTIONS,
-    getJobPaymentInput,
     settleJob,
     type Job,
     type JobRejection,
@@ -16,13 +16,12 @@ import {
 import {
     canCancelJob,
     getCurrentStep,
-    getJobPayments,
     getStepProgress,
     type ProductionStepKey,
     type StepSubmission,
 } from "@/constant/jobWorkflow";
-import { SIGNED_IN_MANUFACTURER_ID, getPayoutId, type TimelineExtensionRecord } from "@/constant/sampleDb";
-import { useManufacturerWallet } from "../dashboardLayout/manufacturerWalletContext";
+import type { TimelineExtensionRecord } from "@/constant/platformRecords";
+import { getErrorMessage } from "@/lib/api";
 
 export type JobDetailState = {
     status: JobStatus;
@@ -39,7 +38,6 @@ export type JobDetailState = {
 
 export function useJobDetailState(job: Job) {
     const queryClient = useQueryClient();
-    const { receivePayment } = useManufacturerWallet();
     const [storedState, setState] = useState<JobDetailState>({
         status: job.status,
         dateAssigned: job.dateAssigned,
@@ -62,55 +60,60 @@ export function useJobDetailState(job: Job) {
         }, 3000);
     };
 
+    // Each action below goes to the API first and only changes the page once
+    // it has: a job that looks accepted (or a payment that looks paid) when
+    // the server said no is worse than a moment's wait.
+    const [isResponding, setIsResponding] = useState(false);
+
     const acceptJob = async () => {
-        const acceptedAt = new Date().toISOString();
-        setState((s) => ({ ...s, status: "in-progress", dateAssigned: acceptedAt }));
-        // The first part of the pay is released the moment they say yes
-        const [firstPayment] = getJobPayments(getJobPaymentInput({ ...job, dateAssigned: acceptedAt })).payments;
-        if (firstPayment) {
-            receivePayment({
-                id: getPayoutId(job.id, firstPayment.milestone, SIGNED_IN_MANUFACTURER_ID),
-                amount: firstPayment.amount,
-                label: firstPayment.label,
-                projectName: job.title,
-            });
-        }
-        showBanner("Job accepted — your first payment is in your wallet");
+        if (isResponding) return;
+        setIsResponding(true);
         try {
             await jobsService.acceptJob(job.id);
-            queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+            setState((s) => ({ ...s, status: "in-progress", dateAssigned: new Date().toISOString() }));
+            showBanner("Job accepted. Your first payment is on its way to your wallet");
+            // The first part of the pay is released on accepting: the wallet shows what the server paid
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.wallet.all }),
+            ]);
         } catch (err) {
-            console.error("Failed to accept job on server:", err);
+            toast.error(getErrorMessage(err, "Couldn't accept this job. Please try again."));
+        } finally {
+            setIsResponding(false);
         }
     };
 
     const declineJob = async (reason = "Declined by manufacturer") => {
-        setState((s) => ({ ...s, status: "cancelled" }));
-        showBanner("Job has been declined");
+        if (isResponding) return;
+        setIsResponding(true);
         try {
             await jobsService.declineJob(job.id, reason);
-            queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+            setState((s) => ({ ...s, status: "cancelled" }));
+            showBanner("Job has been declined");
+            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
         } catch (err) {
-            console.error("Failed to decline job on server:", err);
+            toast.error(getErrorMessage(err, "Couldn't decline this job. Please try again."));
+        } finally {
+            setIsResponding(false);
         }
     };
 
-    // Not once they're past the Materials step — the materials money is spent
+    // Not once they're past the Materials step — the materials money is spent.
+    // Rejects if the server doesn't cancel it (the form shows why).
     const cancelJob = async (reason = "Cancelled by manufacturer") => {
         if (!canCancelJob(state.stepSubmissions)) return;
+        await jobsService.cancelJob(job.id, reason);
         setState((s) => ({ ...s, status: "cancelled" }));
         showBanner("Job has been cancelled");
-        try {
-            await jobsService.cancelJob(job.id, reason);
-            queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-        } catch (err) {
-            console.error("Failed to cancel job on server:", err);
-        }
+        await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
     };
 
-    // Asks for a later due date — one request at a time, for the lead to decide
+    // Asks for a later due date — one request at a time, for the lead to
+    // decide. Rejects if the server doesn't take it (the form shows why).
     const reportDelay = async ({ requestedDueDate, reason }: { requestedDueDate: string; reason: string }) => {
         if (state.extensionRequests.some((request) => request.status === "pending")) return;
+        await jobsService.requestExtension(job.id, { requestedDueDate, reason });
         const request: TimelineExtensionRecord = {
             id: `ext-${Date.now()}`,
             previousDueDate: job.dueDate,
@@ -122,17 +125,8 @@ export function useJobDetailState(job: Job) {
             step: getCurrentStep(state.stepSubmissions),
         };
         setState((s) => ({ ...s, extensionRequests: [request, ...s.extensionRequests] }));
-        showBanner("Delay reported — waiting for your project lead");
-        try {
-            await jobsService.requestExtension(job.id, { requestedDueDate, reason });
-            queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-        } catch (err) {
-            console.error("Failed to report delay on server:", err);
-        }
-    };
-
-    const purchaseMaterials = () => {
-        showBanner("Materials purchased successfully");
+        showBanner("Delay reported. Waiting for your project lead");
+        await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
     };
 
     // Proof goes in for the step they're on, or one that was sent back —
@@ -186,11 +180,11 @@ export function useJobDetailState(job: Job) {
 
     return {
         state,
+        isResponding,
         acceptJob,
         declineJob,
         cancelJob,
         reportDelay,
-        purchaseMaterials,
         submitStepProof,
         uploadCompletionPhoto,
         resubmitForReview,

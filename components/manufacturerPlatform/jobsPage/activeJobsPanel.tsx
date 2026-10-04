@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import {
-    JOBS,
     JOBS_FILTER_ORDER,
     JOB_SORT_OPTIONS,
     JOB_STATUS_CONFIG,
@@ -17,6 +16,8 @@ import { queryKeys } from "@/lib/queryKeys";
 import { jobsService } from "@/lib/services/jobsService";
 import { mapApiJobToManufacturerJob, type ApiJobPayload } from "@/lib/mappers/jobMappers";
 import EmptyState from "../dashboardPage/emptyState";
+import JobCardSkeleton from "@/components/ui/jobCardSkeleton";
+import LoadError from "../loadError";
 import JobCard from "./jobCard";
 import { FilterChips, FilterDropdown, type FilterOption } from "./jobFilters";
 import { SortByDropdown } from "./sortByDropdown";
@@ -56,7 +57,7 @@ export default function ActiveJobsPanel({
 } = {}) {
     const isExternalJobs = initialJobs !== undefined;
 
-    const { data: apiData, isPending } = useQuery({
+    const { data: apiData, isPending, isError } = useQuery({
         queryKey: queryKeys.jobs.lists(),
         queryFn: () => jobsService.getMyJobs(),
         enabled: !isExternalJobs,
@@ -64,10 +65,7 @@ export default function ActiveJobsPanel({
 
     const allJobs = useMemo(() => {
         if (isExternalJobs) return initialJobs ?? [];
-        if (apiData?.jobs) {
-            return apiData.jobs.map((j: ApiJobPayload) => mapApiJobToManufacturerJob(j));
-        }
-        return JOBS;
+        return (apiData?.jobs ?? []).map((j: ApiJobPayload) => mapApiJobToManufacturerJob(j));
     }, [isExternalJobs, initialJobs, apiData]);
 
     const [filter, setFilter] = useState<JobsFilter>("all");
@@ -84,21 +82,13 @@ export default function ActiveJobsPanel({
         );
     }, [allJobs, sortBy]);
 
-    if (!isExternalJobs && isPending) {
-        return (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                    <div key={i} className="h-64 rounded-xl border border-border bg-white p-4 animate-pulse">
-                        <div className="h-32 w-full rounded-lg bg-mist-100 mb-3" />
-                        <div className="h-4 w-3/4 rounded bg-mist-200 mb-2" />
-                        <div className="h-3 w-1/2 rounded bg-mist-100" />
-                    </div>
-                ))}
-            </div>
-        );
+    const isLoading = !isExternalJobs && isPending;
+
+    if (!isExternalJobs && isError) {
+        return <LoadError>Couldn&apos;t load your jobs. Please refresh the page to try again.</LoadError>;
     }
 
-    if (allJobs.length === 0) {
+    if (!isLoading && allJobs.length === 0) {
         return <EmptyState title="No active jobs" description={emptyDescription} />;
     }
 
@@ -106,7 +96,7 @@ export default function ActiveJobsPanel({
     const filterOptions: FilterOption<JobsFilter>[] = JOBS_FILTER_ORDER.map((status) => ({
         value: status,
         label: getJobsFilterLabel(status),
-        count: jobsByFilter[status].length,
+        count: isLoading ? null : jobsByFilter[status].length,
         dotClass: status === "all" ? undefined : JOB_STATUS_CONFIG[status].dotClass,
     }));
 
@@ -130,7 +120,13 @@ export default function ActiveJobsPanel({
                 <SortByDropdown items={JOB_SORT_OPTIONS} value={sortBy} onChange={setSortBy} />
             </div>
 
-            {jobs.length === 0 ? (
+            {isLoading ? (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <JobCardSkeleton key={i} />
+                    ))}
+                </div>
+            ) : jobs.length === 0 ? (
                 <EmptyState
                     title={filter === "all" ? "No Jobs" : `No Jobs ${getJobsFilterLabel(filter)}`}
                     description="There are no jobs to display"

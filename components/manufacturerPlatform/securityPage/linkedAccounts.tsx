@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import type { SocialLoginProvider } from "@/constant/manufacturer";
@@ -19,7 +20,7 @@ const PROVIDERS: {
 
 /** Google / Facebook accounts linked to the profile for one-click login. */
 export default function LinkedAccounts() {
-    const { profile, updateSecurity } = useManufacturerProfile();
+    const { profile, updateSecurity, isLoading } = useManufacturerProfile();
     const [pending, setPending] = useState<SocialLoginProvider | null>(null);
     const { linkedAccounts } = profile.security;
 
@@ -64,10 +65,17 @@ export default function LinkedAccounts() {
                         </span>
                         <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium font-text text-mist-950">{name}</p>
-                            <p className="truncate text-xs font-text text-mist-500">
-                                {linkedTo ? `Linked to ${linkedTo}` : "Not linked"}
-                            </p>
+                            {isLoading ? (
+                                <Skeleton className="mt-1 h-3 w-40 max-w-full" />
+                            ) : (
+                                <p className="truncate text-xs font-text text-mist-500">
+                                    {linkedTo ? `Linked to ${linkedTo}` : "Not linked"}
+                                </p>
+                            )}
                         </div>
+                        {isLoading ? (
+                            <Skeleton className="h-9 w-20 shrink-0 rounded-button" />
+                        ) : (
                         <button
                             type="button"
                             onClick={() => toggleLink(provider, name)}
@@ -82,6 +90,7 @@ export default function LinkedAccounts() {
                             {isPending && <Loader2 className="size-3.5 animate-spin" />}
                             {linkedTo ? "Unlink" : "Link"}
                         </button>
+                        )}
                     </li>
                 );
             })}

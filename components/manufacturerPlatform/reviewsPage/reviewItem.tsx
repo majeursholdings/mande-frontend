@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { RatingStars } from "@/components/customTable/ratingStars";
 import type { ManufacturerReview } from "@/constant/manufacturer";
 
@@ -35,5 +36,19 @@ export default function ReviewItem({
                 {review.comment}
             </p>
         </article>
+    );
+}
+
+/** A ReviewItem while the reviews load. */
+export function ReviewItemSkeleton() {
+    return (
+        <div aria-hidden className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-3">
+                <Skeleton className="h-5 w-32" />
+                <Skeleton className="h-4 w-20" />
+            </div>
+            <Skeleton className="h-3.5 w-full" />
+            <Skeleton className="h-3.5 w-2/3" />
+        </div>
     );
 }

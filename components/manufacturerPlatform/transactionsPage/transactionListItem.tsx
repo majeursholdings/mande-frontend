@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/lib/currency";
 import { formatOrdinalDate } from "@/lib/date";
 import type { ManufacturerTransaction } from "@/constant/manufacturer";
@@ -76,6 +77,21 @@ export default function TransactionListItem({
             >
                 {formatPrice(transaction.amount)}
             </p>
+        </li>
+    );
+}
+
+/** A TransactionListItem while the transactions load. */
+export function TransactionListItemSkeleton({ variant = "preview" }: { variant?: "preview" | "full" }) {
+    const isFull = variant === "full";
+    return (
+        <li aria-hidden className="flex gap-3">
+            <Skeleton className="mt-0.5 size-5 shrink-0 rounded-full" />
+            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <Skeleton className={isFull ? "h-5 w-40" : "h-4 w-36"} />
+                <Skeleton className="h-3 w-24" />
+            </div>
+            <Skeleton className={cn("shrink-0", isFull ? "h-5 w-20" : "h-4 w-16 self-center")} />
         </li>
     );
 }

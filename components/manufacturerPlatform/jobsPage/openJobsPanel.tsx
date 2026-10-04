@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import {
-    OPEN_JOBS,
     OPEN_JOB_SORT_OPTIONS,
     getJobCategoryLabel,
     type OpenJob,
@@ -13,6 +12,8 @@ import { jobsService } from "@/lib/services/jobsService";
 import { mapApiOpenJobToOpenJob, type ApiJobPayload } from "@/lib/mappers/jobMappers";
 import { useJobApplications } from "../dashboardLayout/jobApplicationsContext";
 import EmptyState from "../dashboardPage/emptyState";
+import JobCardSkeleton from "@/components/ui/jobCardSkeleton";
+import LoadError from "../loadError";
 import { OpenJobCard } from "./jobCard";
 import { FilterChips } from "./jobFilters";
 import JobSlotsSummary from "./jobSlotsSummary";
@@ -52,17 +53,14 @@ export default function OpenJobsPanel() {
     const [filter, setFilter] = useState<OpenJobsFilter>("all");
     const [sortBy, setSortBy] = useState("");
 
-    const { data: apiData, isPending } = useQuery({
+    const { data: apiData, isPending, isError } = useQuery({
         queryKey: queryKeys.jobs.openJobs(),
         queryFn: () => jobsService.getOpenJobs(),
     });
 
     const openJobsList = useMemo(() => {
-        if (apiData?.jobs && apiData.jobs.length > 0) {
-            return apiData.jobs.map((j: ApiJobPayload) => mapApiOpenJobToOpenJob(j));
-        }
-        return isPending ? [] : OPEN_JOBS;
-    }, [apiData, isPending]);
+        return (apiData?.jobs ?? []).map((j: ApiJobPayload) => mapApiOpenJobToOpenJob(j));
+    }, [apiData]);
 
     const sortedJobs = useMemo(() => sortOpenJobs(openJobsList, sortBy), [openJobsList, sortBy]);
     const appliedJobs = sortedJobs.filter((job) => getApplication(job.id));
@@ -76,8 +74,8 @@ export default function OpenJobsPanel() {
                 <FilterChips<OpenJobsFilter>
                     label="Show"
                     options={[
-                        { value: "all", label: "All", count: sortedJobs.length },
-                        { value: "applied", label: "Applied", count: appliedJobs.length },
+                        { value: "all", label: "All", count: isPending ? null : sortedJobs.length },
+                        { value: "applied", label: "Applied", count: isPending ? null : appliedJobs.length },
                     ]}
                     value={filter}
                     onChange={setFilter}
@@ -88,13 +86,11 @@ export default function OpenJobsPanel() {
             {isPending ? (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <div key={i} className="h-64 rounded-xl border border-border bg-white p-4 animate-pulse">
-                            <div className="h-32 w-full rounded-lg bg-mist-100 mb-3" />
-                            <div className="h-4 w-3/4 rounded bg-mist-200 mb-2" />
-                            <div className="h-3 w-1/2 rounded bg-mist-100" />
-                        </div>
+                        <JobCardSkeleton key={i} />
                     ))}
                 </div>
+            ) : isError ? (
+                <LoadError>Couldn&apos;t load open jobs. Please refresh the page to try again.</LoadError>
             ) : jobs.length === 0 ? (
                 filter === "applied" ? (
                     <EmptyState

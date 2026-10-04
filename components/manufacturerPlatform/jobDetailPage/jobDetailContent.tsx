@@ -23,7 +23,6 @@ import { cn } from "@/lib/utils";
 import { formatDuration, formatOrdinalDate, getCountdownLabel } from "@/lib/date";
 import { formatPrice } from "@/lib/currency";
 import {
-    JOBS,
     JOB_STATUS_CONFIG,
     MAX_JOB_REJECTIONS,
     isActiveJob,
@@ -40,8 +39,9 @@ import {
     getOriginalDueDate,
     getStepProgress,
 } from "@/constant/jobWorkflow";
+import { useMyJobList } from "@/components/manufacturerPlatform/dashboardLayout/useManufacturerJobLists";
 
-type DialogKind = "reportDelay" | "purchaseMaterials" | "cancelJob" | null;
+type DialogKind = "reportDelay" | "cancelJob" | null;
 
 const COMPLETION_UPLOAD_ID = "job-detail-completion-upload";
 
@@ -57,11 +57,11 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
 export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSlot: ReactNode }) {
     const {
         state,
+        isResponding,
         acceptJob,
         declineJob,
         cancelJob,
         reportDelay,
-        purchaseMaterials,
         submitStepProof,
         uploadCompletionPhoto,
         resubmitForReview,
@@ -81,10 +81,11 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
     // Flagged: one job at a time, so an offer can't be accepted while another
     // job is underway (a suspended account doesn't get this far — AccountGate)
     const { isFlagged } = useManufacturerAccount();
-    const hasOtherJob = JOBS.some((other) => other.id !== job.id && other.status !== "pending" && isActiveJob(other));
+    const { jobs: myJobs } = useMyJobList();
+    const hasOtherJob = myJobs.some((other) => other.id !== job.id && other.status !== "pending" && isActiveJob(other));
     const acceptBlocker =
         isFlagged && hasOtherJob
-            ? "Your account is flagged — you can hold one job at a time. Finish your current job to accept this one."
+            ? "Your account is flagged: you can hold one job at a time. Finish your current job to accept this one."
             : null;
     const canMarkAsDone =
         state.status === "in-progress" && allStepsComplete && completionImageUrls.length === 0;
@@ -130,9 +131,6 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                                 })
                         }
                         onReportDelay={() => setDialog("reportDelay")}
-                        onPurchaseMaterials={() =>
-                            setDialog("purchaseMaterials")
-                        }
                         onCancelJob={() => setDialog("cancelJob")}
                         canCancel={canCancelJob(state.stepSubmissions)}
                     />
@@ -363,12 +361,12 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                     <div className="flex items-center gap-3">
                         <Button
                             className={`flex-1 ${JOB_DETAIL_PRIMARY_BUTTON_CLASS}`}
-                            disabled={!!acceptBlocker}
+                            disabled={!!acceptBlocker || isResponding}
                             onClick={acceptJob}
                         >
                             Accept job
                         </Button>
-                        <Button variant="outline" className="flex-1" onClick={() => declineJob()}>
+                        <Button variant="outline" className="flex-1" disabled={isResponding} onClick={() => declineJob()}>
                             Decline
                         </Button>
                     </div>
@@ -403,23 +401,6 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                         closeDialog={closeDialog}
                     />
                 )}
-            </TableDialog>
-
-            <TableDialog
-                open={dialog === "purchaseMaterials"}
-                onClose={closeDialog}
-                onConfirm={() => {
-                    purchaseMaterials();
-                    closeDialog();
-                }}
-                title="Purchase materials"
-                confirmLabel="Purchase"
-                variant="edit"
-            >
-                <p>
-                    Itinerary of items needed is pre-calculated per product and
-                    cost of material is removed from pay out.
-                </p>
             </TableDialog>
 
             <TableDialog

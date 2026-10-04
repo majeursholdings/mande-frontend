@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
     Popover,
@@ -33,7 +34,7 @@ export default function DesktopTopbar() {
     const searchRef = useOutsideClickRef<HTMLDivElement>(closeSearch);
     const inputRef = useRef<HTMLInputElement>(null);
     const { hasUnread } = useNotifications();
-    const { profile } = useManufacturerProfile();
+    const { profile, isLoading: isProfileLoading } = useManufacturerProfile();
     const fullName = getManufacturerFullName(profile);
 
     return (
@@ -86,7 +87,15 @@ export default function DesktopTopbar() {
                 </Popover>
 
                 <UserMenu className={DESKTOP_USER_CARD_CLASS}>
-                    <UserCardContent name={fullName} avatarUrl={profile.avatarUrl} />
+                    {isProfileLoading ? (
+                        <>
+                            <Skeleton className="size-7 rounded-full" />
+                            <Skeleton className="h-4 w-24" />
+                            <ChevronDown className="size-4 text-mist-500" />
+                        </>
+                    ) : (
+                        <UserCardContent name={fullName} avatarUrl={profile.avatarUrl} />
+                    )}
                 </UserMenu>
             </div>
         </header>

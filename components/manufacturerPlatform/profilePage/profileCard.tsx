@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Award, Building2, Mail, MapPin, Pencil, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatMonthYear } from "@/lib/date";
 import {
     COMPANY_SPECIALITY_OPTIONS,
@@ -38,8 +39,11 @@ export default function ProfileCard({
     className,
     editHref = MANUFACTURER_SETTINGS_URL,
     verificationStatus,
+    loading = false,
 }: {
     profile: ManufacturerProfile;
+    /** Skeletons in place of the profile's details while it loads. */
+    loading?: boolean;
     className?: string;
     /** Where "Edit" goes — null leaves it out. */
     editHref?: string | null;
@@ -70,6 +74,7 @@ export default function ProfileCard({
             ]}
             editHref={editHref}
             className={className}
+            loading={loading}
         />
     );
 }
@@ -93,6 +98,7 @@ export function ProfileDetailsCard({
     details,
     editHref,
     className,
+    loading = false,
 }: {
     name: string;
     avatarUrl: string | null;
@@ -104,6 +110,8 @@ export function ProfileDetailsCard({
     /** Where "Edit" goes — null leaves it out. */
     editHref: string | null;
     className?: string;
+    /** Skeletons in place of the avatar, name, badge, joined date and values (labels still show). */
+    loading?: boolean;
 }) {
     return (
         <section
@@ -123,7 +131,17 @@ export function ProfileDetailsCard({
             )}
 
             <div className="flex flex-col items-center gap-3 text-center lg:items-start lg:text-left">
-                <UserAvatar name={name} src={avatarUrl} className="size-22 text-2xl" />
+                {loading ? (
+                    <Skeleton className="size-22 rounded-full" />
+                ) : (
+                    <UserAvatar name={name} src={avatarUrl} className="size-22 text-2xl" />
+                )}
+                {loading ? (
+                    <div className="flex flex-col items-center gap-2 lg:items-start">
+                        <Skeleton className="h-6 w-36" />
+                        <Skeleton className="h-3 w-24" />
+                    </div>
+                ) : (
                 <div className="flex flex-col items-center gap-1 lg:items-start">
                     <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
                         <h2
@@ -142,6 +160,7 @@ export function ProfileDetailsCard({
                         </p>
                     )}
                 </div>
+                )}
             </div>
 
             <ul className="grid grid-cols-2 gap-x-4 gap-y-5 border-t border-border pt-5 lg:grid-cols-1">
@@ -152,6 +171,9 @@ export function ProfileDetailsCard({
                         </span>
                         <div className="min-w-0">
                             <p className="text-xs font-text text-mist-500">{detail.label}</p>
+                            {loading ? (
+                                <Skeleton className="mt-1 h-4 w-28" />
+                            ) : (
                             <p
                                 className={cn(
                                     "text-sm font-text wrap-anywhere",
@@ -162,6 +184,7 @@ export function ProfileDetailsCard({
                                     ? (detail.format?.(detail.value) ?? detail.value)
                                     : (detail.emptyLabel ?? "Not provided")}
                             </p>
+                            )}
                         </div>
                     </li>
                 ))}
@@ -170,32 +193,3 @@ export function ProfileDetailsCard({
     );
 }
 
-export function ProfileCardSkeleton({ className }: { className?: string }) {
-    return (
-        <section
-            className={cn(
-                "relative flex flex-col gap-5 border-b border-border pb-6 lg:rounded-xl lg:border lg:bg-white lg:p-5 animate-pulse",
-                className
-            )}
-        >
-            <div className="flex flex-col items-center gap-3 text-center lg:items-start lg:text-left">
-                <div className="size-22 rounded-full bg-mist-200" />
-                <div className="flex flex-col items-center gap-2 lg:items-start">
-                    <div className="h-5 w-32 bg-mist-200 rounded" />
-                    <div className="h-3 w-20 bg-mist-200 rounded" />
-                </div>
-            </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-5 border-t border-border pt-5 lg:grid-cols-1">
-                {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="flex min-w-0 items-start gap-3">
-                        <div className="size-8 lg:size-10 rounded-lg bg-mist-200 shrink-0" />
-                        <div className="flex-1 space-y-1">
-                            <div className="h-3 w-16 bg-mist-200 rounded" />
-                            <div className="h-4 w-28 bg-mist-200 rounded" />
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </section>
-    );
-}

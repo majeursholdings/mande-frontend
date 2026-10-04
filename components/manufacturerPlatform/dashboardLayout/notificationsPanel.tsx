@@ -8,11 +8,13 @@ export default function NotificationsPanel({
     onLinkClick,
     className,
 }: {
-    /** A link in a notification was clicked — close whatever the panel is shown in. */
+    /** A link in a notification was clicked: close whatever the panel is shown in. */
     onLinkClick?: () => void;
     className?: string;
 }) {
-    const { notifications, hasUnread, markAllAsRead, markAsRead } = useNotifications();
+    const { notifications, hasUnread, isLoading, isError, markAllAsRead, markAsRead } = useNotifications();
+    // Ones that arrived live still show while the list loads or if it failed
+    const hasNone = notifications.length === 0;
 
     return (
         <NotificationsList
@@ -27,6 +29,8 @@ export default function NotificationsPanel({
                 isRead: notification.isRead,
                 avatarName: notification.avatarName,
             }))}
+            loading={isLoading && hasNone}
+            error={isError && hasNone ? "Couldn't load your notifications. Please try again later." : undefined}
             hasUnread={hasUnread}
             onMarkAllAsRead={markAllAsRead}
             onMarkAsRead={markAsRead}

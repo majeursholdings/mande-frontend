@@ -1,14 +1,13 @@
-import { isSoloPlan, type BillingCycle } from "@/constant/sampleData";
+import { isSoloPlan, type BillingCycle } from "@/constant/plans";
 import type { AddressFormValues } from "@/components/manufacturerPlatform/form/addressFields";
 import type { CloudinaryUploadResult } from "@/lib/services/cloudinaryService";
 
 export {
     SOLO_PLAN_ID,
     getPlanPrice,
-    getPricingPlan,
     isSoloPlan,
     type BillingCycle,
-} from "@/constant/sampleData";
+} from "@/constant/plans";
 
 export type RegistrationFormValues = AddressFormValues & {
     // Step 1 — user details (the account is created when this step is done)
@@ -21,7 +20,7 @@ export type RegistrationFormValues = AddressFormValues & {
     // Step 2 — verify email
     otp: string;
     // Step 3 — plan and payment
-    /** A PRICING_PLANS id, e.g. "solo". */
+    /** A plan's id (from the API's /plans), e.g. "solo". */
     plan: string;
     billingCycle: BillingCycle;
     // Step 4 — about company & documents (plus the address fields)

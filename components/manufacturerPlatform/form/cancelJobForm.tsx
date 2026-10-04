@@ -3,6 +3,7 @@
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/api";
 
 type CancelJobFormValues = {
     reason: string;
@@ -45,9 +46,9 @@ export default function CancelJobForm({
         try {
             await cancelJob(values.reason.trim());
             closeDialog();
-            toast.success("Submitted successfully");
-        } catch {
-            toast.error("Couldn't cancel this job. Please try again.");
+            toast.success("Job cancelled");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't cancel this job. Please try again."));
         }
     };
 

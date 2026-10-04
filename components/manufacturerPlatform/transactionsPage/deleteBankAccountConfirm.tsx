@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FormCancelButton } from "@/components/manufacturerPlatform/form/formButtons";
 import { useManufacturerWallet } from "../dashboardLayout/manufacturerWalletContext";
+import { getErrorMessage } from "@/lib/api";
 
 /** The "Cancel / Yes, Delete" actions of the delete bank account dialog. */
 export default function DeleteBankAccountConfirm({
@@ -21,14 +22,11 @@ export default function DeleteBankAccountConfirm({
     const handleDelete = async () => {
         setIsDeleting(true);
         try {
-            // No backend is wired up yet — simulate the request so the flow
-            // is testable end-to-end.
-            await new Promise((resolve) => setTimeout(resolve, 800));
-            setBankAccount(null);
+            await setBankAccount(null);
             toast.success("Bank account deleted successfully");
             onDeleted();
-        } catch {
-            toast.error("Couldn't delete your bank account. Please try again.");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't delete your bank account. Please try again."));
         } finally {
             setIsDeleting(false);
         }

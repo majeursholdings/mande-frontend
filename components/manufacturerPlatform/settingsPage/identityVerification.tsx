@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import NinCardReuploadForm from "@/components/manufacturerPlatform/form/ninCardReuploadForm";
 import type { VerificationStatus } from "@/constant/manufacturer";
+import { Skeleton } from "@/components/ui/skeleton";
 import Notice from "../notice";
 import SettingsSection from "../settingsSection";
 import VerificationBadge from "../verificationBadge";
@@ -31,10 +32,25 @@ const STATUS_NOTICES: Record<Exclude<VerificationStatus, "rejected">, string> = 
  * unless it's rejected — then a new photo can be uploaded for another review.
  */
 export default function IdentityVerification() {
-    const { profile } = useManufacturerProfile();
+    const { profile, isLoading } = useManufacturerProfile();
     const { imageUrl, status, rejectionReason } = profile.ninCard;
     const [isReuploadOpen, setIsReuploadOpen] = useState(false);
     const isRejected = status === "rejected";
+
+    if (isLoading) {
+        return (
+            <SettingsSection
+                headingLevel="h3"
+                title="NIN card"
+                description="The ID you added when you signed up."
+                action={<Skeleton className="h-6 w-20 rounded-full" />}
+                className="first-of-type:border-t first-of-type:pt-6"
+            >
+                <Skeleton className="aspect-27/17 w-full max-w-sm rounded-xl" />
+                <Skeleton className="h-12 w-full max-w-sm rounded-lg" />
+            </SettingsSection>
+        );
+    }
 
     return (
         // Follows the Basic Info form, so it always shows its divider

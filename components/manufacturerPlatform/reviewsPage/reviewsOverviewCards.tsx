@@ -1,6 +1,7 @@
 "use client";
 
 import { Star, Award, MessageSquare, TrendingUp } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ReviewsOverviewProps {
     overview?: {
@@ -13,25 +14,11 @@ interface ReviewsOverviewProps {
 }
 
 export default function ReviewsOverviewCards({ overview, isPending }: ReviewsOverviewProps) {
-    if (isPending) {
-        return (
-            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-                {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="flex flex-col gap-3 rounded-xl border border-border bg-white p-4 animate-pulse">
-                        <div className="size-9 rounded-full bg-mist-100" />
-                        <div className="h-3.5 w-20 rounded bg-mist-100" />
-                        <div className="h-6 w-12 rounded bg-mist-200" />
-                    </div>
-                ))}
-            </div>
-        );
-    }
-
     const cards = [
         {
             id: "avg-rating",
             label: "Average Rating",
-            value: `${overview?.averageRating ?? 5.0} / 5.0`,
+            value: `${overview?.averageRating ?? 0} / 5.0`,
             icon: Star,
             iconColor: "bg-warning-50 text-warning-600",
             fill: true,
@@ -55,7 +42,7 @@ export default function ReviewsOverviewCards({ overview, isPending }: ReviewsOve
         {
             id: "positive-rate",
             label: "Positive Rate",
-            value: `${overview?.positiveRate ?? 100}%`,
+            value: `${overview?.positiveRate ?? 0}%`,
             icon: TrendingUp,
             iconColor: "bg-indigo-50 text-indigo-600",
             fill: false,
@@ -80,7 +67,11 @@ export default function ReviewsOverviewCards({ overview, isPending }: ReviewsOve
                         </span>
                         <div>
                             <p className="text-xs font-text text-mist-500">{card.label}</p>
-                            <p className="text-xl font-semibold font-text text-mist-950">{card.value}</p>
+                            {isPending ? (
+                                <Skeleton className="mt-0.5 h-6 w-14" />
+                            ) : (
+                                <p className="text-xl font-semibold font-text text-mist-950">{card.value}</p>
+                            )}
                         </div>
                     </div>
                 );

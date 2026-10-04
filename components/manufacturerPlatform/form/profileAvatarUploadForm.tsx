@@ -1,5 +1,6 @@
 "use client";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { useState, type ChangeEvent } from "react";
 import { Camera, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -9,8 +10,6 @@ import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashbo
 import { getManufacturerFullName } from "@/constant/manufacturer";
 import { DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fileRules";
 import { mediaService } from "@/lib/services/mediaService";
-import { uploadFileToCloudinary } from "@/lib/services/cloudinaryService";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const AVATAR_ACCEPT = "image/png, image/jpeg, image/webp";
 const AVATAR_MAX_SIZE_MB = DEFAULT_MAX_FILE_SIZE_MB;
@@ -26,9 +25,10 @@ import { manufacturerService } from "@/lib/services/manufacturerService";
 
 /** The signed-in manufacturer's profile photo. */
 export default function ProfileAvatarUploadForm() {
-    const { profile, updateProfile } = useManufacturerProfile();
+    const { profile, updateProfile, isLoading } = useManufacturerProfile();
     return (
         <AvatarUploadForm
+            loading={isLoading}
             name={getManufacturerFullName(profile)}
             avatarUrl={profile.avatarUrl}
             onUploaded={async (avatarUrl, publicId) => {
@@ -55,15 +55,17 @@ export function AvatarUploadForm({
     name,
     avatarUrl,
     onUploaded,
+    loading = false,
 }: {
     /** For the initials avatar while there's no photo. */
     name: string;
     avatarUrl: string | null;
     onUploaded: (avatarUrl: string, publicId?: string) => void | Promise<void>;
+    /** A skeleton in place of the photo while it loads. */
+    loading?: boolean;
 }) {
     const [isUploading, setIsUploading] = useState(false);
     const [progress, setProgress] = useState(0);
-    const { data: currentUser } = useCurrentUser();
 
     const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -83,28 +85,8 @@ export function AvatarUploadForm({
         setIsUploading(true);
         setProgress(0);
         try {
-            let uploadedUrl: string;
-            let uploadedPublicId: string | undefined;
-
-            try {
-                const res = await mediaService.uploadFile(file, "avatar", (p) => setProgress(p));
-                uploadedUrl = res.url;
-                uploadedPublicId = res.publicId;
-            } catch (mediaErr) {
-                console.warn("Backend media signature upload failed, falling back to frontend upload:", mediaErr);
-                const { promise } = uploadFileToCloudinary({
-                    file,
-                    category: "profile",
-                    visibility: "public",
-                    user: currentUser,
-                    onProgress: (p) => setProgress(p),
-                });
-                const res = await promise;
-                uploadedUrl = res.url;
-                uploadedPublicId = res.publicId;
-            }
-
-            await onUploaded(uploadedUrl, uploadedPublicId);
+            const res = await mediaService.uploadFile(file, "avatar", (p) => setProgress(p));
+            await onUploaded(res.url, res.publicId);
             toast.success("Profile photo updated successfully");
         } catch (err: unknown) {
             const message =
@@ -117,6 +99,15 @@ export function AvatarUploadForm({
             setProgress(0);
         }
     };
+
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center gap-4">
+                <Skeleton className="size-32 rounded-full" />
+                <p className="text-xs font-text text-mist-500">Click image to upload new avatar</p>
+            </div>
+        );
+    }
 
     return (
         <div className="flex flex-col items-center gap-4">

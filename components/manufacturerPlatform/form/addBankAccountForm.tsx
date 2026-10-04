@@ -5,18 +5,16 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig, SelectOption } from "@/components/form/types";
-import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
 import { useManufacturerWallet } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerWalletContext";
 import { DEFAULT_CURRENCY_CODE, DEFAULT_CURRENCY_NAME } from "@/constant/global";
 import {
     BANK_ACCOUNT_NUMBER_LENGTH,
-    NIGERIAN_BANKS,
-    getManufacturerFullName,
     getOptionLabel,
 } from "@/constant/manufacturer";
 import Notice from "@/components/manufacturerPlatform/notice";
 import { FormSubmitButton } from "./formButtons";
 import { walletService } from "@/lib/services/walletService";
+import { getErrorMessage } from "@/lib/api";
 
 type AddBankAccountFormValues = {
     accountNumber: string;
@@ -32,40 +30,34 @@ const ADD_BANK_ACCOUNT_DEFAULT_VALUES: AddBankAccountFormValues = {
 
 const ACCOUNT_NUMBER_PATTERN = new RegExp(`^\\d{${BANK_ACCOUNT_NUMBER_LENGTH}}$`);
 
-// Stand-in for the banking API's list of Nigerian banks. Cached so every call
-// returns the same promise (the bank field suspends on it), and cleared on
-// failure so the next time the form opens it tries again.
+// The banking API's list of Nigerian banks. Cached so every call returns the
+// same promise (the bank field suspends on it), and cleared on failure so the
+// next time the form opens it tries again.
 let banksRequest: Promise<SelectOption[]> | null = null;
 
 function loadNigerianBanks(): Promise<SelectOption[]> {
     banksRequest ??= (async () => {
         try {
             const res = await walletService.listBanks();
-            if (res.banks && Array.isArray(res.banks) && res.banks.length > 0) {
-                return res.banks.map((b: { code: string; name: string }) => ({ value: b.code, label: b.name }));
-            }
-            return NIGERIAN_BANKS;
+            const banks = Array.isArray(res.banks) ? res.banks : [];
+            if (banks.length === 0) throw new Error("No banks");
+            return banks.map((b: { code: string; name: string }) => ({ value: b.code, label: b.name }));
         } catch {
+            // Resolve rather than reject: the bank field suspends on this
             banksRequest = null;
-            return NIGERIAN_BANKS;
+            toast.error("Couldn't load the list of banks. Close this and try again.");
+            return [];
         }
     })();
     return banksRequest;
 }
 
-// Banking API's account lookup: returns the name an account number is registered
-// to at a bank, falling back to ownName if lookup is unavailable.
-async function lookUpAccountName(
-    accountNumber: string,
-    bankCode: string,
-    ownName: string,
-): Promise<string> {
-    try {
-        const res = await walletService.lookupBankAccount(bankCode, accountNumber);
-        return res.accountName || ownName;
-    } catch {
-        return ownName;
-    }
+// Banking API's account lookup: the name an account number is registered to
+// at a bank. Rejects when it can't be verified (the form says so).
+async function lookUpAccountName(accountNumber: string, bankCode: string): Promise<string> {
+    const res = await walletService.lookupBankAccount(bankCode, accountNumber);
+    if (!res.accountName) throw new Error("Account not found");
+    return res.accountName;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -75,7 +67,6 @@ async function lookUpAccountName(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AddBankAccountForm({ onAdded }: { onAdded: () => void }) {
-    const { profile } = useManufacturerProfile();
     const { setBankAccount } = useManufacturerWallet();
     const [isLoading, setIsLoading] = useState(false);
     const [isVerifying, setIsVerifying] = useState(false);
@@ -105,11 +96,7 @@ export default function AddBankAccountForm({ onAdded }: { onAdded: () => void })
 
         setIsVerifying(true);
         try {
-            const accountName = await lookUpAccountName(
-                accountNumber,
-                bankCode,
-                getManufacturerFullName(profile),
-            );
+            const accountName = await lookUpAccountName(accountNumber, bankCode);
             if (lookup !== latestLookup.current) return;
             methods.setValue("accountName", accountName, { shouldValidate: true });
         } catch {
@@ -174,10 +161,7 @@ export default function AddBankAccountForm({ onAdded }: { onAdded: () => void })
         setIsLoading(true);
         try {
             const banks = await loadNigerianBanks();
-            // No backend is wired up yet — simulate saving the account so
-            // the flow is testable end-to-end.
-            await new Promise((resolve) => setTimeout(resolve, 800));
-            setBankAccount({
+            await setBankAccount({
                 bankCode,
                 bankName: getOptionLabel(banks, bankCode),
                 accountNumber,
@@ -186,8 +170,8 @@ export default function AddBankAccountForm({ onAdded }: { onAdded: () => void })
             });
             toast.success("Bank account added successfully");
             onAdded();
-        } catch {
-            toast.error("Couldn't add your bank account. Please try again.");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't add your bank account. Please try again."));
         } finally {
             setIsLoading(false);
         }

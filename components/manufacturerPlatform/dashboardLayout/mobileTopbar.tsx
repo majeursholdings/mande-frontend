@@ -11,6 +11,7 @@ import { useNotifications } from "./notificationsContext";
 import NotificationsPanel from "./notificationsPanel";
 import SearchPanel, { SEARCH_PLACEHOLDERS, type SearchScope } from "./searchPanel";
 import UserAvatar from "@/components/ui/userAvatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { BellIcon, MOBILE_TOPBAR_CLASS } from "@/components/ui/topbarControls";
 import UserMenu from "./userMenu";
 
@@ -23,7 +24,7 @@ export default function MobileTopbar() {
     const [searchScope, setSearchScope] = useState<SearchScope>("open");
     const searchInputRef = useRef<HTMLInputElement>(null);
     const { hasUnread } = useNotifications();
-    const { profile } = useManufacturerProfile();
+    const { profile, isLoading: isProfileLoading } = useManufacturerProfile();
     const backLink = getSubpageBackLink(usePathname());
 
     if (backLink) {
@@ -63,11 +64,15 @@ export default function MobileTopbar() {
                         <BellIcon hasUnread={hasUnread} size="sm" />
                     </button>
                     <UserMenu aria-label="Profile menu" className="rounded-full cursor-pointer">
-                        <UserAvatar
-                            name={getManufacturerFullName(profile)}
-                            src={profile.avatarUrl}
-                            className="size-8 text-xs"
-                        />
+                        {isProfileLoading ? (
+                            <Skeleton className="size-8 rounded-full" />
+                        ) : (
+                            <UserAvatar
+                                name={getManufacturerFullName(profile)}
+                                src={profile.avatarUrl}
+                                className="size-8 text-xs"
+                            />
+                        )}
                     </UserMenu>
                 </div>
             </header>

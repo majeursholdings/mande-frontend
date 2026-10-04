@@ -1,30 +1,27 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-    JOBS,
-    MANUFACTURER_JOB_APPLICATIONS,
-    isActiveJob,
-    type JobApplication,
-} from "@/constant/manufacturer";
-import { getPricingPlan, type PricingPlan } from "@/constant/sampleData";
+import { isActiveJob, type JobApplication } from "@/constant/manufacturer";
+import type { PricingPlan } from "@/constant/plans";
+import { getErrorMessage } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
+import { jobsService } from "@/lib/services/jobsService";
 import { useManufacturerSubscription } from "./manufacturerSubscriptionContext";
 import { useManufacturerAccount } from "./manufacturerAccountContext";
+import { useMyJobList, useOpenJobList } from "./useManufacturerJobLists";
+import { usePlans } from "@/hooks/usePlans";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // JobApplicationsProvider — the open jobs the manufacturer has applied for,
 // and how many of their plan's concurrent job slots are in use: one for each
 // active assigned job, and one for each application. Applying needs a free
 // slot. The dashboard, the jobs page and the open job detail all read the
-// count from here, so it's the same everywhere. Seeded from sample data and
-// updated locally for now; once the backend is connected, load applications
-// from the API and send new ones and withdrawals there.
+// count from here, so it's the same everywhere. Both come from the API: each
+// open job carries the manufacturer's own application, and their assigned
+// jobs say which are active. Applying and withdrawing go to the API first.
 // ─────────────────────────────────────────────────────────────────────────────
-
-// Assigned jobs are fixed sample data for now (changes made from the job
-// detail panel stay local to it), so their count is too
-const ACTIVE_JOB_COUNT = JOBS.filter(isActiveJob).length;
 
 export type JobSlots = {
     activeJobCount: number;
@@ -42,55 +39,80 @@ export type JobSlots = {
 type JobApplicationsContextValue = {
     applications: JobApplication[];
     getApplication: (jobId: string) => JobApplication | undefined;
-    /** Does nothing if there's no free slot, or they've already applied. */
-    apply: (jobId: string) => void;
-    withdraw: (jobId: string) => void;
+    /** Applies through the API. Rejects if it doesn't take it (no free slot, already applied). */
+    apply: (jobId: string) => Promise<void>;
+    /** Withdraws through the API. Rejects if it doesn't. */
+    withdraw: (jobId: string) => Promise<void>;
     slots: JobSlots;
     /** The manufacturer's current plan — named in the limit messages. */
     plan: PricingPlan | undefined;
+    /** True until the jobs, the plan and the plan list behind the slot count have loaded. */
+    isLoading: boolean;
 };
 
 const JobApplicationsContext = createContext<JobApplicationsContextValue | null>(null);
 
 export function JobApplicationsProvider({ children }: { children: ReactNode }) {
-    const { subscription } = useManufacturerSubscription();
+    const { subscription, isLoading: isSubscriptionLoading } = useManufacturerSubscription();
     const { isFlagged } = useManufacturerAccount();
-    const [applications, setApplications] = useState(MANUFACTURER_JOB_APPLICATIONS);
+    const queryClient = useQueryClient();
 
-    const plan = getPricingPlan(subscription.planId);
+    const { rawJobs: openJobs, isPending: isOpenJobsPending } = useOpenJobList();
+    const { jobs: myJobs, isPending: isMyJobsPending } = useMyJobList();
+
+    const applications: JobApplication[] = useMemo(
+        () =>
+            openJobs
+                .filter((job) => job.application?.status === "pending")
+                .map((job) => ({ jobId: job.id, appliedAt: job.application?.appliedAt ?? "" })),
+        [openJobs],
+    );
+    const activeJobCount = useMemo(() => myJobs.filter(isActiveJob).length, [myJobs]);
+
+    const { getPlan, isPending: isPlansPending } = usePlans();
+    const plan = getPlan(subscription?.planId);
     // An unknown plan gets no slots rather than unlimited ones; a flagged
     // account gets one, whatever the plan
     const planLimit = plan ? plan.maxConcurrentJobs : 0;
     const limit = isFlagged ? Math.min(planLimit ?? 1, 1) : planLimit;
-    const hasFreeSlot = (applicationCount: number) =>
-        limit === null || ACTIVE_JOB_COUNT + applicationCount < limit;
+    const applicationCount = applications.length;
 
-    const slots: JobSlots = {
-        activeJobCount: ACTIVE_JOB_COUNT,
-        applicationCount: applications.length,
-        used: ACTIVE_JOB_COUNT + applications.length,
-        limit,
-        canApply: hasFreeSlot(applications.length),
-        accountHold: isFlagged ? "flagged" : null,
-    };
+    const slots: JobSlots = useMemo(
+        () => ({
+            activeJobCount,
+            applicationCount,
+            used: activeJobCount + applicationCount,
+            limit,
+            canApply: limit === null || activeJobCount + applicationCount < limit,
+            accountHold: isFlagged ? "flagged" : null,
+        }),
+        [activeJobCount, applicationCount, limit, isFlagged],
+    );
 
-    const value: JobApplicationsContextValue = {
-        applications,
-        getApplication: (jobId) => applications.find((application) => application.jobId === jobId),
-        apply: (jobId) =>
-            setApplications((current) =>
-                current.some((application) => application.jobId === jobId) ||
-                !hasFreeSlot(current.length)
-                    ? current
-                    : [...current, { jobId, appliedAt: new Date().toISOString() }],
-            ),
-        withdraw: (jobId) =>
-            setApplications((current) =>
-                current.filter((application) => application.jobId !== jobId),
-            ),
-        slots,
-        plan,
-    };
+    const getApplication = useCallback(
+        (jobId: string) => applications.find((application) => application.jobId === jobId),
+        [applications],
+    );
+    const apply = useCallback(
+        async (jobId: string) => {
+            await jobsService.applyForJob(jobId);
+            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+        },
+        [queryClient],
+    );
+    const withdraw = useCallback(
+        async (jobId: string) => {
+            await jobsService.withdrawApplication(jobId);
+            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+        },
+        [queryClient],
+    );
+    const isLoading = isSubscriptionLoading || isOpenJobsPending || isMyJobsPending || isPlansPending;
+
+    const value: JobApplicationsContextValue = useMemo(
+        () => ({ applications, getApplication, apply, withdraw, slots, plan, isLoading }),
+        [applications, getApplication, apply, withdraw, slots, plan, isLoading],
+    );
 
     return (
         <JobApplicationsContext.Provider value={value}>{children}</JobApplicationsContext.Provider>
@@ -105,8 +127,6 @@ export function useJobApplications() {
     return context;
 }
 
-import { jobsService } from "@/lib/services/jobsService";
-
 export function useApplyForJob(jobId: string) {
     const { apply } = useJobApplications();
     const [isApplying, setIsApplying] = useState(false);
@@ -114,12 +134,10 @@ export function useApplyForJob(jobId: string) {
     const applyForJob = async () => {
         setIsApplying(true);
         try {
-            await jobsService.applyForJob(jobId);
-            apply(jobId);
+            await apply(jobId);
             toast.success("Application sent");
-        } catch {
-            apply(jobId);
-            toast.success("Application sent");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't send your application. Please try again."));
         } finally {
             setIsApplying(false);
         }

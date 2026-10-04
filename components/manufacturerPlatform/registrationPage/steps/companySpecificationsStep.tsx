@@ -1,11 +1,11 @@
 "use client";
 
-import { UseFormReturn, useWatch } from "react-hook-form";
+import { UseFormReturn } from "react-hook-form";
 import MainForm from "@/components/form";
 import { FormFieldConfig } from "@/components/form/types";
 import StepFooter from "../stepFooter";
 import StepHeader from "../stepHeader";
-import { getPricingPlan, RegistrationFormValues } from "../types";
+import type { RegistrationFormValues } from "../types";
 import {
     COMPANY_SPECIALITY_OPTIONS,
     MATERIALS_INVENTORY_OPTIONS,
@@ -28,11 +28,6 @@ export default function CompanySpecificationsStep({
     onBack,
     isLoading,
 }: CompanySpecificationsStepProps) {
-    const [planId, staffRange] = useWatch({
-        control: methods.control,
-        name: ["plan", "staffRange"],
-    });
-    const plan = getPricingPlan(planId);
 
     const fields: FormFieldConfig[] = [
         {
@@ -40,11 +35,6 @@ export default function CompanySpecificationsStep({
             type: "select",
             label: "How many staff members do you have?",
             placeholder: "e.g. 11 to 20",
-            // Prefilled from the plan when it was chosen (see the plan step)
-            description:
-                plan && staffRange === plan.defaultStaffRange
-                    ? `Filled in from your ${plan.name} plan — change it if it's different.`
-                    : undefined,
             options: STAFF_RANGE_OPTIONS,
             validation: { required: "Please select a staff range" },
         },

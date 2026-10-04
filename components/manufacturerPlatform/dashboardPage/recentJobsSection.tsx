@@ -13,9 +13,11 @@ import { jobsService } from "@/lib/services/jobsService";
 import { mapApiJobToManufacturerJob, type ApiJobPayload } from "@/lib/mappers/jobMappers";
 import JobCard from "../jobsPage/jobCard";
 import EmptyState from "./emptyState";
+import JobCardSkeleton from "@/components/ui/jobCardSkeleton";
+import LoadError from "../loadError";
 
 export default function RecentJobsSection() {
-    const { data, isPending } = useQuery({
+    const { data, isPending, isError } = useQuery({
         queryKey: queryKeys.jobs.list({ limit: 4, status: "in-progress" }),
         queryFn: () => jobsService.getMyJobs({ limit: 4 }),
     });
@@ -41,13 +43,11 @@ export default function RecentJobsSection() {
             {isPending ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {[1, 2, 3, 4].map((i) => (
-                        <div key={i} className="h-64 rounded-xl border border-border bg-white p-4 animate-pulse">
-                            <div className="h-32 w-full rounded-lg bg-mist-100 mb-3" />
-                            <div className="h-4 w-3/4 rounded bg-mist-200 mb-2" />
-                            <div className="h-3 w-1/2 rounded bg-mist-100" />
-                        </div>
+                        <JobCardSkeleton key={i} />
                     ))}
                 </div>
+            ) : isError ? (
+                <LoadError>Couldn&apos;t load your active jobs. Please refresh the page to try again.</LoadError>
             ) : activeJobs.length === 0 ? (
                 <EmptyState
                     title="No active jobs"

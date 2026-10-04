@@ -1,25 +1,24 @@
 "use client";
 
 import { useController, UseFormReturn } from "react-hook-form";
-import { useQuery } from "@tanstack/react-query";
 import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
-import { queryKeys } from "@/lib/queryKeys";
-import { superAdminService } from "@/lib/services/superAdminService";
 import MainForm from "@/components/form";
-import { PRICING_PLANS, type PricingPlan } from "@/constant/sampleData";
+import type { PricingPlan } from "@/constant/plans";
 import ListPrice from "@/components/ui/listPrice";
+import { Skeleton } from "@/components/ui/skeleton";
 import Notice from "../../notice";
+import LoadError from "../../loadError";
 import StepFooter from "../stepFooter";
 import StepHeader from "../stepHeader";
 import {
     getPlanPrice,
-    getPricingPlan,
     isSoloPlan,
     type BillingCycle,
     type RegistrationFormValues,
 } from "../types";
+import { usePlans } from "@/hooks/usePlans";
 
 const BILLING_CYCLES: { value: BillingCycle; label: string }[] = [
     { value: "monthly", label: "Monthly" },
@@ -45,12 +44,7 @@ export default function ChoosePlanStep({
     onSubmit,
     isLoading,
 }: ChoosePlanStepProps) {
-    const { data: plansData } = useQuery({
-        queryKey: queryKeys.settings.plans(),
-        queryFn: () => superAdminService.getPlans(),
-    });
-    const plans = plansData?.plans ?? PRICING_PLANS;
-    const discountPercent = plansData?.discountPercent ?? 0;
+    const { plans, discountPercent, getPlan, isPending: isPlansPending, isError: isPlansError } = usePlans();
 
     const { field: planField, fieldState: planState } = useController({
         name: "plan",
@@ -62,7 +56,7 @@ export default function ChoosePlanStep({
         control: methods.control,
     });
 
-    const plan = plans.find((p) => p.id === planField.value) ?? getPricingPlan(planField.value);
+    const plan = getPlan(planField.value);
     const billingCycle: BillingCycle = cycleField.value;
     const price = plan ? getPlanPrice(plan, billingCycle, discountPercent) : 0;
     const isPaid = !!paymentReference;
@@ -111,6 +105,10 @@ export default function ChoosePlanStep({
                         </div>
 
                         <div role="radiogroup" aria-label="Plan" className="flex flex-col gap-3">
+                            {isPlansError && (
+                                <LoadError>Couldn&apos;t load the plans. Please refresh the page to try again.</LoadError>
+                            )}
+                            {isPlansPending && [1, 2, 3].map((i) => <PlanOptionSkeleton key={i} />)}
                             {plans.map((option) => (
                                 <PlanOption
                                     key={option.id}
@@ -172,6 +170,30 @@ export default function ChoosePlanStep({
                     />
                 )}
             />
+        </div>
+    );
+}
+
+/** A PlanOption while the plans load. */
+function PlanOptionSkeleton() {
+    return (
+        <div aria-hidden className="flex gap-3 rounded-xl border border-border bg-white p-4">
+            <Skeleton className="mt-1 size-4 shrink-0 rounded-full" />
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-5 w-28" />
+                </div>
+                <Skeleton className="h-3 w-32" />
+                <div className="flex flex-col gap-1.5">
+                    {[1, 2, 3].map((i) => (
+                        <div key={i} className="flex justify-between gap-3">
+                            <Skeleton className="h-3 w-32" />
+                            <Skeleton className="h-3 w-12" />
+                        </div>
+                    ))}
+                </div>
+            </div>
         </div>
     );
 }

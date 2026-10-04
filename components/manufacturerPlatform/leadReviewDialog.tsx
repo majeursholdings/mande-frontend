@@ -42,8 +42,8 @@ export default function LeadReviewDialog({
                             submitLabel="Submit"
                             loadingLabel="Submitting..."
                             errorMessage="Couldn't send your review. Please try again."
-                            onSubmit={(review) => {
-                                submitLeadReview(job.id, review);
+                            onSubmit={async (review) => {
+                                await submitLeadReview(job.id, review);
                                 toast.success(`Thanks, your review of ${leadName} was sent`);
                                 onOpenChange(false);
                             }}

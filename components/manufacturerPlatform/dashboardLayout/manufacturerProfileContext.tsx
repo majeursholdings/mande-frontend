@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { manufacturerService } from "@/lib/services/manufacturerService";
@@ -19,6 +19,8 @@ import {
 type ManufacturerProfileContextValue = {
     profile: ManufacturerProfile;
     isLoading: boolean;
+    /** True when the profile couldn't load. */
+    isError: boolean;
     updateProfile: (changes: Partial<ManufacturerProfile>) => void;
     /** Updates security settings from their latest value - safe to call after an await. */
     updateSecurity: (update: (security: ManufacturerSecurity) => ManufacturerSecurity) => void;
@@ -31,7 +33,7 @@ export function ManufacturerProfileProvider({ children }: { children: ReactNode 
     const [overrides, setOverrides] = useState<Partial<ManufacturerProfile>>({});
     const [securityOverrides, setSecurityOverrides] = useState<Partial<ManufacturerSecurity>>({});
 
-    const { data, isLoading, refetch } = useQuery({
+    const { data, isLoading, isError, refetch } = useQuery({
         queryKey: queryKeys.profile.details(),
         queryFn: () => manufacturerService.getProfile(),
         staleTime: 60_000,
@@ -53,27 +55,28 @@ export function ManufacturerProfileProvider({ children }: { children: ReactNode 
         };
     }, [baseProfile, overrides, securityOverrides]);
 
-    const updateProfile = (changes: Partial<ManufacturerProfile>) =>
-        setOverrides((current) => ({ ...current, ...changes }));
-
-    const updateSecurity = (update: (security: ManufacturerSecurity) => ManufacturerSecurity) =>
-        setSecurityOverrides((current) => update({ ...baseProfile.security, ...current }));
-
-    return (
-        <ManufacturerProfileContext.Provider
-            value={{
-                profile,
-                isLoading,
-                updateProfile,
-                updateSecurity,
-                refetchProfile: () => {
-                    void refetch();
-                },
-            }}
-        >
-            {children}
-        </ManufacturerProfileContext.Provider>
+    const updateProfile = useCallback(
+        (changes: Partial<ManufacturerProfile>) => setOverrides((current) => ({ ...current, ...changes })),
+        [],
     );
+
+    const baseSecurity = baseProfile.security;
+    const updateSecurity = useCallback(
+        (update: (security: ManufacturerSecurity) => ManufacturerSecurity) =>
+            setSecurityOverrides((current) => update({ ...baseSecurity, ...current })),
+        [baseSecurity],
+    );
+
+    const refetchProfile = useCallback(() => {
+        void refetch();
+    }, [refetch]);
+
+    const value: ManufacturerProfileContextValue = useMemo(
+        () => ({ profile, isLoading, isError, updateProfile, updateSecurity, refetchProfile }),
+        [profile, isLoading, isError, updateProfile, updateSecurity, refetchProfile],
+    );
+
+    return <ManufacturerProfileContext.Provider value={value}>{children}</ManufacturerProfileContext.Provider>;
 }
 
 export function useManufacturerProfile() {

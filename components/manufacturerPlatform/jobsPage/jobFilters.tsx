@@ -3,12 +3,14 @@
 import { useCallback, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useOutsideClickRef } from "@/hooks/useOutsideClickRef";
 
 export type FilterOption<T extends string> = {
     value: T;
     label: string;
-    count: number;
+    /** Null while the list it counts is loading: a skeleton shows in its place. */
+    count: number | null;
     /** A status colour dot before the label. */
     dotClass?: string;
 };
@@ -22,7 +24,10 @@ type FilterProps<T extends string> = {
     className?: string;
 };
 
-function Count({ count, isActive }: { count: number; isActive: boolean }) {
+function Count({ count, isActive }: { count: number | null; isActive: boolean }) {
+    if (count === null) {
+        return <Skeleton aria-hidden className="h-5 w-5 rounded-full" />;
+    }
     return (
         <span
             className={cn(
@@ -135,7 +140,11 @@ export function FilterDropdown<T extends string>({
                             )}
                         >
                             {option.label}
-                            <span className="text-xs text-mist-400">{option.count}</span>
+                            {option.count === null ? (
+                                <Skeleton aria-hidden className="h-3 w-4" />
+                            ) : (
+                                <span className="text-xs text-mist-400">{option.count}</span>
+                            )}
                         </button>
                     ))}
                 </div>

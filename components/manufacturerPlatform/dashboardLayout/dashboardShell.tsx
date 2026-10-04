@@ -18,12 +18,19 @@ import { RecentSearchesProvider } from "./recentSearchesContext";
 import { LeadReviewsProvider } from "./leadReviewsContext";
 import LeadReviewPrompt from "./leadReviewPrompt";
 import SessionGuard from "./sessionGuard";
+import DashboardFrameSkeleton from "./dashboardFrameSkeleton";
 import { ManufacturerLogoutProvider } from "./logoutContext";
 import { ARTISAN_LOGIN_URL } from "@/constant/navigation";
 
 export default function DashboardShell({ children }: { children: ReactNode }) {
     return (
-        <SessionGuard role="manufacturer" loginUrl={ARTISAN_LOGIN_URL}>
+        <SessionGuard role="manufacturer" loginUrl={ARTISAN_LOGIN_URL} fallback={
+                // The frame's sidebar has the log out button, so it needs the logout provider
+                <ManufacturerLogoutProvider>
+                    <DashboardFrameSkeleton />
+                </ManufacturerLogoutProvider>
+            }
+        >
             <ManufacturerLogoutProvider>
                 <ManufacturerAccountProvider>
             {/* Suspended: only the appeal screen, in place of the whole dashboard */}

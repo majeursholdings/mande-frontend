@@ -20,7 +20,8 @@ import { useManufacturerWallet } from "../dashboardLayout/manufacturerWalletCont
 import { authService } from "@/lib/services/authService";
 import BankAccountDetails from "./bankAccountDetails";
 import DeleteBankAccountConfirm from "./deleteBankAccountConfirm";
-import { WalletActionCard, bankAccountSubtitle } from "./walletTile";
+import { WalletActionCard, WalletTile, bankAccountSubtitle } from "./walletTile";
+import { getErrorMessage } from "@/lib/api";
 
 type WalletDialog =
     | "add-bank"
@@ -40,7 +41,7 @@ type WalletDialog =
 
 export default function WalletActions() {
     const { profile } = useManufacturerProfile();
-    const { wallet, withdraw } = useManufacturerWallet();
+    const { wallet, withdraw, isLoading } = useManufacturerWallet();
     const { balance, bankAccount } = wallet;
     const [dialog, setDialog] = useState<WalletDialog | null>(null);
     // Carried between the withdraw and confirm steps, so Cancel on the
@@ -59,7 +60,11 @@ export default function WalletActions() {
     return (
         <>
             <div className="grid gap-3 sm:grid-cols-2 lg:gap-4">
-                {bankAccount ? (
+                {isLoading ? (
+                    <div className="flex h-full w-full items-center rounded-xl border border-border bg-white px-4 py-2.5">
+                        <WalletTile size="sm" icon={Landmark} title="" loading />
+                    </div>
+                ) : bankAccount ? (
                     <WalletActionCard
                         size="sm"
                         icon={Landmark}
@@ -79,7 +84,7 @@ export default function WalletActions() {
                     size="sm"
                     icon={ArrowRightLeft}
                     title="Withdraw to your bank"
-                    subtitle={bankAccount ? undefined : "Add a bank account first"}
+                    subtitle={bankAccount || isLoading ? undefined : "Add a bank account first"}
                     disabled={!bankAccount}
                     onClick={() => {
                         setWithdrawalAmount(null);
@@ -173,12 +178,12 @@ export default function WalletActions() {
                             try {
                                 const { reauthToken } = await authService.verifyReauth(enteredPassword, code);
                                 await withdraw(withdrawalAmount ?? 0, reauthToken);
-                                toast.success("Withdrawal processed successfully");
+                                toast.success("Withdrawal requested. It's on its way to your bank.");
                                 close();
-                            } catch {
-                                await withdraw(withdrawalAmount ?? 0);
-                                toast.success("Withdrawal processed successfully");
-                                close();
+                            } catch (err) {
+                                // Nothing has left the wallet: the server either rejected the
+                                // code or the withdrawal, so the balance is as it was
+                                toast.error(getErrorMessage(err, "Couldn't process your withdrawal. Please try again."));
                             }
                         }}
                     />

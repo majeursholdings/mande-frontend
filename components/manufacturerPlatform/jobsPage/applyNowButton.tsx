@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, Loader2, Lock, Send } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { MANUFACTURER_PLAN_SETTINGS_URL } from "@/constant/manufacturer";
 import {
     useApplyForJob,
@@ -22,8 +23,13 @@ const BUTTON_CLASS =
 
 export default function ApplyNowButton({ jobId, jobTitle }: { jobId: string; jobTitle: string }) {
     const router = useRouter();
-    const { getApplication, slots, plan } = useJobApplications();
+    const { getApplication, slots, plan, isLoading } = useJobApplications();
     const { isApplying, applyForJob } = useApplyForJob(jobId);
+
+    // Whether they've applied, or have a free slot, isn't known yet
+    if (isLoading) {
+        return <Skeleton aria-hidden className="h-8 w-24 shrink-0 rounded-button" />;
+    }
 
     if (getApplication(jobId)) {
         return (
@@ -39,7 +45,7 @@ export default function ApplyNowButton({ jobId, jobTitle }: { jobId: string; job
             <button
                 type="button"
                 aria-disabled
-                aria-label={`Apply now for ${jobTitle} — all job slots are in use`}
+                aria-label={`Apply now for ${jobTitle}: all job slots are in use`}
                 onClick={() =>
                     slots.accountHold === "flagged"
                           ? toast.warning("Your account is flagged", {

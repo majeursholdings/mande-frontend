@@ -5,13 +5,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompactPrice } from "@/lib/currency";
 import { StatusBadge } from "@/components/customTable/statusBadge";
 import {
-    JOBS,
     JOB_STATUS_CONFIG,
     MANUFACTURER_JOBS_URL,
-    OPEN_JOBS,
     getJobCategoryLabel,
     type Job,
     type JobsPageTab,
@@ -20,6 +19,7 @@ import {
 import EmptyState from "../dashboardPage/emptyState";
 import { useJobApplications } from "./jobApplicationsContext";
 import { useRecentSearches } from "./recentSearchesContext";
+import { useMyJobList, useOpenJobList } from "./useManufacturerJobLists";
 
 /** Where a search looks — split the same way as the jobs page's tabs. */
 export type SearchScope = JobsPageTab;
@@ -47,9 +47,9 @@ const matchesTerms = (terms: string[], fields: string[]) => {
     return terms.every((term) => searchable.includes(term));
 };
 
-// Both run against sample data until search is backed by the API
-function searchActiveJobs(terms: string[]): Job[] {
-    return JOBS.filter((job) =>
+// Filtered here, over the lists the API sent: its job lists don't take a search yet
+function searchActiveJobs(jobs: Job[], terms: string[]): Job[] {
+    return jobs.filter((job) =>
         matchesTerms(terms, [
             job.title,
             job.code,
@@ -59,8 +59,8 @@ function searchActiveJobs(terms: string[]): Job[] {
     );
 }
 
-function searchOpenJobs(terms: string[]): OpenJob[] {
-    return OPEN_JOBS.filter((job) =>
+function searchOpenJobs(jobs: OpenJob[], terms: string[]): OpenJob[] {
+    return jobs.filter((job) =>
         matchesTerms(terms, [job.title, job.code, getJobCategoryLabel(job.category)]),
     );
 }
@@ -119,8 +119,11 @@ export default function SearchPanel({
     const { recentSearches, addRecentSearch, clearRecentSearches } = useRecentSearches();
     const { getApplication } = useJobApplications();
     const terms = toTerms(query);
-    const openResults = terms.length > 0 ? searchOpenJobs(terms) : [];
-    const activeResults = terms.length > 0 ? searchActiveJobs(terms) : [];
+    const { jobs: openJobs, isPending: isOpenJobsPending } = useOpenJobList();
+    const { jobs: myJobs, isPending: isMyJobsPending } = useMyJobList();
+    const isScopeLoading = scope === "open" ? isOpenJobsPending : isMyJobsPending;
+    const openResults = terms.length > 0 ? searchOpenJobs(openJobs, terms) : [];
+    const activeResults = terms.length > 0 ? searchActiveJobs(myJobs, terms) : [];
 
     const selectResult = () => {
         addRecentSearch(query);
@@ -141,6 +144,8 @@ export default function SearchPanel({
                         onClear={clearRecentSearches}
                     />
                 )
+            ) : isScopeLoading ? (
+                <SearchResultsSkeleton />
             ) : scope === "open" ? (
                 <SearchResults
                     count={openResults.length}
@@ -267,6 +272,24 @@ function SearchResults({
             </span>
             <ul className="-mx-2 flex flex-col">{children}</ul>
         </div>
+    );
+}
+
+/** Result rows while the jobs being searched load. */
+function SearchResultsSkeleton() {
+    return (
+        <ul aria-hidden className="-mx-2 flex flex-col">
+            {[1, 2, 3].map((i) => (
+                <li key={i} className="flex items-center gap-3 px-2 py-2">
+                    <Skeleton className="size-10 shrink-0 rounded-md" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-1/2" />
+                    </div>
+                    <Skeleton className="h-4 w-14 shrink-0" />
+                </li>
+            ))}
+        </ul>
     );
 }
 

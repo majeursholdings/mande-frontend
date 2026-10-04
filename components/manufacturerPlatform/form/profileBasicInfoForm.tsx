@@ -9,6 +9,7 @@ import { isPhoneNumber, validators } from "@/components/form/form.validators";
 import { manufacturerService } from "@/lib/services/manufacturerService";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
 import { FormSubmitButton } from "./formButtons";
+import FormFieldsSkeleton from "./formFieldsSkeleton";
 
 type BasicInfoFormValues = {
     firstName: string;
@@ -76,7 +77,7 @@ const FIELDS: FormFieldConfig[] = [
 ];
 
 export default function ProfileBasicInfoForm() {
-    const { profile, updateProfile } = useManufacturerProfile();
+    const { profile, updateProfile, isLoading: isProfileLoading } = useManufacturerProfile();
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<BasicInfoFormValues>({
         mode: "onTouched",
@@ -128,14 +129,20 @@ export default function ProfileBasicInfoForm() {
         }
     };
 
+    const rowPairs: [string, string][] = [
+        ["firstName", "lastName"],
+        ["phoneNumber", "dateOfBirth"],
+    ];
+
+    if (isProfileLoading) {
+        return <FormFieldsSkeleton fields={FIELDS} rowPairs={rowPairs} />;
+    }
+
     return (
         <MainForm<BasicInfoFormValues>
             methods={methods}
             fields={FIELDS}
-            rowPairs={[
-                ["firstName", "lastName"],
-                ["phoneNumber", "dateOfBirth"],
-            ]}
+            rowPairs={rowPairs}
             onSubmit={handleSubmit}
             isLoading={isLoading}
             renderFooter={({ isLoading, canSubmit }) => (

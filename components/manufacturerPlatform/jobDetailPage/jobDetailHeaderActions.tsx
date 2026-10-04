@@ -10,7 +10,7 @@ const MENU_ITEM_CLASS =
 
 // ─────────────────────────────────────────────────────────────────────────────
 // JobDetailHeaderActions — "Mark as done" + the "..." kebab (Report Delay /
-// Purchase materials / Cancel Job). Cancel Job is off once they're past the
+// Cancel Job). Cancel Job is off once they're past the
 // Materials step. Hidden entirely for pending jobs, which use Accept/Decline
 // instead (see jobDetailContent.tsx).
 // ─────────────────────────────────────────────────────────────────────────────
@@ -19,7 +19,6 @@ export default function JobDetailHeaderActions({
     canMarkAsDone,
     onMarkAsDoneClick,
     onReportDelay,
-    onPurchaseMaterials,
     onCancelJob,
     canCancel,
 }: {
@@ -28,7 +27,6 @@ export default function JobDetailHeaderActions({
     canCancel: boolean;
     onMarkAsDoneClick: () => void;
     onReportDelay: () => void;
-    onPurchaseMaterials: () => void;
     onCancelJob: () => void;
 }) {
     const [menuOpen, setMenuOpen] = useState(false);
@@ -74,16 +72,6 @@ export default function JobDetailHeaderActions({
                             className={cn(MENU_ITEM_CLASS, "text-mist-700")}
                         >
                             Report Delay
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                setMenuOpen(false);
-                                onPurchaseMaterials();
-                            }}
-                            className={cn(MENU_ITEM_CLASS, "text-mist-700")}
-                        >
-                            Purchase materials
                         </button>
                         <button
                             type="button"

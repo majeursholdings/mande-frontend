@@ -1,13 +1,11 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
-import { RECENT_SEARCHES } from "@/constant/manufacturer";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RecentSearchesProvider — the search panel's recent searches, shared by the
 // desktop and mobile top bars. A term is added when a search result is opened.
-// Seeded from sample data and kept in memory for now; persist them per user
-// once the backend is connected.
+// Kept in memory for the visit; persist them per user once the API can.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MAX_RECENT_SEARCHES = 5;
@@ -21,10 +19,10 @@ type RecentSearchesContextValue = {
 const RecentSearchesContext = createContext<RecentSearchesContextValue | null>(null);
 
 export function RecentSearchesProvider({ children }: { children: ReactNode }) {
-    const [recentSearches, setRecentSearches] = useState(RECENT_SEARCHES);
+    const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
     // Newest first; searching a term again moves it to the front
-    const addRecentSearch = (term: string) => {
+    const addRecentSearch = useCallback((term: string) => {
         const trimmed = term.trim();
         if (!trimmed) return;
         setRecentSearches((current) =>
@@ -33,17 +31,16 @@ export function RecentSearchesProvider({ children }: { children: ReactNode }) {
                 ...current.filter((t) => t.toLowerCase() !== trimmed.toLowerCase()),
             ].slice(0, MAX_RECENT_SEARCHES),
         );
-    };
+    }, []);
 
-    const clearRecentSearches = () => setRecentSearches([]);
+    const clearRecentSearches = useCallback(() => setRecentSearches([]), []);
 
-    return (
-        <RecentSearchesContext.Provider
-            value={{ recentSearches, addRecentSearch, clearRecentSearches }}
-        >
-            {children}
-        </RecentSearchesContext.Provider>
+    const value: RecentSearchesContextValue = useMemo(
+        () => ({ recentSearches, addRecentSearch, clearRecentSearches }),
+        [recentSearches, addRecentSearch, clearRecentSearches],
     );
+
+    return <RecentSearchesContext.Provider value={value}>{children}</RecentSearchesContext.Provider>;
 }
 
 export function useRecentSearches() {

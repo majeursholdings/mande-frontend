@@ -10,7 +10,7 @@ import { clearFormUploadedFiles } from "@/components/form/fileInput";
 import { getErrorMessage } from "@/lib/api";
 import type { CloudinaryUploadResult } from "@/lib/services/cloudinaryService";
 import { Button } from "@/components/ui/button";
-import type { JobAttachmentRecord } from "@/constant/sampleDb";
+import type { JobAttachmentRecord } from "@/constant/platformRecords";
 import { JOB_DETAIL_PRIMARY_BUTTON_CLASS } from "@/components/manufacturerPlatform/jobDetailPage/styles";
 
 type AppealValues = {

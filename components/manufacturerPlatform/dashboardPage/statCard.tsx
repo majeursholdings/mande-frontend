@@ -1,5 +1,6 @@
 import { ClipboardList, Wallet, TrendingUp, Star, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { DashboardStat } from "@/constant/manufacturer";
 
 const STAT_ICON: Record<DashboardStat["icon"], LucideIcon> = {
@@ -16,7 +17,14 @@ const STAT_ICON_CLASS: Record<DashboardStat["icon"], string> = {
     quality: "bg-warning-500 text-white",
 };
 
-export default function StatCard({ stat }: { stat: DashboardStat }) {
+/** A dashboard figure: its icon and label always show; while `loading`, skeletons stand in for the value and the line under it. */
+export default function StatCard({
+    stat,
+    loading = false,
+}: {
+    stat: Pick<DashboardStat, "label" | "icon"> & Partial<Pick<DashboardStat, "value" | "subtext">>;
+    loading?: boolean;
+}) {
     const Icon = STAT_ICON[stat.icon];
 
     return (
@@ -35,25 +43,21 @@ export default function StatCard({ stat }: { stat: DashboardStat }) {
             </span>
             <div className="flex flex-col gap-1">
                 <p className="text-xs lg:text-sm font-text text-mist-500">{stat.label}</p>
-                <p className="text-xl lg:text-2xl font-semibold font-text text-mist-950">{stat.value}</p>
-                {stat.subtext && (
-                    <p className="text-xs font-medium font-text text-secondary-700 mt-0.5">
-                        {stat.subtext}
-                    </p>
+                {loading ? (
+                    <>
+                        <Skeleton className="h-7 lg:h-8 w-24" />
+                        <Skeleton className="mt-0.5 h-4 w-20" />
+                    </>
+                ) : (
+                    <>
+                        <p className="text-xl lg:text-2xl font-semibold font-text text-mist-950">{stat.value}</p>
+                        {stat.subtext && (
+                            <p className="text-xs font-medium font-text text-secondary-700 mt-0.5">
+                                {stat.subtext}
+                            </p>
+                        )}
+                    </>
                 )}
-            </div>
-        </div>
-    );
-}
-
-export function StatCardSkeleton() {
-    return (
-        <div className="flex h-full min-w-0 flex-col gap-4 rounded-xl border border-border bg-white p-4 lg:p-5 animate-pulse">
-            <div className="size-10 lg:size-11 rounded-full bg-mist-100 shrink-0" />
-            <div className="flex flex-col gap-2">
-                <div className="h-3.5 w-24 rounded bg-mist-100" />
-                <div className="h-6 w-28 rounded bg-mist-200" />
-                <div className="h-3 w-20 rounded bg-mist-100" />
             </div>
         </div>
     );

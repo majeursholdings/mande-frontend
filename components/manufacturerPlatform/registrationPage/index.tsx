@@ -17,7 +17,6 @@ import CompanySpecificationsStep from "./steps/companySpecificationsStep";
 import {
     REGISTRATION_DEFAULT_VALUES,
     RegistrationFormValues,
-    getPricingPlan,
     getStepRequiredFields,
 } from "./types";
 import {
@@ -30,7 +29,7 @@ import {
 import { MANUFACTURER_DASHBOARD_URL, REGISTRATION_STEPS } from "@/constant/manufacturer";
 import { ARTISAN_LOGIN_URL, ARTISAN_SIGNUP_URL } from "@/constant/navigation";
 import { useRedirectIfAuthenticated } from "@/hooks/useAuthRedirect";
-import { MandeApiError, getErrorMessage, getStoredAccessToken } from "@/lib/api";
+import { MandeApiError, getErrorMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { authService } from "@/lib/services/authService";
 import { saveCompanyDetails, saveCompanySpecifications } from "./registrationRequests";
@@ -61,16 +60,8 @@ async function confirmPlanPayment(reference: string): Promise<SubscriptionPaymen
     return payment;
 }
 
-/**
- * Saves a paid-for plan into the sign-up progress, so it's never charged
- * twice, and prefills the staff question (step 5) from the plan's team size
- * unless it's already been answered.
- */
+/** Saves a paid-for plan into the sign-up progress, so it's never charged twice. */
 function savePaidPlan(methods: UseFormReturn<RegistrationFormValues>, reference: string) {
-    const plan = getPricingPlan(methods.getValues("plan"));
-    if (plan && !methods.getValues("staffRange")) {
-        methods.setValue("staffRange", plan.defaultStaffRange);
-    }
     saveRegistrationProgress(3, methods.getValues(), reference);
 }
 
@@ -120,15 +111,15 @@ export default function ManufacRegPage({
             initialPlan={initialPlan}
             returnedPaymentReference={restarts === 0 ? paymentReference : undefined}
             onStartOver={async () => {
-                // The account signed in part way belongs to whoever started this sign-up
-                if (getStoredAccessToken()) {
-                    try {
-                        await authService.logout();
-                    } catch {
-                        // Signed out here either way
-                    }
-                    queryClient.removeQueries({ queryKey: queryKeys.auth.all });
+                // The account signed in part way belongs to whoever started this sign-up.
+                // Logging out needs no access token (it ends the cookie's login), and
+                // does nothing when no one's signed in.
+                try {
+                    await authService.logout();
+                } catch {
+                    // Signed out here either way
                 }
+                queryClient.removeQueries({ queryKey: queryKeys.auth.all });
                 clearRegistrationProgress();
                 setRestarts((count) => count + 1);
             }}
@@ -156,7 +147,8 @@ function RegistrationWizard({
         mode: "onTouched",
         defaultValues: {
             ...REGISTRATION_DEFAULT_VALUES,
-            ...(initialPlan && getPricingPlan(initialPlan) ? { plan: initialPlan } : {}),
+            // The plan step checks it against the plans the API offers
+            ...(initialPlan && /^[a-z0-9-]+$/.test(initialPlan) ? { plan: initialPlan } : {}),
             ...savedProgress?.values,
         },
     });

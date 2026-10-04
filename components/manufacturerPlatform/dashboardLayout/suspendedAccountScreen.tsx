@@ -8,7 +8,7 @@ import LogoLink from "@/components/ui/logoLink";
 import { MANUFACTURER_DASHBOARD_URL } from "@/constant/manufacturer";
 import AppealForm from "@/components/manufacturerPlatform/form/appealForm";
 import { useLogout } from "./logoutContext";
-import type { AccountAppealRecord } from "@/constant/sampleDb";
+import type { AccountAppealRecord } from "@/constant/platformRecords";
 import { useManufacturerAccount } from "./manufacturerAccountContext";
 
 const APPEAL_STATUS: Record<

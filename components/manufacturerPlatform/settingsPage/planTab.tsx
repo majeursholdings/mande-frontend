@@ -2,15 +2,12 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
 import { formatOrdinalDate } from "@/lib/date";
-import { queryKeys } from "@/lib/queryKeys";
 import { getErrorMessage } from "@/lib/api";
-import { superAdminService } from "@/lib/services/superAdminService";
 import { Button } from "@/components/ui/button";
 import ListPrice from "@/components/ui/listPrice";
 import {
@@ -20,17 +17,18 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import {
-    PRICING_PLANS,
     getPlanPrice,
-    getPricingPlan,
     type PricingPlan,
-} from "@/constant/sampleData";
+} from "@/constant/plans";
 import PlanUpgradeForm from "@/components/manufacturerPlatform/form/planUpgradeForm";
 import { FormCancelButton } from "@/components/manufacturerPlatform/form/formButtons";
+import { Skeleton } from "@/components/ui/skeleton";
 import Notice from "../notice";
+import LoadError from "../loadError";
 import SettingsSection from "../settingsSection";
 import { PLAN_SETTINGS_PATH, useManufacturerSubscription } from "../dashboardLayout/manufacturerSubscriptionContext";
 import type { ManufacturerSubscription } from "@/constant/manufacturer";
+import { usePlans } from "@/hooks/usePlans";
 
 type PlanDialog = "upgrade" | "downgrade" | "cancel";
 
@@ -55,16 +53,12 @@ const STATUS_BADGE: Record<ManufacturerSubscription["status"], { label: string; 
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function PlanTab() {
-    const { data: plansData } = useQuery({
-        queryKey: queryKeys.settings.plans(),
-        queryFn: () => superAdminService.getPlans(),
-    });
-    const discountPercent = plansData?.discountPercent ?? 0;
-    const plans = plansData?.plans ?? PRICING_PLANS;
+    const { plans, discountPercent, getPlan, isPending: isPlansPending, isError: isPlansError } = usePlans();
 
     const {
         subscription,
         isLoading,
+        isError,
         latestPayment,
         payForPlan,
         keepCurrentPlan,
@@ -106,26 +100,25 @@ export default function PlanTab() {
     // Kept after closing so the dialog's content stays put while it animates out
     const [targetPlanId, setTargetPlanId] = useState<string | null>(null);
 
-    if (isLoading || isConfirming) {
-        return (
-            <div className="flex items-center justify-center gap-2 py-12 text-sm font-text text-mist-500" aria-busy>
-                <Loader2 className="size-4 animate-spin" aria-hidden />
-                {isConfirming ? "Checking your payment..." : "Loading your plan..."}
-            </div>
-        );
+    if (isLoading || isPlansPending || isConfirming) {
+        return <PlanTabSkeleton isConfirming={isConfirming} />;
     }
 
-    const currentPlan = plans.find((p) => p.id === subscription.planId) ?? getPricingPlan(subscription.planId);
+    if (isError || isPlansError || !subscription) {
+        return <LoadError>We couldn&apos;t load your plan. Please refresh the page to try again.</LoadError>;
+    }
+
+    const currentPlan = getPlan(subscription.planId);
     if (!currentPlan) {
-        return <Notice>We couldn&apos;t load your plan. Please refresh the page.</Notice>;
+        return <LoadError>We couldn&apos;t load your plan. Please refresh the page to try again.</LoadError>;
     }
 
     const cycle = subscription.billingCycle;
     const per = cycle === "annual" ? "year" : "month";
     const currentPrice = getPlanPrice(currentPlan, cycle, discountPercent);
     const periodEnd = formatOrdinalDate(new Date(subscription.renewsAt));
-    const scheduledPlan = plans.find((p) => p.id === subscription.scheduledPlanId) ?? getPricingPlan(subscription.scheduledPlanId ?? "");
-    const targetPlan = plans.find((p) => p.id === targetPlanId) ?? getPricingPlan(targetPlanId ?? "");
+    const scheduledPlan = getPlan(subscription.scheduledPlanId);
+    const targetPlan = getPlan(targetPlanId);
 
     const openDialog = (kind: PlanDialog, planId?: string) => {
         if (planId) setTargetPlanId(planId);
@@ -396,6 +389,55 @@ export default function PlanTab() {
                     />
                 </DialogContent>
             </Dialog>
+        </>
+    );
+}
+
+/** The plan tab while the plan loads (or a returning payment is checked): headings show, the plan's details are skeletons. */
+function PlanTabSkeleton({ isConfirming }: { isConfirming: boolean }) {
+    return (
+        <>
+            <SettingsSection headingLevel="h3" title="Current plan">
+                {isConfirming && <Notice>Checking your payment. This only takes a moment.</Notice>}
+                <div className="flex flex-col gap-4 rounded-xl border border-border bg-white p-5" aria-busy>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center gap-2">
+                                <Skeleton className="h-6 w-28" />
+                                <Skeleton className="h-5 w-14 rounded-full" />
+                            </div>
+                            <Skeleton className="h-3 w-36" />
+                        </div>
+                        <Skeleton className="h-6 w-28" />
+                    </div>
+                    <ul className="flex flex-col gap-2.5 border-t border-border pt-4">
+                        {[1, 2, 3, 4].map((i) => (
+                            <li key={i} className="flex justify-between gap-3">
+                                <Skeleton className="h-4 w-40" />
+                                <Skeleton className="h-4 w-16" />
+                            </li>
+                        ))}
+                    </ul>
+                    <Skeleton className="h-4 w-44" />
+                </div>
+            </SettingsSection>
+
+            <SettingsSection headingLevel="h3" title="Change plan">
+                <ul className="flex flex-col gap-3">
+                    {[1, 2].map((i) => (
+                        <li
+                            key={i}
+                            className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-white px-4 py-3.5"
+                        >
+                            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                                <Skeleton className="h-4 w-24" />
+                                <Skeleton className="h-3 w-48" />
+                            </div>
+                            <Skeleton className="h-9 w-24 rounded-button" />
+                        </li>
+                    ))}
+                </ul>
+            </SettingsSection>
         </>
     );
 }

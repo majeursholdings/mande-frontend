@@ -1,10 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { NOTIFICATIONS, type NotificationItem } from "@/constant/manufacturer";
+import { type NotificationItem } from "@/constant/manufacturer";
 import { queryKeys } from "@/lib/queryKeys";
 import { getSocket } from "@/lib/socket";
 import { notificationService, type BackendNotification } from "@/lib/services/notificationService";
@@ -12,6 +12,10 @@ import { notificationService, type BackendNotification } from "@/lib/services/no
 type NotificationsContextValue = {
     notifications: NotificationItem[];
     hasUnread: boolean;
+    /** True until the first page of notifications has loaded. */
+    isLoading: boolean;
+    /** True when the notifications couldn't load. */
+    isError: boolean;
     markAllAsRead: () => Promise<void>;
     markAsRead: (id: string) => Promise<void>;
 };
@@ -60,7 +64,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     const [allLocallyRead, setAllLocallyRead] = useState(false);
 
     // Fetch initial notifications from backend
-    const { data: apiData } = useQuery({
+    const { data: apiData, isPending, isError } = useQuery({
         queryKey: queryKeys.notifications.list(),
         queryFn: () => notificationService.getNotifications({ limit: 50 }),
         staleTime: 60 * 1000,
@@ -114,10 +118,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }, [queryClient, router]);
 
     const baseNotifications = useMemo(() => {
-        if (apiData?.notifications) {
-            return apiData.notifications.map(toManufacturerNotification);
-        }
-        return NOTIFICATIONS;
+        return (apiData?.notifications ?? []).map(toManufacturerNotification);
     }, [apiData]);
 
     const notifications = useMemo(() => {
@@ -137,17 +138,20 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         return notifications.some((n) => !n.isRead);
     }, [notifications]);
 
-    const markAsRead = async (id: string) => {
-        setLocallyReadIds((prev) => new Set([...prev, id]));
-        try {
-            await notificationService.markAsRead(id);
-            queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
-        } catch (err) {
-            console.error("Failed to mark notification read on backend:", err);
-        }
-    };
+    const markAsRead = useCallback(
+        async (id: string) => {
+            setLocallyReadIds((prev) => new Set([...prev, id]));
+            try {
+                await notificationService.markAsRead(id);
+                queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+            } catch (err) {
+                console.error("Failed to mark notification read on backend:", err);
+            }
+        },
+        [queryClient],
+    );
 
-    const markAllAsRead = async () => {
+    const markAllAsRead = useCallback(async () => {
         setAllLocallyRead(true);
         try {
             await notificationService.markAllAsRead();
@@ -155,13 +159,14 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         } catch (err) {
             console.error("Failed to mark notifications read on backend:", err);
         }
-    };
+    }, [queryClient]);
 
-    return (
-        <NotificationsContext.Provider value={{ notifications, hasUnread, markAllAsRead, markAsRead }}>
-            {children}
-        </NotificationsContext.Provider>
+    const value: NotificationsContextValue = useMemo(
+        () => ({ notifications, hasUnread, isLoading: isPending, isError, markAllAsRead, markAsRead }),
+        [notifications, hasUnread, isPending, isError, markAllAsRead, markAsRead],
     );
+
+    return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
 }
 
 export function useNotifications() {

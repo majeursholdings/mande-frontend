@@ -2,9 +2,14 @@
 
 import { DataTable, type ColumnDef } from "@/components/customTable";
 import { formatPrice } from "@/lib/currency";
+import LoadError from "../loadError";
 import { formatOrdinalDate } from "@/lib/date";
 import type { ManufacturerTransaction } from "@/constant/manufacturer";
-import TransactionListItem, { PaidByCardNote, TransactionIcon } from "./transactionListItem";
+import TransactionListItem, {
+    PaidByCardNote,
+    TransactionIcon,
+    TransactionListItemSkeleton,
+} from "./transactionListItem";
 
 // Same-day ones by id, so the order never changes between renders
 const newestFirst = (a: ManufacturerTransaction, b: ManufacturerTransaction) =>
@@ -50,7 +55,7 @@ const COLUMNS: ColumnDef<ManufacturerTransaction>[] = [
     {
         key: "project",
         header: "Project name",
-        cell: (transaction) => transaction.projectName ?? <span className="text-mist-400">—</span>,
+        cell: (transaction) => transaction.projectName ?? <span className="text-mist-400">-</span>,
     },
     {
         key: "date",
@@ -77,19 +82,28 @@ const COLUMNS: ColumnDef<ManufacturerTransaction>[] = [
 export default function TransactionsList({
     transactions,
     tableId,
+    loading = false,
+    error,
 }: {
     transactions: ManufacturerTransaction[];
     tableId: string;
+    /** Skeleton rows while the transactions load. */
+    loading?: boolean;
+    /** Shown in place of the rows (under the table's headers) when they couldn't load. */
+    error?: React.ReactNode;
 }) {
     return (
         <>
             <div className="hidden md:block">
-                <DataTable tableId={tableId} columns={COLUMNS} rows={transactions} />
+                <DataTable tableId={tableId} columns={COLUMNS} rows={transactions} loading={loading} error={error} />
             </div>
+            {error && <LoadError className="md:hidden">{error}</LoadError>}
             <ul className="flex flex-col gap-6 md:hidden">
-                {transactions.map((transaction) => (
-                    <TransactionListItem key={transaction.id} transaction={transaction} variant="full" />
-                ))}
+                {loading
+                    ? [1, 2, 3, 4].map((i) => <TransactionListItemSkeleton key={i} variant="full" />)
+                    : transactions.map((transaction) => (
+                          <TransactionListItem key={transaction.id} transaction={transaction} variant="full" />
+                      ))}
             </ul>
         </>
     );

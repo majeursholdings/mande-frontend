@@ -7,9 +7,9 @@ import {
     type Job,
     type OpenJob,
 } from "@/constant/manufacturer";
-import { getSampleCategoryPhoto } from "@/constant/sampleDb";
 import { formatShortDuration, getTimeAgoLabel } from "@/lib/date";
 import ApplyNowButton from "./applyNowButton";
+import { DEFAULT_IMAGE } from "@/constant/global";
 
 
 function getAttachedImage(attachments?: Array<{ url?: string; name?: string; kind?: string }>): string | null {
@@ -38,13 +38,13 @@ function getAttachedImage(attachments?: Array<{ url?: string; name?: string; kin
 /** A job assigned to the manufacturer, with its status. Opens the job unless href says otherwise. */
 export default function JobCard({ job, href }: { job: Job; href?: string }) {
     const config = JOB_STATUS_CONFIG[job.status];
-    const categoryPhoto = getSampleCategoryPhoto(job.category);
+    const placeholderImage = DEFAULT_IMAGE;
     const attachedImage = getAttachedImage(job.attachments);
     const displayImageUrl =
-        (job.imageUrl && job.imageUrl !== categoryPhoto ? job.imageUrl : "") ||
+        (job.imageUrl && job.imageUrl !== placeholderImage ? job.imageUrl : "") ||
         attachedImage ||
         job.imageUrl ||
-        categoryPhoto;
+        placeholderImage;
 
     return (
         <JobCardFrame
@@ -55,7 +55,6 @@ export default function JobCard({ job, href }: { job: Job; href?: string }) {
             price={job.price}
             duration={formatShortDuration(new Date(job.startDate ?? job.dateAssigned ?? job.dueDate), new Date(job.dueDate))}
             imageUrl={displayImageUrl}
-            category={job.category}
             trailing={<StatusBadge label={config.badgeLabel} tone={config.tone} variant="pill" />}
         />
     );
@@ -63,13 +62,13 @@ export default function JobCard({ job, href }: { job: Job; href?: string }) {
 
 /** An open job, always with its attached photo and an Apply now button. */
 export function OpenJobCard({ job }: { job: OpenJob }) {
-    const categoryPhoto = getSampleCategoryPhoto(job.category);
+    const placeholderImage = DEFAULT_IMAGE;
     const attachedImage = getAttachedImage(job.attachments);
     const displayImageUrl =
-        (job.imageUrl && job.imageUrl !== categoryPhoto ? job.imageUrl : "") ||
+        (job.imageUrl && job.imageUrl !== placeholderImage ? job.imageUrl : "") ||
         attachedImage ||
         job.imageUrl ||
-        categoryPhoto;
+        placeholderImage;
 
     return (
         <JobCardFrame
@@ -80,7 +79,6 @@ export function OpenJobCard({ job }: { job: OpenJob }) {
             price={job.price}
             duration={formatShortDuration(new Date(job.startDate || job.postedAt), new Date(job.dueDate))}
             imageUrl={displayImageUrl}
-            category={job.category}
             trailing={<ApplyNowButton jobId={job.id} jobTitle={job.title} />}
         />
     );

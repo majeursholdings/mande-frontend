@@ -9,7 +9,7 @@ import { formatBalance, formatPrice } from "@/lib/currency";
 import { formatOrdinalDate } from "@/lib/date";
 import { getErrorMessage } from "@/lib/api";
 import MainForm, { CheckboxInput } from "@/components/form";
-import { getPlanPrice, requiresBusinessDocuments, type PricingPlan } from "@/constant/sampleData";
+import { getPlanPrice, requiresBusinessDocuments, type PricingPlan } from "@/constant/plans";
 import { hasBusinessDocuments, type ManufacturerSubscription } from "@/constant/manufacturer";
 import Notice from "@/components/manufacturerPlatform/notice";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
@@ -105,7 +105,7 @@ export default function PlanUpgradeForm({
         <div className="flex flex-col gap-5">
             <div className="flex flex-col gap-3 rounded-xl border border-border p-4 font-text">
                 <div className="flex items-center gap-3 text-sm">
-                    <PlanPrice name={currentPlan.name} price={formatPrice(getPlanPrice(currentPlan, cycle))} per={per} muted />
+                    <PlanPrice name={currentPlan.name} price={formatPrice(getPlanPrice(currentPlan, cycle, discountPercent))} per={per} muted />
                     <ArrowRight className="size-4 shrink-0 text-mist-400" aria-hidden />
                     <PlanPrice name={newPlan.name} price={formatPrice(newPrice)} per={per} />
                 </div>

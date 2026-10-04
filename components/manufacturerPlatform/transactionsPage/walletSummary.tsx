@@ -1,5 +1,6 @@
 import { BriefcaseBusiness, CreditCard, HandCoins, type LucideIcon } from "lucide-react";
 import { formatPrice } from "@/lib/currency";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export type WalletFigure = {
     label: string;
@@ -57,20 +58,6 @@ export default function WalletSummary({
     figures: WalletFigure[];
     isLoading?: boolean;
 }) {
-    if (isLoading) {
-        return (
-            <div className="grid divide-y divide-border rounded-xl border border-border bg-white sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-                {[1, 2, 3].map((i) => (
-                    <div key={i} className="flex flex-col gap-2 p-5 animate-pulse">
-                        <div className="h-4 w-28 rounded bg-mist-100" />
-                        <div className="h-6 w-24 rounded bg-mist-200" />
-                        <div className="h-3 w-32 rounded bg-mist-100" />
-                    </div>
-                ))}
-            </div>
-        );
-    }
-
     return (
         <ul className="grid divide-y divide-border rounded-xl border border-border bg-white sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             {figures.map(({ label, amount, hint, icon: Icon }) => (
@@ -83,11 +70,19 @@ export default function WalletSummary({
                             <Icon className="size-4 shrink-0 text-mist-400" strokeWidth={1.75} aria-hidden />
                             {label}
                         </p>
-                        <p className="text-xs font-text text-mist-400 sm:order-last">{hint}</p>
+                        {isLoading ? (
+                            <Skeleton className="h-3 w-32 sm:order-last sm:mt-1" />
+                        ) : (
+                            <p className="text-xs font-text text-mist-400 sm:order-last">{hint}</p>
+                        )}
                     </div>
-                    <p className="shrink-0 text-base font-semibold font-text text-mist-950 sm:text-xl">
-                        {formatPrice(amount)}
-                    </p>
+                    {isLoading ? (
+                        <Skeleton className="h-6 w-24 shrink-0 sm:h-7" />
+                    ) : (
+                        <p className="shrink-0 text-base font-semibold font-text text-mist-950 sm:text-xl">
+                            {formatPrice(amount)}
+                        </p>
+                    )}
                 </li>
             ))}
         </ul>

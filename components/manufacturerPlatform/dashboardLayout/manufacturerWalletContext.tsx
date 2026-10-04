@@ -1,12 +1,12 @@
 "use client";
 
-import { createContext, useContext, useState, useMemo, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { walletService } from "@/lib/services/walletService";
 import {
-    MANUFACTURER_WALLET,
+    EMPTY_MANUFACTURER_WALLET,
     type ManufacturerBankAccount,
     type ManufacturerTransaction,
     type ManufacturerWallet,
@@ -14,9 +14,9 @@ import {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ManufacturerWalletProvider — the manufacturer's balance, payout bank account
-// and transactions, kept together so a withdrawal lowers the balance and
-// shows in the transactions list at once. Derives from live server data with
-// fallback to defaults.
+// and transactions, straight from the server. Nothing is changed locally ahead
+// of the server: money only moves once the API says it has, and each change
+// refetches the wallet. Until it loads (or if it can't), the wallet is empty.
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface ApiWalletData {
@@ -48,24 +48,20 @@ interface ApiTransactionItem {
 type ManufacturerWalletContextValue = {
     wallet: ManufacturerWallet;
     isLoading?: boolean;
-    setBankAccount: (bankAccount: ManufacturerBankAccount | null) => void;
-    /** Takes `amount` off the balance and records it as a withdrawal. */
-    withdraw: (amount: number, reauthToken?: string) => void | Promise<void>;
-    /** Takes `amount` off the balance to pay for a plan, recorded as `label`. */
-    payFromBalance: (amount: number, label: string) => void;
-    /** Adds a job payment to the balance — once per `id`, however often it's released again. */
-    receivePayment: (payment: { id: string; amount: number; label: string; projectName: string }) => void;
+    /** True when the wallet or its transactions couldn't load. */
+    isError?: boolean;
+    /** Saves (or, with null, removes) the payout account. Rejects if the server doesn't. */
+    setBankAccount: (bankAccount: ManufacturerBankAccount | null) => Promise<void>;
+    /** Asks the server to send `amount` (naira) to the bank. Rejects if it doesn't. */
+    withdraw: (amount: number, reauthToken: string) => Promise<void>;
 };
 
 const ManufacturerWalletContext = createContext<ManufacturerWalletContextValue | null>(null);
 
 export function ManufacturerWalletProvider({ children }: { children: ReactNode }) {
     const queryClient = useQueryClient();
-    const [bankAccountOverride, setBankAccountOverride] = useState<ManufacturerBankAccount | null | undefined>(undefined);
-    const [balanceDelta, setBalanceDelta] = useState(0);
-    const [localTransactions, setLocalTransactions] = useState<ManufacturerTransaction[]>([]);
 
-    const { data: serverWallet, isPending: isWalletPending } = useQuery({
+    const { data: serverWallet, isPending: isWalletPending, isError: isWalletError } = useQuery({
         queryKey: queryKeys.wallet.details(),
         queryFn: async () => {
             const { data } = await api.get<{ wallet: ApiWalletData }>("/wallet");
@@ -74,7 +70,7 @@ export function ManufacturerWalletProvider({ children }: { children: ReactNode }
         retry: false,
     });
 
-    const { data: serverTransactions, isPending: isTxPending } = useQuery({
+    const { data: serverTransactions, isPending: isTxPending, isError: isTxError } = useQuery({
         queryKey: queryKeys.wallet.transactions(),
         queryFn: async () => {
             const { data } = await api.get<{ transactions: ApiTransactionItem[] }>("/wallet/transactions");
@@ -84,9 +80,9 @@ export function ManufacturerWalletProvider({ children }: { children: ReactNode }
     });
 
     const wallet: ManufacturerWallet = useMemo(() => {
-        const baseBalance = serverWallet ? (serverWallet.balanceKobo ?? 0) / 100 : MANUFACTURER_WALLET.balance;
+        const balance = serverWallet ? (serverWallet.balanceKobo ?? 0) / 100 : EMPTY_MANUFACTURER_WALLET.balance;
 
-        const baseBankAccount: ManufacturerBankAccount | null = serverWallet?.bankAccount
+        const bankAccount: ManufacturerBankAccount | null = serverWallet?.bankAccount
             ? {
                   bankCode: serverWallet.bankAccount.bankCode,
                   bankName: serverWallet.bankAccount.bankName,
@@ -94,10 +90,9 @@ export function ManufacturerWalletProvider({ children }: { children: ReactNode }
                   accountName: serverWallet.bankAccount.accountName,
                   currency: (serverWallet.bankAccount.currency as "NGN") || "NGN",
               }
-            : MANUFACTURER_WALLET.bankAccount;
+            : null;
 
-        const baseTransactions: ManufacturerTransaction[] =
-            serverTransactions && serverTransactions.length > 0
+        const transactions: ManufacturerTransaction[] = serverTransactions
                 ? serverTransactions.map((t) => ({
                       id: t.id,
                       type: (t.type === "withdrawal" || t.type === "subscription" ? t.type : "payment") as ManufacturerTransaction["type"],
@@ -106,80 +101,41 @@ export function ManufacturerWalletProvider({ children }: { children: ReactNode }
                       date: t.createdAt ?? "",
                       amount: (t.amountKobo ?? 0) / 100,
                   }))
-                : MANUFACTURER_WALLET.transactions;
+                : [];
 
-        return {
-            balance: Math.max(0, baseBalance + balanceDelta),
-            bankAccount: bankAccountOverride !== undefined ? bankAccountOverride : baseBankAccount,
-            transactions: [...localTransactions, ...baseTransactions],
-        };
-    }, [serverWallet, serverTransactions, balanceDelta, bankAccountOverride, localTransactions]);
+        return { balance, bankAccount, transactions };
+    }, [serverWallet, serverTransactions]);
 
-    const setBankAccount = (bankAccount: ManufacturerBankAccount | null) => {
-        setBankAccountOverride(bankAccount);
-        if (bankAccount) {
-            walletService
-                .setBankAccount({
+    const setBankAccount = useCallback(
+        async (bankAccount: ManufacturerBankAccount | null) => {
+            if (bankAccount) {
+                await walletService.setBankAccount({
                     bankCode: bankAccount.bankCode,
                     accountNumber: bankAccount.accountNumber.replace(/\D/g, ""),
-                })
-                .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.wallet.all }))
-                .catch((err) => console.error("Failed to set bank account on server:", err));
-        } else {
-            walletService
-                .removeBankAccount()
-                .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.wallet.all }))
-                .catch((err) => console.error("Failed to remove bank account on server:", err));
-        }
-    };
-
-    const debit = (amount: number, type: ManufacturerTransaction["type"], label: string) => {
-        const transaction: ManufacturerTransaction = {
-            id: `txn-${Date.now()}`,
-            type,
-            label,
-            projectName: null,
-            date: new Date().toISOString(),
-            amount,
-        };
-        setBalanceDelta((delta) => delta - amount);
-        setLocalTransactions((prev) => [transaction, ...prev]);
-    };
-
-    const receivePayment = ({ id, amount, label, projectName }: { id: string; amount: number; label: string; projectName: string }) => {
-        setLocalTransactions((prev) => {
-            if (prev.some((t) => t.id === id) || wallet.transactions.some((t) => t.id === id)) {
-                return prev;
+                });
+            } else {
+                await walletService.removeBankAccount();
             }
-            const transaction: ManufacturerTransaction = {
-                id,
-                type: "payment",
-                label,
-                projectName,
-                date: new Date().toISOString(),
-                amount,
-            };
-            return [transaction, ...prev];
-        });
-        setBalanceDelta((delta) => delta + amount);
-    };
-
-    const value: ManufacturerWalletContextValue = {
-        wallet,
-        isLoading: isWalletPending || isTxPending,
-        setBankAccount,
-        withdraw: async (amount, reauthToken) => {
-            debit(amount, "withdrawal", "Withdrawal to bank account");
-            try {
-                await walletService.requestWithdrawal(Math.round(amount * 100), reauthToken);
-                queryClient.invalidateQueries({ queryKey: queryKeys.wallet.all });
-            } catch (err) {
-                console.error("Failed to request withdrawal on server:", err);
-            }
+            await queryClient.invalidateQueries({ queryKey: queryKeys.wallet.all });
         },
-        payFromBalance: (amount, label) => debit(amount, "subscription", label),
-        receivePayment,
-    };
+        [queryClient],
+    );
+
+    const withdraw = useCallback(
+        async (amount: number, reauthToken: string) => {
+            await walletService.requestWithdrawal(Math.round(amount * 100), reauthToken);
+            await queryClient.invalidateQueries({ queryKey: queryKeys.wallet.all });
+        },
+        [queryClient],
+    );
+
+    const isLoading = isWalletPending || isTxPending;
+    const isError = isWalletError || isTxError;
+
+    const value: ManufacturerWalletContextValue = useMemo(
+        () => ({ wallet, isLoading, isError, setBankAccount, withdraw }),
+        [wallet, isLoading, isError, setBankAccount, withdraw],
+    );
 
     return (
         <ManufacturerWalletContext.Provider value={value}>

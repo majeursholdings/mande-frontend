@@ -25,7 +25,7 @@ import FeedbackHistory from "./feedbackHistory";
 import { openSupportChat } from "./supportChat";
 
 export default function ManufacturerSupportPage() {
-    const { data, isLoading } = useQuery({
+    const { data, isPending, isError } = useQuery({
         queryKey: queryKeys.support.feedback(),
         queryFn: () => supportService.listFeedback(),
         staleTime: 30_000,
@@ -100,7 +100,7 @@ export default function ManufacturerSupportPage() {
                     <SupportFeedbackForm />
                 </SettingsSection>
 
-                <FeedbackHistory feedback={feedback} isLoading={isLoading} />
+                <FeedbackHistory feedback={feedback} isLoading={isPending} isError={isError} />
             </div>
         </div>
     );
