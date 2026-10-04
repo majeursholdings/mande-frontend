@@ -16,17 +16,12 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
-import { queryKeys } from "@/lib/queryKeys";
-import { staffService } from "@/lib/services/staffService";
 import { getErrorMessage } from "@/lib/api";
 import { formatDuration } from "@/lib/date";
 import {
     ADMIN_POSITION_OPTIONS,
     JOB_DESCRIPTION_MAX_LENGTH,
     MAX_JOB_MANUFACTURERS,
-    registerProjectLeads,
-    getAllProjectLeads,
     formatJobCodeTimestamp,
     generateJobCode,
     getJobCategoryCode,
@@ -38,11 +33,12 @@ import { useAdminManufacturers } from "@/components/adminPlatform/dashboardLayou
 import { useAdminJobs } from "@/components/adminPlatform/dashboardLayout/adminJobsContext";
 import { useStaffPlatform } from "@/components/adminPlatform/dashboardLayout/staffPlatformContext";
 import { FormSubmitButton } from "./formButtons";
+import { useProjectLeads } from "@/components/adminPlatform/dashboardLayout/useProjectLeads";
 
 type DetailsValues = {
     title: string;
     category: string;
-    /** A PROJECT_LEADS id — asked for when a super admin creates or edits the job. */
+    /** A project lead's id — asked for when a super admin creates or edits the job. */
     projectLeadId: string;
     manufacturerIds: string[];
     /** Digits only — the amount field's value. */
@@ -60,8 +56,13 @@ type ScheduleValues = {
 
 type AttachmentsValues = {
     documents: FileList | File[] | null;
+    featuredImage: FileList | File[] | null;
     images: FileList | File[] | null;
 };
+
+/** How many of each a job can hold, counting files already on it when editing. */
+const MAX_JOB_DOCUMENTS = 5;
+const MAX_JOB_IMAGES = 10;
 
 const STEP_COUNT = 3;
 
@@ -109,22 +110,7 @@ export default function JobFormDialog({
         )
         .map((manufacturer) => ({ label: manufacturer.companyName, value: manufacturer.id }));
 
-    const { data: leadsData } = useQuery({
-        queryKey: queryKeys.staff.projectLeads({ status: "active" }),
-        queryFn: async () => {
-            const data = await staffService.getProjectLeads({ status: "active" });
-            if (data?.projectLeads) {
-                registerProjectLeads(data.projectLeads);
-            }
-            return data;
-        },
-        staleTime: 60_000,
-    });
-
-    const activeProjectLeads =
-        leadsData?.projectLeads && leadsData.projectLeads.length > 0
-            ? leadsData.projectLeads
-            : getAllProjectLeads();
+    const { leads: activeProjectLeads } = useProjectLeads();
 
     const projectLeadOptions = activeProjectLeads.map((lead: { id: string; name: string; position?: string | null }) => ({
         label: `${lead.name} (${ADMIN_POSITION_OPTIONS.find((option) => option.value === lead.position)?.label ?? "Admin"})`,
@@ -162,12 +148,15 @@ export default function JobFormDialog({
             deliveryCountry: job?.deliveryLocation?.country ?? "NG",
         },
     });
-    const attachments = useForm<AttachmentsValues>({ defaultValues: { documents: null, images: null } });
+    const attachments = useForm<AttachmentsValues>({ defaultValues: { documents: null, featuredImage: null, images: null } });
     const category = useWatch({ control: details.control, name: "category" });
     const dueDate = useWatch({ control: schedule.control, name: "dueDate" });
     const documents = useWatch({ control: attachments.control, name: "documents" });
+    const featuredImage = useWatch({ control: attachments.control, name: "featuredImage" });
     const images = useWatch({ control: attachments.control, name: "images" });
-    const newFileCount = fileCount(documents) + fileCount(images);
+    const newFileCount = fileCount(documents) + fileCount(featuredImage) + fileCount(images);
+    const keptImageCount = keptAttachments.filter((a) => a.kind === "image").length;
+    const keptDocumentCount = keptAttachments.length - keptImageCount;
     const relativeDuration = dueDate ? formatDuration(new Date(), new Date(dueDate)) : null;
 
     const isDirty =
@@ -309,20 +298,33 @@ export default function JobFormDialog({
             description: `PDFs, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
             accept: API_DOCUMENT_ACCEPT,
             multiple: true,
-            maxFiles: 5,
-            uploadCategory: "jobcreation",
-            uploadVisibility: "private",
+            maxFiles: Math.max(0, MAX_JOB_DOCUMENTS - keptDocumentCount),
+            disabled: keptDocumentCount >= MAX_JOB_DOCUMENTS,
+            uploadPurpose: "job-attachment",
+        },
+        {
+            name: "featuredImage",
+            type: "image",
+            label: "Featured image",
+            description: job?.imagePublicId
+                ? `Replaces the job's current featured image: JPG, PNG or WebP, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB`
+                : `The photo manufacturers see on the job: JPG, PNG or WebP, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB`,
+            accept: API_PHOTO_ACCEPT,
+            // Kept as a list (of at most one) like the other fields
+            multiple: true,
+            maxFiles: 1,
+            uploadPurpose: "job-image",
         },
         {
             name: "images",
             type: "image",
-            label: "Images",
-            description: `JPG, PNG or WebP, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+            label: "Job images",
+            description: `Up to ${MAX_JOB_IMAGES} more photos: JPG, PNG or WebP, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
             accept: API_PHOTO_ACCEPT,
             multiple: true,
-            maxFiles: 10,
-            uploadCategory: "jobcreation",
-            uploadVisibility: "public",
+            maxFiles: Math.max(0, MAX_JOB_IMAGES - keptImageCount),
+            disabled: keptImageCount >= MAX_JOB_IMAGES,
+            uploadPurpose: "job-attachment",
         },
     ];
 
@@ -331,21 +333,13 @@ export default function JobFormDialog({
         try {
             const detailsValues = details.getValues();
             const scheduleValues = schedule.getValues();
+            // Only finished uploads can go on the job: the API claims each by its publicId
             const upload = (files: unknown, kind: AdminJobAttachment["kind"]) =>
-                Array.from((files as Array<Record<string, unknown> | File>) ?? []).map((file) => {
-                    if (file && typeof file === "object" && "url" in file && typeof file.url === "string") {
-                        const f = file as { name?: string; originalName?: string; url: string; publicId?: string };
-                        return {
-                            name: f.originalName || f.name || "attachment",
-                            url: f.url,
-                            kind,
-                            publicId: f.publicId,
-                        };
+                Array.from((files as Array<{ name?: string; originalName?: string; url?: string; publicId?: string }>) ?? []).map((f) => {
+                    if (!f?.publicId || !f.url) {
+                        throw new Error("Some files are still uploading. Wait for them to finish, then try again.");
                     }
-                    if (file instanceof File) {
-                        return { name: file.name, url: URL.createObjectURL(file), kind };
-                    }
-                    return { name: "attachment", url: "", kind };
+                    return { name: f.originalName || f.name || "attachment", url: f.url, kind, publicId: f.publicId };
                 });
             const draft = {
                 title: detailsValues.title.trim(),
@@ -365,6 +359,7 @@ export default function JobFormDialog({
                 attachments: [
                     ...keptAttachments,
                     ...upload(attachments.getValues("documents"), "document"),
+                    ...upload(attachments.getValues("featuredImage"), "image"),
                     ...upload(attachments.getValues("images"), "image"),
                 ],
             };
@@ -377,11 +372,13 @@ export default function JobFormDialog({
                 toast.success(picksLead && leadName ? `Job created and assigned to ${leadName}` : "Job created successfully");
             }
             clearFormUploadedFiles("documents");
+            clearFormUploadedFiles("featuredImage");
             clearFormUploadedFiles("images");
             onClose();
         } catch (err: unknown) {
             await Promise.allSettled([
                 cleanupFormFieldUploads("documents"),
+                cleanupFormFieldUploads("featuredImage"),
                 cleanupFormFieldUploads("images"),
             ]);
             const errorMsg = getErrorMessage(err, `Couldn't ${isEditing ? "update" : "create"} the job. Please try again.`);
@@ -484,7 +481,7 @@ export default function JobFormDialog({
                         <MainForm<AttachmentsValues>
                             methods={attachments}
                             fields={attachmentFields}
-                            description="Upload and attach files to this job — documents, images or both."
+                            description="Upload and attach files to this job: documents, images or both."
                             requireValidToSubmit={false}
                             onSubmit={save}
                             isLoading={isSaving}

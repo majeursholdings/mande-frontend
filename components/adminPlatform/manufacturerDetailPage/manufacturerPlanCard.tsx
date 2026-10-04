@@ -1,12 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
 import { CalendarClock, CreditCard, Wallet } from "lucide-react";
 import { formatPrice } from "@/lib/currency";
 import { formatOrdinalDate } from "@/lib/date";
-import { queryKeys } from "@/lib/queryKeys";
-import { superAdminService } from "@/lib/services/superAdminService";
 import ListPrice from "@/components/ui/listPrice";
-import { getPlanPrice, getPricingPlan } from "@/constant/sampleData";
-import type { ManufacturerRecord } from "@/constant/sampleDb";
+import { getPlanPrice } from "@/constant/plans";
+import type { ManufacturerRecord } from "@/constant/platformRecords";
+import { usePlans } from "@/hooks/usePlans";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * The plan a manufacturer is on — what it costs them now (with the usual
@@ -22,15 +21,12 @@ export default function ManufacturerPlanCard({
     className?: string;
     discountPercent?: number;
 }) {
-    const { data: plansData } = useQuery({
-        queryKey: queryKeys.settings.plans(),
-        queryFn: () => superAdminService.getPlans(),
-        enabled: propDiscount === undefined,
-    });
-    const discountPercent = propDiscount ?? plansData?.discountPercent ?? 0;
+    const { getPlan, discountPercent: apiDiscount, isLoading } = usePlans();
+    const discountPercent = propDiscount ?? apiDiscount;
 
     if (!subscription?.planId) return null;
-    const plan = getPricingPlan(subscription.planId);
+    if (isLoading) return <ManufacturerPlanCardSkeleton className={className} />;
+    const plan = getPlan(subscription.planId);
     if (!plan) return null;
     const isAnnual = subscription.billingCycle === "annual";
 
@@ -68,6 +64,29 @@ export default function ManufacturerPlanCard({
                     {subscription.renewalsPaidFrom === "wallet" ? "Renews from their wallet" : "Renews by card"}
                 </li>
             </ul>
+        </section>
+    );
+}
+
+/** The plan card while the plans load: its heading shows, the plan, price and renewal are skeletons. */
+export function ManufacturerPlanCardSkeleton({ className }: { className?: string }) {
+    return (
+        <section
+            aria-busy="true"
+            className={`flex flex-col gap-4 rounded-xl border border-border bg-white p-5 ${className ?? ""}`}
+        >
+            <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-1">
+                    <h2 className="text-xs font-medium font-text tracking-wide text-mist-500 uppercase">Current plan</h2>
+                    <Skeleton className="h-5 w-28" />
+                </div>
+                <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+            <Skeleton className="h-7 w-32" />
+            <div className="flex flex-col gap-2">
+                <Skeleton className="h-4 w-36" />
+                <Skeleton className="h-4 w-40" />
+            </div>
         </section>
     );
 }

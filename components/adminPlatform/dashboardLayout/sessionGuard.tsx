@@ -48,10 +48,16 @@ function getServerSessionExpiredSnapshot() {
 export default function SessionGuard({
     role,
     loginUrl,
+    fallback,
     children,
 }: {
     role: "admin" | "super_admin" | "manufacturer";
     loginUrl: string;
+    /**
+     * Shown while the account is checked, e.g. the dashboard frame with
+     * skeletons. Without one, a centred spinner (the manufacturer platform's).
+     */
+    fallback?: ReactNode;
     children: ReactNode;
 }) {
     const pathname = usePathname();
@@ -83,6 +89,7 @@ export default function SessionGuard({
     }
 
     if (!allowed) {
+        if (fallback) return <>{fallback}</>;
         return (
             <div className="flex min-h-dvh items-center justify-center bg-white" role="status" aria-live="polite">
                 <Loader2 className="size-6 animate-spin text-secondary-700" aria-hidden />

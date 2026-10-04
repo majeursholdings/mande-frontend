@@ -4,9 +4,8 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from "re
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { manufacturerService } from "@/lib/services/manufacturerService";
-import { ADMIN_MANUFACTURERS, registerManufacturers, type AdminJob, type AdminJobAttachment } from "@/constant/admin";
-import { getManufacturerTransactions, getTransactionSummary } from "@/constant/manufacturer";
-import type { DeletionRequestRecord, DocumentVerification, ManufacturerAccountStatus, ManufacturerRecord } from "@/constant/sampleDb";
+import { registerManufacturers, type AdminJobAttachment } from "@/constant/admin";
+import type { DeletionRequestRecord, DocumentVerification, ManufacturerAccountStatus, ManufacturerRecord } from "@/constant/platformRecords";
 import { isJobUnderwayFor, useAdminJobs } from "./adminJobsContext";
 import { useAdminProfile } from "./adminProfileContext";
 
@@ -16,9 +15,8 @@ import { useAdminProfile } from "./adminProfileContext";
 // decision or a closed account stays put while they move between pages.
 // Admins can't close an account: they ask a super admin to, who closes it or
 // turns the request down. Closing ("deleting") deactivates the account: the
-// API keeps every record, and a super admin can reopen it. Seeded from the sample database and kept in memory
-// for now; once the backend is connected, load manufacturers from the API
-// and send each change there.
+// API keeps every record, and a super admin can reopen it. Loaded from the
+// API; each change is sent there.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** A document an admin can verify or reject. */
@@ -27,23 +25,65 @@ export type ManufacturerDocument = "nin-card" | "tax-number" | "business-license
 /** What's still going on on an account — worth a warning before it's deleted. Empty lists and 0 when nothing is. */
 export type AccountDeleteWarnings = {
     /** Jobs offered to them or being worked on, and whether each goes back to pending (theirs alone) or carries on with a co-manufacturer. */
-    jobsUnderway: { job: AdminJob; goesBackToPending: boolean }[];
+    jobsUnderway: { job: { id: string; title: string }; goesBackToPending: boolean }[];
     /** Pending jobs they've applied for. */
-    applications: AdminJob[];
+    applications: { id: string; title: string }[];
     /** Still in their wallet, in naira. */
     walletBalance: number;
+    /** What they owe the platform (e.g. rejection charges not yet taken), in naira. */
+    owed: number;
     hasPendingAppeal: boolean;
+    hasPendingWithdrawal: boolean;
 };
+
+type ApiDeactivationWarnings = {
+    jobsUnderway: { id: string; title: string; status: string; goesBackToPending: boolean }[];
+    applications: { id: string; title: string }[];
+    walletBalanceKobo: number;
+    owedKobo: number;
+    hasPendingAppeal: boolean;
+    hasPendingWithdrawal: boolean;
+};
+
+/** What closing a manufacturer's account would affect, from the API (super admins only). */
+export function useDeleteWarnings(manufacturerId: string) {
+    return useQuery({
+        queryKey: [...queryKeys.manufacturers.detail(manufacturerId), "deactivation-warnings"],
+        queryFn: async (): Promise<AccountDeleteWarnings> => {
+            const { warnings } = (await manufacturerService.getDeactivationWarnings(manufacturerId)) as {
+                warnings: ApiDeactivationWarnings;
+            };
+            return {
+                jobsUnderway: warnings.jobsUnderway.map((job) => ({
+                    job: { id: job.id, title: job.title },
+                    goesBackToPending: job.goesBackToPending,
+                })),
+                applications: warnings.applications,
+                walletBalance: warnings.walletBalanceKobo / 100,
+                owed: warnings.owedKobo / 100,
+                hasPendingAppeal: warnings.hasPendingAppeal,
+                hasPendingWithdrawal: warnings.hasPendingWithdrawal,
+            };
+        },
+        // Always as things are now, when the dialog opens
+        staleTime: 0,
+    });
+}
 
 export const hasDeleteWarnings = (warnings: AccountDeleteWarnings) =>
     warnings.jobsUnderway.length > 0 ||
     warnings.applications.length > 0 ||
     warnings.walletBalance > 0 ||
-    warnings.hasPendingAppeal;
+    warnings.owed > 0 ||
+    warnings.hasPendingAppeal ||
+    warnings.hasPendingWithdrawal;
 
 type AdminManufacturersContextValue = {
     manufacturers: ManufacturerRecord[];
+    /** True while the first load of the manufacturers is in flight (show skeletons). */
     isLoading: boolean;
+    /** True when the manufacturers couldn't be loaded (show an inline error, not an empty state). */
+    isError: boolean;
     getManufacturer: (id: string) => ManufacturerRecord | undefined;
     /**
      * Flagged: they can hold one job at a time. Suspended: everything is
@@ -56,14 +96,13 @@ type AdminManufacturersContextValue = {
     requestDeletion: (id: string, request: { reason: string; attachments: AdminJobAttachment[] }) => Promise<void>;
     /**
      * Super admins only: closes (deactivates) the account, after a warning
-     * when getDeleteWarnings finds anything, taking them off their jobs too
+     * when useDeleteWarnings finds anything, taking them off their jobs too
      * (see releaseManufacturer). It leaves the list here, as closed accounts
      * leave the API's list; nothing is deleted.
      */
     deleteManufacturer: (id: string, reauthToken?: string, reason?: string) => Promise<void>;
     /** Super admins only: turns down an admin's request to delete the account. */
     declineDeletionRequest: (id: string) => void;
-    getDeleteWarnings: (id: string) => AccountDeleteWarnings;
     decideVerification: (
         id: string,
         document: ManufacturerDocument,
@@ -138,7 +177,8 @@ const toManufacturerRecord = (sm: ServerManufacturer): ManufacturerRecord => ({
     businessLicenseNumber: "",
     businessLicenseNumberVerification: { status: "pending", rejectionReason: null },
     subscription: {
-        planId: sm.plan?.planId ?? "solo",
+        // No plan: an empty id, which no plan matches (shown as having none)
+        planId: sm.plan?.planId ?? "",
         billingCycle: sm.plan?.billingCycle === "yearly" ? "annual" : "monthly",
         renewsAt: sm.plan?.renewsAt ?? new Date().toISOString(),
         renewalsPaidFrom: "card",
@@ -171,68 +211,17 @@ export function AdminManufacturersProvider({ children }: { children: ReactNode }
     const { fullName: myName } = useAdminProfile();
     const queryClient = useQueryClient();
     // Fetch live manufacturers from backend
-    const { data: serverData, isLoading: isServerLoading } = useQuery({
+    const { data: serverData, isLoading: isServerLoading, isError: isServerError } = useQuery({
         queryKey: queryKeys.manufacturers.lists(),
         queryFn: () => manufacturerService.getStaffManufacturers({ limit: 50 }),
         staleTime: 30_000,
         retry: 1,
     });
 
-    const baseManufacturers = useMemo(() => {
-        if (serverData && Array.isArray(serverData.manufacturers) && serverData.manufacturers.length > 0) {
-            const serverManufacturers = serverData.manufacturers as ServerManufacturer[];
-            const serverIds = new Set(serverManufacturers.map((sm) => sm.id));
-            const serverEmails = new Set(
-                serverManufacturers.map((sm) => sm.email?.toLowerCase()).filter(Boolean) as string[],
-            );
-            // Keep sample manufacturers that do not clash with server data by id or email
-            const sampleOnly = ADMIN_MANUFACTURERS.filter(
-                (m) => !serverIds.has(m.id) && !serverEmails.has(m.email.toLowerCase()),
-            );
-            // Merge server data over matching sample entries, or create new records
-            const fromServer = serverManufacturers.map((sm) => {
-                const smEmail = sm.email?.toLowerCase();
-                const sample = ADMIN_MANUFACTURERS.find(
-                    (m) => m.id === sm.id || (smEmail && m.email.toLowerCase() === smEmail),
-                );
-                const deletionRequest = sm.deletionRequest
-                    ? {
-                          reason: sm.deletionRequest.reason,
-                          attachments: (sm.deletionRequest.attachments as unknown as AdminJobAttachment[]) ?? [],
-                          requestedBy: sm.deletionRequest.requestedBy || (sm.deletionRequest as unknown as { requestedByName?: string }).requestedByName || "Admin",
-                          requestedAt: String(sm.deletionRequest.requestedAt),
-                      }
-                    : sm.hasDeletionRequest
-                      ? (sample?.deletionRequest ?? {
-                            reason: "Account closure requested.",
-                            attachments: [],
-                            requestedBy: "Admin",
-                            requestedAt: new Date().toISOString(),
-                        })
-                      : null;
-
-                if (sample) {
-                    return {
-                        ...sample,
-                        id: sm.id,
-                        userId: sm.userId ?? sample.userId ?? null,
-                        firstName: sm.firstName ?? sample.firstName,
-                        lastName: sm.lastName ?? sample.lastName,
-                        contactName: `${sm.firstName ?? ""} ${sm.lastName ?? ""}`.trim() || sample.contactName,
-                        companyName: sm.companyName ?? sample.companyName,
-                        email: sm.email ?? sample.email,
-                        phone: sm.phone ?? sample.phone,
-                        avatarUrl: sm.avatar?.url ?? sample.avatarUrl,
-                        accountStatus: sm.accountStatus ?? sample.accountStatus,
-                        deletionRequest,
-                    };
-                }
-                return toManufacturerRecord(sm);
-            });
-            return [...fromServer, ...sampleOnly];
-        }
-        return ADMIN_MANUFACTURERS;
-    }, [serverData]);
+    const baseManufacturers = useMemo(
+        () => ((serverData?.manufacturers ?? []) as ServerManufacturer[]).map(toManufacturerRecord),
+        [serverData],
+    );
 
     const [localPatches, setLocalPatches] = useState<Record<string, ManufacturerRecord>>({});
     const [deletedIds, setDeletedIds] = useState<string[]>([]);
@@ -245,186 +234,187 @@ export function AdminManufacturersProvider({ children }: { children: ReactNode }
         return result;
     }, [baseManufacturers, localPatches, deletedIds]);
 
-    const patch = (id: string, change: (manufacturer: ManufacturerRecord) => ManufacturerRecord) => {
-        const current = manufacturers.find((m) => m.id === id);
-        if (!current) return;
-        const patched = change(current);
-        setLocalPatches((prev) => ({ ...prev, [id]: patched }));
-    };
+    // Everything the context hands out is built here, together, so it keeps its
+    // identity until the manufacturers, the jobs (for getAssignBlocker) or who's
+    // signed in change. The actions read the list as of the render that made them.
+    const value: AdminManufacturersContextValue = useMemo(() => {
+        // A change shows in the manufacturers lists and in the reports built from them
+        const refreshManufacturers = () =>
+            Promise.all([
+                queryClient.invalidateQueries({ queryKey: queryKeys.manufacturers.all }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.reports.all }),
+            ]);
 
-    /** Undo an optimistic patch when the API call it was for fails. */
-    const rollbackPatch = (id: string, previous: ManufacturerRecord | undefined) => {
-        setLocalPatches((prev) => {
-            const next = { ...prev };
-            if (previous) {
-                next[id] = previous;
-            } else {
-                delete next[id];
-            }
-            return next;
-        });
-    };
+        const patch = (id: string, change: (manufacturer: ManufacturerRecord) => ManufacturerRecord) => {
+            const current = manufacturers.find((m) => m.id === id);
+            if (!current) return;
+            const patched = change(current);
+            setLocalPatches((prev) => ({ ...prev, [id]: patched }));
+        };
 
-    const getManufacturer = (id: string) => manufacturers.find((manufacturer) => manufacturer.id === id);
-
-    const hasJobUnderway = (id: string) => jobs.some((job) => isJobUnderwayFor(job, id));
-
-    const getDeleteWarnings = (id: string): AccountDeleteWarnings => ({
-        jobsUnderway: jobs
-            .filter((job) => isJobUnderwayFor(job, id))
-            .map((job) => ({ job, goesBackToPending: job.manufacturerIds.length === 1 })),
-        applications: jobs.filter((job) =>
-            job.applications.some((application) => application.manufacturerId === id && application.status === "pending"),
-        ),
-        walletBalance: Math.max(0, getTransactionSummary(getManufacturerTransactions(id, jobs)).balance),
-        hasPendingAppeal: !!getManufacturer(id)?.appeals.some((appeal) => appeal.status === "pending"),
-    });
-
-    const value: AdminManufacturersContextValue = {
-        manufacturers,
-        isLoading: isServerLoading,
-        getManufacturer,
-        changeStatus: async (id, status, reason) => {
-            const previousPatch = localPatches[id];
-            patch(id, (manufacturer) => {
-                if (manufacturer.accountStatus === status) return manufacturer;
-                const now = new Date().toISOString();
-                // Lifting a suspension answers any appeal still waiting
-                const liftsSuspension = manufacturer.accountStatus === "suspended" && status === "active";
-                return {
-                    ...manufacturer,
-                    accountStatus: status,
-                    statusHistory: [{ status, reason, by: myName, at: now }, ...manufacturer.statusHistory],
-                    appeals: liftsSuspension
-                        ? manufacturer.appeals.map((appeal) =>
-                              appeal.status === "pending"
-                                  ? {
-                                        ...appeal,
-                                        status: "approved" as const,
-                                        response: reason ?? "Suspension lifted.",
-                                        decidedBy: myName,
-                                        decidedAt: now,
-                                    }
-                                  : appeal,
-                          )
-                        : manufacturer.appeals,
-                };
+        /** Undo an optimistic patch when the API call it was for fails. */
+        const rollbackPatch = (id: string, previous: ManufacturerRecord | undefined) => {
+            setLocalPatches((prev) => {
+                const next = { ...prev };
+                if (previous) {
+                    next[id] = previous;
+                } else {
+                    delete next[id];
+                }
+                return next;
             });
-            try {
-                await manufacturerService.changeStatus(id, status, reason);
-                queryClient.invalidateQueries({ queryKey: queryKeys.manufacturers.all });
-            } catch (err) {
-                rollbackPatch(id, previousPatch);
-                throw err;
-            }
-        },
-        decideAppeal: async (id, appealId, decision, response) => {
-            const previousPatch = localPatches[id];
-            patch(id, (manufacturer) => {
-                const appeal = manufacturer.appeals.find((candidate) => candidate.id === appealId);
-                if (appeal?.status !== "pending") return manufacturer;
-                const now = new Date().toISOString();
-                const decided: ManufacturerRecord = {
-                    ...manufacturer,
-                    appeals: manufacturer.appeals.map((candidate) =>
-                        candidate.id === appealId
-                            ? { ...candidate, status: decision, response, decidedBy: myName, decidedAt: now }
-                            : candidate,
-                    ),
-                };
-                // An approved appeal lifts the suspension
-                return decision === "approved" && manufacturer.accountStatus === "suspended"
-                    ? {
-                          ...decided,
-                          accountStatus: "active",
-                          statusHistory: [
-                              { status: "active", reason: response ?? "Appeal approved.", by: myName, at: now },
-                              ...manufacturer.statusHistory,
-                          ],
-                      }
-                    : decided;
-            });
-            try {
-                await manufacturerService.decideAppeal(id, appealId, decision, response);
-                queryClient.invalidateQueries({ queryKey: queryKeys.manufacturers.all });
-            } catch (err) {
-                rollbackPatch(id, previousPatch);
-                throw err;
-            }
-        },
-        requestDeletion: async (id, request) => {
-            const previousPatch = localPatches[id];
-            patch(id, (manufacturer) =>
-                manufacturer.deletionRequest
-                    ? manufacturer
-                    : {
-                          ...manufacturer,
-                          deletionRequest: { ...request, requestedBy: myName, requestedAt: new Date().toISOString() },
-                      },
-            );
-            const attachments = request.attachments
-                .filter((a) => !!a.publicId)
-                .map((a) => ({ publicId: a.publicId!, name: a.name }));
-            try {
-                await manufacturerService.requestDeletion(id, { reason: request.reason, attachments });
-                queryClient.invalidateQueries({ queryKey: queryKeys.manufacturers.all });
-            } catch (err) {
-                rollbackPatch(id, previousPatch);
-                throw err;
-            }
-        },
-        deleteManufacturer: async (id, reauthToken, reason) => {
-            const target = getManufacturer(id);
-            releaseManufacturer(id);
-            setDeletedIds((prev) => [...prev, id]);
-            try {
-                await manufacturerService.deactivateManufacturer(
-                    id,
-                    {
-                        reason: reason ?? "Closed by Super Admin",
-                        confirmName: target?.contactName ?? target?.companyName ?? "Manufacturer",
-                    },
-                    reauthToken,
+        };
+
+        const getManufacturer = (id: string) => manufacturers.find((manufacturer) => manufacturer.id === id);
+
+        const hasJobUnderway = (id: string) => jobs.some((job) => isJobUnderwayFor(job, id));
+
+        return {
+            manufacturers,
+            isLoading: isServerLoading,
+            isError: isServerError,
+            getManufacturer,
+            changeStatus: async (id, status, reason) => {
+                const previousPatch = localPatches[id];
+                patch(id, (manufacturer) => {
+                    if (manufacturer.accountStatus === status) return manufacturer;
+                    const now = new Date().toISOString();
+                    // Lifting a suspension answers any appeal still waiting
+                    const liftsSuspension = manufacturer.accountStatus === "suspended" && status === "active";
+                    return {
+                        ...manufacturer,
+                        accountStatus: status,
+                        statusHistory: [{ status, reason, by: myName, at: now }, ...manufacturer.statusHistory],
+                        appeals: liftsSuspension
+                            ? manufacturer.appeals.map((appeal) =>
+                                  appeal.status === "pending"
+                                      ? {
+                                            ...appeal,
+                                            status: "approved" as const,
+                                            response: reason ?? "Suspension lifted.",
+                                            decidedBy: myName,
+                                            decidedAt: now,
+                                        }
+                                      : appeal,
+                              )
+                            : manufacturer.appeals,
+                    };
+                });
+                try {
+                    await manufacturerService.changeStatus(id, status, reason);
+                    refreshManufacturers();
+                } catch (err) {
+                    rollbackPatch(id, previousPatch);
+                    throw err;
+                }
+            },
+            decideAppeal: async (id, appealId, decision, response) => {
+                const previousPatch = localPatches[id];
+                patch(id, (manufacturer) => {
+                    const appeal = manufacturer.appeals.find((candidate) => candidate.id === appealId);
+                    if (appeal?.status !== "pending") return manufacturer;
+                    const now = new Date().toISOString();
+                    const decided: ManufacturerRecord = {
+                        ...manufacturer,
+                        appeals: manufacturer.appeals.map((candidate) =>
+                            candidate.id === appealId
+                                ? { ...candidate, status: decision, response, decidedBy: myName, decidedAt: now }
+                                : candidate,
+                        ),
+                    };
+                    // An approved appeal lifts the suspension
+                    return decision === "approved" && manufacturer.accountStatus === "suspended"
+                        ? {
+                              ...decided,
+                              accountStatus: "active",
+                              statusHistory: [
+                                  { status: "active", reason: response ?? "Appeal approved.", by: myName, at: now },
+                                  ...manufacturer.statusHistory,
+                              ],
+                          }
+                        : decided;
+                });
+                try {
+                    await manufacturerService.decideAppeal(id, appealId, decision, response);
+                    refreshManufacturers();
+                } catch (err) {
+                    rollbackPatch(id, previousPatch);
+                    throw err;
+                }
+            },
+            requestDeletion: async (id, request) => {
+                const previousPatch = localPatches[id];
+                patch(id, (manufacturer) =>
+                    manufacturer.deletionRequest
+                        ? manufacturer
+                        : {
+                              ...manufacturer,
+                              deletionRequest: { ...request, requestedBy: myName, requestedAt: new Date().toISOString() },
+                          },
                 );
-                queryClient.invalidateQueries({ queryKey: queryKeys.manufacturers.all });
-            } catch (err) {
-                // Roll back optimistic removal so the manufacturer reappears
-                setDeletedIds((prev) => prev.filter((deletedId) => deletedId !== id));
-                throw err;
-            }
-        },
-        declineDeletionRequest: (id) => {
-            patch(id, (manufacturer) => ({ ...manufacturer, deletionRequest: null }));
-            manufacturerService
-                .declineDeletionRequest(id)
-                .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.manufacturers.all }))
-                .catch((err) => console.error("Failed to decline deletion request on server:", err));
-        },
-        getDeleteWarnings,
-        decideVerification: (id, document, decision, rejectionReason) => {
-            patch(id, (manufacturer) =>
-                DOCUMENT_FIELDS[document](manufacturer, {
-                    status: decision,
-                    rejectionReason: decision === "rejected" ? (rejectionReason ?? null) : null,
-                }),
-            );
-            const docMap: Record<ManufacturerDocument, "nin" | "company-tax-number" | "business-license-number"> = {
-                "nin-card": "nin",
-                "tax-number": "company-tax-number",
-                "business-license": "business-license-number",
-            };
-            manufacturerService
-                .decideDocumentVerification(id, docMap[document], decision, rejectionReason)
-                .then(() => queryClient.invalidateQueries({ queryKey: queryKeys.manufacturers.all }))
-                .catch((err) => console.error("Failed to decide document verification on server:", err));
-        },
-        getAssignBlocker: (id) => {
-            const manufacturer = getManufacturer(id);
-            if (manufacturer?.accountStatus === "suspended") return "Suspended, can't take jobs";
-            if (manufacturer?.accountStatus !== "flagged") return null;
-            return hasJobUnderway(id) ? "Flagged, already has a job" : null;
-        },
-    };
+                const attachments = request.attachments
+                    .filter((a) => !!a.publicId)
+                    .map((a) => ({ publicId: a.publicId!, name: a.name }));
+                try {
+                    await manufacturerService.requestDeletion(id, { reason: request.reason, attachments });
+                    refreshManufacturers();
+                } catch (err) {
+                    rollbackPatch(id, previousPatch);
+                    throw err;
+                }
+            },
+            deleteManufacturer: async (id, reauthToken, reason) => {
+                const target = getManufacturer(id);
+                releaseManufacturer(id);
+                setDeletedIds((prev) => [...prev, id]);
+                try {
+                    await manufacturerService.deactivateManufacturer(
+                        id,
+                        {
+                            reason: reason ?? "Closed by Super Admin",
+                            confirmName: target?.contactName ?? target?.companyName ?? "Manufacturer",
+                        },
+                        reauthToken,
+                    );
+                    refreshManufacturers();
+                } catch (err) {
+                    // Roll back optimistic removal so the manufacturer reappears
+                    setDeletedIds((prev) => prev.filter((deletedId) => deletedId !== id));
+                    throw err;
+                }
+            },
+            declineDeletionRequest: (id) => {
+                patch(id, (manufacturer) => ({ ...manufacturer, deletionRequest: null }));
+                manufacturerService
+                    .declineDeletionRequest(id)
+                    .then(() => refreshManufacturers())
+                    .catch((err) => console.error("Failed to decline deletion request on server:", err));
+            },
+            decideVerification: (id, document, decision, rejectionReason) => {
+                patch(id, (manufacturer) =>
+                    DOCUMENT_FIELDS[document](manufacturer, {
+                        status: decision,
+                        rejectionReason: decision === "rejected" ? (rejectionReason ?? null) : null,
+                    }),
+                );
+                const docMap: Record<ManufacturerDocument, "nin" | "company-tax-number" | "business-license-number"> = {
+                    "nin-card": "nin",
+                    "tax-number": "company-tax-number",
+                    "business-license": "business-license-number",
+                };
+                manufacturerService
+                    .decideDocumentVerification(id, docMap[document], decision, rejectionReason)
+                    .then(() => refreshManufacturers())
+                    .catch((err) => console.error("Failed to decide document verification on server:", err));
+            },
+            getAssignBlocker: (id) => {
+                const manufacturer = getManufacturer(id);
+                if (manufacturer?.accountStatus === "suspended") return "Suspended, can't take jobs";
+                if (manufacturer?.accountStatus !== "flagged") return null;
+                return hasJobUnderway(id) ? "Flagged, already has a job" : null;
+            },
+        } satisfies AdminManufacturersContextValue;
+    }, [manufacturers, localPatches, jobs, releaseManufacturer, myName, queryClient, isServerLoading, isServerError]);
 
     return <AdminManufacturersContext.Provider value={value}>{children}</AdminManufacturersContext.Provider>;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -9,11 +9,14 @@ import { queryKeys } from "@/lib/queryKeys";
 import { getSocket } from "@/lib/socket";
 import { notificationService, type BackendNotification } from "@/lib/services/notificationService";
 import { useAdminProfile } from "./adminProfileContext";
-import { useStaffPlatform } from "./staffPlatformContext";
 
 type NotificationsContextValue = {
     notifications: AdminNotification[];
     hasUnread: boolean;
+    /** True while the first load of the notifications is in flight (show skeleton rows). */
+    isLoading: boolean;
+    /** True when the notifications couldn't be loaded. */
+    isError: boolean;
     markAllAsRead: () => Promise<void>;
     markAsRead: (id: string) => Promise<void>;
 };
@@ -58,7 +61,6 @@ function toAdminNotification(raw: BackendNotification): AdminNotification {
 export function NotificationsProvider({ children }: { children: ReactNode }) {
     const router = useRouter();
     const queryClient = useQueryClient();
-    const { notifications: initialNotifications } = useStaffPlatform();
     const { profile } = useAdminProfile();
 
     const [liveNotifications, setLiveNotifications] = useState<AdminNotification[]>([]);
@@ -66,7 +68,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     const [allLocallyRead, setAllLocallyRead] = useState(false);
 
     // Fetch initial notifications from backend
-    const { data: apiData } = useQuery({
+    const { data: apiData, isPending, isError } = useQuery({
         queryKey: queryKeys.notifications.list(),
         queryFn: () => notificationService.getNotifications({ limit: 50 }),
         staleTime: 60 * 1000,
@@ -140,11 +142,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }, [isTypeAllowedInApp, queryClient, router]);
 
     const baseNotifications = useMemo(() => {
-        if (apiData?.notifications) {
-            return apiData.notifications.map(toAdminNotification);
-        }
-        return initialNotifications;
-    }, [apiData, initialNotifications]);
+        return (apiData?.notifications ?? []).map(toAdminNotification);
+    }, [apiData]);
 
     // Combine live socket notifications, fetched API notifications, and apply read state
     const allNotifications = useMemo(() => {
@@ -169,17 +168,20 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         return notifications.some((n) => !n.isRead);
     }, [notifications]);
 
-    const markAsRead = async (id: string) => {
-        setLocallyReadIds((prev) => new Set([...prev, id]));
-        try {
-            await notificationService.markAsRead(id);
-            queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
-        } catch (err) {
-            console.error("Failed to mark notification read on backend:", err);
-        }
-    };
+    const markAsRead = useCallback(
+        async (id: string) => {
+            setLocallyReadIds((prev) => new Set([...prev, id]));
+            try {
+                await notificationService.markAsRead(id);
+                queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+            } catch (err) {
+                console.error("Failed to mark notification read on backend:", err);
+            }
+        },
+        [queryClient],
+    );
 
-    const markAllAsRead = async () => {
+    const markAllAsRead = useCallback(async () => {
         setAllLocallyRead(true);
         try {
             await notificationService.markAllAsRead();
@@ -187,13 +189,19 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         } catch (err) {
             console.error("Failed to mark notifications read on backend:", err);
         }
-    };
+    }, [queryClient]);
 
-    return (
-        <NotificationsContext.Provider value={{ notifications, hasUnread, markAllAsRead, markAsRead }}>
-            {children}
-        </NotificationsContext.Provider>
+    // Socket notifications can arrive before the first load; show those rather than skeletons
+    const hasLiveNotifications = liveNotifications.length > 0;
+    const isLoading = isPending && !hasLiveNotifications;
+    const isLoadError = isError && !hasLiveNotifications;
+
+    const value: NotificationsContextValue = useMemo(
+        () => ({ notifications, hasUnread, isLoading, isError: isLoadError, markAllAsRead, markAsRead }),
+        [notifications, hasUnread, isLoading, isLoadError, markAllAsRead, markAsRead],
     );
+
+    return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
 }
 
 export function useNotifications() {

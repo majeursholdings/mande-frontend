@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -46,8 +46,11 @@ export function LogoutProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    // Only ever opens the dialog, so the value never needs to change
+    const value = useMemo(() => ({ requestLogout: () => setIsOpen(true) }), []);
+
     return (
-        <LogoutContext.Provider value={{ requestLogout: () => setIsOpen(true) }}>
+        <LogoutContext.Provider value={value}>
             {children}
             <Dialog open={isOpen} onOpenChange={setIsOpen}>
                 <DialogContent showCloseButton={false} className="max-w-100">

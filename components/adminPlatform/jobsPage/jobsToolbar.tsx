@@ -9,12 +9,13 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import UserAvatar from "@/components/ui/userAvatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     ADMIN_JOBS_VIEW_OPTIONS,
-    PROJECT_LEADS,
     getProjectLead,
     type AdminJobsView,
 } from "@/constant/admin";
+import { useProjectLeads } from "@/components/adminPlatform/dashboardLayout/useProjectLeads";
 
 const STACK_SIZE = 4;
 
@@ -24,7 +25,7 @@ const MENU_ITEM_CLASS =
 export type JobsFilters = {
     search: string;
     assignedToMe: boolean;
-    /** A PROJECT_LEADS id, or null for everyone's jobs. */
+    /** A project lead's id, or null for everyone's jobs. */
     leadId: string | null;
     view: AdminJobsView;
 };
@@ -96,11 +97,12 @@ function LeadFilter({
     onChange: (leadId: string | null) => void;
 }) {
     const [isOpen, setIsOpen] = useState(false);
+    const { leads, isLoading } = useProjectLeads({ status: "all" });
     const selected = value ? getProjectLead(value) : undefined;
     // The chosen lead leads the stack
     const stack = selected
-        ? [selected, ...PROJECT_LEADS.filter((lead) => lead.id !== selected.id)]
-        : PROJECT_LEADS;
+        ? [selected, ...leads.filter((lead) => lead.id !== selected.id)]
+        : leads;
     const hiddenCount = Math.max(0, stack.length - STACK_SIZE);
 
     const choose = (leadId: string | null) => {
@@ -117,6 +119,14 @@ function LeadFilter({
                     selected && "ring-2 ring-secondary-300",
                 )}
             >
+                {/* The leads' photos are skeletons until they load */}
+                {isLoading &&
+                    Array.from({ length: STACK_SIZE }).map((_, index) => (
+                        <Skeleton
+                            key={index}
+                            className={cn("size-8 rounded-full ring-2 ring-white", index > 0 && "-ml-2")}
+                        />
+                    ))}
                 {stack.slice(0, STACK_SIZE).map((lead, index) => (
                     <UserAvatar
                         key={lead.id}
@@ -141,7 +151,7 @@ function LeadFilter({
                     <span className="flex-1">Everyone</span>
                     {value === null && <Check className="size-4" />}
                 </button>
-                {PROJECT_LEADS.map((lead) => (
+                {leads.map((lead) => (
                     <button
                         key={lead.id}
                         type="button"

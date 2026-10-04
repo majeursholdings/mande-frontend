@@ -6,7 +6,7 @@ import { ADMIN_JOBS_PAGE_SIZE, type AdminJob } from "@/constant/admin";
 import JobFormDialog from "@/components/adminPlatform/form/jobFormDialog";
 import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
-import EmptyState from "../emptyState";
+import EmptyState, { LoadError } from "../emptyState";
 import JobDetailSheet from "../jobDetailPage/jobDetailSheet";
 import JobsTable from "./jobsTable";
 import JobsToolbar, { type JobsFilters } from "./jobsToolbar";
@@ -48,7 +48,7 @@ function filterJobs(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AdminJobsPage({ initialJobId }: { initialJobId?: string }) {
-    const { jobs, getJob, isLoading } = useAdminJobs();
+    const { jobs, getJob, isLoading, isError } = useAdminJobs();
     const { jobsUrl, leadId, permissions } = useStaffPlatform();
     const [filters, setFilters] = useState<JobsFilters>(DEFAULT_FILTERS);
     const [page, setPage] = useState(1);
@@ -120,6 +120,8 @@ export default function AdminJobsPage({ initialJobId }: { initialJobId?: string 
                         onPageChange={setPage}
                         onOpenJob={openJob}
                     />
+                ) : isError && jobs.length === 0 ? (
+                    <LoadError message="We couldn't load the jobs. Please refresh the page." />
                 ) : jobs.length === 0 ? (
                     <EmptyState icon={ListChecks} title="No Jobs" description="There are no jobs to display" />
                 ) : filteredJobs.length === 0 ? (
@@ -156,6 +158,8 @@ export default function AdminJobsPage({ initialJobId }: { initialJobId?: string 
 
             <JobDetailSheet
                 job={openJobId ? getJob(openJobId) : undefined}
+                // A ?job= link opened while the jobs load: the panel opens straight away, its fields as skeletons
+                loading={!!openJobId && isLoading}
                 onClose={closeJob}
                 onEdit={(jobId) => setJobForm({ jobId })}
             />

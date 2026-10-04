@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import {
     DataTable,
     TableToolbar,
@@ -8,13 +9,12 @@ import {
     type SelectFilterItem,
     type SortOptionDef,
 } from "@/components/customTable";
-import { getAdminTransactions, type AdminTransaction } from "@/constant/admin";
-import { getTransactionSummary } from "@/constant/manufacturer";
-import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
-import { useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
+import { queryKeys } from "@/lib/queryKeys";
+import { reportsService } from "@/lib/services/reportsService";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
-import { getAdminTransactionColumns } from "./adminTransactionParts";
-import TransactionSummaryCards from "./transactionSummaryCards";
+import { ReportError } from "../dashboardPage/reportStates";
+import { getAdminTransactionColumns, toAdminTransaction, type AdminTransaction } from "./adminTransactionParts";
+import TransactionSummaryCards, { fromApiTransactionSummary } from "./transactionSummaryCards";
 
 const TABLE_ID = "transactions";
 const COLUMNS = getAdminTransactionColumns();
@@ -24,6 +24,7 @@ const TYPE_ITEMS: SelectFilterItem[] = [
     { label: "Withdrawals", value: "withdrawal" },
     { label: "Subscriptions", value: "subscription" },
     { label: "Rejection charges", value: "charge" },
+    { label: "Reversals", value: "reversal" },
 ];
 
 const SORT_ITEMS: SelectFilterItem[] = [
@@ -39,21 +40,35 @@ const SORT_OPTIONS: SortOptionDef<AdminTransaction>[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Admin Transactions — every manufacturer's transactions, as a manufacturer's
-// own Transactions tab shows theirs: the totals across the platform (paid
-// for jobs, withdrawn, paid for plans, and still in wallets), then every job
-// payment, withdrawal and plan payment — searchable, filtered by type and
-// sorted. Each row opens the manufacturer.
+// Admin Transactions: every manufacturer's transactions, as a manufacturer's
+// own Transactions tab shows theirs. The totals across the platform (paid
+// for jobs, withdrawn, paid for plans, and still in wallets) come from
+// /reports/transactions/summary; then every job payment, withdrawal, plan
+// payment, charge and reversal from /reports/transactions, searchable,
+// filtered by type and sorted. The API pages by date, so every page is
+// loaded up front (see getAllTransactions) and the table searches, sorts
+// and pages them here. Each row opens the manufacturer.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function AdminTransactionsPage() {
     const router = useRouter();
-    const { manufacturers } = useAdminManufacturers();
-    const { jobs } = useAdminJobs();
     const { getManufacturerUrl } = useStaffPlatform();
 
-    // Newest first across everyone — the order before a sort is picked
-    const allRows = getAdminTransactions(manufacturers, jobs);
+    const summaryQuery = useQuery({
+        queryKey: queryKeys.reports.transactionsSummary(),
+        queryFn: () => reportsService.getTransactionsSummary(),
+        staleTime: 30_000,
+    });
+    const transactionsQuery = useQuery({
+        queryKey: queryKeys.reports.transactions({ all: true }),
+        queryFn: () => reportsService.getAllTransactions(),
+        staleTime: 30_000,
+    });
+
+    // Newest first across everyone: the order before a sort is picked
+    const allRows = (transactionsQuery.data ?? []).map((transaction) =>
+        toAdminTransaction(transaction),
+    );
 
     const { rows, pagination } = useTableRows({
         tableId: TABLE_ID,
@@ -68,13 +83,22 @@ export default function AdminTransactionsPage() {
         <div className="flex flex-col gap-6">
             <h1 className="text-2xl font-semibold font-text text-mist-950">Transactions</h1>
 
-            <TransactionSummaryCards summary={getTransactionSummary(allRows)} scope="platform" />
+            {summaryQuery.isError ? (
+                <ReportError message="Couldn't load the totals. Please refresh to try again." />
+            ) : (
+                <TransactionSummaryCards
+                    summary={summaryQuery.data ? fromApiTransactionSummary(summaryQuery.data.summary) : undefined}
+                    scope="platform"
+                />
+            )}
 
             <DataTable
                 tableId={TABLE_ID}
                 columns={COLUMNS}
                 rows={rows}
                 pagination={pagination}
+                loading={transactionsQuery.isPending}
+                error={transactionsQuery.isError ? "Couldn't load the transactions. Please refresh to try again." : undefined}
                 emptyMessage="No transactions match your search."
                 onRowClick={(row) => router.push(getManufacturerUrl(row.manufacturerId))}
                 toolbar={

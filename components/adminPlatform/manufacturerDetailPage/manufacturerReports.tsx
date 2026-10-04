@@ -13,7 +13,7 @@ import ResponsiveTabs from "@/components/ui/responsiveTabs";
 import { formatOrdinalDate } from "@/lib/date";
 import type { Job } from "@/constant/manufacturer";
 import { JOB_PRODUCTION_STEPS } from "@/constant/jobWorkflow";
-import type { SupportFeedbackRecord, TimelineExtensionRecord } from "@/constant/sampleDb";
+import type { SupportFeedbackRecord, TimelineExtensionRecord } from "@/constant/platformRecords";
 import EmptyState from "../emptyState";
 import ManufacturerFeedback from "./manufacturerFeedback";
 

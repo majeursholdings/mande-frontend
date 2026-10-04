@@ -12,7 +12,7 @@ export default function NotificationsPanel({
     onLinkClick?: () => void;
     className?: string;
 }) {
-    const { notifications, hasUnread, markAllAsRead, markAsRead } = useNotifications();
+    const { notifications, hasUnread, isLoading, isError, markAllAsRead, markAsRead } = useNotifications();
 
     return (
         <NotificationsList
@@ -37,6 +37,8 @@ export default function NotificationsPanel({
             onMarkAsRead={markAsRead}
             onLinkClick={onLinkClick}
             className={className}
+            loading={isLoading}
+            error={isError ? "We couldn't load your notifications. Please try again later." : undefined}
         />
     );
 }

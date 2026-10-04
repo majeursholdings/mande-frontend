@@ -71,7 +71,7 @@ export function ImagePreviewGrid({
                                     src={image.url}
                                     alt={image.name}
                                     fill
-                                    // Local previews (blob:) and sample files are shown as they are
+                                    // Cloudinary links (signed ones expire) are shown as they are
                                     unoptimized
                                     sizes="220px"
                                     className="object-cover transition-transform duration-300 group-hover:scale-105"

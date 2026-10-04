@@ -2,31 +2,43 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import { ClipboardCheck } from "lucide-react";
 import { getRelativeTimeLabel } from "@/lib/date";
+import { queryKeys } from "@/lib/queryKeys";
+import { reportsService } from "@/lib/services/reportsService";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     TOTAL_PRODUCTION_STEPS,
     getReviewStage,
     type PendingProgressReview,
 } from "@/constant/admin";
-import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import DashboardCard from "./dashboardCard";
 import EmptyState from "../emptyState";
-import { getPendingProgressReviews } from "./dashboardStats";
+import { toPendingProgressReview } from "./dashboardStats";
+import { ReportError } from "./reportStates";
+
+/** The most the API lists at once. */
+const LIMIT = 50;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PendingReviewsCard — manufacturers' progress updates waiting for an admin
-// to check: a production step marked done, or photos of the finished
-// furniture. Newest first, and each row says how long it's been waiting. The
-// bar shows how far through production the job is — the same horizontal bars
-// the design used for this spot.
+// PendingReviewsCard: manufacturers' progress updates waiting for an admin
+// to check (from /reports/pending-reviews): a production step marked done,
+// or photos of the finished furniture. Newest first, and each row says how
+// long it's been waiting. The bar shows how far through production the job
+// is: the same horizontal bars the design used for this spot.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** The photo sent with the update, from the job already loaded (the API's list has none). */
 export default function PendingReviewsCard() {
-    const { jobs } = useAdminJobs();
-    const reviews = getPendingProgressReviews(jobs);
     const { jobsUrl } = useStaffPlatform();
+    const query = useQuery({
+        queryKey: queryKeys.reports.pendingReviews(LIMIT),
+        queryFn: () => reportsService.getPendingReviews(LIMIT),
+        staleTime: 30_000,
+    });
+    const reviews = (query.data?.reviews ?? []).map(toPendingProgressReview);
 
     return (
         <DashboardCard
@@ -42,7 +54,11 @@ export default function PendingReviewsCard() {
             }
             viewAllHref={reviews.length > 0 ? jobsUrl : undefined}
         >
-            {reviews.length === 0 ? (
+            {query.isError ? (
+                <ReportError message="Couldn't load the pending reviews. Please refresh to try again." />
+            ) : query.isPending ? (
+                <ReviewRowsSkeleton />
+            ) : reviews.length === 0 ? (
                 <EmptyState
                     icon={ClipboardCheck}
                     title="No Pending Reviews"
@@ -66,7 +82,7 @@ function ReviewRow({ review, jobsUrl }: { review: PendingProgressReview; jobsUrl
     return (
         <li className="flex gap-3 py-3.5">
             <span className="relative size-12 shrink-0 overflow-hidden rounded-lg bg-mist-100">
-                <Image src={review.imageUrl} alt="" fill sizes="48px" className="object-cover" />
+                {review.imageUrl && <Image src={review.imageUrl} alt="" fill sizes="48px" className="object-cover" />}
             </span>
 
             <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -104,5 +120,29 @@ function ReviewRow({ review, jobsUrl }: { review: PendingProgressReview; jobsUrl
                 </div>
             </div>
         </li>
+    );
+}
+
+/** Rows the shape of ReviewRow's, while the reviews load. */
+function ReviewRowsSkeleton({ rows = 4 }: { rows?: number }) {
+    return (
+        <ul aria-hidden className="-my-3.5 flex flex-col divide-y divide-border">
+            {Array.from({ length: rows }, (_, index) => (
+                <li key={index} className="flex gap-3 py-3.5">
+                    <Skeleton className="size-12 shrink-0 rounded-lg" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-2">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex flex-1 flex-col gap-1.5">
+                                <Skeleton className="h-4 w-1/2" />
+                                <Skeleton className="h-3 w-2/5" />
+                            </div>
+                            {/* The Review button */}
+                            <Skeleton className="h-7 w-16 shrink-0" />
+                        </div>
+                        <Skeleton className="h-2 w-full rounded-full" />
+                    </div>
+                </li>
+            ))}
+        </ul>
     );
 }

@@ -1,11 +1,18 @@
 "use client";
 
 import { Banknote, HandCoins, Hammer, Percent, UserRoundCheck, type LucideIcon } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { ADMIN_MANUFACTURERS } from "@/constant/admin";
-import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
+import { queryKeys } from "@/lib/queryKeys";
+import { reportsService } from "@/lib/services/reportsService";
 import { StatCard, StatCardRow } from "../statCard";
-import { ADMIN_DASHBOARD_STAT_IDS, getDashboardStats, type DashboardStatId } from "./dashboardStats";
+import {
+    ADMIN_DASHBOARD_STAT_IDS,
+    DASHBOARD_STAT_LABELS,
+    toDashboardStats,
+    type DashboardStatId,
+} from "./dashboardStats";
+import { ReportError, StatCardSkeleton } from "./reportStates";
 
 // Money gets the design's red circle; each figure keeps its colour on every dashboard
 const STAT_ICONS: Record<DashboardStatId, { icon: LucideIcon; className: string }> = {
@@ -17,12 +24,35 @@ const STAT_ICONS: Record<DashboardStatId, { icon: LucideIcon; className: string 
 };
 
 /**
- * The headline numbers (the admin's, unless `statIds` says otherwise) — a
- * swipeable row on phones, two columns on tablets, four from xl.
+ * The headline numbers (the admin's, unless `statIds` says otherwise), from
+ * /reports/dashboard: a swipeable row on phones, two columns on tablets,
+ * four from xl.
  */
 export default function StatsGrid({ statIds = ADMIN_DASHBOARD_STAT_IDS }: { statIds?: DashboardStatId[] }) {
-    const { jobs } = useAdminJobs();
-    const stats = getDashboardStats(jobs, ADMIN_MANUFACTURERS, statIds);
+    const { data, isPending, isError } = useQuery({
+        queryKey: queryKeys.reports.dashboard(),
+        queryFn: () => reportsService.getDashboard(),
+        staleTime: 30_000,
+    });
+
+    if (isError) return <ReportError message="Couldn't load the dashboard's numbers. Please refresh to try again." />;
+
+    if (isPending) {
+        return (
+            <StatCardRow>
+                {statIds.map((id) => (
+                    <StatCardSkeleton
+                        key={id}
+                        label={DASHBOARD_STAT_LABELS[id]}
+                        icon={STAT_ICONS[id].icon}
+                        iconClassName={STAT_ICONS[id].className}
+                    />
+                ))}
+            </StatCardRow>
+        );
+    }
+
+    const stats = toDashboardStats(data.stats, statIds);
 
     return (
         <StatCardRow>

@@ -1,7 +1,7 @@
 import { History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatOrdinalDate } from "@/lib/date";
-import type { ManufacturerRecord } from "@/constant/sampleDb";
+import type { ManufacturerRecord } from "@/constant/platformRecords";
 import EmptyState from "../emptyState";
 
 type HistoryEntry = {

@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import LogoLink from "@/components/ui/logoLink";
 import UserAvatar from "@/components/ui/userAvatar";
 import { BellIcon, MOBILE_TOPBAR_CLASS } from "@/components/ui/topbarControls";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAdminProfile } from "./adminProfileContext";
 import { useNotifications } from "./notificationsContext";
 import NotificationsPanel from "./notificationsPanel";
@@ -15,7 +16,7 @@ import { useStaffPlatform } from "./staffPlatformContext";
 export default function MobileTopbar() {
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const { hasUnread } = useNotifications();
-    const { profile, fullName } = useAdminProfile();
+    const { profile, fullName, isLoading } = useAdminProfile();
     const { dashboardUrl } = useStaffPlatform();
     const closeNotifications = () => setIsNotificationsOpen(false);
 
@@ -33,7 +34,11 @@ export default function MobileTopbar() {
                         <BellIcon hasUnread={hasUnread} size="sm" />
                     </button>
                     <UserMenu aria-label="Profile menu" className="rounded-full cursor-pointer">
-                        <UserAvatar name={fullName} src={profile.avatarUrl} className="size-8 text-xs" />
+                        {isLoading ? (
+                            <Skeleton className="size-8 rounded-full" />
+                        ) : (
+                            <UserAvatar name={fullName} src={profile.avatarUrl} className="size-8 text-xs" />
+                        )}
                     </UserMenu>
                 </div>
             </header>

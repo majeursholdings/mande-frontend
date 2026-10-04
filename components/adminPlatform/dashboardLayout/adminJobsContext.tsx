@@ -1,13 +1,11 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { jobsService, type CreateJobPayload, type UpdateJobPayload } from "@/lib/services/jobsService";
 import {
-    ADMIN_JOBS,
     MAX_ADMIN_JOB_REJECTIONS,
-    getSampleCategoryPhoto,
     isRejectionFinal,
     settleAdminJob,
     registerProjectLeads,
@@ -18,19 +16,18 @@ import {
     type AdminManufacturerReview,
 } from "@/constant/admin";
 import { MIN_SIGN_OFF_RATING, canReportFault, type ProductionStepKey, type StepReview } from "@/constant/jobWorkflow";
-import { getJobRecordPayouts } from "@/constant/sampleDb";
+import { getJobRecordPayouts } from "@/constant/platformRecords";
 import { useAdminProfile } from "./adminProfileContext";
 import { useStaffPlatform } from "./staffPlatformContext";
+import { DEFAULT_IMAGE } from "@/constant/global";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AdminJobsProvider — every job, shared across the admin (or super admin)
 // dashboard so a job created, edited, reviewed, reassigned or deleted (or a
 // note left on one) stays put while they move between pages. What they do is
 // recorded under their name. Anything left unreviewed past its
-// deadline reads as approved automatically (see settleAdminJob). Seeded from
-// sample data and kept in memory for now; once the backend is connected,
-// load jobs from the API (which does the auto-approving) and send each
-// change there.
+// deadline reads as approved automatically (see settleAdminJob). Loaded from
+// the API (which does the auto-approving); each change is sent there.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** What the create/edit job form fills in — the rest is set by the platform. */
@@ -55,7 +52,10 @@ export type AdminJobDraft = Pick<
 
 type AdminJobsContextValue = {
     jobs: AdminJob[];
+    /** True while the first load of the jobs is in flight (show skeletons). */
     isLoading: boolean;
+    /** True when the jobs couldn't be loaded (show an inline error, not an empty state). */
+    isError: boolean;
     getJob: (idOrCode: string) => AdminJob | undefined;
     /**
      * Adds a pending job at the top of the list, led by whoever created it,
@@ -149,6 +149,13 @@ export function getJobDeleteBlocker(job: AdminJob): string | null {
 }
 
 const AdminJobsContext = createContext<AdminJobsContextValue | null>(null);
+
+/**
+ * A cover photo just uploaded for the job. The API files it under the
+ * "job-image" purpose and will only claim it as the job's image from there,
+ * so a file is the cover by where it was uploaded, not by what it looks like.
+ */
+const isCoverUpload = (a: { publicId?: string }) => Boolean(a.publicId?.includes("/job-image/"));
 
 const sameIds = (a: string[], b: string[]) =>
     a.length === b.length && a.every((id) => b.includes(id));
@@ -262,7 +269,7 @@ type ServerStaffJob = {
 
 function transformStaffJobToAdminJob(serverJob: ServerStaffJob): AdminJob {
     const category = serverJob.category ?? "wood";
-    const fallbackPhoto = getSampleCategoryPhoto(category);
+    const fallbackPhoto = DEFAULT_IMAGE;
     const attachedImage = (serverJob.attachments ?? []).find((a) => {
         if (!a?.url) return false;
         if (a.kind === "image") return true;
@@ -353,24 +360,19 @@ function transformStaffJobToAdminJob(serverJob: ServerStaffJob): AdminJob {
                   }
                 : null,
         })),
-        completionImageUrls:
-            serverJob.completionPhotos && serverJob.completionPhotos.length > 0
-                ? (serverJob.completionPhotos.filter(Boolean) as string[])
-                : ["in-review", "rejected", "completed"].includes(serverJob.status)
-                  ? [imageUrl]
-                  : [],
+        completionImageUrls: (serverJob.completionPhotos ?? []).filter(Boolean) as string[],
         submittedForReviewAt: serverJob.submittedForReviewAt ? new Date(serverJob.submittedForReviewAt).toISOString() : null,
         rejections: (serverJob.rejections ?? []).map((rej) => ({
             id: String(rej.id),
             reason: rej.reason,
             attachments: (rej.attachments ?? []).map((att) => ({
                 name: att.name ?? "Rejection attachment",
-                url: att.url ?? fallbackPhoto,
+                url: att.url ?? "",
                 kind: att.kind ?? "image",
             })),
             rejectedBy: rej.rejectedByName ?? "Project lead",
             rejectedAt: rej.rejectedAt ? new Date(rej.rejectedAt).toISOString() : new Date().toISOString(),
-            submissionImageUrls: rej.submissionPhotos && rej.submissionPhotos.length > 0 ? (rej.submissionPhotos.filter(Boolean) as string[]) : [fallbackPhoto],
+            submissionImageUrls: (rej.submissionPhotos ?? []).filter(Boolean) as string[],
         })),
         extensionRequests: (serverJob.extensionRequests ?? []).map((ext) => ({
             id: String(ext.id),
@@ -439,7 +441,7 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
     const queryClient = useQueryClient();
 
     // Load live jobs from server
-    const { data: serverJobsData, isLoading } = useQuery({
+    const { data: serverJobsData, isLoading, isError } = useQuery({
         queryKey: queryKeys.jobs.list({ limit: 100 }),
         queryFn: () => jobsService.getStaffJobs({ limit: 100 }),
         staleTime: 30_000,
@@ -454,12 +456,10 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
                     registerProjectLeads(j.projectLeads);
                 }
             }
-            if (serverJobsData.jobs.length > 0) {
-                return serverJobsData.jobs.map((j: ServerStaffJob) => transformStaffJobToAdminJob(j));
-            }
+            return serverJobsData.jobs.map((j: ServerStaffJob) => transformStaffJobToAdminJob(j));
         }
-        return isLoading ? [] : ADMIN_JOBS;
-    }, [serverJobsData, isLoading]);
+        return [];
+    }, [serverJobsData]);
 
     const [localPatches, setLocalPatches] = useState<Record<string, AdminJob>>({});
     const [locallyCreatedJobs, setLocallyCreatedJobs] = useState<AdminJob[]>([]);
@@ -475,179 +475,124 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
             .map((job) => settleAdminJob(localPatches[job.id] ?? job));
     }, [baseJobs, locallyCreatedJobs, localPatches, deletedJobIds]);
 
-    const patchJob = (idOrCode: string, patch: (job: AdminJob) => AdminJob) => {
-        const target = idOrCode.toLowerCase();
-        const current = jobs.find((j) => j.id.toLowerCase() === target || j.code.toLowerCase() === target);
-        if (!current) return;
-        const patched = patch(current);
-        setLocalPatches((prev) => ({
-            ...prev,
-            [current.id]: patched,
-            [current.code]: patched,
-            [current.code.toLowerCase()]: patched,
-        }));
-    };
+    // Everything the context hands out is built here, together, so it keeps its
+    // identity until the jobs (or who's signed in) change. The actions read the
+    // jobs as of the render that made them, as they always have.
+    const value: AdminJobsContextValue = useMemo(() => {
+        // A change shows in the jobs lists and in the reports built from them
+        const refreshJobs = () =>
+            Promise.all([
+                queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.reports.all }),
+            ]);
 
-    /** Reviews the proof waiting on `step` — its latest submission, if no one has yet. */
-    const reviewStep = (id: string, step: ProductionStepKey, review: StepReview) =>
-        patchJob(id, (job) => {
-            const index = job.stepSubmissions.findLastIndex((submission) => submission.step === step);
-            if (index === -1 || job.stepSubmissions[index].review) return job;
-            return {
-                ...job,
-                stepSubmissions: job.stepSubmissions.map((submission, position) =>
-                    position === index ? { ...submission, review } : submission,
-                ),
-            };
-        });
+        const patchJob = (idOrCode: string, patch: (job: AdminJob) => AdminJob) => {
+            const target = idOrCode.toLowerCase();
+            const current = jobs.find((j) => j.id.toLowerCase() === target || j.code.toLowerCase() === target);
+            if (!current) return;
+            const patched = patch(current);
+            setLocalPatches((prev) => ({
+                ...prev,
+                [current.id]: patched,
+                [current.code]: patched,
+                [current.code.toLowerCase()]: patched,
+            }));
+        };
 
-    const decideApplication = (id: string, applicationId: string, decision: "accepted" | "declined") =>
-        patchJob(id, (job) => {
-            const application = job.applications.find((candidate) => candidate.id === applicationId);
-            if (job.status !== "pending" || application?.status !== "pending") return job;
-            const now = new Date().toISOString();
-            if (decision === "declined") {
+        /** Reviews the proof waiting on `step` — its latest submission, if no one has yet. */
+        const reviewStep = (id: string, step: ProductionStepKey, review: StepReview) =>
+            patchJob(id, (job) => {
+                const index = job.stepSubmissions.findLastIndex((submission) => submission.step === step);
+                if (index === -1 || job.stepSubmissions[index].review) return job;
                 return {
                     ...job,
-                    applications: job.applications.map((candidate) =>
-                        candidate.id === applicationId ? { ...candidate, status: "declined", decidedAt: now } : candidate,
+                    stepSubmissions: job.stepSubmissions.map((submission, position) =>
+                        position === index ? { ...submission, review } : submission,
                     ),
                 };
-            }
-            // They asked for it, so it's theirs straight away — any open offer is withdrawn
-            return {
-                ...job,
-                status: "in-progress",
-                manufacturerIds: [application.manufacturerId],
-                dateAssigned: now,
-                assignmentHistory: [
-                    {
-                        id: `asg-${Date.now()}`,
-                        manufacturerIds: [application.manufacturerId],
-                        assignedBy: myName,
-                        assignedAt: now,
-                        outcome: "accepted",
-                        outcomeAt: now,
-                    },
-                    ...job.assignmentHistory.map((assignment) =>
-                        assignment.outcome === "awaiting"
-                            ? { ...assignment, outcome: "reassigned" as const, outcomeAt: now }
-                            : assignment,
+            });
+
+        const decideApplication = (id: string, applicationId: string, decision: "accepted" | "declined") =>
+            patchJob(id, (job) => {
+                const application = job.applications.find((candidate) => candidate.id === applicationId);
+                if (job.status !== "pending" || application?.status !== "pending") return job;
+                const now = new Date().toISOString();
+                if (decision === "declined") {
+                    return {
+                        ...job,
+                        applications: job.applications.map((candidate) =>
+                            candidate.id === applicationId ? { ...candidate, status: "declined", decidedAt: now } : candidate,
+                        ),
+                    };
+                }
+                // They asked for it, so it's theirs straight away — any open offer is withdrawn
+                return {
+                    ...job,
+                    status: "in-progress",
+                    manufacturerIds: [application.manufacturerId],
+                    dateAssigned: now,
+                    assignmentHistory: [
+                        {
+                            id: `asg-${Date.now()}`,
+                            manufacturerIds: [application.manufacturerId],
+                            assignedBy: myName,
+                            assignedAt: now,
+                            outcome: "accepted",
+                            outcomeAt: now,
+                        },
+                        ...job.assignmentHistory.map((assignment) =>
+                            assignment.outcome === "awaiting"
+                                ? { ...assignment, outcome: "reassigned" as const, outcomeAt: now }
+                                : assignment,
+                        ),
+                    ],
+                    applications: job.applications.map((candidate) =>
+                        candidate.id === applicationId
+                            ? { ...candidate, status: "accepted", decidedAt: now }
+                            : candidate.status === "pending"
+                              ? { ...candidate, status: "declined", decidedAt: now }
+                              : candidate,
                     ),
-                ],
-                applications: job.applications.map((candidate) =>
-                    candidate.id === applicationId
-                        ? { ...candidate, status: "accepted", decidedAt: now }
-                        : candidate.status === "pending"
-                          ? { ...candidate, status: "declined", decidedAt: now }
-                          : candidate,
-                ),
-            };
-        });
+                };
+            });
 
-    const createJob = async (draft: AdminJobDraft, code: string): Promise<AdminJob> => {
-        const now = new Date().toISOString();
-        const cleanProjectLeadIds = draft.projectLeadIds?.filter((id) => /^[a-f\d]{24}$/i.test(id));
-        const cleanManufacturerIds = draft.manufacturerIds?.filter((id) => /^[a-f\d]{24}$/i.test(id));
-        const isImage = (a: { kind?: string; url?: string; name?: string }) =>
-            a.kind === "image" ||
-            /\.(png|jpe?g|webp|svg|gif)($|\?)/i.test(a.url ?? "") ||
-            /\.(png|jpe?g|webp|svg|gif)$/i.test(a.name ?? "");
-
-        const imageAttachment = draft.attachments?.find((a) => isImage(a) && a.url);
-        const imageWithPublicId = draft.attachments?.find((a) => isImage(a) && a.publicId);
-        const otherAttachments = (draft.attachments ?? []).filter((a) => a !== imageWithPublicId && a.publicId);
-        const fallbackPhoto = getSampleCategoryPhoto(draft.category);
-        const imageUrl = imageAttachment?.url || fallbackPhoto;
-
-        const createdJob: AdminJob = {
-            ...draft,
-            manufacturerIds: cleanManufacturerIds ?? [],
-            id: `job-${Date.now()}`,
-            code,
-            projectLeadIds: cleanProjectLeadIds ?? (leadId && /^[a-f\d]{24}$/i.test(leadId) ? [leadId] : []),
-            status: "pending",
-            dateAssigned: null,
-            imageUrl,
-            imagePublicId: imageWithPublicId?.publicId,
-            notes: [],
-            createdAt: now,
-            stepSubmissions: [],
-            completionImageUrls: [],
-            submittedForReviewAt: null,
-            rejections: [],
-            extensionRequests: [],
-            assignmentHistory: [],
-            manufacturerReview: null,
-            furtherReview: null,
-            leadReviews: [],
-            completedAt: null,
-            completedBy: null,
-            faultReport: null,
-            applications: [],
-        };
-
-        const payload: CreateJobPayload = {
-            title: draft.title,
-            description: draft.description,
-            category: draft.category,
-            amountKobo: Math.round(draft.amount * 100),
-            dueDate: new Date(draft.dueDate).toISOString(),
-            startDate: draft.startDate ? new Date(draft.startDate).toISOString() : null,
-            ...(draft.deliveryLocation ? { deliveryLocation: draft.deliveryLocation } : {}),
-            ...(imageAttachment ? { image: { publicId: imageAttachment.publicId!, name: imageAttachment.name } } : {}),
-            ...(otherAttachments.length > 0
-                ? { attachments: otherAttachments.map((a) => ({ publicId: a.publicId!, name: a.name })) }
-                : {}),
-            ...(cleanProjectLeadIds && cleanProjectLeadIds.length > 0 ? { projectLeadIds: cleanProjectLeadIds } : {}),
-            ...(cleanManufacturerIds && cleanManufacturerIds.length > 0 ? { manufacturerIds: cleanManufacturerIds } : {}),
-        };
-
-        const response = await jobsService.createJob(payload);
-        const savedJob = response?.job ? transformStaffJobToAdminJob(response.job) : createdJob;
-        setLocallyCreatedJobs((prev) => [savedJob, ...prev.filter((j) => j.id !== savedJob.id)]);
-        await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-        return savedJob;
-    };
-
-    const resolveJobId = useCallback(
-        (idOrCode: string): string => {
-            if (!idOrCode) return "";
-            const target = idOrCode.toLowerCase();
-            const found = jobs.find((j) => j.id.toLowerCase() === target || j.code.toLowerCase() === target);
-            return found?.id || idOrCode;
-        },
-        [jobs],
-    );
-
-    const value: AdminJobsContextValue = {
-        jobs,
-        isLoading,
-        getJob: (idOrCode) => {
-            if (!idOrCode) return undefined;
-            const target = idOrCode.toLowerCase();
-            return jobs.find((job) => job.id.toLowerCase() === target || job.code.toLowerCase() === target);
-        },
-        createJob,
-        updateJob: async (id, draft) => {
-            const realId = resolveJobId(id);
-            const existingJob = jobs.find((job) => job.id === realId || job.code.toLowerCase() === realId.toLowerCase());
-            const cleanProjectLeadIds = draft.projectLeadIds?.filter((leadId) => /^[a-f\d]{24}$/i.test(leadId));
-
-            const isImage = (a: { kind?: string; url?: string; name?: string }) =>
-                a.kind === "image" ||
-                /\.(png|jpe?g|webp|svg|gif)($|\?)/i.test(a.url ?? "") ||
-                /\.(png|jpe?g|webp|svg|gif)$/i.test(a.name ?? "");
-
-            const imageAttachment = draft.attachments?.find((a) => isImage(a) && a.publicId);
+        const createJob = async (draft: AdminJobDraft, code: string): Promise<AdminJob> => {
+            const now = new Date().toISOString();
+            const cleanProjectLeadIds = draft.projectLeadIds?.filter((id) => /^[a-f\d]{24}$/i.test(id));
+            const cleanManufacturerIds = draft.manufacturerIds?.filter((id) => /^[a-f\d]{24}$/i.test(id));
+            const imageAttachment = draft.attachments?.find(isCoverUpload);
             const otherAttachments = (draft.attachments ?? []).filter((a) => a !== imageAttachment && a.publicId);
-            const imagePayload = imageAttachment
-                ? { publicId: imageAttachment.publicId!, name: imageAttachment.name }
-                : existingJob?.imagePublicId
-                  ? { publicId: existingJob.imagePublicId }
-                  : undefined;
+            const fallbackPhoto = DEFAULT_IMAGE;
+            const imageUrl = imageAttachment?.url || fallbackPhoto;
 
-            const updatePayload: UpdateJobPayload = {
+            const createdJob: AdminJob = {
+                ...draft,
+                manufacturerIds: cleanManufacturerIds ?? [],
+                id: `job-${Date.now()}`,
+                code,
+                projectLeadIds: cleanProjectLeadIds ?? (leadId && /^[a-f\d]{24}$/i.test(leadId) ? [leadId] : []),
+                status: "pending",
+                dateAssigned: null,
+                imageUrl,
+                imagePublicId: imageAttachment?.publicId,
+                notes: [],
+                createdAt: now,
+                stepSubmissions: [],
+                completionImageUrls: [],
+                submittedForReviewAt: null,
+                rejections: [],
+                extensionRequests: [],
+                assignmentHistory: [],
+                manufacturerReview: null,
+                furtherReview: null,
+                leadReviews: [],
+                completedAt: null,
+                completedBy: null,
+                faultReport: null,
+                applications: [],
+            };
+
+            const payload: CreateJobPayload = {
                 title: draft.title,
                 description: draft.description,
                 category: draft.category,
@@ -655,213 +600,267 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
                 dueDate: new Date(draft.dueDate).toISOString(),
                 startDate: draft.startDate ? new Date(draft.startDate).toISOString() : null,
                 ...(draft.deliveryLocation ? { deliveryLocation: draft.deliveryLocation } : {}),
-                ...(imagePayload ? { image: imagePayload } : {}),
+                ...(imageAttachment ? { image: { publicId: imageAttachment.publicId!, name: imageAttachment.name } } : {}),
                 ...(otherAttachments.length > 0
                     ? { attachments: otherAttachments.map((a) => ({ publicId: a.publicId!, name: a.name })) }
                     : {}),
+                ...(cleanProjectLeadIds && cleanProjectLeadIds.length > 0 ? { projectLeadIds: cleanProjectLeadIds } : {}),
+                ...(cleanManufacturerIds && cleanManufacturerIds.length > 0 ? { manufacturerIds: cleanManufacturerIds } : {}),
             };
 
-            if (cleanProjectLeadIds && cleanProjectLeadIds.length > 0) {
-                updatePayload.projectLeadIds = cleanProjectLeadIds;
-            }
+            const response = await jobsService.createJob(payload);
+            const savedJob = response?.job ? transformStaffJobToAdminJob(response.job) : createdJob;
+            setLocallyCreatedJobs((prev) => [savedJob, ...prev.filter((j) => j.id !== savedJob.id)]);
+            await refreshJobs();
+            return savedJob;
+        };
 
-            // 1. Update job details on server
-            await jobsService.updateJob(realId, updatePayload);
+        const resolveJobId = (idOrCode: string): string => {
+            if (!idOrCode) return "";
+            const target = idOrCode.toLowerCase();
+            const found = jobs.find((j) => j.id.toLowerCase() === target || j.code.toLowerCase() === target);
+            return found?.id || idOrCode;
+        };
 
-            // 2. If manufacturers changed and job is still pending, offer to new manufacturers
-            if (
-                existingJob &&
-                draft.manufacturerIds &&
-                !sameIds(existingJob.manufacturerIds, draft.manufacturerIds)
-            ) {
-                const cleanManufacturerIds = draft.manufacturerIds.filter((mId) => /^[a-f\d]{24}$/i.test(mId));
-                await jobsService.offerJob(realId, cleanManufacturerIds);
-            }
+        return {
+            jobs,
+            isLoading,
+            isError,
+            getJob: (idOrCode) => {
+                if (!idOrCode) return undefined;
+                const target = idOrCode.toLowerCase();
+                return jobs.find((job) => job.id.toLowerCase() === target || job.code.toLowerCase() === target);
+            },
+            createJob,
+            updateJob: async (id, draft) => {
+                const realId = resolveJobId(id);
+                const existingJob = jobs.find((job) => job.id === realId || job.code.toLowerCase() === realId.toLowerCase());
+                const cleanProjectLeadIds = draft.projectLeadIds?.filter((leadId) => /^[a-f\d]{24}$/i.test(leadId));
 
-            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+                const imageAttachment = draft.attachments?.find(isCoverUpload);
+                const otherAttachments = (draft.attachments ?? []).filter((a) => a !== imageAttachment && a.publicId);
+                const imagePayload = imageAttachment
+                    ? { publicId: imageAttachment.publicId!, name: imageAttachment.name }
+                    : existingJob?.imagePublicId
+                      ? { publicId: existingJob.imagePublicId }
+                      : undefined;
 
-            patchJob(realId, (job) => {
-                const updated = {
-                    ...job,
-                    ...draft,
-                    manufacturerIds: draft.manufacturerIds ?? job.manufacturerIds,
-                    projectLeadIds: cleanProjectLeadIds ?? job.projectLeadIds,
+                const updatePayload: UpdateJobPayload = {
+                    title: draft.title,
+                    description: draft.description,
+                    category: draft.category,
+                    amountKobo: Math.round(draft.amount * 100),
+                    dueDate: new Date(draft.dueDate).toISOString(),
+                    startDate: draft.startDate ? new Date(draft.startDate).toISOString() : null,
+                    ...(draft.deliveryLocation ? { deliveryLocation: draft.deliveryLocation } : {}),
+                    ...(imagePayload ? { image: imagePayload } : {}),
+                    ...(otherAttachments.length > 0
+                        ? { attachments: otherAttachments.map((a) => ({ publicId: a.publicId!, name: a.name })) }
+                        : {}),
                 };
-                return sameIds(job.manufacturerIds, draft.manufacturerIds ?? job.manufacturerIds)
-                    ? updated
-                    : withAssignment(updated, draft.manufacturerIds ?? [], new Date().toISOString(), myName);
-            });
-        },
-        reassignJob: async (id, manufacturerIds) => {
-            const realId = resolveJobId(id);
-            const cleanManufacturerIds = manufacturerIds.filter((mId) => /^[a-f\d]{24}$/i.test(mId));
-            await jobsService.offerJob(realId, cleanManufacturerIds);
-            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-            patchJob(realId, (job) => withAssignment(job, cleanManufacturerIds, new Date().toISOString(), myName));
-        },
-        completeJob: async (id, review) => {
-            const realId = resolveJobId(id);
-            await jobsService.signOffJob(realId, { rating: review.rating, comment: review.comment });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-            patchJob(realId, (job) => {
-                if (job.status !== "in-review" || job.furtherReview) return job;
-                const now = new Date().toISOString();
-                const rated = { ...review, authorName: myName, createdAt: now };
-                return review.rating >= MIN_SIGN_OFF_RATING
-                    ? { ...job, status: "completed", completedAt: now, completedBy: myName, manufacturerReview: rated }
-                    : { ...job, furtherReview: rated };
-            });
-        },
-        signOffHeldJob: async (id) => {
-            const realId = resolveJobId(id);
-            await jobsService.signOffHeldJob(realId);
-            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-            patchJob(realId, (job) =>
-                job.status === "in-review" && job.furtherReview
-                    ? {
-                          ...job,
-                          status: "completed",
-                          completedAt: new Date().toISOString(),
-                          completedBy: myName,
-                          manufacturerReview: job.furtherReview,
-                          furtherReview: null,
-                      }
-                    : job,
-            );
-        },
-        approveStep: async (id, step) => {
-            const realId = resolveJobId(id);
-            await jobsService.approveStep(realId, step);
-            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-            reviewStep(realId, step, { outcome: "approved", at: new Date().toISOString(), by: myName });
-        },
-        sendBackStep: async (id, step, reason) => {
-            const realId = resolveJobId(id);
-            await jobsService.rejectStep(realId, step, { reason });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-            reviewStep(realId, step, { outcome: "sent-back", at: new Date().toISOString(), by: myName, reason });
-        },
-        acceptApplication: async (id, applicationId) => {
-            const realId = resolveJobId(id);
-            await jobsService.decideApplication(realId, applicationId, "accepted");
-            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-            decideApplication(realId, applicationId, "accepted");
-        },
-        declineApplication: async (id, applicationId) => {
-            const realId = resolveJobId(id);
-            await jobsService.decideApplication(realId, applicationId, "declined");
-            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-            decideApplication(realId, applicationId, "declined");
-        },
-        reportFault: async (id, reason) => {
-            const realId = resolveJobId(id);
-            await jobsService.reportFault(realId, reason);
-            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-            patchJob(realId, (job) => {
-                // The stored job may not show an auto sign-off yet, so check the settled one
-                const settled = settleAdminJob(job);
-                const check = { signedOffAt: settled.completedAt, faultReport: settled.faultReport };
-                if (!canReportFault(check)) return job;
-                return {
-                    ...settled,
-                    faultReport: { reason, reportedAt: new Date().toISOString(), reportedBy: myName },
-                };
-            });
-        },
-        rejectJob: async (id, review) => {
-            const realId = resolveJobId(id);
-            await jobsService.rejectJob(realId, { reason: review.reason });
-            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-            patchJob(realId, (job) =>
-                job.rejections.length >= MAX_ADMIN_JOB_REJECTIONS
-                    ? job
-                    : {
-                          ...job,
-                          status: "rejected",
-                          furtherReview: null,
-                          rejections: [
-                              ...job.rejections,
-                              {
-                                  id: `rej-${Date.now()}`,
-                                  reason: review.reason,
-                                  attachments: review.attachments,
-                                  rejectedBy: myName,
-                                  rejectedAt: new Date().toISOString(),
-                                  submissionImageUrls: job.completionImageUrls,
-                              },
-                          ],
-                      },
-            );
-        },
-        decideExtension: async (id, extensionId, decision) => {
-            const realId = resolveJobId(id);
-            await jobsService.decideExtension(realId, extensionId, decision);
-            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-            patchJob(realId, (job) => {
-                const request = job.extensionRequests.find((extension) => extension.id === extensionId);
-                if (!request || request.status !== "pending") return job;
-                return {
-                    ...job,
-                    dueDate: decision === "approved" ? request.requestedDueDate : job.dueDate,
-                    extensionRequests: job.extensionRequests.map((extension) =>
-                        extension.id === extensionId
-                            ? { ...extension, status: decision, decidedAt: new Date().toISOString() }
-                            : extension,
-                    ),
-                };
-            });
-        },
-        rateManufacturer: async (id, review) => {
-            const realId = resolveJobId(id);
-            await jobsService.rateManufacturer(realId, review);
-            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-            patchJob(realId, (job) => ({
-                ...job,
-                manufacturerReview: { ...review, authorName: myName, createdAt: new Date().toISOString() },
-            }));
-        },
-        addNote: async (id, note) => {
-            const realId = resolveJobId(id);
-            await jobsService.addJobNote(realId, note.message);
-            patchJob(realId, (job) => ({
-                ...job,
-                notes: [{ ...note, id: `note-${Date.now()}`, createdAt: new Date().toISOString() }, ...job.notes],
-            }));
-        },
-        followUpLeadReview: async (id, manufacturerId, note) => {
-            const realId = resolveJobId(id);
-            await jobsService.followUpLeadReview(realId, manufacturerId, note);
-            patchJob(realId, (job) => ({
-                ...job,
-                leadReviews: job.leadReviews.map((review) =>
-                    review.manufacturerId === manufacturerId
-                        ? { ...review, followUp: { note, by: myName, at: new Date().toISOString() } }
-                        : review,
-                ),
-            }));
-        },
-        releaseManufacturer: (manufacturerId) => {
-            const now = new Date().toISOString();
-            setLocalPatches((prev) => {
-                const nextPatches = { ...prev };
-                jobs.forEach((job) => {
-                    const updated = withoutManufacturer(settleAdminJob(job), manufacturerId, now);
-                    if (updated !== job) nextPatches[job.id] = updated;
+
+                if (cleanProjectLeadIds && cleanProjectLeadIds.length > 0) {
+                    updatePayload.projectLeadIds = cleanProjectLeadIds;
+                }
+
+                // 1. Update job details on server
+                await jobsService.updateJob(realId, updatePayload);
+
+                // 2. If manufacturers changed and job is still pending, offer to new manufacturers
+                if (
+                    existingJob &&
+                    draft.manufacturerIds &&
+                    !sameIds(existingJob.manufacturerIds, draft.manufacturerIds)
+                ) {
+                    const cleanManufacturerIds = draft.manufacturerIds.filter((mId) => /^[a-f\d]{24}$/i.test(mId));
+                    await jobsService.offerJob(realId, cleanManufacturerIds);
+                }
+
+                await refreshJobs();
+
+                patchJob(realId, (job) => {
+                    const updated = {
+                        ...job,
+                        ...draft,
+                        manufacturerIds: draft.manufacturerIds ?? job.manufacturerIds,
+                        projectLeadIds: cleanProjectLeadIds ?? job.projectLeadIds,
+                    };
+                    return sameIds(job.manufacturerIds, draft.manufacturerIds ?? job.manufacturerIds)
+                        ? updated
+                        : withAssignment(updated, draft.manufacturerIds ?? [], new Date().toISOString(), myName);
                 });
-                return nextPatches;
-            });
-        },
-        deleteJob: async (id) => {
-            const realId = resolveJobId(id);
-            const target = jobs.find((job) => job.id === realId || job.code.toLowerCase() === realId.toLowerCase());
-            if (!target || getJobDeleteBlocker(settleAdminJob(target)) !== null) {
-                throw new Error("A manufacturer has been paid for this job, so it cannot be deleted.");
-            }
-            await jobsService.deleteJob(realId);
-            setDeletedJobIds((prev) => [...prev, target.id]);
-            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-        },
-    };
+            },
+            reassignJob: async (id, manufacturerIds) => {
+                const realId = resolveJobId(id);
+                const cleanManufacturerIds = manufacturerIds.filter((mId) => /^[a-f\d]{24}$/i.test(mId));
+                await jobsService.offerJob(realId, cleanManufacturerIds);
+                await refreshJobs();
+                patchJob(realId, (job) => withAssignment(job, cleanManufacturerIds, new Date().toISOString(), myName));
+            },
+            completeJob: async (id, review) => {
+                const realId = resolveJobId(id);
+                await jobsService.signOffJob(realId, { rating: review.rating, comment: review.comment });
+                await refreshJobs();
+                patchJob(realId, (job) => {
+                    if (job.status !== "in-review" || job.furtherReview) return job;
+                    const now = new Date().toISOString();
+                    const rated = { ...review, authorName: myName, createdAt: now };
+                    return review.rating >= MIN_SIGN_OFF_RATING
+                        ? { ...job, status: "completed", completedAt: now, completedBy: myName, manufacturerReview: rated }
+                        : { ...job, furtherReview: rated };
+                });
+            },
+            signOffHeldJob: async (id) => {
+                const realId = resolveJobId(id);
+                await jobsService.signOffHeldJob(realId);
+                await refreshJobs();
+                patchJob(realId, (job) =>
+                    job.status === "in-review" && job.furtherReview
+                        ? {
+                              ...job,
+                              status: "completed",
+                              completedAt: new Date().toISOString(),
+                              completedBy: myName,
+                              manufacturerReview: job.furtherReview,
+                              furtherReview: null,
+                          }
+                        : job,
+                );
+            },
+            approveStep: async (id, step) => {
+                const realId = resolveJobId(id);
+                await jobsService.approveStep(realId, step);
+                await refreshJobs();
+                reviewStep(realId, step, { outcome: "approved", at: new Date().toISOString(), by: myName });
+            },
+            sendBackStep: async (id, step, reason) => {
+                const realId = resolveJobId(id);
+                await jobsService.rejectStep(realId, step, { reason });
+                await refreshJobs();
+                reviewStep(realId, step, { outcome: "sent-back", at: new Date().toISOString(), by: myName, reason });
+            },
+            acceptApplication: async (id, applicationId) => {
+                const realId = resolveJobId(id);
+                await jobsService.decideApplication(realId, applicationId, "accepted");
+                await refreshJobs();
+                decideApplication(realId, applicationId, "accepted");
+            },
+            declineApplication: async (id, applicationId) => {
+                const realId = resolveJobId(id);
+                await jobsService.decideApplication(realId, applicationId, "declined");
+                await refreshJobs();
+                decideApplication(realId, applicationId, "declined");
+            },
+            reportFault: async (id, reason) => {
+                const realId = resolveJobId(id);
+                await jobsService.reportFault(realId, reason);
+                await refreshJobs();
+                patchJob(realId, (job) => {
+                    // The stored job may not show an auto sign-off yet, so check the settled one
+                    const settled = settleAdminJob(job);
+                    const check = { signedOffAt: settled.completedAt, faultReport: settled.faultReport };
+                    if (!canReportFault(check)) return job;
+                    return {
+                        ...settled,
+                        faultReport: { reason, reportedAt: new Date().toISOString(), reportedBy: myName },
+                    };
+                });
+            },
+            rejectJob: async (id, review) => {
+                const realId = resolveJobId(id);
+                await jobsService.rejectJob(realId, { reason: review.reason });
+                await refreshJobs();
+                patchJob(realId, (job) =>
+                    job.rejections.length >= MAX_ADMIN_JOB_REJECTIONS
+                        ? job
+                        : {
+                              ...job,
+                              status: "rejected",
+                              furtherReview: null,
+                              rejections: [
+                                  ...job.rejections,
+                                  {
+                                      id: `rej-${Date.now()}`,
+                                      reason: review.reason,
+                                      attachments: review.attachments,
+                                      rejectedBy: myName,
+                                      rejectedAt: new Date().toISOString(),
+                                      submissionImageUrls: job.completionImageUrls,
+                                  },
+                              ],
+                          },
+                );
+            },
+            decideExtension: async (id, extensionId, decision) => {
+                const realId = resolveJobId(id);
+                await jobsService.decideExtension(realId, extensionId, decision);
+                await refreshJobs();
+                patchJob(realId, (job) => {
+                    const request = job.extensionRequests.find((extension) => extension.id === extensionId);
+                    if (!request || request.status !== "pending") return job;
+                    return {
+                        ...job,
+                        dueDate: decision === "approved" ? request.requestedDueDate : job.dueDate,
+                        extensionRequests: job.extensionRequests.map((extension) =>
+                            extension.id === extensionId
+                                ? { ...extension, status: decision, decidedAt: new Date().toISOString() }
+                                : extension,
+                        ),
+                    };
+                });
+            },
+            rateManufacturer: async (id, review) => {
+                const realId = resolveJobId(id);
+                await jobsService.rateManufacturer(realId, review);
+                await refreshJobs();
+                patchJob(realId, (job) => ({
+                    ...job,
+                    manufacturerReview: { ...review, authorName: myName, createdAt: new Date().toISOString() },
+                }));
+            },
+            addNote: async (id, note) => {
+                const realId = resolveJobId(id);
+                await jobsService.addJobNote(realId, note.message);
+                patchJob(realId, (job) => ({
+                    ...job,
+                    notes: [{ ...note, id: `note-${Date.now()}`, createdAt: new Date().toISOString() }, ...job.notes],
+                }));
+            },
+            followUpLeadReview: async (id, manufacturerId, note) => {
+                const realId = resolveJobId(id);
+                await jobsService.followUpLeadReview(realId, manufacturerId, note);
+                patchJob(realId, (job) => ({
+                    ...job,
+                    leadReviews: job.leadReviews.map((review) =>
+                        review.manufacturerId === manufacturerId
+                            ? { ...review, followUp: { note, by: myName, at: new Date().toISOString() } }
+                            : review,
+                    ),
+                }));
+            },
+            releaseManufacturer: (manufacturerId) => {
+                const now = new Date().toISOString();
+                setLocalPatches((prev) => {
+                    const nextPatches = { ...prev };
+                    jobs.forEach((job) => {
+                        const updated = withoutManufacturer(settleAdminJob(job), manufacturerId, now);
+                        if (updated !== job) nextPatches[job.id] = updated;
+                    });
+                    return nextPatches;
+                });
+            },
+            deleteJob: async (id) => {
+                const realId = resolveJobId(id);
+                const target = jobs.find((job) => job.id === realId || job.code.toLowerCase() === realId.toLowerCase());
+                if (!target || getJobDeleteBlocker(settleAdminJob(target)) !== null) {
+                    throw new Error("A manufacturer has been paid for this job, so it cannot be deleted.");
+                }
+                await jobsService.deleteJob(realId);
+                setDeletedJobIds((prev) => [...prev, target.id]);
+                await refreshJobs();
+            },
+        } satisfies AdminJobsContextValue;
+    }, [jobs, isLoading, isError, myName, leadId, queryClient]);
 
     return <AdminJobsContext.Provider value={value}>{children}</AdminJobsContext.Provider>;
 }

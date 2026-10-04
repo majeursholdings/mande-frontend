@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
 import { formatDuration, formatOrdinalDate, getTimeUntilLabel } from "@/lib/date";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     Dialog,
     DialogContent,
@@ -77,16 +78,19 @@ type JobDialog = "approve" | "sign-off-held" | "reject" | "reassign" | "contact"
 
 export default function JobDetailSheet({
     job,
+    loading = false,
     onClose,
     onEdit,
 }: {
     job: AdminJob | undefined;
+    /** The job is still loading: the panel opens with its fields as skeletons. */
+    loading?: boolean;
     onClose: () => void;
     onEdit: (jobId: string) => void;
 }) {
     return (
         <Sheet
-            open={!!job}
+            open={!!job || loading}
             onOpenChange={(open) => {
                 if (!open) onClose();
             }}
@@ -99,7 +103,11 @@ export default function JobDetailSheet({
                 overlayClassName="bottom-(--mobile-bottom-nav-height) lg:bottom-0"
                 className="gap-0 bg-white p-0 data-[side=right]:inset-x-0 data-[side=right]:top-0 data-[side=right]:bottom-(--mobile-bottom-nav-height) data-[side=right]:h-auto data-[side=right]:w-full data-[side=right]:max-w-full data-[side=right]:border-l-0 md:data-[side=right]:left-auto md:data-[side=right]:max-w-120 md:data-[side=right]:border-l md:data-[side=right]:border-border lg:data-[side=right]:bottom-0"
             >
-                {job && <JobDetail key={job.id} job={job} onEdit={() => onEdit(job.id)} onDeleted={onClose} />}
+                {job ? (
+                    <JobDetail key={job.id} job={job} onEdit={() => onEdit(job.id)} onDeleted={onClose} />
+                ) : (
+                    loading && <JobDetailSkeleton />
+                )}
             </SheetContent>
         </Sheet>
     );
@@ -146,14 +154,14 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
     const getMfrName = (id: string) => {
         const fromJob = jobManufacturers.find((m) => m.id === id);
         const fromContext = getManufacturer(id);
-        const fromSample = getAdminManufacturer(id);
+        const fromRegistry = getAdminManufacturer(id);
         return (
             fromJob?.companyName ||
             fromContext?.companyName ||
-            fromSample?.companyName ||
+            fromRegistry?.companyName ||
             fromJob?.name ||
             fromContext?.contactName ||
-            fromSample?.contactName ||
+            fromRegistry?.contactName ||
             null
         );
     };
@@ -807,6 +815,61 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
  * approved automatically, while it waits for a super admin — who signs it
  * off (keeping the rating) or rejects it.
  */
+/** The job's details while it loads: the labels and Close show straight away, what comes from the job is skeletons. */
+function JobDetailSkeleton() {
+    const rows: [label: string, width: string][] = [
+        ["Job code", "w-24"],
+        ["Project lead", "w-36"],
+        ["Manufacturer", "w-36"],
+        ["Amount", "w-24"],
+        ["Category", "w-28"],
+        ["Countdown", "w-20"],
+        ["Date assigned", "w-32"],
+        ["Start date", "w-32"],
+        ["Due date", "w-32"],
+        ["Project duration", "w-20"],
+        ["Status", "w-20"],
+    ];
+
+    return (
+        <div className="flex h-full flex-col overflow-y-auto" aria-busy="true">
+            <div className="sticky top-0 z-10 flex flex-col gap-2 bg-white px-5 pt-4 pb-4 md:px-10 md:pt-10">
+                <div className="flex items-center justify-between gap-3">
+                    <Skeleton className="h-7.5 w-36" />
+                    <SheetClose className="flex size-8 items-center justify-center rounded-full text-mist-700 transition-colors hover:bg-mist-100 cursor-pointer">
+                        <XIcon className="size-5" />
+                        <span className="sr-only">Close</span>
+                    </SheetClose>
+                </div>
+            </div>
+
+            <div className="flex flex-col gap-8 px-5 pb-10 md:px-10">
+                <div className="flex items-center justify-between gap-3 border-b border-border py-4">
+                    <SheetTitle className="w-full">
+                        <span className="sr-only">Job details</span>
+                        <Skeleton className="h-7 w-2/3" />
+                    </SheetTitle>
+                </div>
+
+                <dl className="-mt-4 flex flex-col gap-5 text-sm font-text">
+                    {rows.map(([label, width]) => (
+                        <DetailRow key={label} label={label}>
+                            <Skeleton className={cn("h-5", width, label === "Status" && "rounded-full")} />
+                        </DetailRow>
+                    ))}
+                    <DetailRow label="Description">
+                        <span className="flex flex-col gap-2">
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-full" />
+                            <Skeleton className="h-4 w-2/3" />
+                        </span>
+                    </DetailRow>
+                </dl>
+            </div>
+        </div>
+    );
+}
+
 function FurtherReviewNotice({
     review,
     canDecide,

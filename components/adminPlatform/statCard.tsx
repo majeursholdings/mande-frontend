@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * A row of StatCards — swipeable on phones, two columns from sm, and four
@@ -29,6 +30,7 @@ export function StatCard({
     icon: Icon,
     iconClassName,
     footer,
+    loading = false,
 }: {
     label: string;
     value: string;
@@ -40,16 +42,22 @@ export function StatCard({
     /** The circle's colour, e.g. "bg-primary-600". */
     iconClassName: string;
     footer: ReactNode;
+    /** While the figure loads: the label and icon show, the value and footer are skeletons. */
+    loading?: boolean;
 }) {
     return (
         <div className="flex w-65 shrink-0 snap-start flex-col justify-between gap-4 rounded-xl border border-border bg-white p-5 sm:w-auto">
             <div className="flex items-start justify-between gap-3">
                 <div className="flex min-w-0 flex-col gap-1">
                     <p className="text-sm font-text leading-tight text-mist-500">{label}</p>
-                    <p title={fullValue} className="text-[28px] font-semibold font-text leading-tight text-mist-950">
-                        {value}
-                        {valueSuffix && <span className="ml-1 text-sm font-normal text-mist-500">{valueSuffix}</span>}
-                    </p>
+                    {loading ? (
+                        <Skeleton className="my-1 h-7 w-24" />
+                    ) : (
+                        <p title={fullValue} className="text-[28px] font-semibold font-text leading-tight text-mist-950">
+                            {value}
+                            {valueSuffix && <span className="ml-1 text-sm font-normal text-mist-500">{valueSuffix}</span>}
+                        </p>
+                    )}
                 </div>
                 <span
                     className={cn(
@@ -60,7 +68,9 @@ export function StatCard({
                     <Icon className="size-6" strokeWidth={2} aria-hidden />
                 </span>
             </div>
-            <div className="flex items-center gap-2 text-xs font-text text-mist-400">{footer}</div>
+            <div className="flex items-center gap-2 text-xs font-text text-mist-400">
+                {loading ? <Skeleton className="h-4 w-32" /> : footer}
+            </div>
         </div>
     );
 }

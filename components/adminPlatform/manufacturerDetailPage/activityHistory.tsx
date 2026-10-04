@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatDayAndTime } from "@/lib/date";
-import type { AccountActivityRecord, SocialLoginProvider, TwoFactorMethod } from "@/constant/sampleDb";
+import type { AccountActivityRecord, SocialLoginProvider, TwoFactorMethod } from "@/constant/platformRecords";
 import EmptyState from "../emptyState";
 
 const PROVIDER_NAMES: Record<SocialLoginProvider, string> = { google: "Google", facebook: "Facebook" };

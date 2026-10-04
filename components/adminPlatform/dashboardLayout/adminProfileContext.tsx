@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import type { AdminProfile } from "@/constant/admin";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useStaffPlatform } from "./staffPlatformContext";
@@ -23,6 +23,8 @@ type AdminProfileContextValue = {
     profile: AdminProfile;
     /** The admin's full name — firstName and lastName. */
     fullName: string;
+    /** True while their account (/auth/me) is still loading: skeleton their name, photo and details. */
+    isLoading: boolean;
     updateProfile: (changes: Partial<EditableProfile>) => void;
 };
 
@@ -30,7 +32,7 @@ const AdminProfileContext = createContext<AdminProfileContextValue | null>(null)
 
 export function AdminProfileProvider({ children }: { children: ReactNode }) {
     const { profile: initialProfile } = useStaffPlatform();
-    const { data: currentUser } = useCurrentUser();
+    const { data: currentUser, isPending: isUserPending } = useCurrentUser();
     const [overrides, setOverrides] = useState<Partial<EditableProfile>>({});
 
     const profile = useMemo(() => {
@@ -62,16 +64,22 @@ export function AdminProfileProvider({ children }: { children: ReactNode }) {
         };
     }, [initialProfile, currentUser, overrides]);
 
-    const updateProfile = (changes: Partial<EditableProfile>) =>
-        setOverrides((current) => ({ ...current, ...changes }));
-
-    return (
-        <AdminProfileContext.Provider
-            value={{ profile, fullName: `${profile.firstName} ${profile.lastName}`, updateProfile }}
-        >
-            {children}
-        </AdminProfileContext.Provider>
+    const updateProfile = useCallback(
+        (changes: Partial<EditableProfile>) => setOverrides((current) => ({ ...current, ...changes })),
+        [],
     );
+
+    const value: AdminProfileContextValue = useMemo(
+        () => ({
+            profile,
+            fullName: `${profile.firstName} ${profile.lastName}`,
+            isLoading: isUserPending,
+            updateProfile,
+        }),
+        [profile, isUserPending, updateProfile],
+    );
+
+    return <AdminProfileContext.Provider value={value}>{children}</AdminProfileContext.Provider>;
 }
 
 export function useAdminProfile() {

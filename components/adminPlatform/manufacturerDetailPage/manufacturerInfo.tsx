@@ -15,6 +15,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog";
 import ResponsiveTabs from "@/components/ui/responsiveTabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import ReasonForm from "@/components/adminPlatform/form/reasonForm";
 import VerificationBadge from "@/components/manufacturerPlatform/verificationBadge";
 import { getCountryName } from "@/constant/africanCountries";
@@ -25,12 +26,13 @@ import {
     STAFF_RANGE_OPTIONS,
     getOptionLabel,
 } from "@/constant/manufacturer";
-import { getPlanPrice, getPricingPlan, requiresBusinessDocuments } from "@/constant/sampleData";
-import type { DocumentVerification, ManufacturerRecord } from "@/constant/sampleDb";
+import { getPlanPrice, requiresBusinessDocuments } from "@/constant/plans";
+import type { DocumentVerification, ManufacturerRecord } from "@/constant/platformRecords";
 import {
     useAdminManufacturers,
     type ManufacturerDocument,
 } from "../dashboardLayout/adminManufacturersContext";
+import { usePlans } from "@/hooks/usePlans";
 
 type InfoTab = "basic" | "verification" | "address" | "plan";
 
@@ -50,8 +52,9 @@ const DOCUMENT_LABELS: Record<ManufacturerDocument, string> = {
 export default function ManufacturerInfo({ manufacturer }: { manufacturer: ManufacturerRecord }) {
     const { decideVerification } = useAdminManufacturers();
     const [rejecting, setRejecting] = useState<ManufacturerDocument | null>(null);
-    const plan = getPricingPlan(manufacturer.subscription?.planId ?? "growth");
-    const needsBusinessDocuments = requiresBusinessDocuments(manufacturer.subscription?.planId ?? "growth");
+    const { getPlan, discountPercent, isLoading: isPlansLoading } = usePlans();
+    const plan = getPlan(manufacturer.subscription?.planId);
+    const needsBusinessDocuments = requiresBusinessDocuments(manufacturer.subscription?.planId ?? "");
     const specialities = manufacturer.specialities
         .map((value) => getOptionLabel(COMPANY_SPECIALITY_OPTIONS, value))
         .join(", ");
@@ -72,7 +75,7 @@ export default function ManufacturerInfo({ manufacturer }: { manufacturer: Manuf
                 <Link
                     href={manufacturer.ninCard.imageUrl}
                     target="_blank"
-                    title="NIN card — open full size"
+                    title="NIN card: open full size"
                     className="relative block aspect-16/10 w-full max-w-72 overflow-hidden rounded-lg border border-border bg-mist-50"
                 >
                     <Image src={manufacturer.ninCard.imageUrl} alt="NIN card" fill unoptimized className="object-cover" />
@@ -142,7 +145,7 @@ export default function ManufacturerInfo({ manufacturer }: { manufacturer: Manuf
                             <Panel>
                                 {!needsBusinessDocuments && (
                                     <p className="rounded-lg bg-mist-100 px-4 py-3 text-sm font-text text-mist-600">
-                                        On the {plan?.name ?? "Solo"} plan only the NIN card is needed — the tax and business license
+                                        On the {plan?.name ?? "Solo"} plan only the NIN card is needed. The tax and business license
                                         numbers are optional.
                                     </p>
                                 )}
@@ -204,9 +207,9 @@ export default function ManufacturerInfo({ manufacturer }: { manufacturer: Manuf
                         panel: (
                             <Panel>
                                 <FieldGrid>
-                                    <Field label="Street address">{manufacturer.address?.streetAddress || "—"}</Field>
-                                    <Field label="City">{manufacturer.address?.city || "—"}</Field>
-                                    <Field label="State">{manufacturer.address?.state || "—"}</Field>
+                                    <Field label="Street address">{manufacturer.address?.streetAddress || ""}</Field>
+                                    <Field label="City">{manufacturer.address?.city || ""}</Field>
+                                    <Field label="State">{manufacturer.address?.state || ""}</Field>
                                     <Field label="Country">{manufacturer.address?.country ? getCountryName(manufacturer.address.country) : "Nigeria"}</Field>
                                 </FieldGrid>
                             </Panel>
@@ -218,20 +221,31 @@ export default function ManufacturerInfo({ manufacturer }: { manufacturer: Manuf
                         panel: (
                             <Panel>
                                 <FieldGrid>
-                                    <Field label="Plan">{plan?.name}</Field>
+                                    <Field label="Plan">
+                                        {isPlansLoading ? <Skeleton className="h-5 w-24" /> : plan?.name}
+                                    </Field>
                                     <Field label="Billing">
-                                        {plan && manufacturer.subscription &&
-                                            `${formatPrice(getPlanPrice(plan, manufacturer.subscription.billingCycle))} a ${
+                                        {isPlansLoading && manufacturer.subscription ? (
+                                            <Skeleton className="h-5 w-32" />
+                                        ) : (
+                                            plan &&
+                                            manufacturer.subscription &&
+                                            `${formatPrice(getPlanPrice(plan, manufacturer.subscription.billingCycle, discountPercent))} a ${
                                                 manufacturer.subscription.billingCycle === "annual" ? "year" : "month"
-                                            }`}
+                                            }`
+                                        )}
                                     </Field>
                                     <Field label="Renews on">
                                         {manufacturer.subscription?.renewsAt
                                             ? formatOrdinalDate(new Date(manufacturer.subscription.renewsAt))
-                                            : "—"}
+                                            : ""}
                                     </Field>
                                     <Field label="Jobs at once">
-                                        {plan ? (plan.maxConcurrentJobs === null ? "Unlimited" : String(plan.maxConcurrentJobs)) : null}
+                                        {isPlansLoading ? (
+                                            <Skeleton className="h-5 w-16" />
+                                        ) : plan ? (
+                                            plan.maxConcurrentJobs === null ? "Unlimited" : String(plan.maxConcurrentJobs)
+                                        ) : null}
                                     </Field>
                                     <Field label="Business documents">{needsBusinessDocuments ? "Required" : "Optional"}</Field>
                                 </FieldGrid>

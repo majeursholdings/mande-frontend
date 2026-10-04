@@ -3,14 +3,77 @@
 import Link from "next/link";
 import type { ColumnDef } from "@/components/customTable";
 import UserAvatar from "@/components/ui/userAvatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     PaidByCardNote,
     TransactionIcon,
 } from "@/components/manufacturerPlatform/transactionsPage/transactionListItem";
-import { formatPrice } from "@/lib/currency";
+import { formatPrice, fromKobo } from "@/lib/currency";
 import { formatOrdinalDate } from "@/lib/date";
-import type { AdminTransaction } from "@/constant/admin";
+import type { ReportTransaction, ReportTransactionType } from "@/lib/services/reportsService";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
+
+/**
+ * A manufacturer's transaction, with who it's for: a row of the admin
+ * Transactions page and the dashboard's Recent Transactions, from
+ * /reports/transactions. Seen from the manufacturer's side, as on their own
+ * Transactions page: a job payment is money in; a withdrawal or plan payment
+ * is money out.
+ */
+export type AdminTransaction = {
+    id: string;
+    type: ReportTransactionType;
+    /** Money in to the manufacturer's wallet, or out. */
+    direction: "credit" | "debit";
+    status: ReportTransaction["status"];
+    /** e.g. "First installment", or "Withdrawal". */
+    label: string;
+    /** Title of the job a payment is for, when the jobs loaded here have it. */
+    projectName: string | null;
+    /** ISO date. */
+    date: string;
+    /** In naira, always positive: `direction` says which way. */
+    amount: number;
+    paidByCard: boolean;
+    manufacturerId: string;
+    manufacturerName: string;
+    companyName: string;
+    avatarUrl: string | null;
+};
+
+/**
+ * An API transaction as a row. The API sends the job's id, not its title:
+ * `getJobTitle` finds it among the jobs already loaded.
+ */
+export function toAdminTransaction(transaction: ReportTransaction): AdminTransaction {
+    return {
+        id: transaction.id,
+        type: transaction.type,
+        direction: transaction.direction,
+        status: transaction.status,
+        label: transaction.label,
+        projectName: transaction.jobTitle,
+        date: transaction.date,
+        amount: fromKobo(transaction.amountKobo),
+        paidByCard: transaction.paidByCard,
+        manufacturerId: transaction.manufacturerId,
+        manufacturerName: transaction.manufacturerName,
+        companyName: transaction.companyName,
+        avatarUrl: transaction.avatar?.url ?? null,
+    };
+}
+
+/** The arrow: in (green, down) for money into the wallet, out (red, up) otherwise. */
+function DirectionIcon({ transaction, className }: { transaction: AdminTransaction; className?: string }) {
+    // TransactionIcon reads money in from "payment" and money out from anything else
+    return <TransactionIcon type={transaction.direction === "credit" ? "payment" : "withdrawal"} className={className} />;
+}
+
+/** After the label of a withdrawal still on its way, or one that didn't go through. */
+function StatusNote({ status }: { status: AdminTransaction["status"] }) {
+    if (status === "completed") return null;
+    return <span className="ml-1.5 text-xs font-normal text-mist-400">{status === "pending" ? "pending" : "failed"}</span>;
+}
 
 /** Who a transaction is for — their photo, name (a link to them) and company; just the name when `compact`. */
 function ManufacturerCell({ transaction, compact }: { transaction: AdminTransaction; compact: boolean }) {
@@ -56,11 +119,12 @@ export const getAdminTransactionColumns = (compact = false): ColumnDef<AdminTran
         className: "whitespace-normal",
         cell: (transaction) => (
             <span className="flex items-center gap-3">
-                <TransactionIcon type={transaction.type} />
+                <DirectionIcon transaction={transaction} />
                 <span className="flex min-w-0 flex-col">
                     <span className="font-medium text-mist-950">
                         {transaction.label}
                         {transaction.paidByCard && <PaidByCardNote />}
+                        <StatusNote status={transaction.status} />
                     </span>
                     {transaction.projectName && (
                         <span className="text-xs text-gray-500">{transaction.projectName}</span>
@@ -90,11 +154,12 @@ export const getAdminTransactionColumns = (compact = false): ColumnDef<AdminTran
 export function AdminTransactionListItem({ transaction }: { transaction: AdminTransaction }) {
     return (
         <li className="flex gap-3">
-            <TransactionIcon type={transaction.type} className="mt-0.5" />
+            <DirectionIcon transaction={transaction} className="mt-0.5" />
             <div className="min-w-0 flex-1 font-text">
                 <p className="text-base font-medium text-mist-950">
                     {transaction.label}
                     {transaction.paidByCard && <PaidByCardNote />}
+                    <StatusNote status={transaction.status} />
                 </p>
                 <p className="text-sm text-mist-600">
                     {transaction.manufacturerName}
@@ -106,5 +171,24 @@ export function AdminTransactionListItem({ transaction }: { transaction: AdminTr
                 {formatPrice(transaction.amount)}
             </p>
         </li>
+    );
+}
+
+/** AdminTransactionListItems while they load: rows of their shape. */
+export function AdminTransactionListSkeleton({ rows = 4 }: { rows?: number }) {
+    return (
+        <ul aria-hidden className="flex flex-col gap-6">
+            {Array.from({ length: rows }, (_, index) => (
+                <li key={index} className="flex gap-3">
+                    <Skeleton className="mt-0.5 size-5 shrink-0 rounded-full" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                        <Skeleton className="h-4 w-2/5" />
+                        <Skeleton className="h-3.5 w-3/5" />
+                        <Skeleton className="h-3 w-24" />
+                    </div>
+                    <Skeleton className="h-4 w-20 shrink-0" />
+                </li>
+            ))}
+        </ul>
     );
 }

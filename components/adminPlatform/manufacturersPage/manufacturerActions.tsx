@@ -17,9 +17,11 @@ import ReasonForm from "@/components/adminPlatform/form/reasonForm";
 import RequestDeletionForm from "@/components/adminPlatform/form/requestDeletionForm";
 import TypeToConfirmForm from "@/components/adminPlatform/form/typeToConfirmForm";
 import ReauthSteps from "@/components/superAdminPlatform/reauthSteps";
-import type { AccountAppealRecord, ManufacturerAccountStatus, ManufacturerRecord } from "@/constant/sampleDb";
-import { hasDeleteWarnings, useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
+import type { AccountAppealRecord, ManufacturerAccountStatus, ManufacturerRecord } from "@/constant/platformRecords";
+import { hasDeleteWarnings, useAdminManufacturers, useDeleteWarnings } from "../dashboardLayout/adminManufacturersContext";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getErrorMessage } from "@/lib/api";
 
 export type ManufacturerAction = "flag" | "suspend" | "lift-flag" | "lift-suspension" | "request-deletion" | "delete";
 
@@ -276,11 +278,45 @@ function DeleteAccountSteps({
     onCancel: () => void;
     onDeleted: () => void;
 }) {
-    const { getDeleteWarnings, deleteManufacturer } = useAdminManufacturers();
-    const warnings = getDeleteWarnings(manufacturer.id);
-    const [isGoingAhead, setIsGoingAhead] = useState(!hasDeleteWarnings(warnings));
+    const { deleteManufacturer } = useAdminManufacturers();
+    const warningsQuery = useDeleteWarnings(manufacturer.id);
+    const warnings = warningsQuery.data;
+    // Null until they choose: straight on when there's nothing to warn about
+    const [choseToGoAhead, setIsGoingAhead] = useState<boolean | null>(null);
+    const isGoingAhead = choseToGoAhead ?? (!!warnings && !hasDeleteWarnings(warnings));
     const [isNameConfirmed, setIsNameConfirmed] = useState(false);
     const name = manufacturer.contactName;
+
+    if (!warnings) {
+        return (
+            <>
+                <div className="flex flex-col gap-1">
+                    <DialogTitle>{DIALOGS.delete.title(name)}</DialogTitle>
+                    <DialogDescription>Checking what&apos;s still going on with the account.</DialogDescription>
+                </div>
+                {warningsQuery.isError ? (
+                    <p role="alert" className="text-sm font-text text-error-600">
+                        {getErrorMessage(warningsQuery.error, "We couldn't check the account. Please try again.")}
+                    </p>
+                ) : (
+                    <div className="flex flex-col gap-2 rounded-lg bg-mist-50 px-4 py-3.5" aria-busy>
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                    </div>
+                )}
+                <div className="flex justify-end">
+                    <Button
+                        type="button"
+                        onClick={onCancel}
+                        className="h-11 px-5 bg-mist-100 hover:bg-mist-200 text-mist-950 font-medium font-text rounded-button cursor-pointer transition-colors duration-300"
+                    >
+                        Cancel
+                    </Button>
+                </div>
+            </>
+        );
+    }
+
     const toPending = warnings.jobsUnderway.filter((entry) => entry.goesBackToPending).map((entry) => entry.job.title);
     const carryOn = warnings.jobsUnderway.filter((entry) => !entry.goesBackToPending).map((entry) => entry.job.title);
 
@@ -308,6 +344,18 @@ function DeleteAccountSteps({
                         <WarningItem>
                             <span className="font-medium">{formatPrice(warnings.walletBalance)} in their wallet.</span> Pay
                             it out to them first. It stays in the wallet, but they can&apos;t withdraw it while the account is closed.
+                        </WarningItem>
+                    )}
+                    {warnings.owed > 0 && (
+                        <WarningItem>
+                            <span className="font-medium">They owe {formatPrice(warnings.owed)}</span> to the platform, which
+                            stays on their account.
+                        </WarningItem>
+                    )}
+                    {warnings.hasPendingWithdrawal && (
+                        <WarningItem>
+                            <span className="font-medium">A withdrawal still being sent</span> to their bank. Check it has
+                            gone through first.
                         </WarningItem>
                     )}
                     {warnings.applications.length > 0 && (

@@ -9,9 +9,11 @@ import { ArrowLeft, ChevronDown, Flag, Hourglass, MailQuestion, OctagonPause, Re
 import { cn } from "@/lib/utils";
 import { formatOrdinalDate, getRelativeTimeLabel } from "@/lib/date";
 import { queryKeys } from "@/lib/queryKeys";
+import { MandeApiError } from "@/lib/types/api";
 import { manufacturerService } from "@/lib/services/manufacturerService";
 import { registerManufacturers } from "@/constant/admin";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Skeleton } from "@/components/ui/skeleton";
 import ProfileCard from "@/components/manufacturerPlatform/profilePage/profileCard";
 import ResponsiveTabs from "@/components/ui/responsiveTabs";
 import ActiveJobsPanel from "@/components/manufacturerPlatform/jobsPage/activeJobsPanel";
@@ -20,22 +22,19 @@ import TransactionsList, { sortTransactions } from "@/components/manufacturerPla
 import {
     TRANSACTION_SORT_OPTIONS,
     getManufacturerJobs,
-    getManufacturerTransactions,
-    getTransactionSummary,
     toManufacturerProfile,
 } from "@/constant/manufacturer";
 import {
-    SAMPLE_SUPPORT_FEEDBACK,
     getAccountHold,
     getManufacturerVerification,
     type AccountAppealRecord,
     type ManufacturerRecord,
-} from "@/constant/sampleDb";
+} from "@/constant/platformRecords";
 import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
 import { useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import { AttachmentList } from "../jobDetailPage/detailParts";
-import EmptyState from "../emptyState";
+import EmptyState, { LoadError } from "../emptyState";
 import {
     AppealDecisionDialog,
     ManufacturerActionDialog,
@@ -43,90 +42,98 @@ import {
     useManufacturerActions,
     type ManufacturerAction,
 } from "../manufacturersPage/manufacturerActions";
-import TransactionSummaryCards from "../transactionsPage/transactionSummaryCards";
+import TransactionSummaryCards, { fromApiTransactionSummary } from "../transactionsPage/transactionSummaryCards";
 import AccountHistory from "./accountHistory";
 import ManufacturerInfo from "./manufacturerInfo";
-import ManufacturerPlanCard from "./manufacturerPlanCard";
+import ManufacturerPlanCard, { ManufacturerPlanCardSkeleton } from "./manufacturerPlanCard";
 import ManufacturerReports from "./manufacturerReports";
+import { reportsService } from "@/lib/services/reportsService";
+import type { ManufacturerTransaction } from "@/constant/manufacturer";
 
 type DetailTab = "jobs" | "transactions" | "reports" | "info" | "history";
 
+const DETAIL_TABS: { value: DetailTab; label: string }[] = [
+    { value: "jobs", label: "Jobs" },
+    { value: "transactions", label: "Transactions" },
+    { value: "reports", label: "Reports" },
+    { value: "info", label: "More Info" },
+    { value: "history", label: "Account history" },
+];
+
+/** A list of rows while it loads, e.g. the manufacturer's jobs. */
+function RowsSkeleton({ rows = 3 }: { rows?: number }) {
+    return (
+        <div className="flex flex-col gap-3" aria-busy="true">
+            {Array.from({ length: rows }).map((_, index) => (
+                <div key={index} className="flex items-center gap-4 rounded-xl border border-border bg-white p-4">
+                    <Skeleton className="size-14 shrink-0 rounded-lg" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-2">
+                        <Skeleton className="h-4 w-1/2" />
+                        <Skeleton className="h-3.5 w-1/3" />
+                    </div>
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                </div>
+            ))}
+        </div>
+    );
+}
+
+/**
+ * The manufacturer's page while they load: the way back, the Actions button
+ * and the tabs show straight away; their name, card, plan and the open tab
+ * are skeletons.
+ */
 function ManufacturerDetailSkeleton() {
     return (
-        <div className="flex flex-col gap-6" aria-busy="true" aria-label="Loading manufacturer details">
-            {/* Top header skeleton */}
+        <div className="flex flex-col gap-6" aria-busy="true">
             <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="flex flex-col gap-2">
-                    <div className="h-4 w-28 rounded bg-gray-300 animate-pulse" />
-                    <div className="h-8 w-64 rounded-md bg-gray-300 animate-pulse" />
+                    <BackLink />
+                    <h1 className="sr-only">Manufacturer</h1>
+                    <Skeleton className="h-8 w-56" />
                 </div>
-                <div className="h-9 w-32 rounded-lg bg-gray-300 animate-pulse" />
+                <button
+                    type="button"
+                    disabled
+                    className="flex h-9 items-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium font-text text-mist-400"
+                >
+                    Actions
+                    <ChevronDown className="size-4" />
+                </button>
             </div>
 
-            {/* Layout skeleton */}
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-                {/* Left column */}
                 <div className="flex flex-col gap-6 lg:w-65 lg:shrink-0">
-                    {/* Profile Card */}
-                    <div className="flex flex-col items-center gap-4 rounded-xl border border-border bg-white p-5">
-                        <div className="size-20 rounded-full bg-gray-300 animate-pulse" />
-                        <div className="flex flex-col items-center gap-1.5 w-full">
-                            <div className="h-5 w-36 rounded bg-gray-300 animate-pulse" />
-                            <div className="h-4 w-28 rounded bg-gray-300 animate-pulse" />
-                        </div>
-                        <div className="h-6 w-24 rounded-full bg-gray-300 animate-pulse mt-1" />
-                        <div className="w-full border-t border-border pt-4 flex flex-col gap-3">
-                            <div className="flex justify-between items-center">
-                                <div className="h-3 w-16 rounded bg-gray-300 animate-pulse" />
-                                <div className="h-3 w-24 rounded bg-gray-300 animate-pulse" />
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <div className="h-3 w-14 rounded bg-gray-300 animate-pulse" />
-                                <div className="h-3 w-28 rounded bg-gray-300 animate-pulse" />
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <div className="h-3 w-12 rounded bg-gray-300 animate-pulse" />
-                                <div className="h-3 w-20 rounded bg-gray-300 animate-pulse" />
+                    <section className="flex flex-col gap-5 border-b border-border pb-6 lg:rounded-xl lg:border lg:bg-white lg:p-5">
+                        <div className="flex flex-col items-center gap-3 lg:items-start">
+                            <Skeleton className="size-22 rounded-full" />
+                            <div className="flex flex-col items-center gap-2 lg:items-start">
+                                <Skeleton className="h-6 w-36" />
+                                <Skeleton className="h-3.5 w-24" />
                             </div>
                         </div>
-                    </div>
+                        <ul className="grid grid-cols-2 gap-x-4 gap-y-5 border-t border-border pt-5 lg:grid-cols-1">
+                            {["Company", "Email", "Speciality", "Location"].map((label) => (
+                                <li key={label} className="flex min-w-0 items-start gap-3">
+                                    <Skeleton className="size-8 shrink-0 rounded-lg lg:size-10" />
+                                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                        <p className="text-xs font-text text-mist-500">{label}</p>
+                                        <Skeleton className="h-4 w-28" />
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </section>
 
-                    {/* Plan Card */}
-                    <div className="flex flex-col gap-4 rounded-xl border border-border bg-white p-5">
-                        <div className="flex items-start justify-between gap-3">
-                            <div className="flex flex-col gap-1.5">
-                                <div className="h-3 w-20 rounded bg-gray-300 animate-pulse" />
-                                <div className="h-5 w-28 rounded bg-gray-300 animate-pulse" />
-                            </div>
-                            <div className="h-5 w-16 rounded-full bg-gray-300 animate-pulse" />
-                        </div>
-                        <div className="h-7 w-32 rounded bg-gray-300 animate-pulse" />
-                        <div className="h-4 w-36 rounded bg-gray-300 animate-pulse" />
-                    </div>
+                    <ManufacturerPlanCardSkeleton />
                 </div>
 
-                {/* Right column: Tabs & Content */}
-                <div className="min-w-0 flex-1 flex flex-col gap-6">
-                    {/* Tab pills */}
-                    <div className="flex flex-wrap gap-2 border-b border-border pb-2.5">
-                        <div className="h-8 w-20 rounded-lg bg-gray-300 animate-pulse" />
-                        <div className="h-8 w-28 rounded-lg bg-gray-300 animate-pulse" />
-                        <div className="h-8 w-20 rounded-lg bg-gray-300 animate-pulse" />
-                        <div className="h-8 w-24 rounded-lg bg-gray-300 animate-pulse" />
-                        <div className="h-8 w-32 rounded-lg bg-gray-300 animate-pulse" />
-                        <div className="h-8 w-32 rounded-lg bg-gray-300 animate-pulse" />
-                    </div>
-
-                    {/* Tab panel card */}
-                    <div className="flex flex-col gap-4 rounded-xl border border-border bg-white p-6">
-                        <div className="flex justify-between items-center mb-2">
-                            <div className="h-5 w-36 rounded bg-gray-300 animate-pulse" />
-                            <div className="h-8 w-28 rounded-lg bg-gray-300 animate-pulse" />
-                        </div>
-                        <div className="h-20 w-full rounded-lg bg-gray-300 animate-pulse" />
-                        <div className="h-20 w-full rounded-lg bg-gray-300 animate-pulse" />
-                        <div className="h-20 w-full rounded-lg bg-gray-300 animate-pulse" />
-                    </div>
+                <div className="min-w-0 flex-1">
+                    <ResponsiveTabs<DetailTab>
+                        label="Manufacturer details"
+                        defaultValue="jobs"
+                        tabs={DETAIL_TABS.map((tab) => ({ ...tab, panel: <RowsSkeleton /> }))}
+                    />
                 </div>
             </div>
         </div>
@@ -136,7 +143,7 @@ function ManufacturerDetailSkeleton() {
 export default function AdminManufacturerDetailPage({ manufacturerId }: { manufacturerId: string }) {
     const router = useRouter();
     const { getManufacturer, isLoading: isContextLoading } = useAdminManufacturers();
-    const { jobs: allJobs } = useAdminJobs();
+    const { jobs: allJobs, isLoading: isJobsLoading, isError: isJobsError } = useAdminJobs();
     const { jobsUrl, manufacturersUrl } = useStaffPlatform();
     const [action, setAction] = useState<ManufacturerAction | null>(null);
     const [appealDecision, setAppealDecision] = useState<{
@@ -144,7 +151,7 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
         decision: "approved" | "declined";
     } | null>(null);
 
-    const { data: detailData, isLoading: isDetailLoading } = useQuery({
+    const { data: detailData, isLoading: isDetailLoading, error: detailError } = useQuery({
         queryKey: queryKeys.manufacturers.detail(manufacturerId),
         queryFn: () => manufacturerService.getStaffManufacturer(manufacturerId),
         staleTime: 10_000,
@@ -235,6 +242,17 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
         return <ManufacturerDetailSkeleton />;
     }
 
+    // Not there (a 404) reads as not found below; anything else is a failed load
+    const isNotFound = detailError instanceof MandeApiError && detailError.status === 404;
+    if (!manufacturer && detailError && !isNotFound) {
+        return (
+            <div className="flex flex-col gap-6">
+                <BackLink />
+                <LoadError message="We couldn't load this manufacturer. Please refresh the page." />
+            </div>
+        );
+    }
+
     if (!manufacturer) {
         return (
             <EmptyState
@@ -247,8 +265,6 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
     }
 
     const jobs = getManufacturerJobs(manufacturer.id, allJobs);
-    // Plans they paid by card too — all they've spent on the platform
-    const transactions = getManufacturerTransactions(manufacturer.id, allJobs, { includeCardPayments: true });
 
     return (
         <div className="flex flex-col gap-6">
@@ -284,7 +300,11 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
                             {
                                 value: "jobs",
                                 label: "Jobs",
-                                panel: (
+                                panel: isJobsLoading ? (
+                                    <RowsSkeleton />
+                                ) : isJobsError && allJobs.length === 0 ? (
+                                    <LoadError message="We couldn't load their jobs. Please refresh the page." />
+                                ) : (
                                     <ActiveJobsPanel
                                         jobs={jobs}
                                         getJobHref={(job) => `${jobsUrl}?job=${encodeURIComponent(job.code ? job.code.toLowerCase() : job.id)}`}
@@ -295,17 +315,18 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
                             {
                                 value: "transactions",
                                 label: "Transactions",
-                                panel: <Transactions transactions={transactions} />,
+                                panel: <Transactions manufacturerId={manufacturer.id} />,
                             },
                             {
                                 value: "reports",
                                 label: "Reports",
-                                panel: (
+                                panel: isJobsLoading ? (
+                                    <RowsSkeleton />
+                                ) : (
                                     <ManufacturerReports
                                         jobs={jobs}
-                                        feedback={SAMPLE_SUPPORT_FEEDBACK.filter(
-                                            (item) => item.manufacturerId === manufacturer.id,
-                                        )}
+                                        // The API has no staff view of a manufacturer's feedback yet
+                                        feedback={[]}
                                     />
                                 ),
                             },
@@ -350,14 +371,44 @@ function BackLink() {
     );
 }
 
-/** Their totals — earned, withdrawn, spent on plans, and their balance — over every transaction. */
-function Transactions({ transactions }: { transactions: ReturnType<typeof getManufacturerTransactions> }) {
+/**
+ * Their totals (earned, withdrawn, spent on plans, their balance) and every
+ * transaction, from the API's ledger: job payments, withdrawals, plans paid
+ * by card or from the wallet, charges and reversals.
+ */
+function Transactions({ manufacturerId }: { manufacturerId: string }) {
     const [sortBy, setSortBy] = useState("");
+    const summaryQuery = useQuery({
+        queryKey: queryKeys.reports.transactionsSummary(manufacturerId),
+        queryFn: () => reportsService.getTransactionsSummary(manufacturerId),
+    });
+    const transactionsQuery = useQuery({
+        queryKey: queryKeys.reports.transactions({ manufacturerId, all: true }),
+        queryFn: () => reportsService.getAllTransactions({ manufacturerId }),
+    });
+    const transactions: ManufacturerTransaction[] = (transactionsQuery.data ?? []).map((transaction) => ({
+        id: transaction.id,
+        // A reversal puts a failed withdrawal back: money in, like a payment
+        type: transaction.type === "reversal" ? "payment" : transaction.type,
+        label: transaction.label,
+        projectName: transaction.jobTitle,
+        date: transaction.date,
+        amount: transaction.amountKobo / 100,
+        ...(transaction.paidByCard && { paidByCard: true }),
+    }));
+    const isEmpty = transactionsQuery.isSuccess && transactions.length === 0;
 
     return (
         <div className="flex flex-col gap-6">
-            <TransactionSummaryCards summary={getTransactionSummary(transactions)} scope="manufacturer" />
-            {transactions.length === 0 ? (
+            {summaryQuery.isError ? (
+                <LoadError message="We couldn't load their totals. Please refresh the page." />
+            ) : (
+                <TransactionSummaryCards
+                    summary={summaryQuery.data ? fromApiTransactionSummary(summaryQuery.data.summary) : undefined}
+                    scope="manufacturer"
+                />
+            )}
+            {isEmpty ? (
                 <EmptyState icon={ReceiptText} title="No Transactions" description="There are no transactions to display" />
             ) : (
                 <section className="flex flex-col gap-4">
@@ -368,6 +419,8 @@ function Transactions({ transactions }: { transactions: ReturnType<typeof getMan
                     <TransactionsList
                         tableId="manufacturer-transactions"
                         transactions={sortTransactions(transactions, sortBy)}
+                        loading={transactionsQuery.isPending}
+                        error={transactionsQuery.isError ? "We couldn't load their transactions. Please refresh the page." : undefined}
                     />
                 </section>
             )}

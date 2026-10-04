@@ -14,6 +14,7 @@ import {
     DESKTOP_USER_CARD_CLASS,
     UserCardContent,
 } from "@/components/ui/topbarControls";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useAdminProfile } from "./adminProfileContext";
 import { useNotifications } from "./notificationsContext";
 import NotificationsPanel from "./notificationsPanel";
@@ -23,7 +24,7 @@ import UserMenu from "./userMenu";
 export default function DesktopTopbar() {
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
     const { hasUnread } = useNotifications();
-    const { profile, fullName } = useAdminProfile();
+    const { profile, fullName, isLoading } = useAdminProfile();
 
     return (
         <header className={cn(DESKTOP_TOPBAR_CLASS, "justify-end gap-4 px-8")}>
@@ -40,7 +41,14 @@ export default function DesktopTopbar() {
             </Popover>
 
             <UserMenu className={DESKTOP_USER_CARD_CLASS}>
-                <UserCardContent name={fullName} avatarUrl={profile.avatarUrl} />
+                {isLoading ? (
+                    <>
+                        <Skeleton className="size-7 rounded-full" />
+                        <Skeleton className="h-4 w-24" />
+                    </>
+                ) : (
+                    <UserCardContent name={fullName} avatarUrl={profile.avatarUrl} />
+                )}
             </UserMenu>
         </header>
     );

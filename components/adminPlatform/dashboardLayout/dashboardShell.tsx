@@ -11,6 +11,7 @@ import { AdminManufacturersProvider } from "./adminManufacturersContext";
 import { AdminProfileProvider } from "./adminProfileContext";
 import { StaffPlatformProvider, type StaffPlatformKey } from "./staffPlatformContext";
 import SessionGuard from "./sessionGuard";
+import DashboardShellSkeleton from "./dashboardShellSkeleton";
 import { ADMIN_LOGIN_URL, SUPER_ADMIN_LOGIN_URL } from "@/constant/navigation";
 import { SuperAdminSettingsProvider } from "@/components/superAdminPlatform/settingsContext";
 
@@ -58,12 +59,19 @@ export default function DashboardShell({
         </StaffPlatformProvider>
     );
 
+    // While the account is checked: the frame with skeletons, not a spinner
+    const fallback = (
+        <StaffPlatformProvider platform={platform}>
+            <DashboardShellSkeleton />
+        </StaffPlatformProvider>
+    );
+
     return platform === "super-admin" ? (
-        <SessionGuard role="super_admin" loginUrl={SUPER_ADMIN_LOGIN_URL}>
+        <SessionGuard role="super_admin" loginUrl={SUPER_ADMIN_LOGIN_URL} fallback={fallback}>
             {shell}
         </SessionGuard>
     ) : platform === "admin" ? (
-        <SessionGuard role="admin" loginUrl={ADMIN_LOGIN_URL}>
+        <SessionGuard role="admin" loginUrl={ADMIN_LOGIN_URL} fallback={fallback}>
             {shell}
         </SessionGuard>
     ) : (

@@ -6,18 +6,15 @@ import {
     ADMIN_DASHBOARD_URL,
     ADMIN_JOBS_URL,
     ADMIN_MANUFACTURERS_URL,
-    ADMIN_ME_ID,
     ADMIN_NAV_ITEMS,
     ADMIN_NOTIFICATION_TYPES,
-    ADMIN_NOTIFICATIONS,
-    ADMIN_PROFILE,
+    BLANK_ADMIN_PROFILE,
     ADMIN_PROFILE_URL,
     ADMIN_SECURITY_URL,
     ADMIN_SETTINGS_URL,
     ADMIN_TRANSACTIONS_URL,
     getAdminManufacturerUrl,
     type AdminNavItem,
-    type AdminNotification,
     type AdminNotificationType,
     type AdminProfile,
 } from "@/constant/admin";
@@ -27,11 +24,9 @@ import {
     SUPER_ADMIN_MANUFACTURERS_URL,
     SUPER_ADMIN_NAV_ITEMS,
     SUPER_ADMIN_NOTIFICATION_TYPES,
-    SUPER_ADMIN_NOTIFICATIONS,
-    SUPER_ADMIN_PROFILE,
+    BLANK_SUPER_ADMIN_PROFILE,
     SUPER_ADMIN_PROFILE_EDIT_URL,
     SUPER_ADMIN_PROFILE_URL,
-    SUPER_ADMIN_ROLE,
     SUPER_ADMIN_SECURITY_URL,
     SUPER_ADMIN_SETTINGS_URL,
     SUPER_ADMIN_TRANSACTIONS_URL,
@@ -45,8 +40,8 @@ import { ADMIN_LOGIN_URL, SUPER_ADMIN_LOGIN_URL } from "@/constant/navigation";
 // StaffPlatformProvider — which staff platform the dashboard is for. The
 // admin and super admin share one frame (sidebar, top bars, notifications,
 // profile menu, logout) and the same pages; this says where each part links,
-// whose profile and notifications they start from, and what the signed-in
-// person may do. The layouts pass just the key, so the nav's icons never
+// and what the signed-in person may do: their lead id and super admin role
+// come from their account (/auth/me), which SessionGuard has loaded. The layouts pass just the key, so the nav's icons never
 // cross from the server.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -77,9 +72,8 @@ export type StaffPlatform = {
     leadId: string | null;
     /** A super admin's role (owner, manager or tech support); null on the admin platform. */
     superAdminRole: SuperAdminRole | null;
-    /** The signed-in person, before any change they make. */
+    /** Blank, until AdminProfileProvider fills it from their account. */
     profile: AdminProfile;
-    notifications: AdminNotification[];
     /** What they can be notified about, in Settings › Notifications. */
     notificationTypes: { value: AdminNotificationType; label: string; description: string }[];
     permissions: {
@@ -118,10 +112,9 @@ const STAFF_PLATFORMS: Record<StaffPlatformKey, StaffPlatform> = {
         settingsUrl: ADMIN_SETTINGS_URL,
         securityUrl: ADMIN_SECURITY_URL,
         loginUrl: ADMIN_LOGIN_URL,
-        leadId: ADMIN_ME_ID,
+        leadId: null,
         superAdminRole: null,
-        profile: ADMIN_PROFILE,
-        notifications: ADMIN_NOTIFICATIONS,
+        profile: BLANK_ADMIN_PROFILE,
         notificationTypes: ADMIN_NOTIFICATION_TYPES,
         permissions: {
             actsOnEveryJob: false,
@@ -148,16 +141,16 @@ const STAFF_PLATFORMS: Record<StaffPlatformKey, StaffPlatform> = {
         securityUrl: SUPER_ADMIN_SECURITY_URL,
         loginUrl: SUPER_ADMIN_LOGIN_URL,
         leadId: null,
-        superAdminRole: SUPER_ADMIN_ROLE,
-        profile: SUPER_ADMIN_PROFILE,
-        notifications: SUPER_ADMIN_NOTIFICATIONS,
+        superAdminRole: null,
+        profile: BLANK_SUPER_ADMIN_PROFILE,
         notificationTypes: SUPER_ADMIN_NOTIFICATION_TYPES,
         permissions: {
             actsOnEveryJob: true,
             deletes: true,
             managesPlatform: true,
-            managesSuperAdmins: superAdminCan(SUPER_ADMIN_ROLE, "manage-super-admins"),
-            managesApiKeys: superAdminCan(SUPER_ADMIN_ROLE, "manage-api-keys"),
+            // Set from their role in the provider
+            managesSuperAdmins: false,
+            managesApiKeys: false,
             decidesHeldJobs: true,
         },
     },
@@ -168,16 +161,23 @@ const StaffPlatformContext = createContext<StaffPlatform>(STAFF_PLATFORMS.admin)
 export function StaffPlatformProvider({ platform, children }: { platform: StaffPlatformKey; children: ReactNode }) {
     const { data: currentUser } = useCurrentUser();
     const currentUserId = currentUser?.id;
-    const config = useMemo(() => {
+    const currentRole = currentUser?.superAdminRole ?? null;
+    const config = useMemo((): StaffPlatform => {
         const base = STAFF_PLATFORMS[platform];
-        if (platform === "admin" && currentUserId) {
-            return {
-                ...base,
-                leadId: currentUserId,
-            };
+        if (platform === "admin") {
+            // An admin leads their own jobs
+            return { ...base, leadId: currentUserId ?? null };
         }
-        return base;
-    }, [platform, currentUserId]);
+        return {
+            ...base,
+            superAdminRole: currentRole,
+            permissions: {
+                ...base.permissions,
+                managesSuperAdmins: !!currentRole && superAdminCan(currentRole, "manage-super-admins"),
+                managesApiKeys: !!currentRole && superAdminCan(currentRole, "manage-api-keys"),
+            },
+        };
+    }, [platform, currentUserId, currentRole]);
 
     return <StaffPlatformContext.Provider value={config}>{children}</StaffPlatformContext.Provider>;
 }

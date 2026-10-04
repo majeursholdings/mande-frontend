@@ -13,14 +13,14 @@ import {
     type SortOptionDef,
 } from "@/components/customTable";
 import UserAvatar from "@/components/ui/userAvatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import VerificationBadge from "@/components/manufacturerPlatform/verificationBadge";
 import { COMPANY_SPECIALITY_OPTIONS, getOptionLabel } from "@/constant/manufacturer";
-import { PRICING_PLANS, getPricingPlan } from "@/constant/sampleData";
 import {
     getManufacturerVerification,
     type ManufacturerRecord,
     type VerificationStatus,
-} from "@/constant/sampleDb";
+} from "@/constant/platformRecords";
 import { useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import {
@@ -31,6 +31,7 @@ import {
     useManufacturerActions,
     type ManufacturerAction,
 } from "./manufacturerActions";
+import { usePlans } from "@/hooks/usePlans";
 
 const TABLE_ID = "manufacturers";
 
@@ -42,7 +43,7 @@ type ManufacturerRow = Pick<
     fullName: string;
     city: string;
     state: string;
-    /** A PRICING_PLANS id, for the filter. */
+    /** The plan's id, for the filter. */
     planId: string;
     planName: string;
     billingCycle: ManufacturerRecord["subscription"]["billingCycle"];
@@ -59,7 +60,6 @@ const VERIFICATION_RANK: Record<VerificationStatus, number> = {
     verified: 4,
 };
 
-const PLAN_ITEMS: SelectFilterItem[] = PRICING_PLANS.map((plan) => ({ label: plan.name, value: plan.id }));
 
 const SORT_ITEMS: SelectFilterItem[] = [
     { label: "Name", value: "name" },
@@ -81,10 +81,12 @@ const SORT_OPTIONS: SortOptionDef<ManufacturerRow>[] = [
 
 export default function AdminManufacturersPage() {
     const router = useRouter();
-    const { manufacturers, getManufacturer } = useAdminManufacturers();
+    const { manufacturers, getManufacturer, isLoading, isError } = useAdminManufacturers();
     const { getManufacturerUrl } = useStaffPlatform();
     const { actions, getBlocker } = useManufacturerActions();
     const [target, setTarget] = useState<{ id: string; action: ManufacturerAction } | null>(null);
+    const { plans, getPlan, isLoading: isPlansLoading } = usePlans();
+    const planItems: SelectFilterItem[] = plans.map((plan) => ({ label: plan.name, value: plan.id }));
 
     const allRows: ManufacturerRow[] = manufacturers.map((manufacturer) => {
         const verification = getManufacturerVerification(manufacturer);
@@ -97,8 +99,8 @@ export default function AdminManufacturersPage() {
             city: manufacturer.address?.city ?? "",
             state: manufacturer.address?.state ?? "",
             specialities: manufacturer.specialities ?? [],
-            planId: manufacturer.subscription?.planId ?? "growth",
-            planName: getPricingPlan(manufacturer.subscription?.planId ?? "growth")?.name ?? "No plan",
+            planId: manufacturer.subscription?.planId ?? "",
+            planName: getPlan(manufacturer.subscription?.planId)?.name ?? "No plan",
             billingCycle: manufacturer.subscription?.billingCycle ?? "monthly",
             verification,
             verificationRank: VERIFICATION_RANK[verification],
@@ -168,7 +170,11 @@ export default function AdminManufacturersPage() {
             header: "Plan",
             cell: (row) => (
                 <span className="flex flex-col">
-                    <span className="text-mist-950">{row.planName}</span>
+                    {isPlansLoading && row.planId ? (
+                        <Skeleton className="my-0.5 h-4 w-20" />
+                    ) : (
+                        <span className="text-mist-950">{row.planName}</span>
+                    )}
                     <span className="text-xs text-gray-500">{row.billingCycle === "annual" ? "Yearly" : "Monthly"}</span>
                 </span>
             ),
@@ -188,7 +194,9 @@ export default function AdminManufacturersPage() {
                 tableId={TABLE_ID}
                 columns={columns}
                 rows={rows}
+                loading={isLoading}
                 pagination={pagination}
+                error={isError && manufacturers.length === 0 ? "We couldn't load the manufacturers. Please refresh the page." : undefined}
                 emptyMessage="No manufacturers match your search."
                 onRowClick={(row) => router.push(getManufacturerUrl(row.id))}
                 rowActions={actions.map((action): RowAction<ManufacturerRow> => ({
@@ -204,7 +212,7 @@ export default function AdminManufacturersPage() {
                         search={{ placeholder: "Search by name, company, email or city" }}
                         filters={[
                             { title: "Speciality", paramKey: "speciality", items: COMPANY_SPECIALITY_OPTIONS },
-                            { title: "Plan", paramKey: "plan", items: PLAN_ITEMS },
+                            { title: "Plan", paramKey: "plan", items: planItems },
                         ]}
                         sortBy={{ title: "Sort by", items: SORT_ITEMS }}
                     />

@@ -6,7 +6,7 @@ import { DataTable, type ColumnDef } from "@/components/customTable";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import CategoryBadge from "@/components/manufacturerPlatform/supportPage/feedbackCategoryBadge";
 import { formatDayAndTime, formatOrdinalDate } from "@/lib/date";
-import type { SupportFeedbackRecord } from "@/constant/sampleDb";
+import type { SupportFeedbackRecord } from "@/constant/platformRecords";
 import EmptyState from "../emptyState";
 
 const COLUMNS: ColumnDef<SupportFeedbackRecord>[] = [

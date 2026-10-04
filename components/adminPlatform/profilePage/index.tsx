@@ -3,18 +3,20 @@
 import Link from "next/link";
 import { BadgeCheck, BriefcaseBusiness, Mail, Pencil, Phone, Settings, ShieldCheck, SlidersHorizontal, UserRoundPen } from "lucide-react";
 import ProfileStatCard from "@/components/manufacturerPlatform/profilePage/profileStatCard";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
     ProfileDetailsCard,
     breakableEmail,
 } from "@/components/manufacturerPlatform/profilePage/profileCard";
 import LinkList from "@/components/manufacturerPlatform/linkList";
-import { ADMIN_POSITION_OPTIONS, PROJECT_LEADS, isRejectionFinal } from "@/constant/admin";
+import { ADMIN_POSITION_OPTIONS, isRejectionFinal } from "@/constant/admin";
 import { getOptionLabel } from "@/constant/manufacturer";
 import { getSuperAdminRoleLabel } from "@/constant/superAdmin";
 import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
 import { useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
 import { useAdminProfile } from "../dashboardLayout/adminProfileContext";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
+import { useProjectLeads } from "@/components/adminPlatform/dashboardLayout/useProjectLeads";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Admin Profile — as a manufacturer's profile page lays it out: their card
@@ -27,21 +29,22 @@ import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 
 export default function AdminProfilePage() {
     const { profile, fullName } = useAdminProfile();
-    const { jobs } = useAdminJobs();
-    const { manufacturers } = useAdminManufacturers();
+    const { jobs, isLoading: isJobsLoading } = useAdminJobs();
+    const { manufacturers, isLoading: isManufacturersLoading } = useAdminManufacturers();
     const { leadId, roleLabel, superAdminRole, settingsUrl, profileEditUrl, securityUrl, permissions } = useStaffPlatform();
+    const { leads, isLoading: isLeadsLoading } = useProjectLeads({ status: "all" });
     const myJobs = leadId ? jobs.filter((job) => job.projectLeadIds.includes(leadId)) : [];
     // Still open — a rejected job goes back to the manufacturer, unless that was its last rejection
     const leading = myJobs.filter((job) => job.status !== "completed" && !isRejectionFinal(job)).length;
     const completed = myJobs.filter((job) => job.status === "completed").length;
     const stats = leadId
         ? [
-              { label: "Jobs you're leading", value: leading },
-              { label: "Jobs completed", value: completed },
+              { label: "Jobs you're leading", value: leading, isLoading: isJobsLoading },
+              { label: "Jobs completed", value: completed, isLoading: isJobsLoading },
           ]
         : [
-              { label: "Admins", value: PROJECT_LEADS.length },
-              { label: "Manufacturers", value: manufacturers.length },
+              { label: "Admins", value: leads.length, isLoading: isLeadsLoading },
+              { label: "Manufacturers", value: manufacturers.length, isLoading: isManufacturersLoading },
           ];
 
     return (
@@ -99,9 +102,21 @@ export default function AdminProfilePage() {
 
                 <div className="flex min-w-0 flex-1 flex-col gap-8 lg:gap-6">
                     <div className="grid grid-cols-2 gap-4 lg:gap-6">
-                        {stats.map((stat) => (
-                            <ProfileStatCard key={stat.label} label={stat.label} value={String(stat.value)} />
-                        ))}
+                        {stats.map((stat) =>
+                            stat.isLoading ? (
+                                // The label shows straight away; the count is a skeleton until it loads
+                                <div
+                                    key={stat.label}
+                                    aria-busy="true"
+                                    className="flex flex-col justify-center gap-1 rounded-xl border border-border bg-white p-4 lg:p-5"
+                                >
+                                    <p className="text-xs lg:text-sm font-text text-mist-500">{stat.label}</p>
+                                    <Skeleton className="my-0.5 h-6 w-12 lg:h-7" />
+                                </div>
+                            ) : (
+                                <ProfileStatCard key={stat.label} label={stat.label} value={String(stat.value)} />
+                            ),
+                        )}
                     </div>
 
                     <LinkList

@@ -1,7 +1,7 @@
 "use client";
 
 import ResponsiveTabs from "@/components/ui/responsiveTabs";
-import type { ManufacturerRecord } from "@/constant/sampleDb";
+import type { ManufacturerRecord } from "@/constant/platformRecords";
 import AccountIssueHistory from "./accountIssueHistory";
 import ActivityHistory from "./activityHistory";
 

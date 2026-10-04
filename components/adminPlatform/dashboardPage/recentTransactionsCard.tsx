@@ -1,37 +1,47 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { ReceiptText } from "lucide-react";
 import { DataTable } from "@/components/customTable";
-import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
-import { useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
+import { queryKeys } from "@/lib/queryKeys";
+import { reportsService } from "@/lib/services/reportsService";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import {
     AdminTransactionListItem,
+    AdminTransactionListSkeleton,
     getAdminTransactionColumns,
+    toAdminTransaction,
 } from "../transactionsPage/adminTransactionParts";
 import DashboardCard from "./dashboardCard";
 import EmptyState from "../emptyState";
-import { getRecentTransactions } from "./dashboardStats";
+import { ReportError } from "./reportStates";
 
 const COLUMNS = getAdminTransactionColumns(true);
 
 /**
- * The latest transactions across every manufacturer — the top of the
- * Transactions page, with its columns — a table from md up, a stacked list
- * on phones.
+ * The latest transactions across every manufacturer, from
+ * /reports/transactions: the top of the Transactions page, with its columns.
+ * A table from md up, a stacked list on phones.
  */
 export default function RecentTransactionsCard({ limit = 4 }: { limit?: number }) {
-    const { manufacturers } = useAdminManufacturers();
-    const { jobs } = useAdminJobs();
     const { transactionsUrl } = useStaffPlatform();
-    const transactions = getRecentTransactions(manufacturers, jobs, limit);
+    const query = useQuery({
+        queryKey: queryKeys.reports.transactions({ limit }),
+        queryFn: () => reportsService.getTransactions({ limit }),
+        staleTime: 30_000,
+    });
+    const transactions = (query.data?.transactions ?? []).map((transaction) =>
+        toAdminTransaction(transaction),
+    );
 
     return (
         <DashboardCard
             title="Recent Transactions"
             viewAllHref={transactions.length > 0 ? transactionsUrl : undefined}
         >
-            {transactions.length === 0 ? (
+            {query.isError ? (
+                <ReportError message="Couldn't load the recent transactions. Please refresh to try again." />
+            ) : !query.isPending && transactions.length === 0 ? (
                 <EmptyState
                     icon={ReceiptText}
                     title="No Transactions"
@@ -44,15 +54,22 @@ export default function RecentTransactionsCard({ limit = 4 }: { limit?: number }
                             tableId="recent-transactions"
                             columns={COLUMNS}
                             rows={transactions}
+                            loading={query.isPending}
                             compact
                         />
                     </div>
 
-                    <ul className="flex flex-col gap-6 md:hidden">
-                        {transactions.map((transaction) => (
-                            <AdminTransactionListItem key={transaction.id} transaction={transaction} />
-                        ))}
-                    </ul>
+                    {query.isPending ? (
+                        <div className="md:hidden">
+                            <AdminTransactionListSkeleton rows={limit} />
+                        </div>
+                    ) : (
+                        <ul className="flex flex-col gap-6 md:hidden">
+                            {transactions.map((transaction) => (
+                                <AdminTransactionListItem key={transaction.id} transaction={transaction} />
+                            ))}
+                        </ul>
+                    )}
                 </>
             )}
         </DashboardCard>

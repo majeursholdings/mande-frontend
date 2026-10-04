@@ -1,7 +1,21 @@
 import { CreditCard, HandCoins, Landmark, WalletMinimal, type LucideIcon } from "lucide-react";
-import { formatCompactPrice, formatPrice } from "@/lib/currency";
+import { formatCompactPrice, formatPrice, fromKobo } from "@/lib/currency";
 import type { TransactionSummary } from "@/constant/manufacturer";
+import type { TransactionSummary as ApiTransactionSummary } from "@/lib/services/reportsService";
 import { StatCard, StatCardRow } from "../statCard";
+import { StatCardSkeleton } from "../dashboardPage/reportStates";
+
+/** /reports/transactions/summary's totals (kobo), as the cards' (naira). */
+export function fromApiTransactionSummary(summary: ApiTransactionSummary): TransactionSummary {
+    return {
+        earned: fromKobo(summary.earnedKobo),
+        withdrawn: fromKobo(summary.withdrawnKobo),
+        subscriptions: fromKobo(summary.subscriptionsKobo),
+        charges: fromKobo(summary.chargesKobo),
+        balance: fromKobo(summary.balanceKobo),
+        counts: summary.counts,
+    };
+}
 
 const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
 
@@ -15,19 +29,28 @@ type SummaryCard = {
 };
 
 /**
- * What's moved through manufacturer wallets — earned for jobs, withdrawn,
+ * What's moved through manufacturer wallets: earned for jobs, withdrawn,
  * spent on plans, and the balance left. For one manufacturer (exact
  * amounts, two to a row beside their profile card), or for everyone on the
- * platform (rounded, four to a row).
+ * platform (rounded, four to a row). Skeletons while `summary` loads.
  */
 export default function TransactionSummaryCards({
-    summary,
+    summary: loadedSummary,
     scope,
 }: {
-    summary: TransactionSummary;
+    /** Undefined while it loads. */
+    summary: TransactionSummary | undefined;
     scope: "manufacturer" | "platform";
 }) {
     const isPlatform = scope === "platform";
+    const summary = loadedSummary ?? {
+        earned: 0,
+        withdrawn: 0,
+        subscriptions: 0,
+        charges: 0,
+        balance: 0,
+        counts: { payment: 0, withdrawal: 0, subscription: 0, charge: 0 },
+    };
     const cards: SummaryCard[] = [
         {
             key: "earned",
@@ -71,17 +94,21 @@ export default function TransactionSummaryCards({
 
     return (
         <StatCardRow columns={isPlatform ? 4 : 2}>
-            {cards.map((card) => (
-                <StatCard
-                    key={card.key}
-                    label={card.label}
-                    value={isPlatform ? formatCompactPrice(card.amount) : formatPrice(card.amount)}
-                    fullValue={isPlatform ? formatPrice(card.amount) : undefined}
-                    icon={card.icon}
-                    iconClassName={card.iconClassName}
-                    footer={card.footer}
-                />
-            ))}
+            {cards.map((card) =>
+                !loadedSummary ? (
+                    <StatCardSkeleton key={card.key} label={card.label} icon={card.icon} iconClassName={card.iconClassName} />
+                ) : (
+                    <StatCard
+                        key={card.key}
+                        label={card.label}
+                        value={isPlatform ? formatCompactPrice(card.amount) : formatPrice(card.amount)}
+                        fullValue={isPlatform ? formatPrice(card.amount) : undefined}
+                        icon={card.icon}
+                        iconClassName={card.iconClassName}
+                        footer={card.footer}
+                    />
+                ),
+            )}
         </StatCardRow>
     );
 }

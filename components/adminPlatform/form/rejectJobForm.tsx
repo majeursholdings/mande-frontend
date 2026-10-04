@@ -53,8 +53,7 @@ const FIELDS: FormFieldConfig[] = [
         accept: API_PHOTO_ACCEPT,
         multiple: true,
         maxFiles: 5,
-        uploadCategory: "jobProof",
-        uploadVisibility: "public",
+        uploadPurpose: "review-attachment",
     },
     {
         name: "documents",
@@ -69,8 +68,7 @@ const FIELDS: FormFieldConfig[] = [
         accept: API_DOCUMENT_ACCEPT,
         multiple: true,
         maxFiles: 5,
-        uploadCategory: "jobProof",
-        uploadVisibility: "private",
+        uploadPurpose: "review-attachment",
     },
 ];
 
