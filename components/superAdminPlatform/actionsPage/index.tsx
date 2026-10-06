@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
 import { queryKeys } from "@/lib/queryKeys";
 import { contactService } from "@/lib/services/contactService";
+import { pointsService } from "@/lib/services/pointsService";
 import { MandeApiError } from "@/lib/types/api";
 import type { PendingActionsResponse } from "@/lib/services/reportsService";
 import { Button } from "@/components/ui/button";
@@ -195,6 +196,15 @@ export default function SuperAdminActionsPage() {
                                 onResolveContactMessage: (messageId) => resolveMessage.mutate(messageId),
                                 isResolvingContactMessage: (messageId) =>
                                     resolveMessage.isPending && resolveMessage.variables === messageId,
+                                onResolveDispute: async (disputeId, decision) => {
+                                    try {
+                                        await pointsService.resolveDeliveryDispute(disputeId, { decision });
+                                        toast.success(`Dispute ${decision === "upheld" ? "upheld and points restored" : "dismissed"}.`);
+                                        void refreshActions();
+                                    } catch {
+                                        toast.error("Couldn't resolve the delivery dispute. Please try again.");
+                                    }
+                                },
                             }}
                         />
                     ))}

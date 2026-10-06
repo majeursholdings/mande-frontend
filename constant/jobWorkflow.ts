@@ -170,15 +170,57 @@ export function getAutoApproveAt(submittedAt: string | Date): Date {
     return at;
 }
 
-/** The submissions with every auto-approval that has come due by `now` applied. */
-export function settleStepSubmissions(submissions: StepSubmission[], now: Date = new Date()): StepSubmission[] {
-    return submissions.map((submission) => {
-        if (submission.review) return submission;
-        const approveAt = getAutoApproveAt(submission.submittedAt);
-        return approveAt <= now
-            ? { ...submission, review: { outcome: "approved", at: approveAt.toISOString(), by: null } }
-            : submission;
-    });
+/**
+ * Calculates compensatory days added to the job due date when an admin delays
+ * reviewing proof for production steps 1 through 5 (delivery step is exempted).
+ * For every 12 hours of delay past the initial 24h window (excluding Sundays),
+ * the manufacturer receives +1 day extra on the delivery deadline.
+ */
+export function calculateStepReviewDelay(
+    step: ProductionStepKey,
+    submittedAt: string | Date,
+    reviewedAt: string | Date = new Date(),
+    windowHours: number = REVIEW_WINDOW_HOURS,
+): { delayedHours: number; extraDays: number; adminPenaltyPoints: number } {
+    if (step === "delivery") {
+        return { delayedHours: 0, extraDays: 0, adminPenaltyPoints: 0 };
+    }
+
+    const sub = new Date(submittedAt);
+    const rev = new Date(reviewedAt);
+    if (rev <= sub) return { delayedHours: 0, extraDays: 0, adminPenaltyPoints: 0 };
+
+    // Count business hours between sub and rev (skipping Sundays)
+    let cur = new Date(sub);
+    let totalBusinessMs = 0;
+    while (cur < rev) {
+        const nextMidnight = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 1);
+        const segmentEnd = nextMidnight < rev ? nextMidnight : rev;
+        if (cur.getDay() !== 0) {
+            totalBusinessMs += segmentEnd.getTime() - cur.getTime();
+        }
+        cur = segmentEnd;
+    }
+
+    const totalBusinessHours = totalBusinessMs / (60 * 60 * 1000);
+    const delayedHours = Math.max(0, Math.floor(totalBusinessHours - windowHours));
+    if (delayedHours <= 0) {
+        return { delayedHours: 0, extraDays: 0, adminPenaltyPoints: 0 };
+    }
+
+    const extraDays = Math.floor(delayedHours / 12) + 1;
+    const adminPenaltyPoints = -5 * extraDays;
+
+    return { delayedHours, extraDays, adminPenaltyPoints };
+}
+
+/**
+ * Step submissions no longer auto-approve after 24h.
+ * Instead, delays award compensatory days to the manufacturer upon review.
+ */
+export function settleStepSubmissions(submissions: StepSubmission[], _now?: Date): StepSubmission[] {
+    void _now;
+    return submissions;
 }
 
 // ─── Delays ──────────────────────────────────────────────────────────────────

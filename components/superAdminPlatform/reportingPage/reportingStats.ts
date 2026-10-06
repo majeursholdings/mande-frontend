@@ -60,9 +60,13 @@ export type ProjectLeadReportRow = {
     reviews: number;
     /** What manufacturers rated them, out of 5, on average. Null before their first rating. */
     averageRating: number | null;
+    /** Current gamification points. */
+    points: number;
+    /** Current rank tier identifier. */
+    rank: string;
 };
 
-function toProjectLeadReportRow(entry: ProjectLeadReportEntry): ProjectLeadReportRow {
+function toProjectLeadReportRow(entry: ProjectLeadReportEntry & { points?: number; rank?: string }): ProjectLeadReportRow {
     return {
         id: entry.id,
         name: entry.name,
@@ -72,6 +76,8 @@ function toProjectLeadReportRow(entry: ProjectLeadReportEntry): ProjectLeadRepor
         jobsHandled: entry.jobsHandled,
         reviews: entry.reviews,
         averageRating: entry.averageRating,
+        points: entry.points ?? 0,
+        rank: entry.rank ?? "associate-lead",
     };
 }
 

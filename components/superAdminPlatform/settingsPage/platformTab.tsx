@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import SettingsSection from "@/components/manufacturerPlatform/settingsSection";
 import JobPaymentsForm, { JobPaymentsFormSkeleton } from "../form/jobPaymentsForm";
 import JobRulesForm, { JobRulesFormSkeleton } from "../form/jobRulesForm";
+import PointAllocationForm from "../form/pointAllocationForm";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadError } from "@/components/adminPlatform/emptyState";
 import { useSuperAdminSettings } from "../settingsContext";
@@ -45,6 +46,21 @@ export default function PlatformTab() {
             >
                 {platformSettings ? (
                     <JobRulesForm settings={platformSettings} onSave={updatePlatformSettings} />
+                ) : (
+                    <JobRulesFormSkeleton />
+                )}
+            </SettingsSection>
+
+            <SettingsSection
+                headingLevel="h3"
+                title="Point Allocations"
+                description="Control how many points are awarded or deducted for each activity across manufacturers and project leads."
+            >
+                {platformSettings ? (
+                    <PointAllocationForm
+                        initialSettings={platformSettings.pointSettings}
+                        onSave={updatePlatformSettings}
+                    />
                 ) : (
                     <JobRulesFormSkeleton />
                 )}

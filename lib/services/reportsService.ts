@@ -215,6 +215,7 @@ export type PendingActions = {
     manufacturerId: string;
     sentAt: string;
   }[];
+  deliveryDisputes?: import("@/constant/points").DeliveryDisputeRecord[];
 };
 
 export type PendingActionsResponse = { actions: PendingActions };

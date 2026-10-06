@@ -15,6 +15,7 @@ import {
 import UserAvatar from "@/components/ui/userAvatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import VerificationBadge from "@/components/manufacturerPlatform/verificationBadge";
+import RankBadge from "@/components/common/points/rankBadge";
 import { COMPANY_SPECIALITY_OPTIONS, getOptionLabel } from "@/constant/manufacturer";
 import {
     getManufacturerVerification,
@@ -50,6 +51,8 @@ type ManufacturerRow = Pick<
     verification: VerificationStatus;
     /** For sorting — the ones that need an admin first. */
     verificationRank: number;
+    points: number;
+    rank: string;
 };
 
 const VERIFICATION_RANK: Record<VerificationStatus, number> = {
@@ -60,14 +63,23 @@ const VERIFICATION_RANK: Record<VerificationStatus, number> = {
     verified: 4,
 };
 
+const RANK_ITEMS: SelectFilterItem[] = [
+    { label: "Rising Maker", value: "rising-maker" },
+    { label: "Skilled Maker", value: "skilled-maker" },
+    { label: "Pro Maker", value: "pro-maker" },
+    { label: "Expert Maker", value: "expert-maker" },
+    { label: "Master Craftsman", value: "master-craftsman" },
+];
 
 const SORT_ITEMS: SelectFilterItem[] = [
     { label: "Name", value: "name" },
+    { label: "Points", value: "points" },
     { label: "Verification", value: "verification" },
 ];
 
 const SORT_OPTIONS: SortOptionDef<ManufacturerRow>[] = [
     { value: "name", field: "fullName" },
+    { value: "points", field: "points", type: "number" },
     { value: "verification", field: "verificationRank", type: "number" },
 ];
 
@@ -107,6 +119,8 @@ export default function AdminManufacturersPage() {
             accountStatus: manufacturer.accountStatus ?? "active",
             deletionRequest: manufacturer.deletionRequest ?? null,
             hasPendingAppeal: (manufacturer.appeals ?? []).some((appeal) => appeal.status === "pending"),
+            points: manufacturer.points ?? 0,
+            rank: manufacturer.rank ?? "rising-maker",
         };
     });
 
@@ -117,6 +131,7 @@ export default function AdminManufacturersPage() {
         filters: [
             { paramKey: "speciality", field: "specialities", matchMode: "includes" },
             { paramKey: "plan", field: "planId" },
+            { paramKey: "rank", field: "rank" },
         ],
         sortOptions: SORT_OPTIONS,
         rowsPerPage: 10,
@@ -180,6 +195,17 @@ export default function AdminManufacturersPage() {
             ),
         },
         {
+            key: "rank",
+            header: "Rank",
+            cell: (row) => <RankBadge rankId={row.rank} role="manufacturer" size="sm" />,
+        },
+        {
+            key: "points",
+            header: "Points",
+            className: "text-right font-mono tabular-nums",
+            cell: (row) => <span className="font-semibold text-mist-950">{row.points.toLocaleString()}</span>,
+        },
+        {
             key: "verification",
             header: "Verification",
             cell: (row) => <VerificationBadge status={row.verification} />,
@@ -213,6 +239,7 @@ export default function AdminManufacturersPage() {
                         filters={[
                             { title: "Speciality", paramKey: "speciality", items: COMPANY_SPECIALITY_OPTIONS },
                             { title: "Plan", paramKey: "plan", items: planItems },
+                            { title: "Rank", paramKey: "rank", items: RANK_ITEMS },
                         ]}
                         sortBy={{ title: "Sort by", items: SORT_ITEMS }}
                     />

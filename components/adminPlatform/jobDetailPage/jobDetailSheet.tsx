@@ -524,16 +524,17 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
             <Dialog open={dialog === "approve"} onOpenChange={(open) => !open && closeDialog()}>
                 <DialogContent className="max-w-110">
                     <div className="flex flex-col gap-1">
-                        <DialogTitle>Rate and review</DialogTitle>
+                        <DialogTitle>Confirm Delivery & Sign Off</DialogTitle>
                         <DialogDescription>
-                            Jobs rated {MIN_SIGN_OFF_RATING - 1} stars or less aren&apos;t marked as completed. A super admin
-                            reviews them further.
+                            Upload proof of client delivery (signed waybill or site photo) and rate the manufacturer&apos;s
+                            work. Jobs rated {MIN_SIGN_OFF_RATING - 1} stars or less are held for a super admin to review further.
                         </DialogDescription>
                     </div>
                     <RatingReviewForm
+                        withClientProof
                         ratingLabel="Rate this manufacturer's work"
                         submitLabel={(rating) =>
-                            rating > 0 && rating < MIN_SIGN_OFF_RATING ? "Send for further review" : "Mark as completed"
+                            rating > 0 && rating < MIN_SIGN_OFF_RATING ? "Send for further review" : "Confirm Delivery & Complete Job"
                         }
                         loadingLabel="Saving..."
                         errorMessage="Couldn't save your review. Please try again."
@@ -561,6 +562,18 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
                     </div>
                     {job.completionImageUrls.length > 0 && (
                         <ImagePreviewGrid images={photoItems(job.completionImageUrls)} />
+                    )}
+                    {job.deliveryProofAttachments && job.deliveryProofAttachments.length > 0 && (
+                        <div className="flex flex-col gap-1.5 pt-1">
+                            <span className="text-xs font-semibold font-text text-mist-700">Client Delivery Proof:</span>
+                            <ImagePreviewGrid
+                                images={photoItems(
+                                    job.deliveryProofAttachments
+                                        .map((att) => att.url)
+                                        .filter(Boolean) as string[],
+                                )}
+                            />
+                        </div>
                     )}
                     <div className="flex justify-end gap-3">
                         <DialogButton onClick={closeDialog} tone="neutral">

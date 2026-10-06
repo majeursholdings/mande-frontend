@@ -49,13 +49,19 @@ import ManufacturerPlanCard, { ManufacturerPlanCardSkeleton } from "./manufactur
 import ManufacturerReports from "./manufacturerReports";
 import { reportsService } from "@/lib/services/reportsService";
 import type { ManufacturerTransaction } from "@/constant/manufacturer";
+import { usePointsHistory } from "@/hooks/usePoints";
+import PointsSummaryCard from "@/components/common/points/pointsSummaryCard";
+import PointsHistoryList from "@/components/common/points/pointsHistoryList";
+import PointsGuideModal from "@/components/common/points/pointsGuideModal";
+import { getRankProgression } from "@/constant/points";
 
-type DetailTab = "jobs" | "transactions" | "reports" | "info" | "history";
+type DetailTab = "jobs" | "transactions" | "reports" | "points" | "info" | "history";
 
 const DETAIL_TABS: { value: DetailTab; label: string }[] = [
     { value: "jobs", label: "Jobs" },
     { value: "transactions", label: "Transactions" },
     { value: "reports", label: "Reports" },
+    { value: "points", label: "Points & Rank" },
     { value: "info", label: "More Info" },
     { value: "history", label: "Account history" },
 ];
@@ -329,6 +335,11 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
                                         feedback={[]}
                                     />
                                 ),
+                            },
+                            {
+                                value: "points",
+                                label: "Points & Rank",
+                                panel: <ManufacturerPointsTab manufacturerId={manufacturer.id} points={manufacturer.points ?? 0} rank={manufacturer.rank ?? "rising-maker"} />,
                             },
                             { value: "info", label: "More Info", panel: <ManufacturerInfo manufacturer={manufacturer} /> },
                             {
@@ -636,5 +647,41 @@ function Notice({
                 {action && <div className="shrink-0">{action}</div>}
             </div>
         </section>
+    );
+}
+
+function ManufacturerPointsTab({
+    manufacturerId,
+    points,
+    rank,
+}: {
+    manufacturerId: string;
+    points: number;
+    rank: string;
+}) {
+    const { entries, isLoading } = usePointsHistory(manufacturerId);
+    const [guideOpen, setGuideOpen] = useState(false);
+    void rank;
+    const progression = getRankProgression("manufacturer", points);
+
+    return (
+        <div className="flex flex-col gap-6">
+            <PointsSummaryCard
+                points={points}
+                progression={progression}
+                role="manufacturer"
+                onOpenGuide={() => setGuideOpen(true)}
+            />
+
+            <section className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-base font-semibold font-text text-mist-950">Point history</h2>
+                    <span className="text-xs text-mist-500 font-text">{entries.length} recorded events</span>
+                </div>
+                <PointsHistoryList entries={entries} loading={isLoading} />
+            </section>
+
+            <PointsGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} role="manufacturer" />
+        </div>
     );
 }

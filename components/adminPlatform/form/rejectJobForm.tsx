@@ -46,10 +46,10 @@ const FIELDS: FormFieldConfig[] = [
         label: (
             <>
                 Photos{" "}
-                <span className="font-normal text-mist-400">(optional)</span>
+                <span className="font-normal text-mist-500">(proof of defect)</span>
             </>
         ),
-        description: `Photos that show the problems: JPG, PNG or WebP, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+        description: `Photos that show the problems or damages: JPG, PNG or WebP, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
         accept: API_PHOTO_ACCEPT,
         multiple: true,
         maxFiles: 5,
@@ -61,10 +61,10 @@ const FIELDS: FormFieldConfig[] = [
         label: (
             <>
                 Documents{" "}
-                <span className="font-normal text-mist-400">(optional)</span>
+                <span className="font-normal text-mist-500">(defect report / rejection notice)</span>
             </>
         ),
-        description: `Marked-up drawings or notes as PDFs, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
+        description: `Client rejection notices or inspection notes as PDFs, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB each`,
         accept: API_DOCUMENT_ACCEPT,
         multiple: true,
         maxFiles: 5,
@@ -105,9 +105,14 @@ export default function RejectJobForm({
                     }
                     return { name: "attachment", url: "", kind };
                 });
+            const attachments = [...upload(photos, "image"), ...upload(documents, "document")];
+            if (attachments.length === 0) {
+                toast.error("Please upload at least one photo or document as proof of rejection.");
+                return;
+            }
             await onReject({
                 reason: reason.trim(),
-                attachments: [...upload(photos, "image"), ...upload(documents, "document")],
+                attachments,
             });
             clearFormUploadedFiles("photos");
             clearFormUploadedFiles("documents");

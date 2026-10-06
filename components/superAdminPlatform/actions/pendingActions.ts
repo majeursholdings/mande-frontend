@@ -27,12 +27,14 @@ export type SuperAdminActionKind =
     | "lead-rating"
     | "stuck-withdrawal"
     | "contact-message"
+    | "delivery-dispute"
     | "payments";
 
 export const ACTION_KINDS: { value: SuperAdminActionKind; label: string; one: string; many: string }[] = [
     { value: "account-deletion", label: "Accounts to close", one: "account to close", many: "accounts to close" },
     { value: "held-job", label: "Low job ratings", one: "low job rating", many: "low job ratings" },
     { value: "lead-rating", label: "Low lead ratings", one: "low lead rating", many: "low lead ratings" },
+    { value: "delivery-dispute", label: "Delivery disputes", one: "delivery dispute", many: "delivery disputes" },
     { value: "stuck-withdrawal", label: "Stuck withdrawals", one: "stuck withdrawal", many: "stuck withdrawals" },
     { value: "contact-message", label: "Contact messages", one: "message from the website", many: "messages from the website" },
     { value: "payments", label: "Payments", one: "payment problem", many: "payment problems" },
@@ -63,6 +65,13 @@ export type SuperAdminAction =
     | { kind: "lead-rating"; id: string; at: string; rating: LeadRatingAction; job: AdminJob | undefined }
     | { kind: "stuck-withdrawal"; id: string; at: string; withdrawal: StuckWithdrawalAction }
     | { kind: "contact-message"; id: string; at: string; message: ContactMessage }
+    | {
+          kind: "delivery-dispute";
+          id: string;
+          at: string;
+          dispute: import("@/constant/points").DeliveryDisputeRecord;
+          job: AdminJob | undefined;
+      }
     | {
           kind: "payments";
           id: string;
@@ -131,6 +140,15 @@ export function toSuperAdminActions(
         ),
         ...contactMessages.map(
             (message): SuperAdminAction => ({ kind: "contact-message", id: `contact-${message.id}`, at: message.sentAt, message }),
+        ),
+        ...(pending.deliveryDisputes ?? []).map(
+            (dispute): SuperAdminAction => ({
+                kind: "delivery-dispute",
+                id: `dispute-${dispute.id}`,
+                at: dispute.submittedAt,
+                dispute,
+                job: getJob(dispute.jobId),
+            }),
         ),
     ];
 

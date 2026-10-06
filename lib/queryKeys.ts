@@ -41,6 +41,14 @@ export const queryKeys = {
     details: () => ["profile", "details"] as const,
   },
 
+  // Points & Ranks
+  points: {
+    all: ["points"] as const,
+    mySummary: () => [...queryKeys.points.all, "me"] as const,
+    myHistory: () => [...queryKeys.points.all, "history", "me"] as const,
+    userHistory: (userId: string) => [...queryKeys.points.all, "history", userId] as const,
+  },
+
   // Support Feedback
   support: {
     feedback: (filters?: Record<string, unknown>) => ["support", "feedback", filters] as const,

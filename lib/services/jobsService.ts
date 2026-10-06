@@ -239,7 +239,10 @@ export const jobsService = {
     return data;
   },
 
-  async signOffJob(jobId: string, payload: { rating: number; comment?: string }) {
+  async signOffJob(
+    jobId: string,
+    payload: { rating: number; comment?: string; clientProofs: Array<{ publicId?: string; name?: string; url?: string; kind?: "document" | "image" }> }
+  ) {
     const { data } = await api.post(`/jobs/${jobId}/sign-off`, payload);
     return data;
   },

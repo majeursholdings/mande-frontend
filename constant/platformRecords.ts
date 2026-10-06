@@ -56,6 +56,18 @@ export type ProjectLeadRecord = {
     joinedAt: string;
     /** Null when two-factor authentication is off. */
     twoFactorMethod: TwoFactorMethod | null;
+    /** Current gamification points. */
+    points?: number;
+    /** Current ranking tier id. */
+    rank?: string;
+    /** Active jobs count. */
+    activeJobsCount?: number;
+    /** Completed jobs count. */
+    completedJobsCount?: number;
+    /** Average rating out of 5. */
+    averageRating?: number | null;
+    /** Status of the admin account. */
+    status?: "active" | "deactivated" | "pending_verification";
 };
 
 const DYNAMIC_PROJECT_LEADS = new Map<string, ProjectLeadRecord>();
@@ -93,6 +105,12 @@ export function registerProjectLeads(
             position: lead.position || existing?.position || "quality-assurance-manager",
             joinedAt: lead.joinedAt ?? existing?.joinedAt ?? new Date().toISOString(),
             twoFactorMethod: lead.twoFactorMethod ?? existing?.twoFactorMethod ?? null,
+            points: (lead as { points?: number }).points ?? existing?.points ?? 0,
+            rank: (lead as { rank?: string }).rank ?? existing?.rank ?? "associate-lead",
+            activeJobsCount: (lead as { activeJobsCount?: number }).activeJobsCount ?? existing?.activeJobsCount ?? 0,
+            completedJobsCount: (lead as { completedJobsCount?: number }).completedJobsCount ?? existing?.completedJobsCount ?? 0,
+            averageRating: (lead as { averageRating?: number | null }).averageRating ?? existing?.averageRating ?? null,
+            status: (lead as { status?: "active" | "deactivated" | "pending_verification" }).status ?? existing?.status ?? "active",
         });
     }
 }
@@ -295,6 +313,10 @@ export type ManufacturerRecord = {
     appeals: AccountAppealRecord[];
     /** Waiting for a super admin. Null unless an admin has asked for it. */
     deletionRequest: DeletionRequestRecord | null;
+    /** Current gamification points. */
+    points?: number;
+    /** Current ranking tier id. */
+    rank?: string;
 };
 
 const DYNAMIC_MANUFACTURERS = new Map<string, ManufacturerRecord>();
@@ -606,6 +628,10 @@ export type JobRecord = {
     stepSubmissions: StepSubmission[];
     /** The latest photos of the finished furniture, submitted for review. */
     completionImageUrls: string[];
+    /** ISO date when workshop finished piece was approved for delivery. */
+    readyForDeliveryAt?: string | null;
+    /** Client delivery confirmation proofs uploaded by admin during sign-off. */
+    deliveryProofAttachments?: JobAttachmentRecord[];
     /** ISO date of the latest submission. Null until the first. */
     submittedForReviewAt: string | null;
     /** Oldest first — at most MAX_JOB_REJECTIONS. */

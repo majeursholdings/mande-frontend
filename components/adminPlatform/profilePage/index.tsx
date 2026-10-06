@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BadgeCheck, BriefcaseBusiness, Mail, Pencil, Phone, Settings, ShieldCheck, SlidersHorizontal, UserRoundPen } from "lucide-react";
+import { Award, BadgeCheck, BriefcaseBusiness, Mail, Pencil, Phone, Settings, ShieldCheck, SlidersHorizontal, UserRoundPen } from "lucide-react";
 import ProfileStatCard from "@/components/manufacturerPlatform/profilePage/profileStatCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -140,6 +140,16 @@ export default function AdminProfilePage() {
                                 title: "Security",
                                 description: "Password and two-factor authentication",
                             },
+                            ...(!permissions.managesPlatform
+                                ? [
+                                      {
+                                          href: "/admin/profile/points",
+                                          icon: Award,
+                                          title: "Points & standing",
+                                          description: "Your Lead rank tier, performance points and guide",
+                                      },
+                                  ]
+                                : []),
                             ...(permissions.managesPlatform
                                 ? [
                                       {

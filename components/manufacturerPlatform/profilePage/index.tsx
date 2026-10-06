@@ -19,6 +19,12 @@ import ProfileStatCard from "./profileStatCard";
 
 const PROFILE_LINKS: LinkListItem[] = [
     {
+        href: "/manufacturer/profile/points",
+        icon: UsersRound,
+        title: "Points & standing",
+        description: "Your Maker rank tier, point history and point guide",
+    },
+    {
         href: MANUFACTURER_COMMUNITY_URL,
         icon: UsersRound,
         title: "Our community",

@@ -10,7 +10,21 @@ import type { FormFieldConfig } from "@/components/form/types";
 import { Button } from "@/components/ui/button";
 import { getErrorMessage } from "@/lib/api";
 
-export type RatingReview = { rating: number; comment: string };
+import { API_PHOTO_ACCEPT, DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fileRules";
+import { cleanupFormFieldUploads, clearFormUploadedFiles } from "@/components/form/fileInput";
+import type { AdminJobAttachment } from "@/constant/admin";
+
+export type RatingReview = {
+    rating: number;
+    comment: string;
+    clientProofs?: AdminJobAttachment[];
+};
+
+type RatingReviewFormValues = {
+    rating: number;
+    comment: string;
+    clientProofs?: FileList | File[] | null;
+};
 
 const MAX_RATING = 5;
 const RATING_LABELS = ["Poor", "Fair", "Good", "Very good", "Excellent"];
@@ -29,6 +43,7 @@ export default function RatingReviewForm({
     submitLabel,
     loadingLabel,
     errorMessage,
+    withClientProof = false,
     onSubmit,
 }: {
     /** Over the stars, e.g. "Rate this manufacturer's work". */
@@ -39,10 +54,15 @@ export default function RatingReviewForm({
     loadingLabel: string;
     /** Shown if saving fails. */
     errorMessage: string;
+    /** Require uploading client delivery proof (signed waybill, handover photo). */
+    withClientProof?: boolean;
     onSubmit: (review: RatingReview) => void | Promise<void>;
 }) {
     const [isLoading, setIsLoading] = useState(false);
-    const methods = useForm<RatingReview>({ mode: "onTouched", defaultValues: { rating: 0, comment: "" } });
+    const methods = useForm<RatingReviewFormValues>({
+        mode: "onTouched",
+        defaultValues: { rating: 0, comment: "", clientProofs: null },
+    });
     const rating = useWatch({ control: methods.control, name: "rating" });
 
     const fields: FormFieldConfig[] = [
@@ -58,13 +78,60 @@ export default function RatingReviewForm({
                 maxLength: { value: REVIEW_MAX_LENGTH, message: `Keep it under ${REVIEW_MAX_LENGTH} characters` },
             },
         },
+        ...(withClientProof
+            ? [
+                  {
+                      name: "clientProofs",
+                      type: "image" as const,
+                      label: (
+                          <>
+                              Client delivery proof{" "}
+                              <span className="font-normal text-mist-500">(signed waybill, site handover photo)</span>
+                          </>
+                      ),
+                      description: `Photo or document confirming client received delivery: JPG, PNG or WebP, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB`,
+                      accept: API_PHOTO_ACCEPT,
+                      multiple: true,
+                      maxFiles: 5,
+                      uploadPurpose: "review-attachment" as const,
+                  },
+              ]
+            : []),
     ];
 
-    const handleSubmit = async ({ rating, comment }: RatingReview) => {
+    const handleSubmit = async ({ rating, comment, clientProofs }: RatingReviewFormValues) => {
         setIsLoading(true);
         try {
-            await onSubmit({ rating, comment: comment.trim() });
+            const proofs: AdminJobAttachment[] = Array.from((clientProofs as Array<Record<string, unknown> | File>) ?? []).map((file) => {
+                if (file && typeof file === "object" && "url" in file && typeof file.url === "string") {
+                    const f = file as { name?: string; originalName?: string; url: string; publicId?: string };
+                    return {
+                        name: f.originalName || f.name || "delivery-proof",
+                        url: f.url,
+                        kind: "image" as const,
+                        publicId: f.publicId,
+                    };
+                }
+                if (file instanceof File) {
+                    return { name: file.name, url: URL.createObjectURL(file), kind: "image" as const };
+                }
+                return { name: "delivery-proof", url: "", kind: "image" as const };
+            });
+
+            if (withClientProof && proofs.length === 0) {
+                toast.error("Please upload at least one delivery proof from the client (signed waybill or photo).");
+                setIsLoading(false);
+                return;
+            }
+
+            await onSubmit({ rating, comment: comment.trim(), clientProofs: proofs });
+            if (withClientProof) {
+                clearFormUploadedFiles("clientProofs");
+            }
         } catch (err: unknown) {
+            if (withClientProof) {
+                await Promise.allSettled([cleanupFormFieldUploads("clientProofs")]);
+            }
             const message = getErrorMessage(err, errorMessage);
             toast.error(message);
         } finally {
@@ -75,7 +142,7 @@ export default function RatingReviewForm({
     return (
         <div className="flex flex-col gap-6">
             <StarRatingInput control={methods.control} label={ratingLabel} />
-            <MainForm<RatingReview>
+            <MainForm<RatingReviewFormValues>
                 methods={methods}
                 fields={fields}
                 onSubmit={handleSubmit}
@@ -111,7 +178,7 @@ export default function RatingReviewForm({
 }
 
 /** Five big stars as a radio group — click one, or use the arrow keys. */
-function StarRatingInput({ control, label }: { control: Control<RatingReview>; label: ReactNode }) {
+function StarRatingInput({ control, label }: { control: Control<RatingReviewFormValues>; label: ReactNode }) {
     const { field } = useController({ control, name: "rating", rules: { min: 1 } });
     const [hovered, setHovered] = useState(0);
     const shown = hovered || field.value;

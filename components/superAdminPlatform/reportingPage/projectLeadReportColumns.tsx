@@ -1,5 +1,6 @@
 import { RatingStars, type ColumnDef } from "@/components/customTable";
 import UserAvatar from "@/components/ui/userAvatar";
+import RankBadge from "@/components/common/points/rankBadge";
 import type { ProjectLeadReportRow } from "./reportingStats";
 
 /**
@@ -26,6 +27,17 @@ export const PROJECT_LEAD_REPORT_COLUMNS: ColumnDef<ProjectLeadReportRow>[] = [
         header: "Jobs handled",
         className: "text-center",
         cell: (row) => <span className="text-mist-950 tabular-nums">{row.jobsHandled}</span>,
+    },
+    {
+        key: "rank",
+        header: "Rank",
+        cell: (row) => <RankBadge rankId={row.rank} role="admin" size="sm" />,
+    },
+    {
+        key: "points",
+        header: "Points",
+        className: "text-right font-mono tabular-nums",
+        cell: (row) => <span className="font-semibold text-mist-950">{row.points.toLocaleString()}</span>,
     },
     {
         key: "reviews",

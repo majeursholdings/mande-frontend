@@ -1,6 +1,5 @@
-import { ShieldUser } from "lucide-react";
-import ComingSoon from "@/components/ui/comingSoon";
+import SuperAdminProjectLeadsPage from "@/components/superAdminPlatform/projectLeadsPage";
 
-export default function SuperAdminProjectLeadsPage() {
-    return <ComingSoon icon={ShieldUser} title="Project Leads" />;
+export default function SuperAdminProjectLeadsRoute() {
+    return <SuperAdminProjectLeadsPage />;
 }

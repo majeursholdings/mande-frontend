@@ -191,6 +191,8 @@ export type PlatformSettings = {
     maxManufacturersPerJob: number;
     /** Whether new manufacturers can sign up. */
     manufacturerSignUpsOpen: boolean;
+    /** Points allocated for different events for manufacturers and admins. */
+    pointSettings?: import("@/constant/points").PointSettingsConfig;
 };
 
 /**

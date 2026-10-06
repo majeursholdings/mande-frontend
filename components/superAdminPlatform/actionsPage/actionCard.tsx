@@ -34,6 +34,7 @@ export type ActionHandlers = {
     onReject: (jobId: string) => void;
     onFollowUp: (jobId: string, manufacturerId: string) => void;
     onResolveContactMessage: (messageId: string) => void;
+    onResolveDispute?: (disputeId: string, decision: "upheld" | "dismissed") => void;
     /** Whether that message is being marked as dealt with right now. */
     isResolvingContactMessage: (messageId: string) => boolean;
 };
@@ -47,6 +48,7 @@ const ICONS: Record<SuperAdminAction["kind"], { icon: LucideIcon; className: str
     "account-deletion": { icon: Trash2, className: "bg-error-50 text-error-600", label: "Account closing" },
     "held-job": { icon: PauseCircle, className: "bg-warning-50 text-warning-700", label: "Low job rating" },
     "lead-rating": { icon: UserRoundX, className: "bg-indigo-50 text-indigo-600", label: "Low lead rating" },
+    "delivery-dispute": { icon: PauseCircle, className: "bg-amber-50 text-amber-700", label: "Delivery dispute" },
     "stuck-withdrawal": { icon: Landmark, className: "bg-warning-50 text-warning-700", label: "Stuck withdrawal" },
     "contact-message": { icon: Mail, className: "bg-primary-50 text-primary-700", label: "Contact message" },
     payments: { icon: CreditCard, className: "bg-error-50 text-error-600", label: "Payments" },
@@ -241,6 +243,45 @@ export default function ActionCard({ action, handlers, now }: { action: SuperAdm
                     >
                         {resolving && <Loader2 className="size-4 animate-spin" aria-hidden />}
                         Mark as dealt with
+                    </button>
+                </>
+            );
+            break;
+        }
+        case "delivery-dispute": {
+            const { dispute, job } = action;
+            title = `Delivery Dispute: ${dispute.jobTitle || job?.title || "Job " + dispute.jobId}`;
+            body = (
+                <>
+                    <p className="text-sm font-text text-mist-600">
+                        {dispute.submittedByRole === "admin" ? "Project Lead" : "Manufacturer"} <strong>{dispute.submittedByName}</strong> appeals
+                        the points deducted from the delivery rejection.
+                    </p>
+                    <blockquote className="rounded-lg bg-mist-50 px-4 py-3 text-sm font-text whitespace-pre-line text-mist-800">
+                        {dispute.reason}
+                    </blockquote>
+                </>
+            );
+            buttons = (
+                <>
+                    {job && (
+                        <Link href={jobLink(job.id, job.code)} className={SECONDARY}>
+                            View job
+                        </Link>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => handlers.onResolveDispute?.(dispute.id, "dismissed")}
+                        className={SECONDARY}
+                    >
+                        Dismiss appeal
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handlers.onResolveDispute?.(dispute.id, "upheld")}
+                        className={PRIMARY}
+                    >
+                        Uphold & restore points
                     </button>
                 </>
             );

@@ -71,7 +71,7 @@ type AdminJobsContextValue = {
      * manufacturer — or, rated under MIN_SIGN_OFF_RATING, holds it for a super
      * admin to review further instead.
      */
-    completeJob: (id: string, review: Pick<AdminManufacturerReview, "rating" | "comment">) => Promise<void>;
+    completeJob: (id: string, review: Pick<AdminManufacturerReview, "rating" | "comment"> & { clientProofs?: AdminJobAttachment[] }) => Promise<void>;
     /** Super admins: signs off work held for further review, keeping the lead's rating. */
     signOffHeldJob: (id: string) => Promise<void>;
     /** Approves the proof waiting for review on `step` — the next step opens and its payment is released. */
@@ -699,7 +699,7 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
             },
             completeJob: async (id, review) => {
                 const realId = resolveJobId(id);
-                await jobsService.signOffJob(realId, { rating: review.rating, comment: review.comment });
+                await jobsService.signOffJob(realId, { rating: review.rating, comment: review.comment, clientProofs: review.clientProofs ?? [] });
                 await refreshJobs();
                 patchJob(realId, (job) => {
                     if (job.status !== "in-review" || job.furtherReview) return job;
