@@ -1,16 +1,17 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { KeyRound, SlidersHorizontal, Tags, UsersRound } from "lucide-react";
+import { Globe, KeyRound, SlidersHorizontal, Tags, UsersRound } from "lucide-react";
 import SettingsTabs, { type SettingsTab } from "@/components/manufacturerPlatform/settingsTabs";
 import AdminPageHeader from "@/components/adminPlatform/pageHeader";
 import { useStaffPlatform } from "@/components/adminPlatform/dashboardLayout/staffPlatformContext";
 import ApiKeysTab from "./apiKeysTab";
+import CommunityTab from "./communityTab";
 import PlansTab from "./plansTab";
 import PlatformTab from "./platformTab";
 import SuperAdminsTab from "./superAdminsTab";
 
-type SettingsTabValue = "super-admins" | "plans" | "platform" | "api-keys";
+type SettingsTabValue = "super-admins" | "plans" | "platform" | "community" | "api-keys";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SuperAdminSettingsPage — running the platform, in the admin Settings'
@@ -31,6 +32,7 @@ export default function SuperAdminSettingsPage({ initialTab }: { initialTab?: st
         { value: "super-admins", label: "Super admins", shortLabel: "Admins", icon: UsersRound, panel: <SuperAdminsTab /> },
         { value: "plans", label: "Plans", icon: Tags, panel: <PlansTab /> },
         { value: "platform", label: "Platform", icon: SlidersHorizontal, panel: <PlatformTab /> },
+        { value: "community", label: "Community", icon: Globe, panel: <CommunityTab /> },
         ...(permissions.managesApiKeys
             ? [{ value: "api-keys" as const, label: "API keys", icon: KeyRound, panel: <ApiKeysTab /> }]
             : []),

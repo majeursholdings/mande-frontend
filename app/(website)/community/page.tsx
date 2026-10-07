@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/seo";
+import { getWebsiteCommunity } from "@/lib/services/websiteService";
 import CommunityPage from "@/components/mainWebsite/communityPage";
 
 export const metadata: Metadata = pageMetadata({
@@ -9,6 +10,9 @@ export const metadata: Metadata = pageMetadata({
     path: "/community",
 });
 
-export default function CommunityRoute() {
-    return <CommunityPage />;
+export const revalidate = 60;
+
+export default async function CommunityRoute() {
+    const data = await getWebsiteCommunity();
+    return <CommunityPage data={data} />;
 }

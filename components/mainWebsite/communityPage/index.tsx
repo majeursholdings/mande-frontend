@@ -3,8 +3,15 @@ import Link from "next/link";
 import {
     ChannelCard,
     FeaturedChannel,
+    TestimonialCard,
 } from "@/components/manufacturerPlatform/communityPage";
-import { COMMUNITY_CHANNELS, FEATURED_COMMUNITY_CHANNEL } from "@/constant/community";
+import {
+    COMMUNITY_CHANNELS,
+    COMMUNITY_TESTIMONIALS,
+    FEATURED_COMMUNITY_CHANNEL,
+    type CommunityChannel,
+    type CommunityTestimonial,
+} from "@/constant/community";
 import { SERVICES_URL } from "@/constant/navigation";
 import CtaBand from "../common/ctaBand";
 import PageHero from "../common/pageHero";
@@ -14,12 +21,23 @@ import { WEBSITE_PRIMARY_BUTTON } from "../common/buttonStyles";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Community — where makers on MANDE meet: the WhatsApp channel first (new
-// jobs are announced there), the other channels, and the Lagos factory,
-// where they meet in person. The same channels as the manufacturer
-// platform's community page.
+// jobs are announced there), the other channels, what makers say, and the
+// Lagos factory, where they meet in person.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function CommunityPage() {
+export interface CommunityPageProps {
+    data?: {
+        featuredChannel?: CommunityChannel;
+        channels?: CommunityChannel[];
+        testimonials?: CommunityTestimonial[];
+    } | null;
+}
+
+export default function CommunityPage({ data }: CommunityPageProps = {}) {
+    const featuredChannel = data?.featuredChannel ?? FEATURED_COMMUNITY_CHANNEL;
+    const channels = data?.channels && data.channels.length > 0 ? data.channels : COMMUNITY_CHANNELS;
+    const testimonials = data?.testimonials && data.testimonials.length > 0 ? data.testimonials : COMMUNITY_TESTIMONIALS;
+
     return (
         <>
             <PageHero
@@ -29,18 +47,36 @@ export default function CommunityPage() {
             />
 
             <SectionWrapper containerClassName="flex flex-col gap-10 md:gap-12">
-                <FeaturedChannel channel={FEATURED_COMMUNITY_CHANNEL} />
+                <FeaturedChannel channel={featuredChannel} />
 
                 <div className="flex flex-col gap-6">
                     <SectionHeading as="h2">Follow MANDE.</SectionHeading>
                     <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-                        {COMMUNITY_CHANNELS.map((channel) => (
+                        {channels.map((channel) => (
                             <li key={channel.platform}>
                                 <ChannelCard channel={channel} />
                             </li>
                         ))}
                     </ul>
                 </div>
+            </SectionWrapper>
+
+            <SectionWrapper className="bg-mist-200" containerClassName="flex flex-col gap-8 md:gap-12">
+                <div className="flex flex-col gap-2">
+                    <SectionHeading as="h2" className="max-w-175">
+                        What makers are saying.
+                    </SectionHeading>
+                    <p className="text-base font-light text-mist-700">
+                        Real experiences and reviews from makers on MANDE and our social channels.
+                    </p>
+                </div>
+                <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+                    {testimonials.map((testimonial) => (
+                        <li key={testimonial.id}>
+                            <TestimonialCard testimonial={testimonial} />
+                        </li>
+                    ))}
+                </ul>
             </SectionWrapper>
 
             <SectionWrapper containerClassName="flex flex-col gap-8 md:flex-row md:items-center md:gap-12">

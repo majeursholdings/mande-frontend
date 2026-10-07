@@ -193,6 +193,24 @@ export type PlatformSettings = {
     manufacturerSignUpsOpen: boolean;
     /** Points allocated for different events for manufacturers and admins. */
     pointSettings?: import("@/constant/points").PointSettingsConfig;
+    /** Social channels config for the community pages. */
+    communityChannels?: import("@/constant/community").CommunityChannel[];
+};
+
+export type CandidateJobReview = {
+    jobId: string;
+    jobTitle: string;
+    rating: number;
+    quote: string;
+    authorName: string;
+    business: string;
+    createdAt: string;
+};
+
+export type AdminCommunityData = {
+    channels: import("@/constant/community").CommunityChannel[];
+    testimonials: (import("@/constant/community").CommunityTestimonial & { order?: number; isActive?: boolean; jobId?: string | null })[];
+    candidateReviews: CandidateJobReview[];
 };
 
 /**

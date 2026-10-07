@@ -225,4 +225,53 @@ export const superAdminService = {
       headers: { "X-Reauth-Token": reauthToken },
     });
   },
+
+  // ── Community Management ──────────────────────────────────────────
+
+  async getCommunityData(): Promise<import("@/constant/superAdmin").AdminCommunityData> {
+    const { data } = await api.get<import("@/constant/superAdmin").AdminCommunityData>("/settings/community");
+    return data;
+  },
+
+  async updateCommunityChannels(
+    channels: import("@/constant/community").CommunityChannel[]
+  ): Promise<import("@/constant/superAdmin").AdminCommunityData> {
+    const { data } = await api.patch<import("@/constant/superAdmin").AdminCommunityData>(
+      "/settings/community/channels",
+      { channels }
+    );
+    return data;
+  },
+
+  async syncFollowerCounts(): Promise<import("@/constant/superAdmin").AdminCommunityData> {
+    const { data } = await api.post<import("@/constant/superAdmin").AdminCommunityData>("/settings/community/sync");
+    return data;
+  },
+
+  async fetchTweetOEmbed(url: string): Promise<{ authorName: string; quote: string; sourceUrl: string }> {
+    const { data } = await api.post<{ authorName: string; quote: string; sourceUrl: string }>(
+      "/settings/community/oembed",
+      { url }
+    );
+    return data;
+  },
+
+  async createTestimonial(testimonial: Partial<import("@/constant/community").CommunityTestimonial>): Promise<void> {
+    await api.post("/settings/community/testimonials", testimonial);
+  },
+
+  async updateTestimonial(
+    id: string,
+    changes: Partial<import("@/constant/community").CommunityTestimonial & { order?: number; isActive?: boolean }>
+  ): Promise<void> {
+    await api.patch(`/settings/community/testimonials/${id}`, changes);
+  },
+
+  async deleteTestimonial(id: string): Promise<void> {
+    await api.delete(`/settings/community/testimonials/${id}`);
+  },
+
+  async promoteJobReview(jobId: string): Promise<void> {
+    await api.post("/settings/community/testimonials/promote-job", { jobId });
+  },
 };

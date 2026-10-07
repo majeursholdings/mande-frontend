@@ -3,6 +3,8 @@ import {
     FacebookGlyphIcon,
     InstagramIcon,
     LinkedInIcon,
+    MandeBadgeIcon,
+    TelegramIcon,
     TikTokIcon,
     WhatsAppIcon,
     XIcon,
@@ -63,5 +65,17 @@ export const PLATFORMS: Record<
         Icon: FacebookGlyphIcon,
         badgeClass: "bg-[#1877F2]",
         accentClass: "text-[#1877F2]",
+    },
+    telegram: {
+        name: "Telegram",
+        Icon: TelegramIcon,
+        badgeClass: "bg-[#229ED9]",
+        accentClass: "text-[#229ED9]",
+    },
+    mande: {
+        name: "Mande Review",
+        Icon: MandeBadgeIcon,
+        badgeClass: "bg-[#075E54]",
+        accentClass: "text-[#075E54]",
     },
 };

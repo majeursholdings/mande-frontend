@@ -121,3 +121,29 @@ export function FacebookGlyphIcon({ className }: SocialIconProps) {
         </svg>
     );
 }
+
+export function TelegramIcon({ className }: SocialIconProps) {
+    return (
+        <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+            <path
+                d="m21.6 3.6-3.3 16.5c-.2 1.1-.9 1.4-1.8.9l-5.1-3.8-2.5 2.4c-.3.3-.5.5-1 .5l.4-5.2 9.5-8.6c.4-.4-.1-.6-.6-.2l-11.7 7.4-5-1.6c-1.1-.3-1.1-1.1.2-1.6l19.5-7.5c.9-.3 1.7.3 1.4 1.2z"
+                fill="currentColor"
+            />
+        </svg>
+    );
+}
+
+export function MandeBadgeIcon({ className }: SocialIconProps) {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+            <rect width="24" height="24" rx="6" fill="currentColor" />
+            <path
+                d="M7 12.5L10.5 16L17 8.5"
+                stroke="white"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}

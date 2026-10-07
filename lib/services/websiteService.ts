@@ -122,3 +122,15 @@ export async function getWebsiteOpenJob(jobId: string): Promise<WebsiteJob | nul
 export async function getWebsitePlans(): Promise<WebsitePlans | null> {
     return getJson<WebsitePlans>("/plans");
 }
+
+export type WebsiteCommunityData = {
+    featuredChannel: import("@/constant/community").CommunityChannel;
+    channels: import("@/constant/community").CommunityChannel[];
+    allChannels: import("@/constant/community").CommunityChannel[];
+    testimonials: import("@/constant/community").CommunityTestimonial[];
+};
+
+/** Community channels and testimonials for public pages. */
+export async function getWebsiteCommunity(): Promise<WebsiteCommunityData | null> {
+    return getJson<WebsiteCommunityData>("/community");
+}
