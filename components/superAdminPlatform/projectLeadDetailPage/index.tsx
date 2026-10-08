@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Mail, Phone, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Mail, Phone, ShieldCheck, UserX } from "lucide-react";
 import { staffService } from "@/lib/services/staffService";
 import { ADMIN_POSITION_OPTIONS } from "@/constant/admin";
 import { getOptionLabel } from "@/constant/manufacturer";
@@ -18,6 +18,9 @@ import PointsHistoryList from "@/components/common/points/pointsHistoryList";
 import PointsGuideModal from "@/components/common/points/pointsGuideModal";
 import { usePointsHistory } from "@/hooks/usePoints";
 import { formatOrdinalDate } from "@/lib/date";
+import { StatusBadge } from "@/components/customTable";
+import LeadAccountActions from "./leadAccountActions";
+import { getLeadStatus } from "./leadAccount";
 
 type LeadTab = "jobs" | "points" | "info";
 
@@ -38,12 +41,12 @@ export default function ProjectLeadDetailPage({ leadId }: { leadId: string }) {
     useEffect(() => {
         if (canonicalId && canonicalId !== leadId) router.replace(`/super-admin/project-leads/${encodeURIComponent(canonicalId)}`);
     }, [canonicalId, leadId, router]);
-    const { entries, isLoading: isPointsLoading } = usePointsHistory(leadId);
+    const history = usePointsHistory(leadId);
 
     const points = lead?.points ?? 0;
     const rank = lead?.rank ?? "associate-lead";
     const progression = useMemo(
-        () => getRankProgression("admin", points, lead?.completedJobsCount ?? 0, lead?.averageRating ?? 5.0),
+        () => getRankProgression("admin", points, lead?.completedJobsCount ?? 0, lead?.averageRating ?? null),
         [points, lead?.completedJobsCount, lead?.averageRating],
     );
 
@@ -74,6 +77,8 @@ export default function ProjectLeadDetailPage({ leadId }: { leadId: string }) {
     }
 
     const activeJobs = lead.activeJobs ?? [];
+    const accountStatus = getLeadStatus(lead.status);
+    const isDeactivated = lead.status === "deactivated";
 
     return (
         <div className="flex flex-col gap-6">
@@ -95,10 +100,33 @@ export default function ProjectLeadDetailPage({ leadId }: { leadId: string }) {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                    {lead.status !== "active" && <StatusBadge label={accountStatus.label} tone={accountStatus.tone} variant="pill" />}
                     <RankBadge rankId={rank} role="admin" size="md" />
+                    <LeadAccountActions
+                        pageLeadId={leadId}
+                        lead={{
+                            id: lead.id,
+                            name: lead.name,
+                            firstName: lead.firstName ?? "",
+                            lastName: lead.lastName ?? "",
+                            phone: lead.phone ?? null,
+                            position: lead.position ?? null,
+                            status: lead.status ?? "active",
+                        }}
+                    />
                 </div>
             </div>
+
+            {isDeactivated && (
+                <div role="status" className="flex gap-3 rounded-xl border border-error-100 bg-error-50 px-4 py-3">
+                    <UserX className="mt-0.5 size-4 shrink-0 text-error-600" strokeWidth={1.75} aria-hidden />
+                    <p className="text-sm font-text text-error-700">
+                        <span className="font-medium">This account is deactivated.</span> {lead.name} can&apos;t log in
+                        or be added to jobs. Reactivate the account to let them back in.
+                    </p>
+                </div>
+            )}
 
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
                 {/* Left Card: Summary Profile */}
@@ -142,7 +170,7 @@ export default function ProjectLeadDetailPage({ leadId }: { leadId: string }) {
                         <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
                             <span className="text-[10px] uppercase font-bold text-mist-400 block">Avg Rating</span>
                             <span className="text-base font-bold text-mist-900 tabular-nums">
-                                {lead.averageRating ? `${lead.averageRating.toFixed(1)}★` : "—"}
+                                {lead.averageRating ? `${lead.averageRating.toFixed(1)}★` : "None"}
                             </span>
                         </div>
                     </div>
@@ -210,7 +238,14 @@ export default function ProjectLeadDetailPage({ leadId }: { leadId: string }) {
                                             <h3 className="text-sm font-semibold font-text text-mist-900">
                                                 Point Activity Log
                                             </h3>
-                                            <PointsHistoryList entries={entries} loading={isPointsLoading} />
+                                            <PointsHistoryList
+                                                entries={history.entries}
+                                                loading={history.isLoading}
+                                                error={history.isError}
+                                                hasMore={history.hasMore}
+                                                onLoadMore={history.loadMore}
+                                                loadingMore={history.isLoadingMore}
+                                            />
                                         </div>
                                     </div>
                                 ),
@@ -235,8 +270,8 @@ export default function ProjectLeadDetailPage({ leadId }: { leadId: string }) {
                                             </div>
                                             <div>
                                                 <span className="text-mist-400 block text-[11px]">Account Status</span>
-                                                <span className="font-medium text-emerald-700 capitalize">
-                                                    {lead.status ?? "active"}
+                                                <span className="block pt-0.5">
+                                                    <StatusBadge label={accountStatus.label} tone={accountStatus.tone} />
                                                 </span>
                                             </div>
                                         </div>
