@@ -67,11 +67,15 @@ export type {
     AdminTimelineExtension,
 };
 
-/** The roles an admin can sign up with. */
+/**
+ * The roles an admin can sign up with: the backend's ADMIN_POSITIONS. An
+ * account saved before these changed may still hold an old value until the
+ * backend's migrate-admin-positions has run; getOptionLabel shows it as is.
+ */
 export const ADMIN_POSITION_OPTIONS: SelectOption[] = [
+    { label: "Support", value: "support" },
+    { label: "Project Lead", value: "project-lead" },
     { label: "Inventory Manager", value: "inventory-manager" },
-    { label: "Quality Assurance Manager", value: "quality-assurance-manager" },
-    { label: "Furniture Surveyor", value: "furniture-surveyor" },
 ];
 
 /** Admin accounts are for Mande staff only — sign-up takes emails on this domain. */
@@ -117,8 +121,20 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
 
 // ─── Profile ──────────────────────────────────────────────────────────────────
 
-/** What an admin can be notified about. */
-export type AdminNotificationType = "applications" | "reviews" | "delays" | "job-responses" | "appeals" | "chats";
+/**
+ * What an admin can be notified about: the API's STAFF_NOTIFICATION_TYPES.
+ * Security notices (like the suggestion to turn two-factor on) aren't here:
+ * they always arrive.
+ */
+export type AdminNotificationType =
+    | "applications"
+    | "reviews"
+    | "delays"
+    | "job-responses"
+    | "appeals"
+    | "disputes"
+    | "accounts"
+    | "points";
 
 export const ADMIN_NOTIFICATION_TYPES: { value: AdminNotificationType; label: string; description: string }[] = [
     {
@@ -146,7 +162,21 @@ export const ADMIN_NOTIFICATION_TYPES: { value: AdminNotificationType; label: st
         label: "Appeals",
         description: "A suspended manufacturer asks for the suspension to be lifted",
     },
-    { value: "chats", label: "Chats", description: "A manufacturer sends you a chat" },
+    {
+        value: "disputes",
+        label: "Delivery disputes",
+        description: "A dispute about a rejected delivery is decided",
+    },
+    {
+        value: "accounts",
+        label: "Manufacturer accounts",
+        description: "A super admin answers your request to close a manufacturer's account",
+    },
+    {
+        value: "points",
+        label: "Points and rank",
+        description: "You reach a points milestone or a new rank",
+    },
 ];
 
 /**
@@ -198,14 +228,16 @@ export const BLANK_ADMIN_PROFILE: AdminProfile = {
     avatarUrl: null,
     joinedAt: "",
     security: { twoFactorMethod: null },
-    // Everything in the app, and by email too but for chats, which they'd rather read in the app
+    // Everything in the app and by email, as the API starts every kind
     notificationPreferences: {
         applications: channelsOn(["in-app", "email"]),
         reviews: channelsOn(["in-app", "email"]),
         delays: channelsOn(["in-app", "email"]),
         "job-responses": channelsOn(["in-app", "email"]),
         appeals: channelsOn(["in-app", "email"]),
-        chats: channelsOn(["in-app"]),
+        disputes: channelsOn(["in-app", "email"]),
+        accounts: channelsOn(["in-app", "email"]),
+        points: channelsOn(["in-app", "email"]),
     },
 };
 

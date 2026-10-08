@@ -199,12 +199,22 @@ export interface RankProgression {
     progressPercent: number;
 }
 
-/** Determines a user's current rank and progression towards the next rank */
+/** A rank's rating requirement is met only by a real average; no ratings yet meets only "no requirement". */
+function meetsRating(averageRating: number | null, minAverageRating: number): boolean {
+    if (minAverageRating <= 0) return true;
+    return averageRating !== null && averageRating >= minAverageRating;
+}
+
+/**
+ * Determines a user's current rank and progression towards the next rank.
+ * `averageRating` is null when nobody has rated them yet: that never meets a
+ * rank's rating requirement (only ranks that ask for no rating are reachable).
+ */
 export function getRankProgression(
     role: "manufacturer" | "admin",
     points: number,
     completedJobs = 0,
-    averageRating = 5.0,
+    averageRating: number | null = null,
 ): RankProgression {
     const ladder = role === "manufacturer" ? MANUFACTURER_RANKS : ADMIN_RANKS;
     let current = ladder[0]!;
@@ -213,7 +223,7 @@ export function getRankProgression(
         if (
             points >= rank.minPoints &&
             completedJobs >= rank.minCompletedJobs &&
-            averageRating >= rank.minAverageRating
+            meetsRating(averageRating, rank.minAverageRating)
         ) {
             current = rank;
         }
@@ -230,7 +240,7 @@ export function getRankProgression(
     if (nextRank) {
         pointsToNext = Math.max(0, nextRank.minPoints - points);
         completedJobsNeeded = Math.max(0, nextRank.minCompletedJobs - completedJobs);
-        ratingNeeded = Math.max(0, Number((nextRank.minAverageRating - averageRating).toFixed(1)));
+        ratingNeeded = Math.max(0, Number((nextRank.minAverageRating - (averageRating ?? 0)).toFixed(1)));
 
         const tierSpan = nextRank.minPoints - current.minPoints;
         const currentProgress = Math.max(0, points - current.minPoints);
@@ -260,6 +270,11 @@ export interface PointEntryRecord {
     jobCode?: string | null;
     jobTitle?: string | null;
     summary: string;
+    /**
+     * On a delivery rejection of their own: which rejection it was, until when
+     * it can be disputed (ISO), and their dispute's status (null before one).
+     */
+    dispute?: { rejectionId: string; deadline: string | null; status: "pending" | "upheld" | "dismissed" | null } | null;
     createdAt: string;
 }
 

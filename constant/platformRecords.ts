@@ -50,7 +50,7 @@ export type ProjectLeadRecord = {
     email: string;
     /** Asked for at sign-up; they can change it in Settings. */
     phone: string;
-    /** An ADMIN_POSITION_OPTIONS value, chosen at sign-up. */
+    /** An ADMIN_POSITION_OPTIONS value, chosen at sign-up ("" when the API sent none). */
     position: string;
     /** Null shows a generated avatar. */
     avatarUrl: string | null;
@@ -106,7 +106,7 @@ export function registerProjectLeads(
             email: (lead as { email?: string }).email ?? existing?.email ?? "",
             phone: lead.phone ?? existing?.phone ?? "",
             avatarUrl: lead.avatarUrl ?? existing?.avatarUrl ?? null,
-            position: lead.position || existing?.position || "quality-assurance-manager",
+            position: lead.position || existing?.position || "",
             joinedAt: lead.joinedAt ?? existing?.joinedAt ?? new Date().toISOString(),
             twoFactorMethod: lead.twoFactorMethod ?? existing?.twoFactorMethod ?? null,
             points: (lead as { points?: number }).points ?? existing?.points ?? 0,
@@ -321,6 +321,10 @@ export type ManufacturerRecord = {
     points?: number;
     /** Current ranking tier id. */
     rank?: string;
+    /** From the list endpoint, which doesn't carry the documents: their overall verification. */
+    verification?: VerificationStatus;
+    /** From the list endpoint, which doesn't carry the appeals: one is waiting. */
+    hasPendingAppeal?: boolean;
 };
 
 const DYNAMIC_MANUFACTURERS = new Map<string, ManufacturerRecord>();

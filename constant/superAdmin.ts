@@ -148,8 +148,7 @@ export const BLANK_SUPER_ADMIN_PROFILE: AdminProfile = {
 
 /**
  * What a super admin can be notified about: the admin's kinds, across every
- * job rather than their own. No chats, as manufacturers chat with the job's
- * lead.
+ * job rather than their own (they have no points or rank).
  */
 export const SUPER_ADMIN_NOTIFICATION_TYPES: { value: AdminNotificationType; label: string; description: string }[] = [
     { value: "applications", label: "Job applications", description: "A manufacturer applies for a job" },
@@ -164,6 +163,12 @@ export const SUPER_ADMIN_NOTIFICATION_TYPES: { value: AdminNotificationType; lab
         value: "appeals",
         label: "Appeals",
         description: "A suspended manufacturer asks for the suspension to be lifted",
+    },
+    { value: "disputes", label: "Delivery disputes", description: "A lead or manufacturer disputes a rejected delivery" },
+    {
+        value: "accounts",
+        label: "Manufacturer accounts",
+        description: "An admin asks for a manufacturer's account to be closed",
     },
 ];
 

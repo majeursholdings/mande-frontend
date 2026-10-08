@@ -108,6 +108,8 @@ export const MANUFACTURER_SECURITY_URL = "/manufacturer/profile/security";
 export const MANUFACTURER_COMMUNITY_URL = "/manufacturer/profile/community";
 export const MANUFACTURER_LEGAL_URL = "/manufacturer/profile/legal";
 export const MANUFACTURER_SUPPORT_URL = "/manufacturer/profile/support";
+/** Every notification, newest first: the bell shows only the newest few. */
+export const MANUFACTURER_NOTIFICATIONS_URL = "/manufacturer/profile/notifications";
 
 export type ManufacturerNavItem = {
     label: string;
@@ -148,6 +150,7 @@ const SUBPAGE_BACK_LINKS: { path: string; matchChildren?: boolean; link: Manufac
     { path: MANUFACTURER_COMMUNITY_URL, link: MANUFACTURER_PROFILE_BACK_LINK },
     { path: MANUFACTURER_LEGAL_URL, link: MANUFACTURER_PROFILE_BACK_LINK },
     { path: MANUFACTURER_SUPPORT_URL, link: MANUFACTURER_PROFILE_BACK_LINK },
+    { path: MANUFACTURER_NOTIFICATIONS_URL, link: MANUFACTURER_PROFILE_BACK_LINK },
 ];
 
 /**
@@ -161,14 +164,6 @@ export function getSubpageBackLink(pathname: string): ManufacturerBackLink | nul
     );
     return match?.link ?? null;
 }
-
-export type DashboardStat = {
-    id: string;
-    label: string;
-    value: string;
-    subtext?: string;
-    icon: "jobs" | "amount" | "delivery" | "quality";
-};
 
 export type JobStatus =
     | "pending"
