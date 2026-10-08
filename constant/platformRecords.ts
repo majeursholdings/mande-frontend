@@ -39,6 +39,8 @@ import type { SuperAdminRole } from "@/constant/superAdmin";
 /** An admin — every admin can lead jobs. */
 export type ProjectLeadRecord = {
     id: string;
+    /** The readable, unique id ("Ashley-Cole-1790835609603") their profile URL uses. */
+    userId?: string | null;
     /** Set at sign-up — only a super admin can change it, as with the email. */
     firstName: string;
     lastName: string;
@@ -75,6 +77,7 @@ const DYNAMIC_PROJECT_LEADS = new Map<string, ProjectLeadRecord>();
 export function registerProjectLeads(
     leads: Array<{
         id: string;
+        userId?: string | null;
         name?: string;
         firstName?: string;
         lastName?: string;
@@ -96,6 +99,7 @@ export function registerProjectLeads(
 
         DYNAMIC_PROJECT_LEADS.set(lead.id, {
             id: lead.id,
+            userId: lead.userId ?? existing?.userId ?? null,
             firstName,
             lastName,
             name: fullName,

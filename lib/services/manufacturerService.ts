@@ -151,12 +151,12 @@ export const manufacturerService = {
   },
 
   async getStaffManufacturer(manufacturerId: string) {
-    const { data } = await api.get(`/manufacturers/${manufacturerId}`);
+    const { data } = await api.get(`/manufacturers/${encodeURIComponent(manufacturerId)}`);
     return data;
   },
 
   async getManufacturerActivity(manufacturerId: string, params?: { limit?: number; before?: string }) {
-    const { data } = await api.get(`/manufacturers/${manufacturerId}/activity`, { params });
+    const { data } = await api.get(`/manufacturers/${encodeURIComponent(manufacturerId)}/activity`, { params });
     return data;
   },
 
@@ -165,7 +165,7 @@ export const manufacturerService = {
     status: "active" | "flagged" | "suspended",
     reason?: string | null
   ) {
-    const { data } = await api.post(`/manufacturers/${manufacturerId}/status`, {
+    const { data } = await api.post(`/manufacturers/${encodeURIComponent(manufacturerId)}/status`, {
       status,
       ...(reason != null ? { reason } : {}),
     });
@@ -179,7 +179,7 @@ export const manufacturerService = {
     response?: string | null
   ) {
     const { data } = await api.post(
-      `/manufacturers/${manufacturerId}/appeals/${appealId}/decision`,
+      `/manufacturers/${encodeURIComponent(manufacturerId)}/appeals/${appealId}/decision`,
       {
         decision,
         ...(response != null ? { response } : {}),
@@ -189,17 +189,17 @@ export const manufacturerService = {
   },
 
   async requestDeletion(manufacturerId: string, payload: StaffDeletionRequestPayload) {
-    const { data } = await api.post(`/manufacturers/${manufacturerId}/deletion-request`, payload);
+    const { data } = await api.post(`/manufacturers/${encodeURIComponent(manufacturerId)}/deletion-request`, payload);
     return data;
   },
 
   async declineDeletionRequest(manufacturerId: string) {
-    const { data } = await api.delete(`/manufacturers/${manufacturerId}/deletion-request`);
+    const { data } = await api.delete(`/manufacturers/${encodeURIComponent(manufacturerId)}/deletion-request`);
     return data;
   },
 
   async getDeactivationWarnings(manufacturerId: string) {
-    const { data } = await api.get(`/manufacturers/${manufacturerId}/deactivation-warnings`);
+    const { data } = await api.get(`/manufacturers/${encodeURIComponent(manufacturerId)}/deactivation-warnings`);
     return data;
   },
 
@@ -210,7 +210,7 @@ export const manufacturerService = {
   ) {
     const headers: Record<string, string> = {};
     if (reauthToken) headers["X-Reauth-Token"] = reauthToken;
-    const { data } = await api.post(`/manufacturers/${manufacturerId}/deactivate`, payload, {
+    const { data } = await api.post(`/manufacturers/${encodeURIComponent(manufacturerId)}/deactivate`, payload, {
       headers,
     });
     return data;
@@ -224,7 +224,7 @@ export const manufacturerService = {
     const headers: Record<string, string> = {};
     if (reauthToken) headers["X-Reauth-Token"] = reauthToken;
     const { data } = await api.post(
-      `/manufacturers/${manufacturerId}/reactivate`,
+      `/manufacturers/${encodeURIComponent(manufacturerId)}/reactivate`,
       { reason },
       { headers }
     );
@@ -234,7 +234,7 @@ export const manufacturerService = {
   // ── Staff & Admin: KYC Document Verification Decisions ──────────────
 
   async getStaffManufacturerKyc(manufacturerId: string) {
-    const { data } = await api.get(`/manufacturers/${manufacturerId}/kyc`);
+    const { data } = await api.get(`/manufacturers/${encodeURIComponent(manufacturerId)}/kyc`);
     return data;
   },
 
@@ -245,7 +245,7 @@ export const manufacturerService = {
     reason?: string | null
   ) {
     const { data } = await api.post(
-      `/manufacturers/${manufacturerId}/kyc/${document}/decision`,
+      `/manufacturers/${encodeURIComponent(manufacturerId)}/kyc/${document}/decision`,
       {
         decision,
         ...(reason != null ? { reason } : {}),

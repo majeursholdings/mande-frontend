@@ -11,3 +11,15 @@ export function maskEmail(email: string): string {
   if (at < 1) return email
   return `${email[0]}***${email.slice(at)}`
 }
+
+/**
+ * A route param as typed: profile URLs use the readable userId
+ * ("Ashley-Cole-1790835609603"), which may arrive still URL-encoded.
+ */
+export function decodeRouteParam(value: string): string {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}

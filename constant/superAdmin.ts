@@ -52,7 +52,7 @@ export const SUPER_ADMIN_SECURITY_URL = "/super-admin/profile/security";
 export const SUPER_ADMIN_SETTINGS_URL = "/super-admin/settings";
 
 export const getSuperAdminManufacturerUrl = (manufacturerId: string) =>
-    `${SUPER_ADMIN_MANUFACTURERS_URL}/${manufacturerId}`;
+    `${SUPER_ADMIN_MANUFACTURERS_URL}/${encodeURIComponent(manufacturerId)}`;
 
 export const SUPER_ADMIN_NAV_ITEMS: AdminNavItem[] = [
     { label: "Dashboard", href: SUPER_ADMIN_DASHBOARD_URL, icon: LayoutGrid, inBottomBar: true },

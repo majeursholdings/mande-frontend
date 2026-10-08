@@ -38,7 +38,7 @@ const TABLE_ID = "manufacturers";
 
 type ManufacturerRow = Pick<
     ManufacturerRecord,
-    "id" | "email" | "avatarUrl" | "companyName" | "specialities" | "accountStatus" | "deletionRequest"
+    "id" | "userId" | "email" | "avatarUrl" | "companyName" | "specialities" | "accountStatus" | "deletionRequest"
 > & {
     hasPendingAppeal: boolean;
     fullName: string;
@@ -104,6 +104,7 @@ export default function AdminManufacturersPage() {
         const verification = getManufacturerVerification(manufacturer);
         return {
             id: manufacturer.id,
+            userId: manufacturer.userId ?? null,
             fullName: manufacturer.contactName,
             email: manufacturer.email,
             avatarUrl: manufacturer.avatarUrl,
@@ -147,7 +148,7 @@ export default function AdminManufacturersPage() {
                     <span className="flex min-w-0 flex-col">
                         <span className="flex items-center gap-2">
                             <Link
-                                href={getManufacturerUrl(row.id)}
+                                href={getManufacturerUrl(row.userId ?? row.id)}
                                 // The row opens it too; this is for keyboards
                                 onClick={(event) => event.stopPropagation()}
                                 className="font-medium text-mist-950 outline-none hover:underline focus-visible:underline"
@@ -224,7 +225,7 @@ export default function AdminManufacturersPage() {
                 pagination={pagination}
                 error={isError && manufacturers.length === 0 ? "We couldn't load the manufacturers. Please refresh the page." : undefined}
                 emptyMessage="No manufacturers match your search."
-                onRowClick={(row) => router.push(getManufacturerUrl(row.id))}
+                onRowClick={(row) => router.push(getManufacturerUrl(row.userId ?? row.id))}
                 rowActions={actions.map((action): RowAction<ManufacturerRow> => ({
                     label: action.label,
                     icon: <action.icon className="size-3.5" aria-hidden />,

@@ -87,7 +87,7 @@ export const ADMIN_PROFILE_URL = "/admin/profile";
 export const ADMIN_SETTINGS_URL = "/admin/profile/settings";
 export const ADMIN_SECURITY_URL = "/admin/profile/security";
 
-export const getAdminManufacturerUrl = (manufacturerId: string) => `${ADMIN_MANUFACTURERS_URL}/${manufacturerId}`;
+export const getAdminManufacturerUrl = (manufacturerId: string) => `${ADMIN_MANUFACTURERS_URL}/${encodeURIComponent(manufacturerId)}`;
 
 export type AdminNavItem = {
     label: string;

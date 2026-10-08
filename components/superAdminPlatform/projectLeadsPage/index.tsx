@@ -85,7 +85,7 @@ export default function SuperAdminProjectLeadsPage() {
                     <UserAvatar name={row.name} src={row.avatarUrl} className="size-8 text-xs" />
                     <span className="flex min-w-0 flex-col">
                         <Link
-                            href={`/super-admin/project-leads/${row.id}`}
+                            href={`/super-admin/project-leads/${encodeURIComponent(row.userId ?? row.id)}`}
                             onClick={(e) => e.stopPropagation()}
                             className="font-medium text-mist-950 hover:underline focus-visible:underline"
                         >
@@ -150,7 +150,7 @@ export default function SuperAdminProjectLeadsPage() {
                 pagination={pagination}
                 error={isError && leads.length === 0 ? "Failed to load project leads. Please refresh." : undefined}
                 emptyMessage="No project leads match your search."
-                onRowClick={(row) => router.push(`/super-admin/project-leads/${row.id}`)}
+                onRowClick={(row) => router.push(`/super-admin/project-leads/${encodeURIComponent(row.userId ?? row.id)}`)}
                 toolbar={
                     <TableToolbar
                         search={{ placeholder: "Search by name, email or phone" }}

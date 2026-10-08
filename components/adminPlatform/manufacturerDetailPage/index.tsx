@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -150,7 +150,7 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
     const router = useRouter();
     const { getManufacturer, isLoading: isContextLoading } = useAdminManufacturers();
     const { jobs: allJobs, isLoading: isJobsLoading, isError: isJobsError } = useAdminJobs();
-    const { jobsUrl, manufacturersUrl } = useStaffPlatform();
+    const { jobsUrl, manufacturersUrl, getManufacturerUrl } = useStaffPlatform();
     const [action, setAction] = useState<ManufacturerAction | null>(null);
     const [appealDecision, setAppealDecision] = useState<{
         appeal: AccountAppealRecord;
@@ -241,6 +241,12 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
         }
         return contextManufacturer;
     }, [detailData, contextManufacturer, manufacturerId, getManufacturer]);
+
+    // Profile URLs use the readable userId: a link by database id lands on it
+    const canonicalId = manufacturer?.userId;
+    useEffect(() => {
+        if (canonicalId && canonicalId !== manufacturerId) router.replace(getManufacturerUrl(canonicalId));
+    }, [canonicalId, manufacturerId, router, getManufacturerUrl]);
 
     const isInitialLoading = (isContextLoading || isDetailLoading) && !manufacturer;
 

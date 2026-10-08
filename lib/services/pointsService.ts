@@ -41,7 +41,7 @@ export const pointsService = {
 
     /** Staff view: get specific user's point history */
     async getUserHistory(userId: string, params?: { limit?: number; before?: string }): Promise<PointsHistoryResponse> {
-        const { data } = await api.get<PointsHistoryResponse>(`/points/users/${userId}/history`, { params });
+        const { data } = await api.get<PointsHistoryResponse>(`/points/users/${encodeURIComponent(userId)}/history`, { params });
         return data;
     },
 

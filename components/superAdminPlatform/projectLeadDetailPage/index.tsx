@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Mail, Phone, ShieldCheck } from "lucide-react";
 import { staffService } from "@/lib/services/staffService";
@@ -30,6 +31,13 @@ export default function ProjectLeadDetailPage({ leadId }: { leadId: string }) {
     });
 
     const lead = leadQuery.data?.projectLead;
+    const router = useRouter();
+
+    // Profile URLs use the readable userId: a link by database id lands on it
+    const canonicalId: string | null | undefined = lead?.userId;
+    useEffect(() => {
+        if (canonicalId && canonicalId !== leadId) router.replace(`/super-admin/project-leads/${encodeURIComponent(canonicalId)}`);
+    }, [canonicalId, leadId, router]);
     const { entries, isLoading: isPointsLoading } = usePointsHistory(leadId);
 
     const points = lead?.points ?? 0;
@@ -82,7 +90,7 @@ export default function ProjectLeadDetailPage({ leadId }: { leadId: string }) {
                         <h1 className="text-2xl font-semibold font-text text-mist-950">{lead.name}</h1>
                         <p className="text-xs text-mist-500 font-text">
                             {getOptionLabel(ADMIN_POSITION_OPTIONS, lead.position)} • Joined{" "}
-                            {formatOrdinalDate(lead.joinedAt)}
+                            {formatOrdinalDate(new Date(lead.joinedAt))}
                         </p>
                     </div>
                 </div>
@@ -158,7 +166,7 @@ export default function ProjectLeadDetailPage({ leadId }: { leadId: string }) {
                                                 </p>
                                             </div>
                                         ) : (
-                                            activeJobs.map((job: { id: string; code: string; title: string; status: string; dueDate: string }) => (
+                                            activeJobs.map((job: { id: string; code: string; title: string; status: string; dueDate: string | null }) => (
                                                 <div
                                                     key={job.id}
                                                     className="flex items-center justify-between p-4 rounded-xl border border-border bg-white hover:border-mist-300 transition-colors"
@@ -174,7 +182,7 @@ export default function ProjectLeadDetailPage({ leadId }: { leadId: string }) {
                                                             {job.title}
                                                         </Link>
                                                         <span className="text-[11px] text-mist-500 font-text">
-                                                            Due: {formatOrdinalDate(new Date(job.dueDate))}
+                                                            Due: {job.dueDate ? formatOrdinalDate(new Date(job.dueDate)) : "Not set"}
                                                         </span>
                                                     </div>
                                                     <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-mist-100 text-mist-700">

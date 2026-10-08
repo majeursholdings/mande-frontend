@@ -57,7 +57,7 @@ export const staffService = {
   },
 
   async getProjectLead(leadId: string) {
-    const { data } = await api.get(`/project-leads/${leadId}`);
+    const { data } = await api.get(`/project-leads/${encodeURIComponent(leadId)}`);
     return data;
   },
 
@@ -66,14 +66,14 @@ export const staffService = {
     payload: { firstName?: string; lastName?: string; phone?: string; position?: string },
     reauthToken: string
   ) {
-    const { data } = await api.patch(`/project-leads/${leadId}`, payload, {
+    const { data } = await api.patch(`/project-leads/${encodeURIComponent(leadId)}`, payload, {
       headers: { "X-Reauth-Token": reauthToken },
     });
     return data;
   },
 
   async getDeactivationWarnings(leadId: string) {
-    const { data } = await api.get(`/project-leads/${leadId}/deactivation-warnings`);
+    const { data } = await api.get(`/project-leads/${encodeURIComponent(leadId)}/deactivation-warnings`);
     return data;
   },
 
@@ -82,7 +82,7 @@ export const staffService = {
     payload: { reason: string; replacementLeadId?: string },
     reauthToken: string
   ) {
-    const { data } = await api.post(`/project-leads/${leadId}/deactivate`, payload, {
+    const { data } = await api.post(`/project-leads/${encodeURIComponent(leadId)}/deactivate`, payload, {
       headers: { "X-Reauth-Token": reauthToken },
     });
     return data;
@@ -90,7 +90,7 @@ export const staffService = {
 
   async reactivateProjectLead(leadId: string, reauthToken: string) {
     const { data } = await api.post(
-      `/project-leads/${leadId}/reactivate`,
+      `/project-leads/${encodeURIComponent(leadId)}/reactivate`,
       {},
       { headers: { "X-Reauth-Token": reauthToken } }
     );

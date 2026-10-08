@@ -265,7 +265,9 @@ export function AdminManufacturersProvider({ children }: { children: ReactNode }
             });
         };
 
-        const getManufacturer = (id: string) => manufacturers.find((manufacturer) => manufacturer.id === id);
+        // By database id, or the readable userId a profile URL uses
+        const getManufacturer = (id: string) =>
+            manufacturers.find((manufacturer) => manufacturer.id === id || manufacturer.userId === id);
 
         const hasJobUnderway = (id: string) => jobs.some((job) => isJobUnderwayFor(job, id));
 
