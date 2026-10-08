@@ -10,6 +10,7 @@ import PointsGuideModal from "@/components/common/points/pointsGuideModal";
 import DeliveryDisputeDialog from "@/components/common/points/deliveryDisputeDialog";
 import type { PointEntryRecord } from "@/constant/points";
 import { cn } from "@/lib/utils";
+import { LoadError } from "@/components/adminPlatform/emptyState";
 
 interface PointsProfilePageViewProps {
     role: "manufacturer" | "admin";
@@ -17,8 +18,8 @@ interface PointsProfilePageViewProps {
 }
 
 export default function PointsProfilePageView({ role, backUrl }: PointsProfilePageViewProps) {
-    const { summary, isLoading: isSummaryLoading } = useMyPoints();
-    const { entries, isLoading: isHistoryLoading } = usePointsHistory();
+    const { summary, isLoading: isSummaryLoading, isError: isSummaryError } = useMyPoints();
+    const history = usePointsHistory();
     const [guideOpen, setGuideOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<"history" | "guide">("history");
     const [disputeEntry, setDisputeEntry] = useState<PointEntryRecord | null>(null);
@@ -55,13 +56,17 @@ export default function PointsProfilePageView({ role, backUrl }: PointsProfilePa
                 </button>
             </div>
 
-            <PointsSummaryCard
-                points={points}
-                progression={progression}
-                role={role}
-                loading={isSummaryLoading}
-                onOpenGuide={() => setGuideOpen(true)}
-            />
+            {isSummaryError ? (
+                <LoadError message="We couldn't load your points. Please refresh the page." />
+            ) : (
+                <PointsSummaryCard
+                    points={points}
+                    progression={progression}
+                    role={role}
+                    loading={isSummaryLoading}
+                    onOpenGuide={() => setGuideOpen(true)}
+                />
+            )}
 
             <div className="flex flex-col gap-4">
                 <div className="flex items-center gap-2 border-b border-border">
@@ -95,8 +100,12 @@ export default function PointsProfilePageView({ role, backUrl }: PointsProfilePa
 
                 {activeTab === "history" ? (
                     <PointsHistoryList
-                        entries={entries}
-                        loading={isHistoryLoading}
+                        entries={history.entries}
+                        loading={history.isLoading}
+                        error={history.isError}
+                        hasMore={history.hasMore}
+                        onLoadMore={history.loadMore}
+                        loadingMore={history.isLoadingMore}
                         onDisputeClick={(entry) => setDisputeEntry(entry)}
                     />
                 ) : (
@@ -122,13 +131,16 @@ export default function PointsProfilePageView({ role, backUrl }: PointsProfilePa
                 role={role}
             />
 
-            {disputeEntry && (
+            {disputeEntry?.dispute && disputeEntry.jobId && (
                 <DeliveryDisputeDialog
-                    open={!!disputeEntry}
+                    open
                     onClose={() => setDisputeEntry(null)}
-                    jobId={disputeEntry.jobId ?? ""}
-                    jobTitle={disputeEntry.jobTitle ?? "Delivery Job"}
-                    rejectionId={disputeEntry.reference.replace(/^delivery-rejection:/, "")}
+                    jobId={disputeEntry.jobId}
+                    jobTitle={disputeEntry.jobTitle ?? "the job"}
+                    // From the API, never read out of the entry's reference
+                    rejectionId={disputeEntry.dispute.rejectionId}
+                    // The entry then shows its dispute as sent
+                    onSuccess={() => void history.refetch()}
                 />
             )}
         </div>
