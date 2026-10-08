@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { JOB_PAYMENT_SCHEDULE, type JobPaymentMilestone } from "@/constant/jobWorkflow";
 import type { PlatformSettings } from "@/constant/superAdmin";
 import ReauthSteps from "../reauthSteps";
+import { getErrorMessage } from "@/lib/api";
 
 type JobPaymentsValues = Record<JobPaymentMilestone | "bonusPercent" | "rejectionChargePercent", string>;
 
@@ -103,8 +104,8 @@ export default function JobPaymentsForm({
                     rejectionChargePercent: Number(submitted.rejectionChargePercent),
                 },
             });
-        } catch {
-            toast.error("Couldn't check the job payments. Please try again.");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't check the job payments. Please try again."));
         } finally {
             setIsLoading(false);
         }
@@ -116,8 +117,8 @@ export default function JobPaymentsForm({
             await onSave(pending.changes, reauthToken);
             methods.reset(pending.submitted);
             toast.success("Job payments saved. New jobs follow them");
-        } catch {
-            toast.error("Couldn't save the job payments. Please try again.");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't save the job payments. Please try again."));
         }
         setPending(null);
     };

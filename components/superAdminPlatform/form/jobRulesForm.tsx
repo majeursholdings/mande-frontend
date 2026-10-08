@@ -8,6 +8,7 @@ import FormFieldsSkeleton from "./formFieldsSkeleton";
 import type { FormFieldConfig } from "@/components/form/types";
 import { FormSubmitButton } from "@/components/adminPlatform/form/formButtons";
 import type { PlatformSettings } from "@/constant/superAdmin";
+import { getErrorMessage } from "@/lib/api";
 
 type JobRuleKey = "reviewWindowHours" | "faultReportDays" | "maxRejections" | "maxExtensionPercent" | "maxManufacturersPerJob";
 
@@ -87,8 +88,8 @@ export default function JobRulesForm({
             await onSave(Object.fromEntries(RULES.map(({ name }) => [name, Number(values[name])])) as Pick<PlatformSettings, JobRuleKey>);
             methods.reset(values);
             toast.success("Job rules saved");
-        } catch {
-            toast.error("Couldn't save the job rules. Please try again.");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't save the job rules. Please try again."));
         } finally {
             setIsLoading(false);
         }

@@ -7,6 +7,7 @@ import { FormField } from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { FormSubmitButton } from "@/components/adminPlatform/form/formButtons";
 import ResponsiveTabs from "@/components/ui/responsiveTabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import {
@@ -123,8 +124,10 @@ const toConfig = (role: Role, field: PointField<Role>): FormFieldConfig => ({
     description: field.description,
     min: -500,
     max: 500,
+    step: 1,
     validation: {
         required: "Enter points",
+        validate: (value: string) => Number.isInteger(Number(value)) || "Use a whole number",
         min: { value: -500, message: "At least -500" },
         max: { value: 500, message: "At most 500" },
     },
@@ -265,5 +268,24 @@ export default function PointAllocationForm({ initialSettings, onSave }: PointAl
                 </div>
             </form>
         </FormProvider>
+    );
+}
+
+/** Stands in for the form while the settings load: the tabs, then two groups of fields. */
+export function PointAllocationFormSkeleton() {
+    return (
+        <div className="flex flex-col gap-5" aria-busy="true">
+            <Skeleton className="h-10 w-64 rounded-lg" />
+            {[4, 5].map((count, group) => (
+                <div key={group} className="flex flex-col gap-4 rounded-xl border border-border p-4 sm:p-5">
+                    <Skeleton className="h-4 w-40" />
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        {Array.from({ length: count }, (_, index) => (
+                            <Skeleton key={index} className="h-10 rounded-lg" />
+                        ))}
+                    </div>
+                </div>
+            ))}
+        </div>
     );
 }

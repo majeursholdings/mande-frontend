@@ -7,6 +7,7 @@ import MainForm from "@/components/form";
 import FormFieldsSkeleton from "./formFieldsSkeleton";
 import type { FormFieldConfig } from "@/components/form/types";
 import { FormSubmitButton } from "@/components/adminPlatform/form/formButtons";
+import { getErrorMessage } from "@/lib/api";
 
 type PlanOfferValues = { discountPercent: string };
 
@@ -52,8 +53,8 @@ export default function PlanOfferForm({
             await onSave(percent);
             methods.reset({ discountPercent: String(percent) });
             toast.success(percent === 0 ? "The plan offer has ended" : `Every plan is now ${percent}% off`);
-        } catch {
-            toast.error("Couldn't save the offer. Please try again.");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't save the offer. Please try again."));
         } finally {
             setIsLoading(false);
         }
