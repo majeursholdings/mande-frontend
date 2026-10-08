@@ -8,7 +8,7 @@ import { useStaffPlatform } from "@/components/adminPlatform/dashboardLayout/sta
 import ApiKeysTab from "./apiKeysTab";
 import CommunityTab from "./communityTab";
 import PlansTab from "./plansTab";
-import PlatformTab from "./platformTab";
+import PlatformTab, { PLATFORM_SECTIONS, type PlatformSection } from "./platformTab";
 import SuperAdminsTab from "./superAdminsTab";
 
 type SettingsTabValue = "super-admins" | "plans" | "platform" | "community" | "api-keys";
@@ -19,6 +19,7 @@ type SettingsTabValue = "super-admins" | "plans" | "platform" | "community" | "a
 // rules every job follows, and the API keys for the platforms Mande connects
 // to (payments for now). API keys are only for owners and tech support, so
 // a manager doesn't get that tab (and ?tab=api-keys opens the first one).
+// Platform has a sub menu of its sections, opened with ?section=.
 // Their own details are under Profile › Edit profile.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -28,10 +29,20 @@ export default function SuperAdminSettingsPage({ initialTab }: { initialTab?: st
     const searchParams = useSearchParams();
     const { permissions } = useStaffPlatform();
 
+    const sectionParam = searchParams.get("section");
+    const platformSection: PlatformSection =
+        PLATFORM_SECTIONS.find((section) => section.value === sectionParam)?.value ?? PLATFORM_SECTIONS[0].value;
+
     const tabs: SettingsTab<SettingsTabValue>[] = [
         { value: "super-admins", label: "Super admins", shortLabel: "Admins", icon: UsersRound, panel: <SuperAdminsTab /> },
         { value: "plans", label: "Plans", icon: Tags, panel: <PlansTab /> },
-        { value: "platform", label: "Platform", icon: SlidersHorizontal, panel: <PlatformTab /> },
+        {
+            value: "platform",
+            label: "Platform",
+            icon: SlidersHorizontal,
+            panel: <PlatformTab section={platformSection} />,
+            subTabs: [...PLATFORM_SECTIONS],
+        },
         { value: "community", label: "Community", icon: Globe, panel: <CommunityTab /> },
         ...(permissions.managesApiKeys
             ? [{ value: "api-keys" as const, label: "API keys", icon: KeyRound, panel: <ApiKeysTab /> }]
@@ -45,9 +56,12 @@ export default function SuperAdminSettingsPage({ initialTab }: { initialTab?: st
           ? (initialTab as SettingsTabValue)
           : tabs[0].value;
 
-    const handleTabChange = (nextTab: SettingsTabValue) => {
+    const handleTabChange = (nextTab: SettingsTabValue, section?: string) => {
         const params = new URLSearchParams(searchParams.toString());
         params.set("tab", nextTab);
+        // Only a tab with a sub menu keeps a section
+        if (section) params.set("section", section);
+        else params.delete("section");
         router.push(`${pathname}?${params.toString()}`, { scroll: false });
     };
 
@@ -65,7 +79,9 @@ export default function SuperAdminSettingsPage({ initialTab }: { initialTab?: st
                 label="Settings sections"
                 tabs={tabs}
                 value={currentTab}
-                onValueChange={handleTabChange}
+                onValueChange={(nextTab) => handleTabChange(nextTab)}
+                subValue={currentTab === "platform" ? platformSection : undefined}
+                onSubValueChange={handleTabChange}
             />
         </div>
     );
