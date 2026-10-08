@@ -4,13 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
-import {
-    COMMUNITY_CHANNELS,
-    COMMUNITY_TESTIMONIALS,
-    FEATURED_COMMUNITY_CHANNEL,
-    type CommunityChannel,
-    type CommunityTestimonial,
-} from "@/constant/community";
+import type { CommunityChannel, CommunityTestimonial } from "@/constant/community";
+import { Skeleton } from "@/components/ui/skeleton";
+import { LoadError } from "@/components/adminPlatform/emptyState";
 import { MANUFACTURER_PROFILE_BACK_LINK } from "@/constant/manufacturer";
 import UserAvatar from "@/components/ui/userAvatar";
 import PageHeader from "../pageHeader";
@@ -23,7 +19,7 @@ type CommunityResponse = {
 };
 
 export default function ManufacturerCommunityPage() {
-    const { data } = useQuery<CommunityResponse>({
+    const { data, isPending, isError } = useQuery<CommunityResponse>({
         queryKey: ["community-public"],
         queryFn: async () => {
             const res = await api.get<CommunityResponse>("/community");
@@ -32,9 +28,10 @@ export default function ManufacturerCommunityPage() {
         staleTime: 60_000,
     });
 
-    const featuredChannel = data?.featuredChannel ?? FEATURED_COMMUNITY_CHANNEL;
-    const channels = data?.channels && data.channels.length > 0 ? data.channels : COMMUNITY_CHANNELS;
-    const testimonials = data?.testimonials && data.testimonials.length > 0 ? data.testimonials : COMMUNITY_TESTIMONIALS;
+    // Only what's set up in Settings › Community: no stand-in channels or quotes
+    const featuredChannel = data?.featuredChannel;
+    const channels = data?.channels ?? [];
+    const testimonials = data?.testimonials ?? [];
 
     return (
         <div className="flex flex-col gap-10">
@@ -44,50 +41,59 @@ export default function ManufacturerCommunityPage() {
                 backLink={MANUFACTURER_PROFILE_BACK_LINK}
             />
 
-            <FeaturedChannel channel={featuredChannel} />
-
-            <section className="flex flex-col gap-4">
-                <h2 className="text-base font-semibold font-text text-mist-950">Follow us</h2>
-                <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {channels.map((channel) => (
-                        <li key={channel.platform}>
-                            <ChannelCard channel={channel} />
-                        </li>
-                    ))}
-                </ul>
-            </section>
-
-            <section className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1">
-                    <h2 className="text-base font-semibold font-text text-mist-950">
-                        What makers are saying
-                    </h2>
-                    <p className="text-sm font-text text-mist-600">
-                        Stories and feedback from fellow makers on Mande and our social channels.
-                    </p>
+            {isPending ? (
+                <div className="flex flex-col gap-4" aria-busy="true">
+                    <Skeleton className="h-52 rounded-2xl" />
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        <Skeleton className="h-44 rounded-xl" />
+                        <Skeleton className="h-44 rounded-xl" />
+                        <Skeleton className="h-44 rounded-xl" />
+                    </div>
                 </div>
-                <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {testimonials.map((testimonial) => (
-                        <li key={testimonial.id}>
-                            <TestimonialCard testimonial={testimonial} />
-                        </li>
-                    ))}
-                </ul>
-            </section>
+            ) : isError ? (
+                <LoadError message="We couldn't load the community. Please refresh the page." />
+            ) : !featuredChannel && channels.length === 0 && testimonials.length === 0 ? (
+                <p className="text-sm font-text text-mist-600">The community channels are being set up. Check back soon.</p>
+            ) : null}
+
+            {featuredChannel && <FeaturedChannel channel={featuredChannel} />}
+
+            {channels.length > 0 && (
+                <section className="flex flex-col gap-4">
+                    <h2 className="text-base font-semibold font-text text-mist-950">Follow us</h2>
+                    <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                        {channels.map((channel) => (
+                            <li key={channel.platform}>
+                                <ChannelCard channel={channel} />
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+            )}
+
+            {testimonials.length > 0 && (
+                <section className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-1">
+                        <h2 className="text-base font-semibold font-text text-mist-950">What makers are saying</h2>
+                        <p className="text-sm font-text text-mist-600">
+                            Stories and feedback from fellow makers on Mande and our social channels.
+                        </p>
+                    </div>
+                    <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {testimonials.map((testimonial) => (
+                            <li key={testimonial.id}>
+                                <TestimonialCard testimonial={testimonial} />
+                            </li>
+                        ))}
+                    </ul>
+                </section>
+            )}
         </div>
     );
 }
 
 /** A link that opens the platform in a new tab. Nothing until the channel has a link. */
-function ExternalLink({
-    href,
-    className,
-    children,
-}: {
-    href: string;
-    className?: string;
-    children: React.ReactNode;
-}) {
+function ExternalLink({ href, className, children }: { href: string; className?: string; children: React.ReactNode }) {
     if (!href) return null;
     return (
         <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
@@ -137,12 +143,7 @@ export function ChannelCard({ channel }: { channel: CommunityChannel }) {
     return (
         <div className="flex h-full flex-col gap-4 rounded-xl border border-border bg-white p-5 transition-shadow duration-200 hover:shadow-md">
             <div className="flex items-center gap-3">
-                <span
-                    className={cn(
-                        "flex size-11 shrink-0 items-center justify-center rounded-xl text-white",
-                        badgeClass,
-                    )}
-                >
+                <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-xl text-white", badgeClass)}>
                     <Icon className="size-5.5" />
                 </span>
                 <div className="min-w-0">
@@ -152,17 +153,10 @@ export function ChannelCard({ channel }: { channel: CommunityChannel }) {
             </div>
             <p className="flex-1 text-sm leading-6 font-text text-mist-600">{channel.description}</p>
             <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
-                {audienceStr ? (
-                    <span className="text-xs font-medium font-text text-mist-500">{audienceStr}</span>
-                ) : (
-                    <span />
-                )}
+                {audienceStr ? <span className="text-xs font-medium font-text text-mist-500">{audienceStr}</span> : <span />}
                 <ExternalLink
                     href={channel.url}
-                    className={cn(
-                        "inline-flex items-center gap-1 text-sm font-semibold font-text hover:underline",
-                        accentClass,
-                    )}
+                    className={cn("inline-flex items-center gap-1 text-sm font-semibold font-text hover:underline", accentClass)}
                 >
                     {channel.cta}
                 </ExternalLink>
@@ -187,20 +181,13 @@ export function TestimonialCard({ testimonial }: { testimonial: CommunityTestimo
                         ))}
                     </div>
                     <span className="flex items-center gap-1.5 text-xs font-medium font-text text-mist-500">
-                        <span
-                            className={cn(
-                                "flex size-5 items-center justify-center rounded-full text-white",
-                                badgeClass,
-                            )}
-                        >
+                        <span className={cn("flex size-5 items-center justify-center rounded-full text-white", badgeClass)}>
                             <Icon className="size-3" />
                         </span>
                         {isMande ? "Verified Maker" : `on ${name}`}
                     </span>
                 </div>
-                <blockquote className="text-sm leading-6 font-text text-mist-800">
-                    &ldquo;{testimonial.quote}&rdquo;
-                </blockquote>
+                <blockquote className="text-sm leading-6 font-text text-mist-800">&ldquo;{testimonial.quote}&rdquo;</blockquote>
             </div>
 
             <div className="flex items-center justify-between gap-3 border-t border-border pt-4">

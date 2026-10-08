@@ -8,6 +8,7 @@ import type { FormFieldConfig } from "@/components/form/types";
 import { validators } from "@/components/form/form.validators";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
 import { authService } from "@/lib/services/authService";
+import { getErrorMessage } from "@/lib/api";
 import { OtpCodeDialog } from "@/components/manufacturerPlatform/otpVerificationDialog";
 import { getOtpChannel, type TwoFactorMethod } from "@/constant/manufacturer";
 import { FormSubmitButton } from "./formButtons";
@@ -66,9 +67,10 @@ export default function ProfileChangePasswordForm() {
     return <ChangePasswordForm email={profile.email} codeChannel={getOtpChannel(profile)} />;
 }
 
-// Saving doesn't change the password straight away — it asks for a one-time
-// code first, and the change happens once that's verified. For any account,
-// e.g. an admin's.
+// Saving doesn't change the password straight away: it sends a one-time code
+// (by email, or they use their authenticator app), then the current password
+// and that code confirm it's them (POST /auth/reauth) before the change goes
+// through with the token that gives. For any account, e.g. an admin's.
 export function ChangePasswordForm({
     email,
     codeChannel,
@@ -79,34 +81,41 @@ export function ChangePasswordForm({
     codeChannel: TwoFactorMethod;
 }) {
     const [isAwaitingCode, setIsAwaitingCode] = useState(false);
+    const [isSendingCode, setIsSendingCode] = useState(false);
     const methods = useForm<ChangePasswordFormValues>({
         mode: "onTouched",
         defaultValues: CHANGE_PASSWORD_DEFAULT_VALUES,
     });
     const { isDirty } = methods.formState;
 
-    const handleSubmit = () => {
+    const sendCode = () => authService.sendReauthCode("change your password");
+
+    const handleSubmit = async () => {
+        setIsSendingCode(true);
         try {
+            // An authenticator app makes its own codes; otherwise one is emailed
+            if (codeChannel !== "app") await sendCode();
             setIsAwaitingCode(true);
-        } catch {
-            toast.error("Couldn't change your password. Please try again.");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't send a code. Please try again."));
+        } finally {
+            setIsSendingCode(false);
         }
     };
 
-    const handleVerified = async () => {
-        setIsAwaitingCode(false);
+    // Throwing keeps the code dialog open, showing the message
+    const handleVerified = async (code: string) => {
+        const values = methods.getValues();
         try {
-            const values = methods.getValues();
-            await authService.changePassword({
-                currentPassword: values.oldPassword,
-                newPassword: values.newPassword,
-            });
-            // Clear all three fields so the passwords don't linger on screen
-            methods.reset();
-            toast.success("Password changed successfully");
-        } catch {
-            toast.error("Couldn't change your password. Please check your current password and try again.");
+            const { reauthToken } = await authService.verifyReauth(values.oldPassword, code);
+            await authService.changePassword({ currentPassword: values.oldPassword, newPassword: values.newPassword }, reauthToken);
+        } catch (err) {
+            throw new Error(getErrorMessage(err, "Couldn't change your password. Please try again."));
         }
+        setIsAwaitingCode(false);
+        // Clear all three fields so the passwords don't linger on screen
+        methods.reset();
+        toast.success("Password changed");
     };
 
     return (
@@ -119,7 +128,7 @@ export function ChangePasswordForm({
                     <div className="flex justify-end">
                         <FormSubmitButton
                             label="Save"
-                            isLoading={false}
+                            isLoading={isSendingCode}
                             disabled={!canSubmit || !isDirty}
                         />
                     </div>
@@ -134,6 +143,7 @@ export function ChangePasswordForm({
                 channel={codeChannel}
                 confirmLabel="Change password"
                 onVerified={handleVerified}
+                onResend={codeChannel === "app" ? undefined : async () => void (await sendCode())}
             />
         </>
     );

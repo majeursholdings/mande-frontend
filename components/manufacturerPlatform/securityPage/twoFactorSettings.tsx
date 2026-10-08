@@ -16,6 +16,7 @@ import ReauthSteps from "@/components/superAdminPlatform/reauthSteps";
 import { authService } from "@/lib/services/authService";
 import type { TwoFactorMethod } from "@/constant/manufacturer";
 import { useManufacturerProfile } from "../dashboardLayout/manufacturerProfileContext";
+import { QRCodeSVG } from "qrcode.react";
 
 const METHODS: {
     method: TwoFactorMethod;
@@ -330,12 +331,8 @@ function AuthenticatorSetupBody({
                     <span>1. Scan this QR code or enter the key into your authenticator app.</span>
                     {otpauthUrl ? (
                         <div className="mx-auto flex size-40 items-center justify-center rounded-lg border border-mist-200 bg-white p-2 shadow-xs">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                                src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(otpauthUrl)}`}
-                                alt="Authenticator QR Code"
-                                className="size-36"
-                            />
+                            {/* Drawn here: the link holds their secret, so it never goes to another site */}
+                            <QRCodeSVG value={otpauthUrl} size={144} title="Authenticator QR code" className="size-36" />
                         </div>
                     ) : null}
                     <span className="text-xs text-mist-500">

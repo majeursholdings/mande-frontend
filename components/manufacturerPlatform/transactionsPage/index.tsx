@@ -42,9 +42,11 @@ export default function ManufacturerTransactionsPage() {
         <div className="flex flex-col gap-8">
             <PageHeader title="Transactions" />
 
+            {/* The figures get their own row: the overview cards need the width */}
+            <WalletSummary figures={figures} isLoading={isWalletLoading || isJobsPending} />
+
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:gap-x-6">
-                <BalanceCard balance={wallet.balance} isLoading={isWalletLoading} className="lg:row-span-2" />
-                <WalletSummary figures={figures} isLoading={isWalletLoading || isJobsPending} />
+                <BalanceCard balance={wallet.balance} isLoading={isWalletLoading} />
                 <WalletActions />
             </div>
 

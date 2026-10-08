@@ -15,6 +15,8 @@ import {
 } from "@/constant/manufacturer";
 import UserAvatar from "@/components/ui/userAvatar";
 import VerificationBadge from "../verificationBadge";
+import RankBadge from "@/components/common/points/rankBadge";
+import { RatingStars } from "@/components/customTable/ratingStars";
 
 /** Lets an email wrap after the "@" in a narrow column instead of mid-word. */
 export function breakableEmail(email: string): ReactNode {
@@ -39,6 +41,7 @@ export default function ProfileCard({
     className,
     editHref = MANUFACTURER_SETTINGS_URL,
     verificationStatus,
+    standing,
     loading = false,
 }: {
     profile: ManufacturerProfile;
@@ -49,10 +52,10 @@ export default function ProfileCard({
     editHref?: string | null;
     /** The badge beside the name — defaults to the NIN card's status. */
     verificationStatus?: VerificationStatus;
+    /** Their rank and star rating, beside the badge (staff see it on a manufacturer's page). */
+    standing?: { rankId: string; averageRating: number | null };
 }) {
-    const specialities = profile.specialities
-        .map((value) => getOptionLabel(COMPANY_SPECIALITY_OPTIONS, value))
-        .join(", ");
+    const specialities = profile.specialities.map((value) => getOptionLabel(COMPANY_SPECIALITY_OPTIONS, value)).join(", ");
 
     return (
         <ProfileDetailsCard
@@ -60,11 +63,29 @@ export default function ProfileCard({
             avatarUrl={profile.avatarUrl}
             joinedAt={profile.joinedAt}
             badge={
-                verificationStatus ? (
-                    <VerificationBadge status={verificationStatus} />
-                ) : (
-                    <VerificationBadge status={profile.ninCard.status} rejectedLabel="ID rejected" />
-                )
+                <span className="flex flex-col items-center gap-2">
+                    {verificationStatus ? (
+                        <VerificationBadge status={verificationStatus} />
+                    ) : (
+                        <VerificationBadge status={profile.ninCard.status} rejectedLabel="ID rejected" />
+                    )}
+                    {standing && (
+                        <span className="flex flex-wrap items-center justify-center gap-2">
+                            <RankBadge rankId={standing.rankId} role="manufacturer" size="sm" />
+                            {standing.averageRating === null ? (
+                                <span className="text-xs font-text text-mist-500">Not rated yet</span>
+                            ) : (
+                                <span
+                                    className="flex items-center gap-1 text-xs font-medium font-text text-mist-700"
+                                    aria-label={`Rated ${standing.averageRating.toFixed(1)} out of 5`}
+                                >
+                                    <RatingStars value={standing.averageRating} />
+                                    {standing.averageRating.toFixed(1)}
+                                </span>
+                            )}
+                        </span>
+                    )}
+                </span>
             }
             details={[
                 { label: "Company", value: profile.companyName, icon: Building2 },
@@ -115,10 +136,7 @@ export function ProfileDetailsCard({
 }) {
     return (
         <section
-            className={cn(
-                "relative flex flex-col gap-5 border-b border-border pb-6 lg:rounded-xl lg:border lg:bg-white lg:p-5",
-                className,
-            )}
+            className={cn("relative flex flex-col gap-5 border-b border-border pb-6 lg:rounded-xl lg:border lg:bg-white lg:p-5", className)}
         >
             {editHref && (
                 <Link
@@ -142,24 +160,15 @@ export function ProfileDetailsCard({
                         <Skeleton className="h-3 w-24" />
                     </div>
                 ) : (
-                <div className="flex flex-col items-center gap-1 lg:items-start">
-                    <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
-                        <h2
-                            className={cn(
-                                "text-lg font-semibold font-text",
-                                name ? "text-mist-950" : "text-mist-400",
-                            )}
-                        >
-                            {name || "Name not provided"}
-                        </h2>
-                        {badge}
+                    <div className="flex flex-col items-center gap-1 lg:items-start">
+                        <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-start">
+                            <h2 className={cn("text-lg font-semibold font-text", name ? "text-mist-950" : "text-mist-400")}>
+                                {name || "Name not provided"}
+                            </h2>
+                            {badge}
+                        </div>
+                        {joinedAt && <p className="text-xs font-text text-mist-400">Joined {formatMonthYear(new Date(joinedAt))}</p>}
                     </div>
-                    {joinedAt && (
-                        <p className="text-xs font-text text-mist-400">
-                            Joined {formatMonthYear(new Date(joinedAt))}
-                        </p>
-                    )}
-                </div>
                 )}
             </div>
 
@@ -174,16 +183,9 @@ export function ProfileDetailsCard({
                             {loading ? (
                                 <Skeleton className="mt-1 h-4 w-28" />
                             ) : (
-                            <p
-                                className={cn(
-                                    "text-sm font-text wrap-anywhere",
-                                    detail.value ? "text-mist-900" : "text-mist-400",
-                                )}
-                            >
-                                {detail.value
-                                    ? (detail.format?.(detail.value) ?? detail.value)
-                                    : (detail.emptyLabel ?? "Not provided")}
-                            </p>
+                                <p className={cn("text-sm font-text wrap-anywhere", detail.value ? "text-mist-900" : "text-mist-400")}>
+                                    {detail.value ? (detail.format?.(detail.value) ?? detail.value) : (detail.emptyLabel ?? "Not provided")}
+                                </p>
                             )}
                         </div>
                     </li>
@@ -192,4 +194,3 @@ export function ProfileDetailsCard({
         </section>
     );
 }
-

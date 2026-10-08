@@ -21,6 +21,8 @@ type OtpDialogProps = {
     channel: TwoFactorMethod;
     confirmLabel?: string;
     onVerified: (code: string) => void | Promise<void>;
+    /** Sends a new emailed code; without it, "Resend" only says one was sent. */
+    onResend?: () => void | Promise<void>;
 };
 
 /**
@@ -42,6 +44,7 @@ export function OtpCodeDialog({
     channel,
     confirmLabel,
     onVerified,
+    onResend,
     email,
 }: OtpDialogProps & { email: string }) {
     const sentTo = maskEmail(email);
@@ -62,6 +65,7 @@ export function OtpCodeDialog({
                     resendTo={channel === "email" ? sentTo : undefined}
                     confirmLabel={confirmLabel}
                     onVerified={onVerified}
+                    onResend={onResend}
                     onCancel={() => onOpenChange(false)}
                 />
             </DialogContent>

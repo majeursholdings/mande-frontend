@@ -1,9 +1,11 @@
 "use client";
 
-import { Headset, LogOut, Scale, Settings, ShieldCheck, UsersRound } from "lucide-react";
+import { Bell, Headset, LogOut, Scale, Settings, ShieldCheck, UsersRound, Clock } from "lucide-react";
 import {
     MANUFACTURER_COMMUNITY_URL,
     MANUFACTURER_LEGAL_URL,
+    MANUFACTURER_NOTIFICATIONS_URL,
+    MANUFACTURER_PLAN_SETTINGS_URL,
     MANUFACTURER_SECURITY_URL,
     MANUFACTURER_SETTINGS_URL,
     MANUFACTURER_SUPPORT_URL,
@@ -15,7 +17,14 @@ import { useManufacturerProfile } from "../dashboardLayout/manufacturerProfileCo
 import { useLogout } from "../dashboardLayout/logoutContext";
 import LinkList, { type LinkListItem } from "../linkList";
 import ProfileCard from "./profileCard";
-import ProfileStatCard from "./profileStatCard";
+import OverviewCard, { OverviewCardGrid } from "@/components/common/overviewCard";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/queryKeys";
+import { subscriptionService } from "@/lib/services/subscriptionService";
+import { useMyPoints } from "@/hooks/usePoints";
+import PointsSummaryCard from "@/components/common/points/pointsSummaryCard";
+import ManufacturerPlanCard, { ManufacturerPlanCardSkeleton } from "@/components/adminPlatform/manufacturerDetailPage/manufacturerPlanCard";
 
 const PROFILE_LINKS: LinkListItem[] = [
     {
@@ -23,6 +32,12 @@ const PROFILE_LINKS: LinkListItem[] = [
         icon: UsersRound,
         title: "Points & standing",
         description: "Your Maker rank tier, point history and point guide",
+    },
+    {
+        href: MANUFACTURER_NOTIFICATIONS_URL,
+        icon: Bell,
+        title: "Notifications",
+        description: "Everything we've told you about your jobs, payments and account",
     },
     {
         href: MANUFACTURER_COMMUNITY_URL,
@@ -61,32 +76,77 @@ function formatRange(label: string): string {
     return label.replace(" to ", " - ");
 }
 
+/** Their points page: history and how ranks work. */
+const POINTS_URL = "/manufacturer/profile/points";
+
 export default function ManufacturerProfilePage() {
     const { profile, isLoading } = useManufacturerProfile();
     const { requestLogout } = useLogout();
+    const router = useRouter();
+    // Their standing (rank, stars, points; over completed jobs) and their plan (the shell has loaded it already)
+    const points = useMyPoints();
+    const { data: plan, isPending: isPlanLoading } = useQuery({
+        queryKey: queryKeys.subscription.details(),
+        queryFn: () => subscriptionService.getSubscription(),
+    });
+    const subscription = plan?.subscription;
 
     return (
         <div className="flex flex-col gap-6">
             <h1 className="text-2xl font-semibold font-text text-mist-950">Profile</h1>
 
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-                <ProfileCard profile={profile} loading={isLoading} className="lg:w-65 lg:shrink-0" />
+                <div className="flex flex-col gap-6 lg:w-65 lg:shrink-0">
+                    <ProfileCard
+                        profile={profile}
+                        loading={isLoading}
+                        standing={
+                            points.summary ? { rankId: points.summary.rank, averageRating: points.summary.averageRating } : undefined
+                        }
+                    />
+                    {isPlanLoading ? (
+                        <ManufacturerPlanCardSkeleton />
+                    ) : (
+                        subscription && (
+                            <ManufacturerPlanCard
+                                subscription={{
+                                    planId: subscription.planId,
+                                    billingCycle: subscription.billingCycle,
+                                    renewsAt: subscription.renewsAt ?? new Date().toISOString(),
+                                    renewalsPaidFrom: subscription.renewalsPaidFrom,
+                                }}
+                                manageHref={MANUFACTURER_PLAN_SETTINGS_URL}
+                            />
+                        )
+                    )}
+                </div>
 
                 <div className="flex min-w-0 flex-1 flex-col gap-8 lg:gap-6">
-                    <div className="grid grid-cols-2 gap-4 lg:gap-6">
-                        <ProfileStatCard
-                            label="Number of Staff"
+                    <OverviewCardGrid columns={2}>
+                        <OverviewCard
+                            icon={UsersRound}
+                            label="Number of staff"
                             value={formatRange(getOptionLabel(STAFF_RANGE_OPTIONS, profile.staffRange))}
                             loading={isLoading}
                         />
-                        <ProfileStatCard
-                            label="Avg. Production Time"
-                            value={formatRange(
-                                getOptionLabel(PRODUCTION_LEAD_TIME_OPTIONS, profile.productionLeadTime),
-                            )}
+                        <OverviewCard
+                            icon={Clock}
+                            label="Avg. production time"
+                            value={formatRange(getOptionLabel(PRODUCTION_LEAD_TIME_OPTIONS, profile.productionLeadTime))}
                             loading={isLoading}
                         />
-                    </div>
+                    </OverviewCardGrid>
+
+                    {/* Their rank, points and how far to the next rank */}
+                    {points.isError ? null : (
+                        <PointsSummaryCard
+                            points={points.summary?.points ?? 0}
+                            progression={points.summary?.progression}
+                            role="manufacturer"
+                            loading={points.isLoading}
+                            onOpenGuide={() => router.push(POINTS_URL)}
+                        />
+                    )}
 
                     <LinkList items={PROFILE_LINKS} />
                 </div>

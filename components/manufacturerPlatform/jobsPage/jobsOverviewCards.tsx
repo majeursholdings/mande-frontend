@@ -1,12 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Briefcase, Clock, CheckCircle2, ShoppingBag } from "lucide-react";
+import { Briefcase, CircleCheckBig, ShoppingBag } from "lucide-react";
+import OverviewCard, { OverviewCardGrid } from "@/components/common/overviewCard";
 import { queryKeys } from "@/lib/queryKeys";
 import { jobsService } from "@/lib/services/jobsService";
-import { Skeleton } from "@/components/ui/skeleton";
 import LoadError from "../loadError";
 
+/** Above the manufacturer's jobs: what they're working on, what's done, and what's open to apply for. */
 export default function JobsOverviewCards() {
     const { data: overview, isPending, isError } = useQuery({
         queryKey: queryKeys.jobs.overview(),
@@ -17,60 +18,22 @@ export default function JobsOverviewCards() {
         return <LoadError>Couldn&apos;t load your job counts. Please refresh the page to try again.</LoadError>;
     }
 
-    const cards = [
-        {
-            id: "active",
-            label: "Active Jobs",
-            value: overview?.activeCount,
-            icon: Briefcase,
-            iconColor: "bg-secondary-50 text-secondary-600",
-        },
-        {
-            id: "in-review",
-            label: "In Review",
-            value: overview?.inReviewCount,
-            icon: Clock,
-            iconColor: "bg-warning-50 text-warning-600",
-        },
-        {
-            id: "completed",
-            label: "Completed",
-            value: overview?.completedCount,
-            icon: CheckCircle2,
-            iconColor: "bg-primary-50 text-primary-600",
-        },
-        {
-            id: "marketplace",
-            label: "Open Marketplace",
-            value: overview?.openMarketCount,
-            icon: ShoppingBag,
-            iconColor: "bg-indigo-50 text-indigo-600",
-        },
-    ];
-
     return (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {cards.map((card) => {
-                const Icon = card.icon;
-                return (
-                    <div
-                        key={card.id}
-                        className="flex flex-col gap-3 rounded-xl border border-border bg-white p-4 transition-shadow hover:shadow-xs"
-                    >
-                        <span className={`flex size-9 items-center justify-center rounded-full ${card.iconColor}`}>
-                            <Icon className="size-4.5" strokeWidth={1.75} />
-                        </span>
-                        <div>
-                            <p className="text-xs font-text text-mist-500">{card.label}</p>
-                            {isPending ? (
-                                <Skeleton className="mt-0.5 h-6 w-10" />
-                            ) : (
-                                <p className="text-xl font-semibold font-text text-mist-950">{card.value ?? 0}</p>
-                            )}
-                        </div>
-                    </div>
-                );
-            })}
-        </div>
+        <OverviewCardGrid columns={3}>
+            <OverviewCard
+                icon={Briefcase}
+                label="Active jobs"
+                value={overview?.activeCount.toLocaleString()}
+                detail={{ label: "In review", value: overview?.inReviewCount.toLocaleString(), tone: "amber" }}
+                loading={isPending}
+            />
+            <OverviewCard icon={CircleCheckBig} label="Completed" value={overview?.completedCount.toLocaleString()} loading={isPending} />
+            <OverviewCard
+                icon={ShoppingBag}
+                label="Open marketplace"
+                value={overview?.openMarketCount.toLocaleString()}
+                loading={isPending}
+            />
+        </OverviewCardGrid>
     );
 }
