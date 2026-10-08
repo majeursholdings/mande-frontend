@@ -25,7 +25,7 @@ export default function JobNotes({
     canPost: boolean;
     /** The line under the heading — who can see or add notes. */
     info: string;
-    onPost: (message: string) => void;
+    onPost: (message: string) => void | Promise<void>;
 }) {
     const [showOlder, setShowOlder] = useState(false);
     const visibleNotes = showOlder ? notes : notes.slice(0, VISIBLE_NOTES);

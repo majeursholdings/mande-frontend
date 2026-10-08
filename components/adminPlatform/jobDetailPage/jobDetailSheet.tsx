@@ -180,15 +180,16 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
     const heldReview = status === "in-review" ? job.furtherReview : null;
     // Signing off: not while it's held for a super admin
     const canReview = isLead && status === "in-review" && !heldReview;
-    const canReject = isLead && status === "in-review";
     const canDecideHeld = platform.permissions.decidesHeldJobs && !!heldReview;
+    // Held work is a super admin's to reject (the API refuses anyone else)
+    const canReject = isLead && status === "in-review" && (!heldReview || canDecideHeld);
     const hasDeliveryRejection =
         job.rejections.length > 0 ||
         job.stepSubmissions.some((sub) => sub.step === "delivery" && sub.review?.outcome === "sent-back");
-    // Admin can approve steps for payout; super admin only gets involved in case of rejection at delivery
+    // The job's lead approves steps for payout; a super admin only steps in after a delivery rejection
     const canReviewSteps =
         status === "in-progress" &&
-        (platform.key === "admin" || (platform.key === "super-admin" && hasDeliveryRejection));
+        ((platform.key === "admin" && isLead) || (platform.key === "super-admin" && hasDeliveryRejection));
     const canDecideExtensions = isLead && status === "in-progress";
     const canPostNotes = isLead && status !== "completed";
     const canRate = isLead && status === "completed" && !job.manufacturerReview;

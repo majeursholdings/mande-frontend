@@ -10,17 +10,14 @@ import EmptyState, { LoadError } from "../emptyState";
 import JobDetailSheet from "../jobDetailPage/jobDetailSheet";
 import JobsTable from "./jobsTable";
 import JobsToolbar, { type JobsFilters } from "./jobsToolbar";
+import LeadJobsOverview from "./leadJobsOverview";
 
 const DEFAULT_FILTERS: JobsFilters = { search: "", assignedToMe: false, leadId: null, view: "all" };
 
 const time = (iso: string | null) => (iso ? new Date(iso).getTime() : 0);
 
 /** `myLeadId`: the signed-in person, for "Jobs assigned to me". */
-function filterJobs(
-    jobs: AdminJob[],
-    { search, assignedToMe, leadId, view }: JobsFilters,
-    myLeadId: string | null,
-): AdminJob[] {
+function filterJobs(jobs: AdminJob[], { search, assignedToMe, leadId, view }: JobsFilters, myLeadId: string | null): AdminJob[] {
     const query = search.trim().toLowerCase();
     const matching = jobs.filter(
         (job) =>
@@ -68,8 +65,7 @@ export default function AdminJobsPage({ initialJobId }: { initialJobId?: string 
     const currentPage = Math.min(page, pageCount);
     const firstOnPage = (currentPage - 1) * ADMIN_JOBS_PAGE_SIZE;
     const pageJobs = filteredJobs.slice(firstOnPage, firstOnPage + ADMIN_JOBS_PAGE_SIZE);
-    const hasFilters =
-        filters.search.trim() !== "" || filters.assignedToMe || filters.leadId !== null || filters.view !== "all";
+    const hasFilters = filters.search.trim() !== "" || filters.assignedToMe || filters.leadId !== null || filters.view !== "all";
 
     const changeFilters = (changes: Partial<JobsFilters>) => {
         setFilters((current) => ({ ...current, ...changes }));
@@ -93,16 +89,19 @@ export default function AdminJobsPage({ initialJobId }: { initialJobId?: string 
             <div className="flex items-center justify-between gap-4">
                 <h1 className="text-2xl font-semibold font-text text-mist-950">Jobs</h1>
                 {(leadId || permissions.actsOnEveryJob) && (
-                <button
-                    type="button"
-                    onClick={() => setJobForm({})}
-                    className="flex h-9 shrink-0 items-center gap-2 rounded-lg bg-secondary-700 px-3 text-sm font-medium font-text text-white transition-colors hover:bg-secondary-900 cursor-pointer"
-                >
-                    <CirclePlus className="size-4" />
-                    Create a job
-                </button>
+                    <button
+                        type="button"
+                        onClick={() => setJobForm({})}
+                        className="flex h-9 shrink-0 items-center gap-2 rounded-lg bg-secondary-700 px-3 text-sm font-medium font-text text-white transition-colors hover:bg-secondary-900 cursor-pointer"
+                    >
+                        <CirclePlus className="size-4" />
+                        Create a job
+                    </button>
                 )}
             </div>
+
+            {/* A project lead's own numbers (a super admin's are on Reporting) */}
+            {leadId && <LeadJobsOverview />}
 
             <div className="flex flex-col gap-5">
                 <JobsToolbar filters={filters} onChange={changeFilters} showAssignedToMe={!!leadId} />
@@ -164,12 +163,7 @@ export default function AdminJobsPage({ initialJobId }: { initialJobId?: string 
                 onEdit={(jobId) => setJobForm({ jobId })}
             />
 
-            {jobForm && (
-                <JobFormDialog
-                    job={jobForm.jobId ? getJob(jobForm.jobId) : undefined}
-                    onClose={() => setJobForm(null)}
-                />
-            )}
+            {jobForm && <JobFormDialog job={jobForm.jobId ? getJob(jobForm.jobId) : undefined} onClose={() => setJobForm(null)} />}
         </div>
     );
 }
