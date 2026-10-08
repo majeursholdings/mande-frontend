@@ -39,7 +39,7 @@ function formatRelativeTime(dateString: string): string {
     return date.toLocaleDateString();
 }
 
-function toManufacturerNotification(raw: BackendNotification): NotificationItem {
+export function toManufacturerNotification(raw: BackendNotification): NotificationItem {
     const message = Array.isArray(raw.message)
         ? raw.message.map((m) => (typeof m === "string" ? m : m.text)).join("")
         : String(raw.message || "");
@@ -55,6 +55,9 @@ function toManufacturerNotification(raw: BackendNotification): NotificationItem 
     };
 }
 
+/** How many the bell's list shows. */
+export const POPUP_LIMIT = 10;
+
 export function NotificationsProvider({ children }: { children: ReactNode }) {
     const router = useRouter();
     const queryClient = useQueryClient();
@@ -66,7 +69,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     // Fetch initial notifications from backend
     const { data: apiData, isPending, isError } = useQuery({
         queryKey: queryKeys.notifications.list(),
-        queryFn: () => notificationService.getNotifications({ limit: 50 }),
+        // The newest few, for the bell: every one is on the Notifications page
+        queryFn: () => notificationService.getNotifications({ limit: POPUP_LIMIT }),
         staleTime: 60 * 1000,
         retry: 1,
     });

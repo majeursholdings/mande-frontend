@@ -9,6 +9,7 @@ import SharedSidebar, {
     SidebarContent,
 } from "@/components/ui/dashboardSidebar";
 import { MANUFACTURER_NAV_ITEMS, MANUFACTURER_DASHBOARD_URL } from "@/constant/manufacturer";
+import SidebarRank from "@/components/common/points/sidebarRank";
 import { useLogout } from "./logoutContext";
 
 /** The manufacturer's desktop nav, in the shared sidebar layout — from lg up. */
@@ -21,6 +22,7 @@ export default function DashboardSidebar() {
             <SidebarContent
                 homeHref={MANUFACTURER_DASHBOARD_URL}
                 platformName="Manufacturer platform"
+                standing={<SidebarRank role="manufacturer" />}
                 items={MANUFACTURER_NAV_ITEMS.map((item) => ({
                     label: item.label,
                     href: item.href,
