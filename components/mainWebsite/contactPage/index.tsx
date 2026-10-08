@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Clock, Headset, Mail, MessageCircleQuestion, UsersRound, type LucideIcon } from "lucide-react";
-import { ARTISAN_LOGIN_URL, FAQ_URL } from "@/constant/navigation";
-import { FEATURED_COMMUNITY_CHANNEL } from "@/constant/community";
+import { ARTISAN_LOGIN_URL, COMMUNITY_URL, FAQ_URL } from "@/constant/navigation";
 import { CONTACT_DETAILS } from "@/constant/website";
 import ContactForm from "../form/contactForm";
 import PageHero from "../common/pageHero";
@@ -14,7 +13,8 @@ import SectionWrapper from "../common/sectionWrapper";
 // the FAQs.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function ContactPage() {
+/** whatsappUrl is the channel link saved in Settings › Community; without one, the community page. */
+export default function ContactPage({ whatsappUrl }: { whatsappUrl: string | null }) {
     return (
         <>
             <PageHero
@@ -50,14 +50,20 @@ export default function ContactPage() {
                     </ContactCard>
                     <ContactCard icon={UsersRound} title="Join the community">
                         Meet other makers on our{" "}
-                        <a
-                            href={FEATURED_COMMUNITY_CHANNEL.href}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="font-medium text-primary-800 underline-offset-4 hover:underline"
-                        >
-                            WhatsApp channel
-                        </a>
+                        {whatsappUrl ? (
+                            <a
+                                href={whatsappUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-medium text-primary-800 underline-offset-4 hover:underline"
+                            >
+                                WhatsApp channel
+                            </a>
+                        ) : (
+                            <Link href={COMMUNITY_URL} className="font-medium text-primary-800 underline-offset-4 hover:underline">
+                                community channels
+                            </Link>
+                        )}
                         .
                     </ContactCard>
                     <ContactCard icon={MessageCircleQuestion} title="Quick answers">

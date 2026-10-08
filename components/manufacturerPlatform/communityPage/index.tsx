@@ -78,7 +78,7 @@ export default function ManufacturerCommunityPage() {
     );
 }
 
-/** A link that opens the platform in a new tab. */
+/** A link that opens the platform in a new tab. Nothing until the channel has a link. */
 function ExternalLink({
     href,
     className,
@@ -88,6 +88,7 @@ function ExternalLink({
     className?: string;
     children: React.ReactNode;
 }) {
+    if (!href) return null;
     return (
         <a href={href} target="_blank" rel="noopener noreferrer" className={className}>
             {children}
@@ -118,7 +119,7 @@ export function FeaturedChannel({ channel }: { channel: CommunityChannel }) {
                     <p className="text-sm leading-6 font-text text-white/85">{channel.description}</p>
                 </div>
                 <ExternalLink
-                    href={channel.href}
+                    href={channel.url}
                     className="inline-flex h-11 w-fit items-center gap-2 rounded-button bg-white px-5 text-sm font-semibold font-text text-[#075E54] transition-colors hover:bg-white/90"
                 >
                     {channel.cta}
@@ -157,7 +158,7 @@ export function ChannelCard({ channel }: { channel: CommunityChannel }) {
                     <span />
                 )}
                 <ExternalLink
-                    href={channel.href}
+                    href={channel.url}
                     className={cn(
                         "inline-flex items-center gap-1 text-sm font-semibold font-text hover:underline",
                         accentClass,

@@ -30,7 +30,8 @@ export type CommunityChannel = {
     manualFollowerOverride?: number | null;
     /** Call to action, e.g. "Follow". */
     cta: string;
-    href: string;
+    /** The channel's page. Empty until a super admin adds it. */
+    url: string;
     isFeatured?: boolean;
     isActive?: boolean;
 };
@@ -60,7 +61,7 @@ export const FEATURED_COMMUNITY_CHANNEL: CommunityChannel = {
     followerCount: 2400,
     followerCountFormatted: "2,400+ members",
     cta: "Join the channel",
-    href: "https://www.whatsapp.com/channel",
+    url: "https://www.whatsapp.com/channel",
     isFeatured: true,
     isActive: true,
 };
@@ -74,7 +75,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
         followerCount: 18000,
         followerCountFormatted: "18k followers",
         cta: "Follow",
-        href: "https://www.tiktok.com",
+        url: "https://www.tiktok.com",
         isActive: true,
     },
     {
@@ -85,7 +86,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
         followerCount: 9600,
         followerCountFormatted: "9.6k followers",
         cta: "Follow",
-        href: "https://www.instagram.com",
+        url: "https://www.instagram.com",
         isActive: true,
     },
     {
@@ -96,7 +97,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
         followerCount: 3100,
         followerCountFormatted: "3.1k followers",
         cta: "Follow",
-        href: "https://www.linkedin.com",
+        url: "https://www.linkedin.com",
         isActive: true,
     },
     {
@@ -107,7 +108,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
         followerCount: 5200,
         followerCountFormatted: "5.2k followers",
         cta: "Follow",
-        href: "https://x.com",
+        url: "https://x.com",
         isActive: true,
     },
     {
@@ -118,7 +119,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
         followerCount: 1800,
         followerCountFormatted: "1.8k subscribers",
         cta: "Subscribe",
-        href: "https://www.youtube.com",
+        url: "https://www.youtube.com",
         isActive: true,
     },
     {
@@ -129,7 +130,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
         followerCount: 4500,
         followerCountFormatted: "4.5k members",
         cta: "Join the group",
-        href: "https://www.facebook.com",
+        url: "https://www.facebook.com",
         isActive: true,
     },
     {
@@ -140,7 +141,7 @@ export const COMMUNITY_CHANNELS: CommunityChannel[] = [
         followerCount: 1200,
         followerCountFormatted: "1.2k members",
         cta: "Join channel",
-        href: "https://t.me",
+        url: "https://t.me",
         isActive: true,
     },
 ];

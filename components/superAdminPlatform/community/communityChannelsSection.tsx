@@ -177,14 +177,14 @@ export default function CommunityChannelsSection({
                                     </label>
                                     <div className="relative">
                                         <Input
-                                            value={channel.href || ""}
-                                            onChange={(e) => handleChannelChange(idx, { href: e.target.value })}
+                                            value={channel.url || ""}
+                                            onChange={(e) => handleChannelChange(idx, { url: e.target.value })}
                                             placeholder={`https://${channel.platform}.com/...`}
                                             className="text-xs font-text pr-8"
                                         />
-                                        {channel.href && (
+                                        {channel.url && (
                                             <a
-                                                href={channel.href}
+                                                href={channel.url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
                                                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-mist-400 hover:text-mist-700"

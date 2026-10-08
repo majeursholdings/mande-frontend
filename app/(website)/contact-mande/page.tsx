@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { pageMetadata } from "@/lib/seo";
+import { getWebsiteCommunity } from "@/lib/services/websiteService";
 import ContactPage from "@/components/mainWebsite/contactPage";
 
 export const metadata: Metadata = pageMetadata({
@@ -9,6 +10,10 @@ export const metadata: Metadata = pageMetadata({
     path: "/contact-mande",
 });
 
-export default function ContactMandeRoute() {
-    return <ContactPage />;
+export const revalidate = 60;
+
+export default async function ContactMandeRoute() {
+    const community = await getWebsiteCommunity();
+    const whatsappUrl = community?.allChannels.find((channel) => channel.platform === "whatsapp")?.url || null;
+    return <ContactPage whatsappUrl={whatsappUrl} />;
 }
