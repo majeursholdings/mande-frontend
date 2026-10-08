@@ -30,6 +30,7 @@ export default function NotificationsList({
     className,
     loading = false,
     error,
+    footer,
 }: {
     items: NotificationListItem[];
     /** Still loading: skeleton rows under the real heading. */
@@ -42,6 +43,8 @@ export default function NotificationsList({
     onLinkClick?: () => void;
     onMarkAsRead?: (id: string) => void;
     className?: string;
+    /** Under the list, e.g. a link to every notification. */
+    footer?: ReactNode;
 }) {
     return (
         <div className={cn("flex flex-col", className)}>
@@ -85,6 +88,7 @@ export default function NotificationsList({
                     ))}
                 </ul>
             )}
+            {footer}
         </div>
     );
 }

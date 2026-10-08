@@ -39,6 +39,7 @@ export function SidebarContent({
     homeHref,
     items,
     logout,
+    standing,
     platformName,
     onNavigate,
 }: {
@@ -47,6 +48,8 @@ export function SidebarContent({
     items: SidebarItem[];
     /** The Logout row, in SIDEBAR_ROW_CLASS. */
     logout: ReactNode;
+    /** Between Logout and the platform's name, e.g. a project lead's rank. */
+    standing?: ReactNode;
     /** e.g. "Admin platform". */
     platformName: string;
     /** A section was picked — e.g. to close the drawer it's in. */
@@ -86,6 +89,7 @@ export function SidebarContent({
 
             <div className="flex flex-col gap-4">
                 {logout}
+                {standing && <div className="mx-6">{standing}</div>}
                 <p className="mx-6 border-t border-border pt-4 text-xs font-medium font-text uppercase tracking-wide text-primary-700">
                     {platformName}
                 </p>
@@ -94,10 +98,15 @@ export function SidebarContent({
     );
 }
 
-/** The desktop sidebar, around a platform's SidebarContent — from lg up; phones have a bottom bar instead. */
+/**
+ * The desktop sidebar, around a platform's SidebarContent — from lg up; phones
+ * have a bottom bar instead. It stays put, the full height of the screen,
+ * while the page scrolls beside it (the page is the only thing that scrolls:
+ * a tall nav scrolls inside the sidebar on its own).
+ */
 export default function DashboardSidebar({ children }: { children: ReactNode }) {
     return (
-        <aside className="sticky top-0 hidden h-dvh w-62 shrink-0 overflow-y-auto border-r border-border bg-white lg:block">
+        <aside className="sticky top-0 hidden h-dvh w-62 shrink-0 self-start overflow-y-auto border-r border-border bg-white lg:block">
             {children}
         </aside>
     );

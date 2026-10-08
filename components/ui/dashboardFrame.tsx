@@ -1,8 +1,11 @@
 import type { ReactNode } from "react";
 
 /**
- * The dashboard's frame, the same on both platforms: the sidebar beside a
- * scrolling column of the top bars, the page, and the phone's bottom bar.
+ * The dashboard's frame, the same on every platform: the sidebar beside a
+ * column of the top bars, the page, and the phone's bottom bar. The page
+ * itself is the only thing that scrolls (the sidebar and top bars stay put):
+ * a second scroll area inside it could be nudged on its own, by a dialog or
+ * focus below the fold, and shift the whole page down.
  * Pages sit on the light grey, with their cards in white. `beforeContent` goes
  * above the page, inside its padding (e.g. an account notice).
  */
@@ -22,12 +25,12 @@ export default function DashboardFrame({
     children: ReactNode;
 }) {
     return (
-        <div className="flex bg-mist-50">
+        <div className="flex min-h-dvh bg-mist-50">
             {sidebar}
-            {/* `relative` makes this scroll area the containing block for absolutely
-                positioned content inside it (e.g. sr-only text); without it they're
-                placed against the page, poke out past the fold and scroll the page too */}
-            <div className="relative flex h-dvh min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
+            {/* `relative` keeps absolutely positioned content (e.g. sr-only text)
+                inside the column; `overflow-x-clip` cuts off anything too wide
+                without making a scroll area, so the sticky top bars still stick */}
+            <div className="relative flex min-w-0 flex-1 flex-col overflow-x-clip">
                 {desktopTopbar}
                 {mobileTopbar}
                 {/* pb-24 on phones clears the fixed bottom bar */}
