@@ -110,7 +110,7 @@ export default function CommunityChannelsSection({
                 {channels.map((channel, idx) => {
                     const platformConfig = PLATFORMS[channel.platform] ?? PLATFORMS.whatsapp;
                     const { name, Icon, badgeClass } = platformConfig;
-                    const formattedAudience = channel.followerCountFormatted || channel.audience || "0 members";
+                    const formattedAudience = channel.followerCountFormatted || channel.audience || "Not set";
 
                     return (
                         <div

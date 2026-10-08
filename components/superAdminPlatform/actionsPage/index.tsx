@@ -26,6 +26,7 @@ import { REJECTION_CHARGE_PERCENT, getRejectionCharge } from "@/constant/jobWork
 import FollowUpForm from "../form/followUpForm";
 import { ACTION_KINDS, useSuperAdminActionsQuery, type SuperAdminActionKind } from "../actions/pendingActions";
 import ActionCard from "./actionCard";
+import { getErrorMessage } from "@/lib/api";
 
 type OpenDialog =
     | { kind: "delete" | "turn-down"; manufacturerId: string }
@@ -47,12 +48,24 @@ const DIALOG_BUTTON = "h-11 px-5 font-medium font-text rounded-button cursor-poi
 
 export default function SuperAdminActionsPage() {
     const { actions, isPending, isError } = useSuperAdminActionsQuery();
-    const { getJob, signOffHeldJob, rejectJob, followUpLeadReview } = useAdminJobs();
-    const { getManufacturer, declineDeletionRequest } = useAdminManufacturers();
+    const { getJob, signOffHeldJob, rejectJob, followUpLeadReview, isLoading: isJobsLoading } = useAdminJobs();
+    const { getManufacturer, declineDeletionRequest, isLoading: isManufacturersLoading } = useAdminManufacturers();
     const [kind, setKind] = useState<SuperAdminActionKind | "all">("all");
     const [dialog, setDialog] = useState<OpenDialog>(null);
     const queryClient = useQueryClient();
     const close = () => setDialog(null);
+
+    /** Opens an action's dialog, or says why it can't yet, rather than a button that does nothing. */
+    const openDialog = (next: NonNullable<OpenDialog>) => {
+        const isJob = "jobId" in next;
+        const found = isJob ? getJob(next.jobId) : getManufacturer(next.manufacturerId);
+        if (found) return setDialog(next);
+        if (isJob ? isJobsLoading : isManufacturersLoading) {
+            toast.info("Still loading. Try again in a moment.");
+        } else {
+            toast.error(isJob ? "Couldn't find that job. Open it from Jobs instead." : "Couldn't find that account. Open it from Manufacturers instead.");
+        }
+    };
 
     // Marking a contact message as dealt with: it leaves the queue (and the menu's count) at once
     const resolveMessage = useMutation({
@@ -104,8 +117,8 @@ export default function SuperAdminActionsPage() {
             removeAction(remove);
             toast.success(success);
             if (refresh) void refreshActions();
-        } catch {
-            toast.error(failure);
+        } catch (err) {
+            toast.error(getErrorMessage(err, failure));
         } finally {
             close();
         }
@@ -188,11 +201,11 @@ export default function SuperAdminActionsPage() {
                             action={action}
                             now={now}
                             handlers={{
-                                onDeleteAccount: (manufacturerId) => setDialog({ kind: "delete", manufacturerId }),
-                                onTurnDownDeletion: (manufacturerId) => setDialog({ kind: "turn-down", manufacturerId }),
-                                onSignOff: (jobId) => setDialog({ kind: "sign-off", jobId }),
-                                onReject: (jobId) => setDialog({ kind: "reject", jobId }),
-                                onFollowUp: (jobId, manufacturerId) => setDialog({ kind: "follow-up", jobId, manufacturerId }),
+                                onDeleteAccount: (manufacturerId) => openDialog({ kind: "delete", manufacturerId }),
+                                onTurnDownDeletion: (manufacturerId) => openDialog({ kind: "turn-down", manufacturerId }),
+                                onSignOff: (jobId) => openDialog({ kind: "sign-off", jobId }),
+                                onReject: (jobId) => openDialog({ kind: "reject", jobId }),
+                                onFollowUp: (jobId, manufacturerId) => openDialog({ kind: "follow-up", jobId, manufacturerId }),
                                 onResolveContactMessage: (messageId) => resolveMessage.mutate(messageId),
                                 isResolvingContactMessage: (messageId) =>
                                     resolveMessage.isPending && resolveMessage.variables === messageId,
@@ -245,7 +258,6 @@ export default function SuperAdminActionsPage() {
                                             `Deletion request turned down. ${dialogManufacturer.companyName} stays`,
                                             "Couldn't turn the request down. Please try again.",
                                             withoutDeletion(dialogManufacturer.id),
-                                            { refresh: false },
                                         )
                                     }
                                     className={`${DIALOG_BUTTON} bg-secondary-700 hover:bg-secondary-900 text-white`}

@@ -67,9 +67,12 @@ export default function ReauthSteps({
         setStep("code");
     };
 
+    // A code works once: if the action itself fails, trying again reuses the token (good for 5 minutes)
+    const [reauthToken, setReauthToken] = useState<string | null>(null);
     const handleCodeVerified = async (code: string) => {
-        const { reauthToken } = await authService.verifyReauth(password, code);
-        await onConfirmed(reauthToken);
+        const token = reauthToken ?? (await authService.verifyReauth(password, code)).reauthToken;
+        setReauthToken(token);
+        await onConfirmed(token);
     };
 
     return (
