@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import SettingsSection from "@/components/manufacturerPlatform/settingsSection";
 import JobPaymentsForm, { JobPaymentsFormSkeleton } from "../form/jobPaymentsForm";
 import JobRulesForm, { JobRulesFormSkeleton } from "../form/jobRulesForm";
-import PointAllocationForm from "../form/pointAllocationForm";
+import PointAllocationForm, { PointAllocationFormSkeleton } from "../form/pointAllocationForm";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadError } from "@/components/adminPlatform/emptyState";
 import { useSuperAdminSettings } from "../settingsContext";
@@ -71,7 +71,7 @@ export default function PlatformTab({ section }: { section: PlatformSection }) {
                     {platformSettings ? (
                         <PointAllocationForm initialSettings={platformSettings.pointSettings} onSave={updatePlatformSettings} />
                     ) : (
-                        <JobRulesFormSkeleton />
+                        <PointAllocationFormSkeleton />
                     )}
                 </SettingsSection>
             </div>

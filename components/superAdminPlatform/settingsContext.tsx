@@ -3,6 +3,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
+import { useStaffPlatform } from "@/components/adminPlatform/dashboardLayout/staffPlatformContext";
 import { superAdminService } from "@/lib/services/superAdminService";
 import { type PricingPlan } from "@/constant/plans";
 import {
@@ -67,6 +68,7 @@ const SuperAdminSettingsContext = createContext<SuperAdminSettingsValue | null>(
 
 export function SuperAdminSettingsProvider({ children }: { children: ReactNode }) {
     const queryClient = useQueryClient();
+    const { permissions } = useStaffPlatform();
 
     // 1. Super Admins
     const { data: serverSuperAdmins, isLoading: isLoadingSuperAdmins, isError: isErrorSuperAdmins } = useQuery({
@@ -96,6 +98,8 @@ export function SuperAdminSettingsProvider({ children }: { children: ReactNode }
     const { data: serverApiKeys, isLoading: isLoadingApiKeys, isError: isErrorApiKeys } = useQuery({
         queryKey: queryKeys.superAdmin.apiKeys(),
         queryFn: () => superAdminService.getApiKeys(),
+        // Only owners and tech support may see them: a manager would just get refused
+        enabled: permissions.managesApiKeys,
     });
 
     // Built only when what it shows changes (the query data and load states), so

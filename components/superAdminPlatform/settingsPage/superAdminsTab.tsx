@@ -15,6 +15,7 @@ import ChangeSuperAdminRoleForm from "../form/changeSuperAdminRoleForm";
 import InviteSuperAdminForm, { type InviteSuperAdminValues } from "../form/inviteSuperAdminForm";
 import ReauthSteps from "../reauthSteps";
 import { useSuperAdminSettings } from "../settingsContext";
+import { getErrorMessage } from "@/lib/api";
 
 type SuperAdminRow = {
     id: string;
@@ -139,8 +140,8 @@ export default function SuperAdminsTab() {
                       try {
                           await resendInvite(row.id);
                           toast.success(`Invite sent again to ${row.email}`);
-                      } catch {
-                          toast.error("Couldn't send the invite. Please try again.");
+                      } catch (err) {
+                          toast.error(getErrorMessage(err, "Couldn't send the invite. Please try again."));
                       }
                   },
               },
@@ -193,8 +194,9 @@ export default function SuperAdminsTab() {
                     try {
                         await inviteSuperAdmin(values, reauthToken);
                         toast.success(`Invite sent to ${values.email}`);
-                    } catch {
-                        toast.error("Couldn't send the invite. Please try again.");
+                    } catch (err) {
+                        // Shown in the dialog, which stays open with what they typed
+                        throw new Error(getErrorMessage(err, "Couldn't send the invite. Please try again."));
                     }
                 }}
             />
@@ -207,8 +209,8 @@ export default function SuperAdminsTab() {
                     try {
                         await changeSuperAdminRole(row.id, role, reauthToken);
                         toast.success(`${row.name} is now ${getSuperAdminRolePhrase(role)}`);
-                    } catch {
-                        toast.error("Couldn't change their role. Please try again.");
+                    } catch (err) {
+                        throw new Error(getErrorMessage(err, "Couldn't change their role. Please try again."));
                     }
                 }}
             />
@@ -236,8 +238,8 @@ export default function SuperAdminsTab() {
                                 try {
                                     await cancelInvite(cancelling.id);
                                     toast.success(`The invite to ${cancelling.email} was cancelled`);
-                                } catch {
-                                    toast.error("Couldn't cancel the invite. Please try again.");
+                                } catch (err) {
+                                    toast.error(getErrorMessage(err, "Couldn't cancel the invite. Please try again."));
                                 }
                                 setCancelling(null);
                             }}

@@ -14,6 +14,7 @@ import { API_KEY_GROUPS, API_PROVIDERS, type ApiKey, type ApiProvider } from "@/
 import ApiKeyForm, { type ApiKeyDraft } from "../form/apiKeyForm";
 import ReauthSteps from "../reauthSteps";
 import { useSuperAdminSettings } from "../settingsContext";
+import { getErrorMessage } from "@/lib/api";
 
 /** A public key, shortened to its start and end. */
 const shortKey = (key: string) => (key.length > 24 ? `${key.slice(0, 14)}…${key.slice(-4)}` : key);
@@ -168,8 +169,8 @@ export default function ApiKeysTab() {
                                             await addApiKey(draft, reauthToken);
                                             toast.success(`${providerLabel(draft.provider)} keys added: ${draft.name}`);
                                             close();
-                                        } catch {
-                                            toast.error("Couldn't add the keys. Please try again.");
+                                        } catch (err) {
+                                            throw new Error(getErrorMessage(err, "Couldn't add the keys. Please try again."));
                                         }
                                     }}
                                 />
@@ -202,8 +203,8 @@ export default function ApiKeysTab() {
                                         await setActiveApiKey(dialog.key.id, reauthToken);
                                         toast.success(`${providerLabel(dialog.key.provider)} now uses ${dialog.key.name}`);
                                         close();
-                                    } catch {
-                                        toast.error("Couldn't switch the keys. Please try again.");
+                                    } catch (err) {
+                                        throw new Error(getErrorMessage(err, "Couldn't switch the keys. Please try again."));
                                     }
                                 }}
                             />
@@ -228,8 +229,8 @@ export default function ApiKeysTab() {
                                         await removeApiKey(dialog.key.id, reauthToken);
                                         toast.success(`${dialog.key.name} removed from ${providerLabel(dialog.key.provider)}`);
                                         close();
-                                    } catch {
-                                        toast.error("Couldn't remove the keys. Please try again.");
+                                    } catch (err) {
+                                        throw new Error(getErrorMessage(err, "Couldn't remove the keys. Please try again."));
                                     }
                                 }}
                             />

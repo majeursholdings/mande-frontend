@@ -13,6 +13,7 @@ import PlanOfferForm, { PlanOfferFormSkeleton } from "../form/planOfferForm";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadError } from "@/components/adminPlatform/emptyState";
 import { useSuperAdminSettings } from "../settingsContext";
+import { getErrorMessage } from "@/lib/api";
 
 /** What a usual price comes to with the offer taken off. */
 const withDiscount = (price: number, percent: number) => Math.round((price * (100 - percent)) / 100);
@@ -140,8 +141,8 @@ export default function PlansTab() {
                                         await updatePlan(editing.id, changes);
                                         toast.success(`${editing.name} saved`);
                                         setEditing(null);
-                                    } catch {
-                                        toast.error("Couldn't save the plan. Please try again.");
+                                    } catch (err) {
+                                        toast.error(getErrorMessage(err, "Couldn't save the plan. Please try again."));
                                     }
                                 }}
                             />
