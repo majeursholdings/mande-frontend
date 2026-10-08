@@ -62,11 +62,12 @@ export function toDashboardStats(
         },
         payouts: { ...money(stats.payoutsKobo.value), changePercent: stats.payoutsKobo.changePercent },
         "subscription-revenue": {
-            ...money(stats.subscriptionRevenueKobo.value),
-            changePercent: stats.subscriptionRevenueKobo.changePercent,
+            ...money(stats.subscriptionRevenueKobo?.value ?? 0),
+            changePercent: stats.subscriptionRevenueKobo?.changePercent ?? null,
         },
         "success-rate": {
-            value: `${stats.successRate.value ?? 0}%`,
+            // Null until a job has finished: there's no rate yet, not a 0% one
+            value: stats.successRate.value === null ? "N/A" : `${stats.successRate.value}%`,
             changePercent: stats.successRate.changePercent,
         },
         "active-accounts": {

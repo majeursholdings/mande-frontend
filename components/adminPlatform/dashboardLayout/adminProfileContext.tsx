@@ -44,6 +44,8 @@ export function AdminProfileProvider({ children }: { children: ReactNode }) {
             avatar?: string | { url?: string | null } | null;
             avatarUrl?: string | null;
             notificationPreferences?: AdminProfile["notificationPreferences"];
+            /** When the profile was made, at sign-up or on accepting the invite. */
+            createdAt?: string;
         };
         const resolvedAvatarUrl =
             overrides.avatarUrl !== undefined
@@ -55,10 +57,15 @@ export function AdminProfileProvider({ children }: { children: ReactNode }) {
             lastName: overrides.lastName ?? p.lastName ?? initialProfile.lastName,
             email: currentUser?.email ?? initialProfile.email,
             phone: overrides.phone ?? p.phone ?? initialProfile.phone,
+            joinedAt: p.createdAt ?? initialProfile.joinedAt,
             position: ((p.position as AdminProfile["position"]) ?? initialProfile.position),
             avatarUrl: resolvedAvatarUrl,
             security: {
-                twoFactorMethod: currentUser?.twoFactorMethod || initialProfile.security?.twoFactorMethod || "email",
+                // Off (null) unless they turned it on; a change on the Security page shows at once
+                twoFactorMethod:
+                    overrides.security && "twoFactorMethod" in overrides.security
+                        ? (overrides.security.twoFactorMethod ?? null)
+                        : (currentUser?.twoFactorMethod ?? null),
             },
             notificationPreferences: overrides.notificationPreferences ?? p.notificationPreferences ?? initialProfile.notificationPreferences,
         };

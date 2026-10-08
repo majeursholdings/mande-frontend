@@ -11,7 +11,7 @@ import { staffService } from "@/lib/services/staffService";
  * `status: "all"`. Each is also kept in the lead registry, so getProjectLead
  * finds them by id anywhere. Empty until loaded.
  */
-export function useProjectLeads({ status = "active" }: { status?: "active" | "all" } = {}) {
+export function useProjectLeads({ status = "active", enabled = true }: { status?: "active" | "all"; enabled?: boolean } = {}) {
     const params = status === "all" ? {} : { status };
     const query = useQuery({
         queryKey: queryKeys.staff.projectLeads(params),
@@ -21,6 +21,7 @@ export function useProjectLeads({ status = "active" }: { status?: "active" | "al
             return data;
         },
         staleTime: 60_000,
+        enabled,
     });
     const leads: ProjectLeadRecord[] = useMemo(
         () =>

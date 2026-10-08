@@ -9,6 +9,7 @@ import {
     SidebarContent,
 } from "@/components/ui/dashboardSidebar";
 import { useSuperAdminActions } from "@/components/superAdminPlatform/actions/pendingActions";
+import SidebarRank from "@/components/common/points/sidebarRank";
 import { useLogout } from "./logoutContext";
 import { isStaffNavItemActive, useStaffPlatform } from "./staffPlatformContext";
 
@@ -26,6 +27,8 @@ export default function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
         <SidebarContent
             homeHref={platform.dashboardUrl}
             platformName={platform.name}
+            // A project lead's present rank (super admins have none)
+            standing={platform.leadId ? <SidebarRank role="admin" /> : undefined}
             onNavigate={onNavigate}
             items={platform.navItems.map((item) => ({
                 label: item.label,

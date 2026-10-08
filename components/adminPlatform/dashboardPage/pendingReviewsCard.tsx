@@ -39,6 +39,7 @@ export default function PendingReviewsCard() {
         staleTime: 30_000,
     });
     const reviews = (query.data?.reviews ?? []).map(toPendingProgressReview);
+    const total = query.data?.total ?? reviews.length;
 
     return (
         <DashboardCard
@@ -47,7 +48,7 @@ export default function PendingReviewsCard() {
                     Pending Progress Reviews
                     {reviews.length > 0 && (
                         <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-secondary-50 px-1.5 text-xs font-semibold text-secondary-700">
-                            {reviews.length}
+                            {total}
                         </span>
                     )}
                 </span>

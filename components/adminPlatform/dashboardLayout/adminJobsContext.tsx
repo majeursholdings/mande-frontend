@@ -20,6 +20,7 @@ import { getJobRecordPayouts } from "@/constant/platformRecords";
 import { useAdminProfile } from "./adminProfileContext";
 import { useStaffPlatform } from "./staffPlatformContext";
 import { DEFAULT_IMAGE } from "@/constant/global";
+import { fetchAllPages } from "@/lib/pagination";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AdminJobsProvider — every job, shared across the admin (or super admin)
@@ -200,6 +201,8 @@ type ServerStaffJob = {
     description?: string;
     image?: { url: string | null; name: string | null; kind: "image" | "document"; publicId?: string } | null;
     attachments?: { url: string | null; name: string | null; kind: "image" | "document"; publicId?: string }[];
+    /** The client's proof of delivery, sent with the sign-off. */
+    deliveryProofAttachments?: { url: string | null; name: string | null; kind: "image" | "document"; publicId?: string }[];
     notes?: { id: string; authorName: string; authorRole: string; message: string; createdAt: string }[];
     createdAt: string;
     currentStep?: ProductionStepKey;
@@ -331,13 +334,19 @@ function transformStaffJobToAdminJob(serverJob: ServerStaffJob): AdminJob {
               }
             : null,
         imageUrl,
-        imagePublicId: serverJob.image?.publicId,
-        attachments: (serverJob.attachments ?? []).map((att) => ({
-            name: att.name ?? "Attachment.pdf",
-            url: att.url ?? "/job-spec.pdf",
-            kind: att.kind ?? (att.name?.endsWith(".pdf") ? "document" : "image"),
-            publicId: att.publicId,
-        })),
+        // Only a real cover: with none, the API shows the first image attachment in its place
+        imagePublicId: serverJob.image?.publicId && isCoverUpload(serverJob.image) ? serverJob.image.publicId : undefined,
+        // A file without a link (its signed link couldn't be made) is left out, never linked to a stand-in
+        attachments: (serverJob.attachments ?? []).flatMap((att) =>
+            att.url
+                ? [{ name: att.name ?? "Attachment", url: att.url, kind: att.kind ?? (att.name?.endsWith(".pdf") ? "document" : "image"), publicId: att.publicId }]
+                : [],
+        ),
+        deliveryProofAttachments: (serverJob.deliveryProofAttachments ?? []).flatMap((att) =>
+            att.url
+                ? [{ name: att.name ?? "Delivery proof", url: att.url, kind: att.kind ?? "image", publicId: att.publicId }]
+                : [],
+        ),
         notes: (serverJob.notes ?? []).map((note) => ({
             id: String(note.id),
             authorName: note.authorName ?? "Staff",
@@ -348,7 +357,8 @@ function transformStaffJobToAdminJob(serverJob: ServerStaffJob): AdminJob {
         createdAt: serverJob.createdAt ? new Date(serverJob.createdAt).toISOString() : new Date().toISOString(),
         stepSubmissions: (serverJob.stepSubmissions ?? []).map((sub) => ({
             step: sub.step,
-            imageUrls: sub.photos && sub.photos.length > 0 && sub.photos[0] ? (sub.photos.filter(Boolean) as string[]) : [fallbackPhoto],
+            // Only the proof they sent: never a stand-in photo in front of a payment decision
+            imageUrls: (sub.photos ?? []).filter(Boolean) as string[],
             note: sub.note ?? undefined,
             submittedAt: sub.submittedAt ? new Date(sub.submittedAt).toISOString() : new Date().toISOString(),
             review: sub.review
@@ -442,8 +452,14 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
 
     // Load live jobs from server
     const { data: serverJobsData, isLoading, isError } = useQuery({
-        queryKey: queryKeys.jobs.list({ limit: 100 }),
-        queryFn: () => jobsService.getStaffJobs({ limit: 100 }),
+        // Every job (up to 2,000), not just the newest page: older ones can be found, linked to and acted on
+        queryKey: queryKeys.jobs.list({ all: true }),
+        queryFn: async () => ({
+            jobs: await fetchAllPages(async (before) => {
+                const page = await jobsService.getStaffJobs({ limit: 100, before });
+                return { items: (page.jobs ?? []) as ServerStaffJob[], nextBefore: page.nextBefore ?? null };
+            }, 2000),
+        }),
         staleTime: 30_000,
         retry: 1,
     });
@@ -464,6 +480,13 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
     const [localPatches, setLocalPatches] = useState<Record<string, AdminJob>>({});
     const [locallyCreatedJobs, setLocallyCreatedJobs] = useState<AdminJob[]>([]);
     const [deletedJobIds, setDeletedJobIds] = useState<string[]>([]);
+    // A patch only bridges the wait for the server: fresh data replaces it, so
+    // what changed on the server since (new proof, others' edits) shows
+    const [patchedData, setPatchedData] = useState(serverJobsData);
+    if (patchedData !== serverJobsData) {
+        setPatchedData(serverJobsData);
+        setLocalPatches({});
+    }
 
     const jobs = useMemo(() => {
         const combined = [
@@ -480,6 +503,8 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
     // jobs as of the render that made them, as they always have.
     const value: AdminJobsContextValue = useMemo(() => {
         // A change shows in the jobs lists and in the reports built from them
+        // Run in the background after an action: it shows at once (patchJob), and the
+        // fresh list replaces the patch when it arrives, so nobody waits for every page
         const refreshJobs = () =>
             Promise.all([
                 queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all }),
@@ -611,7 +636,7 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
             const response = await jobsService.createJob(payload);
             const savedJob = response?.job ? transformStaffJobToAdminJob(response.job) : createdJob;
             setLocallyCreatedJobs((prev) => [savedJob, ...prev.filter((j) => j.id !== savedJob.id)]);
-            await refreshJobs();
+            void refreshJobs();
             return savedJob;
         };
 
@@ -654,9 +679,8 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
                     startDate: draft.startDate ? new Date(draft.startDate).toISOString() : null,
                     ...(draft.deliveryLocation ? { deliveryLocation: draft.deliveryLocation } : {}),
                     ...(imagePayload ? { image: imagePayload } : {}),
-                    ...(otherAttachments.length > 0
-                        ? { attachments: otherAttachments.map((a) => ({ publicId: a.publicId!, name: a.name })) }
-                        : {}),
+                    // Always the full list, so removing the last file removes it
+                    attachments: otherAttachments.map((a) => ({ publicId: a.publicId!, name: a.name })),
                 };
 
                 if (cleanProjectLeadIds && cleanProjectLeadIds.length > 0) {
@@ -676,7 +700,7 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
                     await jobsService.offerJob(realId, cleanManufacturerIds);
                 }
 
-                await refreshJobs();
+                void refreshJobs();
 
                 patchJob(realId, (job) => {
                     const updated = {
@@ -694,13 +718,13 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
                 const realId = resolveJobId(id);
                 const cleanManufacturerIds = manufacturerIds.filter((mId) => /^[a-f\d]{24}$/i.test(mId));
                 await jobsService.offerJob(realId, cleanManufacturerIds);
-                await refreshJobs();
+                void refreshJobs();
                 patchJob(realId, (job) => withAssignment(job, cleanManufacturerIds, new Date().toISOString(), myName));
             },
             completeJob: async (id, review) => {
                 const realId = resolveJobId(id);
                 await jobsService.signOffJob(realId, { rating: review.rating, comment: review.comment, clientProofs: review.clientProofs ?? [] });
-                await refreshJobs();
+                void refreshJobs();
                 patchJob(realId, (job) => {
                     if (job.status !== "in-review" || job.furtherReview) return job;
                     const now = new Date().toISOString();
@@ -713,7 +737,7 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
             signOffHeldJob: async (id) => {
                 const realId = resolveJobId(id);
                 await jobsService.signOffHeldJob(realId);
-                await refreshJobs();
+                void refreshJobs();
                 patchJob(realId, (job) =>
                     job.status === "in-review" && job.furtherReview
                         ? {
@@ -730,31 +754,31 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
             approveStep: async (id, step) => {
                 const realId = resolveJobId(id);
                 await jobsService.approveStep(realId, step);
-                await refreshJobs();
+                void refreshJobs();
                 reviewStep(realId, step, { outcome: "approved", at: new Date().toISOString(), by: myName });
             },
             sendBackStep: async (id, step, reason) => {
                 const realId = resolveJobId(id);
                 await jobsService.rejectStep(realId, step, { reason });
-                await refreshJobs();
+                void refreshJobs();
                 reviewStep(realId, step, { outcome: "sent-back", at: new Date().toISOString(), by: myName, reason });
             },
             acceptApplication: async (id, applicationId) => {
                 const realId = resolveJobId(id);
                 await jobsService.decideApplication(realId, applicationId, "accepted");
-                await refreshJobs();
+                void refreshJobs();
                 decideApplication(realId, applicationId, "accepted");
             },
             declineApplication: async (id, applicationId) => {
                 const realId = resolveJobId(id);
                 await jobsService.decideApplication(realId, applicationId, "declined");
-                await refreshJobs();
+                void refreshJobs();
                 decideApplication(realId, applicationId, "declined");
             },
             reportFault: async (id, reason) => {
                 const realId = resolveJobId(id);
                 await jobsService.reportFault(realId, reason);
-                await refreshJobs();
+                void refreshJobs();
                 patchJob(realId, (job) => {
                     // The stored job may not show an auto sign-off yet, so check the settled one
                     const settled = settleAdminJob(job);
@@ -768,8 +792,8 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
             },
             rejectJob: async (id, review) => {
                 const realId = resolveJobId(id);
-                await jobsService.rejectJob(realId, { reason: review.reason });
-                await refreshJobs();
+                await jobsService.rejectJob(realId, { reason: review.reason, attachments: review.attachments });
+                void refreshJobs();
                 patchJob(realId, (job) =>
                     job.rejections.length >= MAX_ADMIN_JOB_REJECTIONS
                         ? job
@@ -794,7 +818,7 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
             decideExtension: async (id, extensionId, decision) => {
                 const realId = resolveJobId(id);
                 await jobsService.decideExtension(realId, extensionId, decision);
-                await refreshJobs();
+                void refreshJobs();
                 patchJob(realId, (job) => {
                     const request = job.extensionRequests.find((extension) => extension.id === extensionId);
                     if (!request || request.status !== "pending") return job;
@@ -812,7 +836,7 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
             rateManufacturer: async (id, review) => {
                 const realId = resolveJobId(id);
                 await jobsService.rateManufacturer(realId, review);
-                await refreshJobs();
+                void refreshJobs();
                 patchJob(realId, (job) => ({
                     ...job,
                     manufacturerReview: { ...review, authorName: myName, createdAt: new Date().toISOString() },
@@ -857,7 +881,7 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
                 }
                 await jobsService.deleteJob(realId);
                 setDeletedJobIds((prev) => [...prev, target.id]);
-                await refreshJobs();
+                void refreshJobs();
             },
         } satisfies AdminJobsContextValue;
     }, [jobs, isLoading, isError, myName, leadId, queryClient]);

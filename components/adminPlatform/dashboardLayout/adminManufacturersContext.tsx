@@ -5,9 +5,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { manufacturerService } from "@/lib/services/manufacturerService";
 import { registerManufacturers, type AdminJobAttachment } from "@/constant/admin";
-import type { DeletionRequestRecord, DocumentVerification, ManufacturerAccountStatus, ManufacturerRecord } from "@/constant/platformRecords";
+import type { DeletionRequestRecord, DocumentVerification, ManufacturerAccountStatus, ManufacturerRecord, VerificationStatus } from "@/constant/platformRecords";
 import { isJobUnderwayFor, useAdminJobs } from "./adminJobsContext";
 import { useAdminProfile } from "./adminProfileContext";
+import { fetchAllPages } from "@/lib/pagination";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AdminManufacturersProvider — every manufacturer, shared across the admin
@@ -102,13 +103,13 @@ type AdminManufacturersContextValue = {
      */
     deleteManufacturer: (id: string, reauthToken?: string, reason?: string) => Promise<void>;
     /** Super admins only: turns down an admin's request to delete the account. */
-    declineDeletionRequest: (id: string) => void;
+    declineDeletionRequest: (id: string) => Promise<void>;
     decideVerification: (
         id: string,
         document: ManufacturerDocument,
         decision: "verified" | "rejected",
         rejectionReason?: string,
-    ) => void;
+    ) => Promise<void>;
     /**
      * Why a manufacturer can't be given another job — suspended, or flagged
      * with a job already underway. Null when they can.
@@ -147,7 +148,11 @@ type ServerManufacturer = {
     plan: { planId: string; billingCycle: "monthly" | "yearly"; status: string; renewsAt: string | null } | null;
     accountStatus: ManufacturerRecord["accountStatus"];
     isDeactivated: boolean;
-    verification: string;
+    verification: VerificationStatus;
+    address?: { city: string; state: string };
+    hasPendingAppeal?: boolean;
+    points?: number;
+    rank?: string;
     joinedAt: string | null;
     hasDeletionRequest: boolean;
     deletionRequest?: DeletionRequestRecord | null;
@@ -166,7 +171,7 @@ const toManufacturerRecord = (sm: ServerManufacturer): ManufacturerRecord => ({
     dateOfBirth: null,
     avatarUrl: sm.avatar?.url ?? null,
     joinedAt: sm.joinedAt ?? new Date().toISOString(),
-    address: { streetAddress: "", city: "", state: "", country: "NG" },
+    address: { streetAddress: "", city: sm.address?.city ?? "", state: sm.address?.state ?? "", country: "NG" },
     specialities: sm.specialities ?? [],
     staffRange: "",
     productionLeadTime: "",
@@ -189,6 +194,10 @@ const toManufacturerRecord = (sm: ServerManufacturer): ManufacturerRecord => ({
     accountStatus: sm.accountStatus ?? "active",
     statusHistory: [],
     appeals: [],
+    verification: sm.verification,
+    hasPendingAppeal: sm.hasPendingAppeal ?? false,
+    points: sm.points ?? 0,
+    rank: sm.rank,
     deletionRequest: sm.deletionRequest
         ? {
               reason: sm.deletionRequest.reason,
@@ -213,7 +222,13 @@ export function AdminManufacturersProvider({ children }: { children: ReactNode }
     // Fetch live manufacturers from backend
     const { data: serverData, isLoading: isServerLoading, isError: isServerError } = useQuery({
         queryKey: queryKeys.manufacturers.lists(),
-        queryFn: () => manufacturerService.getStaffManufacturers({ limit: 50 }),
+        // Every open account (up to 2,000), not just the newest page
+        queryFn: async () => ({
+            manufacturers: await fetchAllPages(async (before) => {
+                const page = await manufacturerService.getStaffManufacturers({ limit: 50, before });
+                return { items: (page.manufacturers ?? []) as ServerManufacturer[], nextBefore: page.nextBefore ?? null };
+            }, 2000),
+        }),
         staleTime: 30_000,
         retry: 1,
     });
@@ -225,6 +240,13 @@ export function AdminManufacturersProvider({ children }: { children: ReactNode }
 
     const [localPatches, setLocalPatches] = useState<Record<string, ManufacturerRecord>>({});
     const [deletedIds, setDeletedIds] = useState<string[]>([]);
+    // A patch only bridges the wait for the server: fresh data replaces it
+    const [patchedData, setPatchedData] = useState(serverData);
+    if (patchedData !== serverData) {
+        setPatchedData(serverData);
+        setLocalPatches({});
+        setDeletedIds([]);
+    }
 
     const manufacturers = useMemo(() => {
         const result = baseManufacturers
@@ -385,14 +407,19 @@ export function AdminManufacturersProvider({ children }: { children: ReactNode }
                     throw err;
                 }
             },
-            declineDeletionRequest: (id) => {
+            declineDeletionRequest: async (id) => {
+                const previousPatch = localPatches[id];
                 patch(id, (manufacturer) => ({ ...manufacturer, deletionRequest: null }));
-                manufacturerService
-                    .declineDeletionRequest(id)
-                    .then(() => refreshManufacturers())
-                    .catch((err) => console.error("Failed to decline deletion request on server:", err));
+                try {
+                    await manufacturerService.declineDeletionRequest(id);
+                    refreshManufacturers();
+                } catch (err) {
+                    rollbackPatch(id, previousPatch);
+                    throw err;
+                }
             },
-            decideVerification: (id, document, decision, rejectionReason) => {
+            decideVerification: async (id, document, decision, rejectionReason) => {
+                const previousPatch = localPatches[id];
                 patch(id, (manufacturer) =>
                     DOCUMENT_FIELDS[document](manufacturer, {
                         status: decision,
@@ -404,10 +431,13 @@ export function AdminManufacturersProvider({ children }: { children: ReactNode }
                     "tax-number": "company-tax-number",
                     "business-license": "business-license-number",
                 };
-                manufacturerService
-                    .decideDocumentVerification(id, docMap[document], decision, rejectionReason)
-                    .then(() => refreshManufacturers())
-                    .catch((err) => console.error("Failed to decide document verification on server:", err));
+                try {
+                    await manufacturerService.decideDocumentVerification(id, docMap[document], decision, rejectionReason);
+                    refreshManufacturers();
+                } catch (err) {
+                    rollbackPatch(id, previousPatch);
+                    throw err;
+                }
             },
             getAssignBlocker: (id) => {
                 const manufacturer = getManufacturer(id);
