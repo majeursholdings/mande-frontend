@@ -9,6 +9,7 @@ import { staffService } from "@/lib/services/staffService";
 import { useAdminProfile } from "../dashboardLayout/adminProfileContext";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import { FormSubmitButton } from "./formButtons";
+import { getErrorMessage } from "@/lib/api";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NotificationPreferencesForm — for each thing an admin (or super admin) can
@@ -38,8 +39,8 @@ export default function NotificationPreferencesForm() {
             updateProfile({ notificationPreferences: preferences });
             methods.reset(preferences);
             toast.success("Notification settings saved");
-        } catch {
-            toast.error("Couldn't save your notification settings. Please try again.");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't save your notification settings. Please try again."));
         } finally {
             setIsLoading(false);
         }
@@ -71,7 +72,7 @@ export default function NotificationPreferencesForm() {
                                 <p className="text-xs text-mist-500">{type.description}</p>
                                 {isAllOff && (
                                     <p className="mt-1 text-xs text-warning-700">
-                                        Off everywhere — you won&apos;t be told about these
+                                        Off everywhere: you won&apos;t be told about these
                                     </p>
                                 )}
                             </div>
@@ -100,6 +101,10 @@ export default function NotificationPreferencesForm() {
                     );
                 })}
             </ul>
+
+            <p className="text-xs font-text text-mist-500">
+                Security notices about your account, like a suggestion to turn on two-factor authentication, always arrive in the app and by email.
+            </p>
 
             <div className="flex justify-end">
                 <FormSubmitButton

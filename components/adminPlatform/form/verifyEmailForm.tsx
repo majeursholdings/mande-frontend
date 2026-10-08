@@ -17,7 +17,8 @@ type AdminVerifyEmailFormValues = {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AdminVerifyEmailForm — the second step of admin sign-up: the code emailed
-// when the account was created. Checks it as soon as the last digit is in
+// when the account was created (or the fresh one emailed when an unverified
+// account tries to log in). Checks it as soon as the last digit is in
 // (Verify does the same), and can resend once the countdown runs out.
 // ─────────────────────────────────────────────────────────────────────────────
 

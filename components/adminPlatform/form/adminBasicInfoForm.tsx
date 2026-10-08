@@ -12,6 +12,7 @@ import { staffService } from "@/lib/services/staffService";
 import { useAdminProfile } from "../dashboardLayout/adminProfileContext";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import { FormSubmitButton } from "./formButtons";
+import { getErrorMessage } from "@/lib/api";
 
 type AdminBasicInfoFormValues = {
     firstName: string;
@@ -99,11 +100,13 @@ export default function AdminBasicInfoForm() {
             // The saved values become the new baseline, so Save greys out again
             methods.reset(saved);
             toast.success(canChangeName ? "Profile updated" : "Phone number updated");
-        } catch {
+        } catch (err) {
+            // The API's own message, e.g. a phone number someone else already uses
             toast.error(
-                canChangeName
-                    ? "Couldn't save your profile. Please try again."
-                    : "Couldn't save your phone number. Please try again.",
+                getErrorMessage(
+                    err,
+                    canChangeName ? "Couldn't save your profile. Please try again." : "Couldn't save your phone number. Please try again.",
+                ),
             );
         } finally {
             setIsLoading(false);

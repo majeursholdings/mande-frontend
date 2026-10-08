@@ -7,6 +7,7 @@ import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { Button } from "@/components/ui/button";
 import { FormSubmitButton } from "./formButtons";
+import { getErrorMessage } from "@/lib/api";
 
 type AccountActionValues = {
     reason: string;
@@ -44,7 +45,7 @@ export default function AccountActionForm({
     action: AccountAction;
     /** The manufacturer's full name — typed in capitals to confirm. */
     fullName: string;
-    onConfirm: (reason: string | null) => void;
+    onConfirm: (reason: string | null) => void | Promise<void>;
     onCancel: () => void;
 }) {
     const [isLoading, setIsLoading] = useState(false);
@@ -102,11 +103,9 @@ export default function AccountActionForm({
     const handleSubmit = async ({ reason }: AccountActionValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate saving it
-            await new Promise((resolve) => setTimeout(resolve, 600));
-            onConfirm(reason.trim() || null);
-        } catch {
-            toast.error("Couldn't save that. Please try again.");
+            await onConfirm(reason.trim() || null);
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't save that. Please try again."));
         } finally {
             setIsLoading(false);
         }

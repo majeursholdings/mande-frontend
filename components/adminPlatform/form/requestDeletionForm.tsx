@@ -70,7 +70,7 @@ export default function RequestDeletionForm({
     onRequest,
     onCancel,
 }: {
-    onRequest: (request: { reason: string; attachments: AdminJobAttachment[] }) => void;
+    onRequest: (request: { reason: string; attachments: AdminJobAttachment[] }) => void | Promise<void>;
     onCancel: () => void;
 }) {
     const [isLoading, setIsLoading] = useState(false);
@@ -82,7 +82,6 @@ export default function RequestDeletionForm({
     const handleSubmit = async ({ reason, photos, documents }: RequestDeletionValues) => {
         setIsLoading(true);
         try {
-            await new Promise((resolve) => setTimeout(resolve, 800));
             const upload = (files: unknown, kind: AdminJobAttachment["kind"]) =>
                 Array.from((files as Array<Record<string, unknown> | File>) ?? []).map((file) => {
                     if (file && typeof file === "object" && "url" in file && typeof file.url === "string") {
@@ -99,7 +98,7 @@ export default function RequestDeletionForm({
                     }
                     return { name: "attachment", url: "", kind };
                 });
-            onRequest({
+            await onRequest({
                 reason: reason.trim(),
                 attachments: [...upload(photos, "image"), ...upload(documents, "document")],
             });

@@ -60,18 +60,23 @@ function loginErrorMessage(error: unknown): string {
  * Logging in to a staff platform (the admin's, or the super admin's): the
  * email and password go to the API. It either signs them in (`onSignedIn`)
  * or asks for a code first (`onCodeRequired`: two-factor, or extra checks
- * after wrong passwords). The page decides where each leads.
+ * after wrong passwords). An account whose email isn't verified yet gets a
+ * fresh code from the API (`onEmailNotVerified`), so the page can ask for it.
+ * The page decides where each leads.
  */
 export default function AdminLoginForm({
     forgotPasswordUrl = ADMIN_FORGOT_PASSWORD_URL,
     role,
     onSignedIn,
     onCodeRequired,
+    onEmailNotVerified,
 }: {
     forgotPasswordUrl?: string;
     role?: "admin" | "super_admin";
     onSignedIn: (user: PublicUser) => void;
     onCodeRequired: (challenge: LoginMfaRequiredResponse, email: string) => void;
+    /** The right password, but the email isn't verified: the API has emailed a code to `email`. */
+    onEmailNotVerified: (email: string) => void;
 }) {
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<AdminLoginFormValues>({
@@ -81,8 +86,8 @@ export default function AdminLoginForm({
 
     const handleSubmit = async ({ email, password, rememberMe }: AdminLoginFormValues) => {
         setIsLoading(true);
+        const trimmedEmail = email.trim().toLowerCase();
         try {
-            const trimmedEmail = email.trim().toLowerCase();
             const result = await authService.login({ email: trimmedEmail, password, rememberMe, role });
             if ("mfaRequired" in result) {
                 onCodeRequired(result, trimmedEmail);
@@ -90,6 +95,11 @@ export default function AdminLoginForm({
             }
             onSignedIn(result.user);
         } catch (error) {
+            if (error instanceof MandeApiError && error.code === "EMAIL_NOT_VERIFIED") {
+                toast.info(error.message || "Verify your email first. We've sent you a code.");
+                onEmailNotVerified(trimmedEmail);
+                return;
+            }
             toast.error(loginErrorMessage(error));
         } finally {
             setIsLoading(false);

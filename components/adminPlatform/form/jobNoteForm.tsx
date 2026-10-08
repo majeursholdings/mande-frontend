@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { FormSubmitButton } from "./formButtons";
+import { getErrorMessage } from "@/lib/api";
 
 type JobNoteValues = {
     note: string;
@@ -39,7 +40,7 @@ export default function JobNoteForm({
     onPost,
 }: {
     /** Saves the note. May throw; the form reports the failure. */
-    onPost: (message: string) => void;
+    onPost: (message: string) => void | Promise<void>;
 }) {
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<JobNoteValues>({ defaultValues: { note: "" } });
@@ -47,12 +48,11 @@ export default function JobNoteForm({
     const handleSubmit = async ({ note }: JobNoteValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate saving the note
-            await new Promise((resolve) => setTimeout(resolve, 500));
-            onPost(note.trim());
+            await onPost(note.trim());
             methods.reset({ note: "" });
-        } catch {
-            toast.error("Couldn't post your note. Please try again.");
+        } catch (err) {
+            // The note stays in the box to try again
+            toast.error(getErrorMessage(err, "Couldn't post your note. Please try again."));
         } finally {
             setIsLoading(false);
         }

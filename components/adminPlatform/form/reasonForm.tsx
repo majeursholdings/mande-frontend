@@ -26,6 +26,7 @@ export default function ReasonForm({
     errorMessage,
     onSubmit,
     onCancel,
+    maxLength = REASON_MAX_LENGTH,
 }: {
     label: string;
     placeholder: string;
@@ -35,6 +36,8 @@ export default function ReasonForm({
     errorMessage: string;
     onSubmit: (reason: string) => void | Promise<void>;
     onCancel: () => void;
+    /** The longest reason the API takes for this, if not the usual 500. */
+    maxLength?: number;
 }) {
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<ReasonValues>({ mode: "onTouched", defaultValues: { reason: "" } });
@@ -52,8 +55,8 @@ export default function ReasonForm({
                     value.trim().length >= REASON_MIN_LENGTH ||
                     `Write at least ${REASON_MIN_LENGTH} characters`,
                 maxLength: {
-                    value: REASON_MAX_LENGTH,
-                    message: `Keep it under ${REASON_MAX_LENGTH} characters`,
+                    value: maxLength,
+                    message: `Keep it under ${maxLength} characters`,
                 },
             },
         },
