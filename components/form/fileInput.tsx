@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import {
     useFormContext,
@@ -228,6 +228,16 @@ export const FileInput = <T extends FieldValues = FieldValues>({
         }
     }, [field.name, field.multiple, setValueFn]);
 
+    // The form's value follows the files after they change, never while React
+    // is working out the new list (that would update the form mid-render, and
+    // a state updater can run twice): an update only marks it as needed
+    const needsSync = useRef(false);
+    useEffect(() => {
+        if (!needsSync.current) return;
+        needsSync.current = false;
+        syncFormValue(items);
+    }, [items, syncFormValue]);
+
     // Start upload for a file item
     const startUpload = useCallback(
         (item: FileItemState) => {
@@ -266,7 +276,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                                   }
                                 : it
                         );
-                        syncFormValue(updated);
+                        needsSync.current = true;
                         return updated;
                     });
                     toast.success(`Uploaded ${item.originalName}`);
@@ -287,7 +297,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                     toast.error(`Failed to upload ${item.originalName}: ${message}`);
                 });
         },
-        [field.name, field.uploadPurpose, syncFormValue]
+        [field.name, field.uploadPurpose]
     );
 
     // Handle file selection (drag & drop or click)
@@ -362,7 +372,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
 
         setItems((prev) => {
             const updated = prev.filter((it) => it.id !== item.id);
-            syncFormValue(updated);
+            needsSync.current = true;
             return updated;
         });
 
@@ -387,7 +397,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
 
         setItems((prev) => {
             const updated = prev.filter((it) => it.id !== item.id);
-            syncFormValue(updated);
+            needsSync.current = true;
             return updated;
         });
     };
