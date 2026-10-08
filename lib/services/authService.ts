@@ -167,11 +167,10 @@ export const authService = {
   /**
    * Change password for authenticated user
    */
-  async changePassword(payload: { currentPassword: string; newPassword: string }): Promise<{ message: string }> {
-    const { data } = await api.post<{ message: string }>(
-      "/auth/password/change",
-      payload
-    );
+  async changePassword(payload: { currentPassword: string; newPassword: string }, reauthToken: string): Promise<{ message: string }> {
+    const { data } = await api.post<{ message: string }>("/auth/password/change", payload, {
+      headers: { "X-Reauth-Token": reauthToken },
+    });
     return data;
   },
 

@@ -62,6 +62,13 @@ export interface UpdateJobPayload {
 }
 
 
+/** A file the form has already uploaded; only its publicId and name go to the API. */
+type UploadedFileLike = { publicId?: string | null; name?: string };
+
+/** The API takes uploads as { publicId, name } only; anything not uploaded yet is left out. */
+const toUploads = (files: UploadedFileLike[]) =>
+  files.flatMap((file) => (file.publicId ? [{ publicId: file.publicId, ...(file.name && { name: file.name.slice(0, 200) }) }] : []));
+
 export const jobsService = {
   // ── Open Jobs Marketplace (Manufacturers) ───────────────────────────
 
@@ -128,7 +135,8 @@ export const jobsService = {
   },
 
   async rateLead(jobId: string, payload: { rating: number; comment?: string }) {
-    const { data } = await api.post(`/my-jobs/${jobId}/lead-review`, payload);
+    // Only what the API takes: the shared review form also carries (empty) client proofs
+    const { data } = await api.post(`/my-jobs/${jobId}/lead-review`, { rating: payload.rating, comment: payload.comment });
     return data;
   },
 
@@ -239,11 +247,8 @@ export const jobsService = {
     return data;
   },
 
-  async signOffJob(
-    jobId: string,
-    payload: { rating: number; comment?: string; clientProofs: Array<{ publicId?: string; name?: string; url?: string; kind?: "document" | "image" }> }
-  ) {
-    const { data } = await api.post(`/jobs/${jobId}/sign-off`, payload);
+  async signOffJob(jobId: string, payload: { rating: number; comment: string; clientProofs: UploadedFileLike[] }) {
+    const { data } = await api.post(`/jobs/${jobId}/sign-off`, { ...payload, clientProofs: toUploads(payload.clientProofs) });
     return data;
   },
 
@@ -252,11 +257,8 @@ export const jobsService = {
     return data;
   },
 
-  async rejectJob(
-    jobId: string,
-    payload: { reason: string; attachments?: Array<{ publicId?: string; name?: string; url?: string; kind?: "document" | "image" }> }
-  ) {
-    const { data } = await api.post(`/jobs/${jobId}/reject`, payload);
+  async rejectJob(jobId: string, payload: { reason: string; attachments: UploadedFileLike[] }) {
+    const { data } = await api.post(`/jobs/${jobId}/reject`, { ...payload, attachments: toUploads(payload.attachments) });
     return data;
   },
 

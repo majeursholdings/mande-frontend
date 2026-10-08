@@ -1,4 +1,5 @@
 import { api } from "@/lib/api";
+import type { SupportFeedbackRecord } from "@/constant/platformRecords";
 
 export interface BasicInfoPayload {
   firstName?: string;
@@ -71,6 +72,21 @@ export interface StaffDeactivatePayload {
   confirmName: string;
 }
 
+/** One entry in a manufacturer's account activity, from the activity log. */
+export type ManufacturerActivityEntry = {
+  id: string;
+  /** ISO date. */
+  at: string;
+  /** e.g. "auth.password_reset". */
+  action: string;
+  /** What happened, in a sentence. */
+  summary: string;
+  actorName: string;
+  /** They did it themselves (else a staff member did, named in actorName). */
+  byThem: boolean;
+  device: string | null;
+};
+
 export const manufacturerService = {
   // Manufacturer Self-Service: Profile
 
@@ -79,8 +95,10 @@ export const manufacturerService = {
       dashboard: {
         jobs: { total: number; active: number };
         wallet: { totalMadeKobo: number; balanceKobo: number };
-        deliveryRate: { user: number; platform: number };
-        starRate: { user: number; platform: number };
+        /** Null before there's a finished job to count. */
+        deliveryRate: { user: number | null; platform: number | null };
+        /** Over completed jobs only; null before one is rated. */
+        starRate: { user: number | null; platform: number | null };
       };
     }>("/manufacturer/dashboard");
     return data.dashboard;
@@ -155,9 +173,34 @@ export const manufacturerService = {
     return data;
   },
 
-  async getManufacturerActivity(manufacturerId: string, params?: { limit?: number; before?: string }) {
+  async getManufacturerActivity(
+    manufacturerId: string,
+    params?: { limit?: number; before?: string }
+  ): Promise<{ activity: ManufacturerActivityEntry[]; nextBefore: string | null }> {
     const { data } = await api.get(`/manufacturers/${encodeURIComponent(manufacturerId)}/activity`, { params });
     return data;
+  },
+
+  /** What they shared from Talk to support, newest first (for staff). */
+  async getManufacturerFeedback(
+    manufacturerId: string,
+    params?: { limit?: number; before?: string }
+  ): Promise<{ feedback: SupportFeedbackRecord[]; nextBefore: string | null }> {
+    const { data } = await api.get<{
+      feedback: Array<{ id: string; category: SupportFeedbackRecord["category"]; message: string; screenshot: { url: string } | null; sentAt: string | null }>;
+      nextBefore: string | null;
+    }>(`/manufacturers/${encodeURIComponent(manufacturerId)}/feedback`, { params });
+    return {
+      feedback: data.feedback.map((item) => ({
+        id: item.id,
+        manufacturerId,
+        category: item.category,
+        message: item.message,
+        screenshotUrl: item.screenshot?.url ?? null,
+        sentAt: item.sentAt ?? "",
+      })),
+      nextBefore: data.nextBefore,
+    };
   },
 
   async changeStatus(

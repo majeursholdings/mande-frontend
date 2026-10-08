@@ -12,7 +12,9 @@ export interface StaffNotificationsPayload {
   delays?: { "in-app"?: boolean; email?: boolean };
   "job-responses"?: { "in-app"?: boolean; email?: boolean };
   appeals?: { "in-app"?: boolean; email?: boolean };
-  chats?: { "in-app"?: boolean; email?: boolean };
+  disputes?: { "in-app"?: boolean; email?: boolean };
+  accounts?: { "in-app"?: boolean; email?: boolean };
+  points?: { "in-app"?: boolean; email?: boolean };
   [key: string]: { "in-app"?: boolean; email?: boolean } | undefined;
 }
 

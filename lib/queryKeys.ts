@@ -123,6 +123,7 @@ export const queryKeys = {
     statistics: (range: string) =>
       [...queryKeys.reports.all, "statistics", range] as const,
     jobStatus: () => [...queryKeys.reports.all, "job-status"] as const,
+    leadOverview: () => [...queryKeys.reports.all, "lead-overview"] as const,
     pendingReviews: (limit?: number) => [...queryKeys.reports.all, "pending-reviews", limit] as const,
     transactions: (filters?: Record<string, unknown>) =>
       [...queryKeys.reports.all, "transactions", filters] as const,

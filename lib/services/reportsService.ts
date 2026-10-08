@@ -40,7 +40,8 @@ export type DashboardStatValue = { value: number; changePercent: number | null }
 export type DashboardStats = {
   manufacturers: DashboardStatValue;
   payoutsKobo: DashboardStatValue;
-  subscriptionRevenueKobo: DashboardStatValue;
+  /** The platform's plan revenue: only in a super admin's answer. */
+  subscriptionRevenueKobo?: DashboardStatValue;
   /** Value is a whole percent, null before any job finished; change is in percentage points. */
   successRate: { value: number | null; changePercent: number | null };
   activeManufacturers: DashboardStatValue & { total: number };
@@ -73,7 +74,11 @@ export type PendingReview = {
   imageUrl: string | null;
 };
 
-export type PendingReviewsResponse = { reviews: PendingReview[] };
+export type PendingReviewsResponse = {
+  reviews: PendingReview[];
+  /** Everything waiting, beyond the page in `reviews`. */
+  total: number;
+};
 
 // ─── Money ───────────────────────────────────────────────────────────────────
 
@@ -159,7 +164,7 @@ export type JobsReportResponse = {
   };
 };
 
-export type AdminPosition = "inventory-manager" | "quality-assurance-manager" | "furniture-surveyor";
+export type AdminPosition = "support" | "project-lead" | "inventory-manager";
 
 export type ProjectLeadReportEntry = {
   id: string;
@@ -171,6 +176,9 @@ export type ProjectLeadReportEntry = {
   reviews: number;
   /** Out of 5, to one decimal. Null before their first rating. */
   averageRating: number | null;
+  points: number;
+  /** A rank tier id, e.g. "associate-lead". */
+  rank: string;
 };
 
 export type ProjectLeadsParams = { position?: AdminPosition; q?: string };
@@ -269,8 +277,29 @@ async function fetchAllPages<T>(
   return all;
 }
 
+/** GET /reports/lead-overview: the jobs a project lead leads, and the money they moved (kobo). */
+export type LeadOverview = {
+  manufacturers: { onPlatform: number; workedWithYou: number };
+  jobs: { allTime: number; active: number; pending: number; inReview: number; completed: number };
+  money: {
+    jobValueKobo: number;
+    paidOutKobo: number;
+    payments: number;
+    /** Still to be paid on their jobs underway. */
+    pendingKobo: number;
+    chargesKobo: number;
+    charges: number;
+  };
+};
+
 export const reportsService = {
   // ── Admin & Super Admin Reports ─────────────────────────────────────
+
+  /** A project lead's own numbers, for the admin's overview cards. */
+  async getLeadOverview() {
+    const { data } = await api.get<{ overview: LeadOverview }>("/reports/lead-overview");
+    return data.overview;
+  },
 
   async getDashboard() {
     const { data } = await api.get<DashboardResponse>("/reports/dashboard");

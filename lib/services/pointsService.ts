@@ -5,7 +5,8 @@ export interface PointsSummaryResponse {
     points: number;
     rank: string;
     completedJobs: number;
-    averageRating: number;
+    /** Null before anyone has rated them. */
+    averageRating: number | null;
     progression: RankProgression;
 }
 

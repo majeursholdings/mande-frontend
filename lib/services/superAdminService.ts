@@ -10,7 +10,8 @@ export interface BackendSuperAdminUser {
   email: string;
   firstName: string;
   lastName: string;
-  avatar: { publicId?: string } | null;
+  /** A view of their photo, with its URL. */
+  avatar: { url: string } | null;
   superAdminRole: SuperAdminRole;
   status: string;
   twoFactorOn: boolean;
@@ -67,9 +68,9 @@ export const superAdminService = {
       name: `${user.firstName} ${user.lastName}`.trim() || user.email,
       email: user.email,
       phone: "",
-      avatarUrl: user.avatar?.publicId ?? null,
+      avatarUrl: user.avatar?.url ?? null,
       joinedAt: user.joinedAt,
-      twoFactorMethod: user.twoFactorMethod || "email",
+      twoFactorMethod: user.twoFactorMethod ?? null,
       role: user.superAdminRole,
     }));
   },
