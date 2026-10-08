@@ -4,6 +4,9 @@ import { LEGALS_URL, PRIVACY_POLICY_URL, TERMS_URL } from "./constant/navigation
 
 export default function nextConfig(phase: string): NextConfig {
   return {
+    // The browser tests run their own dev server beside yours, so it builds
+    // into its own folder (see playwright.config.ts)
+    distDir: process.env.NEXT_DIST_DIR || ".next",
     images: {
       // Job photos come from the API as Cloudinary links
       remotePatterns: [
