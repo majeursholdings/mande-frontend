@@ -23,7 +23,7 @@ export default function AccountHistory({ manufacturer }: { manufacturer: Manufac
                 {
                     value: "activity",
                     label: "Activity history",
-                    panel: <ActivityHistory activity={manufacturer.activity} />,
+                    panel: <ActivityHistory manufacturerId={manufacturer.id} />,
                 },
                 {
                     value: "issues",

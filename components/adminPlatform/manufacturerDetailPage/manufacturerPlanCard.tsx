@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CalendarClock, CreditCard, Wallet } from "lucide-react";
 import { formatPrice } from "@/lib/currency";
 import { formatOrdinalDate } from "@/lib/date";
@@ -16,10 +17,13 @@ export default function ManufacturerPlanCard({
     subscription,
     className,
     discountPercent: propDiscount,
+    manageHref,
 }: {
     subscription?: ManufacturerRecord["subscription"];
     className?: string;
     discountPercent?: number;
+    /** The manufacturer's own card: worded to them, with a link to manage it. Staff see "their". */
+    manageHref?: string;
 }) {
     const { getPlan, discountPercent: apiDiscount, isLoading } = usePlans();
     const discountPercent = propDiscount ?? apiDiscount;
@@ -61,9 +65,16 @@ export default function ManufacturerPlanCard({
                     ) : (
                         <CreditCard className="size-4 shrink-0 text-mist-400" strokeWidth={1.75} aria-hidden />
                     )}
-                    {subscription.renewalsPaidFrom === "wallet" ? "Renews from their wallet" : "Renews by card"}
+                    {subscription.renewalsPaidFrom === "wallet"
+                        ? `Renews from ${manageHref ? "your" : "their"} wallet`
+                        : "Renews by card"}
                 </li>
             </ul>
+            {manageHref && (
+                <Link href={manageHref} className="self-start text-sm font-medium font-text text-secondary-700 hover:underline">
+                    Manage plan
+                </Link>
+            )}
         </section>
     );
 }

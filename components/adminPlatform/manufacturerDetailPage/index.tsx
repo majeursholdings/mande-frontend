@@ -19,17 +19,8 @@ import ResponsiveTabs from "@/components/ui/responsiveTabs";
 import ActiveJobsPanel from "@/components/manufacturerPlatform/jobsPage/activeJobsPanel";
 import { SortByDropdown } from "@/components/manufacturerPlatform/jobsPage/sortByDropdown";
 import TransactionsList, { sortTransactions } from "@/components/manufacturerPlatform/transactionsPage/transactionsList";
-import {
-    TRANSACTION_SORT_OPTIONS,
-    getManufacturerJobs,
-    toManufacturerProfile,
-} from "@/constant/manufacturer";
-import {
-    getAccountHold,
-    getManufacturerVerification,
-    type AccountAppealRecord,
-    type ManufacturerRecord,
-} from "@/constant/platformRecords";
+import { TRANSACTION_SORT_OPTIONS, getManufacturerJobs, toManufacturerProfile } from "@/constant/manufacturer";
+import { getAccountHold, getManufacturerVerification, type AccountAppealRecord, type ManufacturerRecord } from "@/constant/platformRecords";
 import { useAdminJobs } from "../dashboardLayout/adminJobsContext";
 import { useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
@@ -54,6 +45,8 @@ import PointsSummaryCard from "@/components/common/points/pointsSummaryCard";
 import PointsHistoryList from "@/components/common/points/pointsHistoryList";
 import PointsGuideModal from "@/components/common/points/pointsGuideModal";
 import { getRankProgression } from "@/constant/points";
+import { getErrorMessage } from "@/lib/api";
+import ClosedAccountNotice, { type AccountClosure } from "./closedAccountNotice";
 
 type DetailTab = "jobs" | "transactions" | "reports" | "points" | "info" | "history";
 
@@ -150,14 +143,18 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
     const router = useRouter();
     const { getManufacturer, isLoading: isContextLoading } = useAdminManufacturers();
     const { jobs: allJobs, isLoading: isJobsLoading, isError: isJobsError } = useAdminJobs();
-    const { jobsUrl, manufacturersUrl, getManufacturerUrl } = useStaffPlatform();
+    const { jobsUrl, manufacturersUrl, getManufacturerUrl, permissions } = useStaffPlatform();
     const [action, setAction] = useState<ManufacturerAction | null>(null);
     const [appealDecision, setAppealDecision] = useState<{
         appeal: AccountAppealRecord;
         decision: "approved" | "declined";
     } | null>(null);
 
-    const { data: detailData, isLoading: isDetailLoading, error: detailError } = useQuery({
+    const {
+        data: detailData,
+        isLoading: isDetailLoading,
+        error: detailError,
+    } = useQuery({
         queryKey: queryKeys.manufacturers.detail(manufacturerId),
         queryFn: () => manufacturerService.getStaffManufacturer(manufacturerId),
         staleTime: 10_000,
@@ -165,6 +162,13 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
     });
 
     const contextManufacturer = getManufacturer(manufacturerId);
+    // What they shared from Talk to support (the newest 50), once the record's id is known
+    const recordId = detailData?.manufacturer?.id as string | undefined;
+    const feedbackQuery = useQuery({
+        queryKey: [...queryKeys.manufacturers.detail(recordId ?? manufacturerId), "feedback"],
+        queryFn: () => manufacturerService.getManufacturerFeedback(recordId!, { limit: 50 }),
+        enabled: !!recordId,
+    });
     const manufacturer = useMemo(() => {
         const raw = detailData?.manufacturer;
         if (raw) {
@@ -186,6 +190,8 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
                 productionLeadTime: raw.productionLeadTime ?? "",
                 materialsInventory: raw.materialsInventory ?? "",
                 accountStatus: raw.accountStatus ?? "active",
+                points: raw.points ?? 0,
+                rank: raw.rank,
                 ninCard: raw.kyc?.nin
                     ? {
                           imageUrl: raw.kyc.nin.image?.url ?? "",
@@ -203,22 +209,42 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
                     status: raw.kyc?.businessLicenseNumber?.status ?? "pending",
                     rejectionReason: raw.kyc?.businessLicenseNumber?.rejectionReason ?? null,
                 },
-                statusHistory: (raw.statusHistory ?? []).map((s: { status: "active" | "flagged" | "suspended"; reason?: string | null; by?: string; byName?: string; at?: string }) => ({
-                    status: s.status,
-                    reason: s.reason ?? null,
-                    by: s.by || s.byName || "Admin",
-                    at: s.at ? new Date(s.at).toISOString() : new Date().toISOString(),
-                })),
-                appeals: (raw.appeals ?? []).map((a: { id: string; message: string; attachments?: unknown[]; sentAt?: string; status: "pending" | "approved" | "declined"; response?: string | null; decidedBy?: string; decidedByName?: string; decidedAt?: string | null }) => ({
-                    id: a.id,
-                    message: a.message,
-                    attachments: a.attachments ?? [],
-                    sentAt: a.sentAt ? new Date(a.sentAt).toISOString() : new Date().toISOString(),
-                    status: a.status,
-                    response: a.response ?? null,
-                    decidedBy: a.decidedByName || a.decidedBy || null,
-                    decidedAt: a.decidedAt ? new Date(a.decidedAt).toISOString() : null,
-                })),
+                statusHistory: (raw.statusHistory ?? []).map(
+                    (s: {
+                        status: "active" | "flagged" | "suspended";
+                        reason?: string | null;
+                        by?: string;
+                        byName?: string;
+                        at?: string;
+                    }) => ({
+                        status: s.status,
+                        reason: s.reason ?? null,
+                        by: s.by || s.byName || "Admin",
+                        at: s.at ? new Date(s.at).toISOString() : new Date().toISOString(),
+                    }),
+                ),
+                appeals: (raw.appeals ?? []).map(
+                    (a: {
+                        id: string;
+                        message: string;
+                        attachments?: unknown[];
+                        sentAt?: string;
+                        status: "pending" | "approved" | "declined";
+                        response?: string | null;
+                        decidedBy?: string;
+                        decidedByName?: string;
+                        decidedAt?: string | null;
+                    }) => ({
+                        id: a.id,
+                        message: a.message,
+                        attachments: a.attachments ?? [],
+                        sentAt: a.sentAt ? new Date(a.sentAt).toISOString() : new Date().toISOString(),
+                        status: a.status,
+                        response: a.response ?? null,
+                        decidedBy: a.decidedByName || a.decidedBy || null,
+                        decidedAt: a.decidedAt ? new Date(a.decidedAt).toISOString() : null,
+                    }),
+                ),
                 deletionRequest: raw.deletionRequest
                     ? {
                           reason: raw.deletionRequest.reason,
@@ -237,10 +263,11 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
                     : undefined,
             };
             registerManufacturers([fromApi]);
-            return getManufacturer(manufacturerId) || (fromApi as unknown as ManufacturerRecord);
+            // The detail has everything (KYC, address, history, appeals); the list record doesn't
+            return fromApi as unknown as ManufacturerRecord;
         }
         return contextManufacturer;
-    }, [detailData, contextManufacturer, manufacturerId, getManufacturer]);
+    }, [detailData, contextManufacturer]);
 
     // Profile URLs use the readable userId: a link by database id lands on it
     const canonicalId = manufacturer?.userId;
@@ -277,6 +304,8 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
     }
 
     const jobs = getManufacturerJobs(manufacturer.id, allJobs);
+    // Closed (deactivated): read-only here, apart from reopening it
+    const closure = (detailData?.manufacturer?.deactivation ?? null) as AccountClosure | null;
 
     return (
         <div className="flex flex-col gap-6">
@@ -285,19 +314,43 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
                     <BackLink />
                     <h1 className="text-2xl font-semibold font-text text-mist-950">{manufacturer.contactName}</h1>
                 </div>
-                <ActionsMenu manufacturer={manufacturer} onSelect={setAction} />
+                {!closure && <ActionsMenu manufacturer={manufacturer} onSelect={setAction} />}
             </div>
 
-            <AccountNotices
-                manufacturer={manufacturer}
-                onAction={setAction}
-                onDecideAppeal={(appeal, decision) => setAppealDecision({ appeal, decision })}
-            />
+            {closure ? (
+                <ClosedAccountNotice
+                    manufacturerId={manufacturer.id}
+                    name={manufacturer.contactName}
+                    closure={closure}
+                    canReopen={permissions.deletes}
+                />
+            ) : (
+                <AccountNotices
+                    manufacturer={manufacturer}
+                    onAction={setAction}
+                    onDecideAppeal={(appeal, decision) => setAppealDecision({ appeal, decision })}
+                />
+            )}
 
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
                 <div className="flex flex-col gap-6 lg:w-65 lg:shrink-0">
                     <ProfileCard
                         profile={toManufacturerProfile(manufacturer)}
+                        // Once the detail (with its job stats) is in: before it, the rank would be a guess
+                        standing={
+                            detailData?.manufacturer
+                                ? {
+                                      // As the Points tab works it out: points, completed jobs and rating together
+                                      rankId: getRankProgression(
+                                          "manufacturer",
+                                          manufacturer.points ?? 0,
+                                          detailData?.manufacturer?.stats?.jobsCompleted ?? 0,
+                                          detailData?.manufacturer?.stats?.averageRating ?? null,
+                                      ).currentRank.id,
+                                      averageRating: detailData?.manufacturer?.stats?.averageRating ?? null,
+                                  }
+                                : undefined
+                        }
                         editHref={null}
                         verificationStatus={getManufacturerVerification(manufacturer)}
                     />
@@ -319,7 +372,9 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
                                 ) : (
                                     <ActiveJobsPanel
                                         jobs={jobs}
-                                        getJobHref={(job) => `${jobsUrl}?job=${encodeURIComponent(job.code ? job.code.toLowerCase() : job.id)}`}
+                                        getJobHref={(job) =>
+                                            `${jobsUrl}?job=${encodeURIComponent(job.code ? job.code.toLowerCase() : job.id)}`
+                                        }
                                         emptyDescription="Jobs offered to this manufacturer will show up here."
                                     />
                                 ),
@@ -337,15 +392,22 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
                                 ) : (
                                     <ManufacturerReports
                                         jobs={jobs}
-                                        // The API has no staff view of a manufacturer's feedback yet
-                                        feedback={[]}
+                                        feedback={feedbackQuery.data?.feedback ?? []}
+                                        feedbackState={feedbackQuery.isError ? "error" : feedbackQuery.isPending ? "loading" : "ready"}
                                     />
                                 ),
                             },
                             {
                                 value: "points",
                                 label: "Points & Rank",
-                                panel: <ManufacturerPointsTab manufacturerId={manufacturer.id} points={manufacturer.points ?? 0} rank={manufacturer.rank ?? "rising-maker"} />,
+                                panel: (
+                                    <ManufacturerPointsTab
+                                        manufacturerId={manufacturer.id}
+                                        points={manufacturer.points ?? 0}
+                                        completedJobs={detailData?.manufacturer?.stats?.jobsCompleted ?? 0}
+                                        averageRating={detailData?.manufacturer?.stats?.averageRating ?? null}
+                                    />
+                                ),
                             },
                             { value: "info", label: "More Info", panel: <ManufacturerInfo manufacturer={manufacturer} /> },
                             {
@@ -446,13 +508,7 @@ function Transactions({ manufacturerId }: { manufacturerId: string }) {
 }
 
 /** Flag, Suspend and Ask to close account (Close account, for a super admin), each off, with why, when it can't be taken. */
-function ActionsMenu({
-    manufacturer,
-    onSelect,
-}: {
-    manufacturer: ManufacturerRecord;
-    onSelect: (action: ManufacturerAction) => void;
-}) {
+function ActionsMenu({ manufacturer, onSelect }: { manufacturer: ManufacturerRecord; onSelect: (action: ManufacturerAction) => void }) {
     const [isOpen, setIsOpen] = useState(false);
     const { actions, getBlocker } = useManufacturerActions();
 
@@ -463,34 +519,36 @@ function ActionsMenu({
                 <ChevronDown className={cn("size-4 transition-transform", isOpen && "rotate-180")} />
             </PopoverTrigger>
             <PopoverContent align="end" sideOffset={6} className="w-56 gap-0.5 p-1.5">
-                {actions.filter(({ value }) => !isActionHidden(manufacturer, value)).map(({ value, label, icon: Icon, tone }) => {
-                    const blocker = getBlocker(manufacturer, value);
-                    return (
-                        <button
-                            key={value}
-                            type="button"
-                            disabled={!!blocker}
-                            onClick={() => {
-                                setIsOpen(false);
-                                onSelect(value);
-                            }}
-                            className={cn(
-                                "flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-left text-sm font-medium font-text transition-colors",
-                                blocker
-                                    ? "cursor-not-allowed text-mist-300"
-                                    : tone === "danger"
-                                      ? "text-error-600 hover:bg-error-50 cursor-pointer"
-                                      : "text-mist-700 hover:bg-mist-50 hover:text-mist-950 cursor-pointer",
-                            )}
-                        >
-                            <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
-                            <span className="flex flex-col">
-                                {label}
-                                {blocker && <span className="text-xs font-normal text-mist-400">{blocker}</span>}
-                            </span>
-                        </button>
-                    );
-                })}
+                {actions
+                    .filter(({ value }) => !isActionHidden(manufacturer, value))
+                    .map(({ value, label, icon: Icon, tone }) => {
+                        const blocker = getBlocker(manufacturer, value);
+                        return (
+                            <button
+                                key={value}
+                                type="button"
+                                disabled={!!blocker}
+                                onClick={() => {
+                                    setIsOpen(false);
+                                    onSelect(value);
+                                }}
+                                className={cn(
+                                    "flex w-full items-start gap-2.5 rounded-md px-2.5 py-2 text-left text-sm font-medium font-text transition-colors",
+                                    blocker
+                                        ? "cursor-not-allowed text-mist-300"
+                                        : tone === "danger"
+                                          ? "text-error-600 hover:bg-error-50 cursor-pointer"
+                                          : "text-mist-700 hover:bg-mist-50 hover:text-mist-950 cursor-pointer",
+                                )}
+                            >
+                                <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
+                                <span className="flex flex-col">
+                                    {label}
+                                    {blocker && <span className="text-xs font-normal text-mist-400">{blocker}</span>}
+                                </span>
+                            </button>
+                        );
+                    })}
             </PopoverContent>
         </Popover>
     );
@@ -518,12 +576,12 @@ function AccountNotices({
     const { permissions } = useStaffPlatform();
     const { declineDeletionRequest } = useAdminManufacturers();
 
-    const turnDownDeletion = () => {
+    const turnDownDeletion = async () => {
         try {
-            declineDeletionRequest(manufacturer.id);
+            await declineDeletionRequest(manufacturer.id);
             toast.success("Request to close the account turned down. The account stays open");
-        } catch {
-            toast.error("Couldn't turn the request down. Please try again.");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't turn the request down. Please try again."));
         }
     };
     const hold = getAccountHold(manufacturer);
@@ -562,11 +620,7 @@ function AccountNotices({
                     title={`Appeal waiting · sent ${getRelativeTimeLabel(new Date(pendingAppeal.sentAt))}`}
                     action={
                         <div className="flex gap-2">
-                            <button
-                                type="button"
-                                onClick={() => onDecideAppeal(pendingAppeal, "declined")}
-                                className={NOTICE_BUTTON_CLASS}
-                            >
+                            <button type="button" onClick={() => onDecideAppeal(pendingAppeal, "declined")} className={NOTICE_BUTTON_CLASS}>
                                 Turn down
                             </button>
                             <button
@@ -659,32 +713,36 @@ function Notice({
 function ManufacturerPointsTab({
     manufacturerId,
     points,
-    rank,
+    completedJobs,
+    averageRating,
 }: {
     manufacturerId: string;
     points: number;
-    rank: string;
+    completedJobs: number;
+    /** Null before anyone has rated them. */
+    averageRating: number | null;
 }) {
-    const { entries, isLoading } = usePointsHistory(manufacturerId);
+    const history = usePointsHistory(manufacturerId);
     const [guideOpen, setGuideOpen] = useState(false);
-    void rank;
-    const progression = getRankProgression("manufacturer", points);
+    // A rank needs its points, completed jobs and rating: from points alone it reads too high or too low
+    const progression = getRankProgression("manufacturer", points, completedJobs, averageRating);
 
     return (
         <div className="flex flex-col gap-6">
-            <PointsSummaryCard
-                points={points}
-                progression={progression}
-                role="manufacturer"
-                onOpenGuide={() => setGuideOpen(true)}
-            />
+            <PointsSummaryCard points={points} progression={progression} role="manufacturer" onOpenGuide={() => setGuideOpen(true)} />
 
             <section className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                     <h2 className="text-base font-semibold font-text text-mist-950">Point history</h2>
-                    <span className="text-xs text-mist-500 font-text">{entries.length} recorded events</span>
                 </div>
-                <PointsHistoryList entries={entries} loading={isLoading} />
+                <PointsHistoryList
+                    entries={history.entries}
+                    loading={history.isLoading}
+                    error={history.isError}
+                    hasMore={history.hasMore}
+                    onLoadMore={history.loadMore}
+                    loadingMore={history.isLoadingMore}
+                />
             </section>
 
             <PointsGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} role="manufacturer" />

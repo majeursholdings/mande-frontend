@@ -1,13 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { Award, BadgeCheck, BriefcaseBusiness, Mail, Pencil, Phone, Settings, ShieldCheck, SlidersHorizontal, UserRoundPen } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+    Award,
+    BadgeCheck,
+    Briefcase,
+    BriefcaseBusiness,
+    Star,
+    Mail,
+    Pencil,
+    Phone,
+    Settings,
+    ShieldCheck,
+    SlidersHorizontal,
+    UserRoundPen,
+} from "lucide-react";
 import ProfileStatCard from "@/components/manufacturerPlatform/profilePage/profileStatCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-    ProfileDetailsCard,
-    breakableEmail,
-} from "@/components/manufacturerPlatform/profilePage/profileCard";
+import { ProfileDetailsCard, breakableEmail } from "@/components/manufacturerPlatform/profilePage/profileCard";
 import LinkList from "@/components/manufacturerPlatform/linkList";
 import { ADMIN_POSITION_OPTIONS, isRejectionFinal } from "@/constant/admin";
 import { getOptionLabel } from "@/constant/manufacturer";
@@ -17,6 +28,10 @@ import { useAdminManufacturers } from "../dashboardLayout/adminManufacturersCont
 import { useAdminProfile } from "../dashboardLayout/adminProfileContext";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import { useProjectLeads } from "@/components/adminPlatform/dashboardLayout/useProjectLeads";
+import OverviewCard, { OverviewCardGrid } from "@/components/common/overviewCard";
+import RankBadge from "@/components/common/points/rankBadge";
+import PointsSummaryCard from "@/components/common/points/pointsSummaryCard";
+import { useMyPoints } from "@/hooks/usePoints";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Admin Profile — as a manufacturer's profile page lays it out: their card
@@ -27,12 +42,20 @@ import { useProjectLeads } from "@/components/adminPlatform/dashboardLayout/useP
 // look after, and has Edit profile (their Settings are the platform's).
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** The project lead's points page: their history and how ranks work. */
+const POINTS_URL = "/admin/profile/points";
+
 export default function AdminProfilePage() {
     const { profile, fullName } = useAdminProfile();
     const { jobs, isLoading: isJobsLoading } = useAdminJobs();
     const { manufacturers, isLoading: isManufacturersLoading } = useAdminManufacturers();
-    const { leadId, roleLabel, superAdminRole, settingsUrl, profileEditUrl, securityUrl, permissions } = useStaffPlatform();
-    const { leads, isLoading: isLeadsLoading } = useProjectLeads({ status: "all" });
+    const { leadId, roleLabel, superAdminRole, settingsUrl, profileEditUrl, securityUrl, permissions, jobsUrl } = useStaffPlatform();
+    const router = useRouter();
+    // A project lead's standing: points, rank and stars (super admins have none)
+    const myPoints = useMyPoints({ enabled: !!leadId });
+    const rating = myPoints.summary?.averageRating ?? null;
+    // Only the super admin's stats count the leads
+    const { leads, isLoading: isLeadsLoading } = useProjectLeads({ status: "all", enabled: !leadId });
     const myJobs = leadId ? jobs.filter((job) => job.projectLeadIds.includes(leadId)) : [];
     // Still open — a rejected job goes back to the manufacturer, unless that was its last rejection
     const leading = myJobs.filter((job) => job.status !== "completed" && !isRejectionFinal(job)).length;
@@ -68,8 +91,12 @@ export default function AdminProfilePage() {
                     avatarUrl={profile.avatarUrl}
                     joinedAt={profile.joinedAt}
                     badge={
-                        <span className="rounded-full bg-secondary-50 px-2 py-0.5 text-[11px] font-medium font-text text-secondary-700">
-                            {roleLabel}
+                        <span className="flex flex-wrap items-center gap-1.5">
+                            <span className="rounded-full bg-secondary-50 px-2 py-0.5 text-[11px] font-medium font-text text-secondary-700">
+                                {roleLabel}
+                            </span>
+                            {/* Their present rank */}
+                            {leadId && myPoints.summary && <RankBadge rankId={myPoints.summary.rank} role="admin" size="sm" />}
                         </span>
                     }
                     details={[
@@ -84,9 +111,7 @@ export default function AdminProfilePage() {
                                   },
                               ]
                             : []),
-                        ...(superAdminRole
-                            ? [{ label: "Role", value: getSuperAdminRoleLabel(superAdminRole), icon: BadgeCheck }]
-                            : []),
+                        ...(superAdminRole ? [{ label: "Role", value: getSuperAdminRoleLabel(superAdminRole), icon: BadgeCheck }] : []),
                         {
                             label: "Two-factor",
                             value: profile.security.twoFactorMethod
@@ -101,23 +126,54 @@ export default function AdminProfilePage() {
                 />
 
                 <div className="flex min-w-0 flex-1 flex-col gap-8 lg:gap-6">
-                    <div className="grid grid-cols-2 gap-4 lg:gap-6">
-                        {stats.map((stat) =>
-                            stat.isLoading ? (
-                                // The label shows straight away; the count is a skeleton until it loads
-                                <div
-                                    key={stat.label}
-                                    aria-busy="true"
-                                    className="flex flex-col justify-center gap-1 rounded-xl border border-border bg-white p-4 lg:p-5"
-                                >
-                                    <p className="text-xs lg:text-sm font-text text-mist-500">{stat.label}</p>
-                                    <Skeleton className="my-0.5 h-6 w-12 lg:h-7" />
-                                </div>
-                            ) : (
-                                <ProfileStatCard key={stat.label} label={stat.label} value={String(stat.value)} />
-                            ),
-                        )}
-                    </div>
+                    {leadId ? (
+                        <>
+                            <OverviewCardGrid columns={2}>
+                                <OverviewCard
+                                    icon={Briefcase}
+                                    label="Jobs you're leading"
+                                    value={leading.toLocaleString()}
+                                    detail={{ label: "Jobs completed", value: completed.toLocaleString(), tone: "green" }}
+                                    href={jobsUrl}
+                                    loading={isJobsLoading}
+                                />
+                                <OverviewCard
+                                    icon={Star}
+                                    label="Average rating"
+                                    value={rating === null ? "Not rated yet" : `${rating.toFixed(1)} ★`}
+                                    detail={{ label: "Points", value: myPoints.summary?.points.toLocaleString(), tone: "blue" }}
+                                    href={POINTS_URL}
+                                    loading={myPoints.isLoading}
+                                />
+                            </OverviewCardGrid>
+                            {/* Their rank, and how far to the next */}
+                            <PointsSummaryCard
+                                points={myPoints.summary?.points ?? 0}
+                                progression={myPoints.summary?.progression}
+                                role="admin"
+                                loading={myPoints.isLoading}
+                                onOpenGuide={() => router.push(POINTS_URL)}
+                            />
+                        </>
+                    ) : (
+                        <div className="grid grid-cols-2 gap-4 lg:gap-6">
+                            {stats.map((stat) =>
+                                stat.isLoading ? (
+                                    // The label shows straight away; the count is a skeleton until it loads
+                                    <div
+                                        key={stat.label}
+                                        aria-busy="true"
+                                        className="flex flex-col justify-center gap-1 rounded-xl border border-border bg-white p-4 lg:p-5"
+                                    >
+                                        <p className="text-xs lg:text-sm font-text text-mist-500">{stat.label}</p>
+                                        <Skeleton className="my-0.5 h-6 w-12 lg:h-7" />
+                                    </div>
+                                ) : (
+                                    <ProfileStatCard key={stat.label} label={stat.label} value={String(stat.value)} />
+                                ),
+                            )}
+                        </div>
+                    )}
 
                     <LinkList
                         items={[

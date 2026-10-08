@@ -1,11 +1,13 @@
 "use client";
 
+import { useQueryClient } from "@tanstack/react-query";
 import { ChangePasswordForm } from "@/components/manufacturerPlatform/form/profileChangePasswordForm";
 import { TwoFactorMethods } from "@/components/manufacturerPlatform/securityPage/twoFactorSettings";
 import SettingsSection from "@/components/manufacturerPlatform/settingsSection";
 import { useAdminProfile } from "../dashboardLayout/adminProfileContext";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import AdminPageHeader from "../pageHeader";
+import { queryKeys } from "@/lib/queryKeys";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Admin Security — the manufacturer's Security page, less linked accounts
@@ -16,6 +18,7 @@ import AdminPageHeader from "../pageHeader";
 
 export default function AdminSecurityPage() {
     const { profile, updateProfile } = useAdminProfile();
+    const queryClient = useQueryClient();
     const { twoFactorMethod } = profile.security;
     const { profileUrl, roleLabel } = useStaffPlatform();
 
@@ -41,7 +44,10 @@ export default function AdminSecurityPage() {
                     <TwoFactorMethods
                         email={profile.email}
                         activeMethod={twoFactorMethod}
-                        onChange={(method) => updateProfile({ security: { twoFactorMethod: method } })}
+                        onChange={(method) => {
+                            updateProfile({ security: { twoFactorMethod: method } });
+                            void queryClient.invalidateQueries({ queryKey: queryKeys.auth.profile() });
+                        }}
                     />
                 </SettingsSection>
             </div>

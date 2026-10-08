@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
     DataTable,
     TableToolbar,
@@ -17,11 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import VerificationBadge from "@/components/manufacturerPlatform/verificationBadge";
 import RankBadge from "@/components/common/points/rankBadge";
 import { COMPANY_SPECIALITY_OPTIONS, getOptionLabel } from "@/constant/manufacturer";
-import {
-    getManufacturerVerification,
-    type ManufacturerRecord,
-    type VerificationStatus,
-} from "@/constant/platformRecords";
+import { getManufacturerVerification, type ManufacturerRecord, type VerificationStatus } from "@/constant/platformRecords";
 import { useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import {
@@ -33,6 +29,9 @@ import {
     type ManufacturerAction,
 } from "./manufacturerActions";
 import { usePlans } from "@/hooks/usePlans";
+import { cn } from "@/lib/utils";
+import ClosedManufacturersTable from "./closedManufacturersTable";
+import LeadManufacturersOverview from "./leadManufacturersOverview";
 
 const TABLE_ID = "manufacturers";
 
@@ -94,14 +93,26 @@ const SORT_OPTIONS: SortOptionDef<ManufacturerRow>[] = [
 export default function AdminManufacturersPage() {
     const router = useRouter();
     const { manufacturers, getManufacturer, isLoading, isError } = useAdminManufacturers();
-    const { getManufacturerUrl } = useStaffPlatform();
+    const { getManufacturerUrl, permissions, leadId } = useStaffPlatform();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    // Super admins can also see the accounts they closed, to reopen one
+    const showsClosed = permissions.deletes && searchParams.get("view") === "closed";
+    const switchView = (view: "open" | "closed") => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (view === "closed") params.set("view", "closed");
+        else params.delete("view");
+        const query = params.toString();
+        router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    };
     const { actions, getBlocker } = useManufacturerActions();
     const [target, setTarget] = useState<{ id: string; action: ManufacturerAction } | null>(null);
     const { plans, getPlan, isLoading: isPlansLoading } = usePlans();
     const planItems: SelectFilterItem[] = plans.map((plan) => ({ label: plan.name, value: plan.id }));
 
     const allRows: ManufacturerRow[] = manufacturers.map((manufacturer) => {
-        const verification = getManufacturerVerification(manufacturer);
+        // The list carries the overall status; the documents behind it are on the detail
+        const verification = manufacturer.verification ?? getManufacturerVerification(manufacturer);
         return {
             id: manufacturer.id,
             userId: manufacturer.userId ?? null,
@@ -119,7 +130,7 @@ export default function AdminManufacturersPage() {
             verificationRank: VERIFICATION_RANK[verification],
             accountStatus: manufacturer.accountStatus ?? "active",
             deletionRequest: manufacturer.deletionRequest ?? null,
-            hasPendingAppeal: (manufacturer.appeals ?? []).some((appeal) => appeal.status === "pending"),
+            hasPendingAppeal: manufacturer.hasPendingAppeal ?? (manufacturer.appeals ?? []).some((appeal) => appeal.status === "pending"),
             points: manufacturer.points ?? 0,
             rank: manufacturer.rank ?? "rising-maker",
         };
@@ -215,37 +226,69 @@ export default function AdminManufacturersPage() {
 
     return (
         <div className="flex flex-col gap-2">
-            <h1 className="text-2xl font-semibold font-text text-mist-950">Manufacturers</h1>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <h1 className="text-2xl font-semibold font-text text-mist-950">Manufacturers</h1>
+                {permissions.deletes && (
+                    <div role="group" aria-label="Which accounts" className="flex gap-1 rounded-lg bg-mist-100 p-1">
+                        {(["open", "closed"] as const).map((view) => {
+                            const isActive = (view === "closed") === showsClosed;
+                            return (
+                                <button
+                                    key={view}
+                                    type="button"
+                                    aria-pressed={isActive}
+                                    onClick={() => switchView(view)}
+                                    className={cn(
+                                        "cursor-pointer rounded-md px-4 py-1.5 text-sm font-medium font-text text-mist-600 transition-colors",
+                                        isActive && "bg-white text-secondary-700 shadow-sm",
+                                    )}
+                                >
+                                    {view === "open" ? "Open accounts" : "Closed accounts"}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
 
-            <DataTable
-                tableId={TABLE_ID}
-                columns={columns}
-                rows={rows}
-                loading={isLoading}
-                pagination={pagination}
-                error={isError && manufacturers.length === 0 ? "We couldn't load the manufacturers. Please refresh the page." : undefined}
-                emptyMessage="No manufacturers match your search."
-                onRowClick={(row) => router.push(getManufacturerUrl(row.userId ?? row.id))}
-                rowActions={actions.map((action): RowAction<ManufacturerRow> => ({
-                    label: action.label,
-                    icon: <action.icon className="size-3.5" aria-hidden />,
-                    tone: action.tone,
-                    onSelect: (row) => setTarget({ id: row.id, action: action.value }),
-                    hidden: (row) => isActionHidden(row, action.value),
-                    disabledReason: (row) => getBlocker(row, action.value),
-                }))}
-                toolbar={
-                    <TableToolbar
-                        search={{ placeholder: "Search by name, company, email or city" }}
-                        filters={[
-                            { title: "Speciality", paramKey: "speciality", items: COMPANY_SPECIALITY_OPTIONS },
-                            { title: "Plan", paramKey: "plan", items: planItems },
-                            { title: "Rank", paramKey: "rank", items: RANK_ITEMS },
-                        ]}
-                        sortBy={{ title: "Sort by", items: SORT_ITEMS }}
-                    />
-                }
-            />
+            {/* A project lead's numbers (a super admin's are on Reporting) */}
+            {leadId && !showsClosed && <LeadManufacturersOverview />}
+
+            {showsClosed ? (
+                <ClosedManufacturersTable />
+            ) : (
+                <DataTable
+                    tableId={TABLE_ID}
+                    columns={columns}
+                    rows={rows}
+                    loading={isLoading}
+                    pagination={pagination}
+                    error={
+                        isError && manufacturers.length === 0 ? "We couldn't load the manufacturers. Please refresh the page." : undefined
+                    }
+                    emptyMessage="No manufacturers match your search."
+                    onRowClick={(row) => router.push(getManufacturerUrl(row.userId ?? row.id))}
+                    rowActions={actions.map((action): RowAction<ManufacturerRow> => ({
+                        label: action.label,
+                        icon: <action.icon className="size-3.5" aria-hidden />,
+                        tone: action.tone,
+                        onSelect: (row) => setTarget({ id: row.id, action: action.value }),
+                        hidden: (row) => isActionHidden(row, action.value),
+                        disabledReason: (row) => getBlocker(row, action.value),
+                    }))}
+                    toolbar={
+                        <TableToolbar
+                            search={{ placeholder: "Search by name, company, email or city" }}
+                            filters={[
+                                { title: "Speciality", paramKey: "speciality", items: COMPANY_SPECIALITY_OPTIONS },
+                                { title: "Plan", paramKey: "plan", items: planItems },
+                                { title: "Rank", paramKey: "rank", items: RANK_ITEMS },
+                            ]}
+                            sortBy={{ title: "Sort by", items: SORT_ITEMS }}
+                        />
+                    }
+                />
+            )}
 
             <ManufacturerActionDialog
                 manufacturer={target ? getManufacturer(target.id) : undefined}

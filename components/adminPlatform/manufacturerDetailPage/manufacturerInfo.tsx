@@ -33,6 +33,7 @@ import {
     type ManufacturerDocument,
 } from "../dashboardLayout/adminManufacturersContext";
 import { usePlans } from "@/hooks/usePlans";
+import { getErrorMessage } from "@/lib/api";
 
 type InfoTab = "basic" | "verification" | "address" | "plan";
 
@@ -59,12 +60,12 @@ export default function ManufacturerInfo({ manufacturer }: { manufacturer: Manuf
         .map((value) => getOptionLabel(COMPANY_SPECIALITY_OPTIONS, value))
         .join(", ");
 
-    const verify = (document: ManufacturerDocument) => {
+    const verify = async (document: ManufacturerDocument) => {
         try {
-            decideVerification(manufacturer.id, document, "verified");
+            await decideVerification(manufacturer.id, document, "verified");
             toast.success(`${DOCUMENT_LABELS[document]} verified`);
-        } catch {
-            toast.error("Couldn't save your decision. Please try again.");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't save your decision. Please try again."));
         }
     };
 
@@ -270,15 +271,12 @@ export default function ManufacturerInfo({ manufacturer }: { manufacturer: Manuf
                         loadingLabel="Rejecting..."
                         errorMessage="Couldn't save your decision. Please try again."
                         onCancel={() => setRejecting(null)}
-                        onSubmit={(reason) => {
-                            if (rejecting) {
-                                try {
-                                    decideVerification(manufacturer.id, rejecting, "rejected", reason);
-                                    toast.success(`${DOCUMENT_LABELS[rejecting]} rejected`);
-                                } catch {
-                                    toast.error("Couldn't save your decision. Please try again.");
-                                }
-                            }
+                        maxLength={300}
+                        onSubmit={async (reason) => {
+                            if (!rejecting) return;
+                            // A failure throws: the form shows it and stays open
+                            await decideVerification(manufacturer.id, rejecting, "rejected", reason);
+                            toast.success(`${DOCUMENT_LABELS[rejecting]} rejected`);
                             setRejecting(null);
                         }}
                     />

@@ -16,6 +16,8 @@ import { JOB_PRODUCTION_STEPS } from "@/constant/jobWorkflow";
 import type { SupportFeedbackRecord, TimelineExtensionRecord } from "@/constant/platformRecords";
 import EmptyState from "../emptyState";
 import ManufacturerFeedback from "./manufacturerFeedback";
+import { Skeleton } from "@/components/ui/skeleton";
+import { LoadError } from "../emptyState";
 
 type ReportsTab = "jobs" | "feedback";
 
@@ -60,9 +62,12 @@ const COLUMNS: ColumnDef<ReportRow>[] = [
 export default function ManufacturerReports({
     jobs,
     feedback,
+    feedbackState = "ready",
 }: {
     jobs: Job[];
     feedback: SupportFeedbackRecord[];
+    /** The feedback loads on its own. */
+    feedbackState?: "loading" | "error" | "ready";
 }) {
     return (
         <ResponsiveTabs<ReportsTab>
@@ -71,7 +76,21 @@ export default function ManufacturerReports({
             variant="segmented"
             tabs={[
                 { value: "jobs", label: "Job reports", panel: <JobReports jobs={jobs} /> },
-                { value: "feedback", label: "Feedback", panel: <ManufacturerFeedback feedback={feedback} /> },
+                {
+                    value: "feedback",
+                    label: "Feedback",
+                    panel:
+                        feedbackState === "loading" ? (
+                            <div className="flex flex-col gap-3" aria-busy="true">
+                                <Skeleton className="h-16 rounded-xl" />
+                                <Skeleton className="h-16 rounded-xl" />
+                            </div>
+                        ) : feedbackState === "error" ? (
+                            <LoadError message="We couldn't load their feedback. Please refresh the page." />
+                        ) : (
+                            <ManufacturerFeedback feedback={feedback} />
+                        ),
+                },
             ]}
         />
     );

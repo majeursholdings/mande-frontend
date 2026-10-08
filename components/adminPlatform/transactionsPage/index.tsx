@@ -15,6 +15,7 @@ import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import { ReportError } from "../dashboardPage/reportStates";
 import { getAdminTransactionColumns, toAdminTransaction, type AdminTransaction } from "./adminTransactionParts";
 import TransactionSummaryCards, { fromApiTransactionSummary } from "./transactionSummaryCards";
+import LeadTransactionsOverview from "./leadTransactionsOverview";
 
 const TABLE_ID = "transactions";
 const COLUMNS = getAdminTransactionColumns();
@@ -26,6 +27,9 @@ const TYPE_ITEMS: SelectFilterItem[] = [
     { label: "Rejection charges", value: "charge" },
     { label: "Reversals", value: "reversal" },
 ];
+
+/** A project lead's list is the money on their jobs: no withdrawals or plan payments. */
+const LEAD_TYPE_ITEMS = TYPE_ITEMS.filter((item) => item.value !== "withdrawal" && item.value !== "subscription");
 
 const SORT_ITEMS: SelectFilterItem[] = [
     { label: "Date", value: "date" },
@@ -40,8 +44,10 @@ const SORT_OPTIONS: SortOptionDef<AdminTransaction>[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Admin Transactions: every manufacturer's transactions, as a manufacturer's
-// own Transactions tab shows theirs. The totals across the platform (paid
+// Staff Transactions. A project lead sees the money on the jobs they lead
+// (the API keeps the rest to itself), with their own totals from
+// /reports/lead-overview. A super admin sees every manufacturer's
+// transactions, as a manufacturer's own Transactions tab shows theirs. The totals across the platform (paid
 // for jobs, withdrawn, paid for plans, and still in wallets) come from
 // /reports/transactions/summary; then every job payment, withdrawal, plan
 // payment, charge and reversal from /reports/transactions, searchable,
@@ -52,12 +58,15 @@ const SORT_OPTIONS: SortOptionDef<AdminTransaction>[] = [
 
 export default function AdminTransactionsPage() {
     const router = useRouter();
-    const { getManufacturerUrl } = useStaffPlatform();
+    const { getManufacturerUrl, leadId } = useStaffPlatform();
+    const isLead = !!leadId;
 
     const summaryQuery = useQuery({
         queryKey: queryKeys.reports.transactionsSummary(),
         queryFn: () => reportsService.getTransactionsSummary(),
         staleTime: 30_000,
+        // A project lead's totals are their own (LeadTransactionsOverview)
+        enabled: !isLead,
     });
     const transactionsQuery = useQuery({
         queryKey: queryKeys.reports.transactions({ all: true }),
@@ -83,7 +92,9 @@ export default function AdminTransactionsPage() {
         <div className="flex flex-col gap-6">
             <h1 className="text-2xl font-semibold font-text text-mist-950">Transactions</h1>
 
-            {summaryQuery.isError ? (
+            {isLead ? (
+                <LeadTransactionsOverview />
+            ) : summaryQuery.isError ? (
                 <ReportError message="Couldn't load the totals. Please refresh to try again." />
             ) : (
                 <TransactionSummaryCards
@@ -104,7 +115,7 @@ export default function AdminTransactionsPage() {
                 toolbar={
                     <TableToolbar
                         search={{ placeholder: "Search by manufacturer, company or project" }}
-                        filters={[{ title: "All types", paramKey: "type", items: TYPE_ITEMS }]}
+                        filters={[{ title: "All types", paramKey: "type", items: isLead ? LEAD_TYPE_ITEMS : TYPE_ITEMS }]}
                         sortBy={{ title: "Sort by", items: SORT_ITEMS }}
                     />
                 }

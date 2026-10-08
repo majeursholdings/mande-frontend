@@ -180,8 +180,8 @@ export function ManufacturerActionDialog({
         try {
             await task();
             toast.success(success);
-        } catch {
-            toast.error(failure);
+        } catch (err) {
+            toast.error(getErrorMessage(err, failure));
         }
         onClose();
     };
