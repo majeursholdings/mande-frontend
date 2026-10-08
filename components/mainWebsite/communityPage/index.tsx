@@ -1,17 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import {
-    ChannelCard,
-    FeaturedChannel,
-    TestimonialCard,
-} from "@/components/manufacturerPlatform/communityPage";
-import {
-    COMMUNITY_CHANNELS,
-    COMMUNITY_TESTIMONIALS,
-    FEATURED_COMMUNITY_CHANNEL,
-    type CommunityChannel,
-    type CommunityTestimonial,
-} from "@/constant/community";
+import { ChannelCard, FeaturedChannel, TestimonialCard } from "@/components/manufacturerPlatform/communityPage";
+import type { CommunityChannel, CommunityTestimonial } from "@/constant/community";
 import { SERVICES_URL } from "@/constant/navigation";
 import CtaBand from "../common/ctaBand";
 import PageHero from "../common/pageHero";
@@ -34,9 +24,10 @@ export interface CommunityPageProps {
 }
 
 export default function CommunityPage({ data }: CommunityPageProps = {}) {
-    const featuredChannel = data?.featuredChannel ?? FEATURED_COMMUNITY_CHANNEL;
-    const channels = data?.channels && data.channels.length > 0 ? data.channels : COMMUNITY_CHANNELS;
-    const testimonials = data?.testimonials && data.testimonials.length > 0 ? data.testimonials : COMMUNITY_TESTIMONIALS;
+    // Only what's set up in Settings › Community: no stand-in channels or quotes
+    const featuredChannel = data?.featuredChannel;
+    const channels = data?.channels ?? [];
+    const testimonials = data?.testimonials ?? [];
 
     return (
         <>
@@ -46,38 +37,44 @@ export default function CommunityPage({ data }: CommunityPageProps = {}) {
                 description="Swap tips, see what other furniture makers are building, and hear about new jobs first. Join the MANDE community on the channels you already use."
             />
 
-            <SectionWrapper containerClassName="flex flex-col gap-10 md:gap-12">
-                <FeaturedChannel channel={featuredChannel} />
+            {(featuredChannel || channels.length > 0) && (
+                <SectionWrapper containerClassName="flex flex-col gap-10 md:gap-12">
+                    {featuredChannel && <FeaturedChannel channel={featuredChannel} />}
 
-                <div className="flex flex-col gap-6">
-                    <SectionHeading as="h2">Follow MANDE.</SectionHeading>
-                    <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-                        {channels.map((channel) => (
-                            <li key={channel.platform}>
-                                <ChannelCard channel={channel} />
+                    {channels.length > 0 && (
+                        <div className="flex flex-col gap-6">
+                            <SectionHeading as="h2">Follow MANDE.</SectionHeading>
+                            <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+                                {channels.map((channel) => (
+                                    <li key={channel.platform}>
+                                        <ChannelCard channel={channel} />
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </SectionWrapper>
+            )}
+
+            {testimonials.length > 0 && (
+                <SectionWrapper className="bg-mist-200" containerClassName="flex flex-col gap-8 md:gap-12">
+                    <div className="flex flex-col gap-2">
+                        <SectionHeading as="h2" className="max-w-175">
+                            What makers are saying.
+                        </SectionHeading>
+                        <p className="text-base font-light text-mist-700">
+                            Real experiences and reviews from makers on MANDE and our social channels.
+                        </p>
+                    </div>
+                    <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+                        {testimonials.map((testimonial) => (
+                            <li key={testimonial.id}>
+                                <TestimonialCard testimonial={testimonial} />
                             </li>
                         ))}
                     </ul>
-                </div>
-            </SectionWrapper>
-
-            <SectionWrapper className="bg-mist-200" containerClassName="flex flex-col gap-8 md:gap-12">
-                <div className="flex flex-col gap-2">
-                    <SectionHeading as="h2" className="max-w-175">
-                        What makers are saying.
-                    </SectionHeading>
-                    <p className="text-base font-light text-mist-700">
-                        Real experiences and reviews from makers on MANDE and our social channels.
-                    </p>
-                </div>
-                <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-                    {testimonials.map((testimonial) => (
-                        <li key={testimonial.id}>
-                            <TestimonialCard testimonial={testimonial} />
-                        </li>
-                    ))}
-                </ul>
-            </SectionWrapper>
+                </SectionWrapper>
+            )}
 
             <SectionWrapper containerClassName="flex flex-col gap-8 md:flex-row md:items-center md:gap-12">
                 <div className="flex-1">
@@ -93,8 +90,8 @@ export default function CommunityPage({ data }: CommunityPageProps = {}) {
                     <span className="text-lg font-medium">Meet in person</span>
                     <SectionHeading as="h2">Build side by side at our Lagos factory.</SectionHeading>
                     <p className="text-base font-light">
-                        Members book time on the country&apos;s top furniture machines at the MANDE factory in Lagos. It&apos;s
-                        where makers trade techniques, share jobs and see how others finish their pieces.
+                        Members book time on the country&apos;s top furniture machines at the MANDE factory in Lagos. It&apos;s where makers
+                        trade techniques, share jobs and see how others finish their pieces.
                     </p>
                     <Link href={SERVICES_URL} className={WEBSITE_PRIMARY_BUTTON}>
                         See our services
