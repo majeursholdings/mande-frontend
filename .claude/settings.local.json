@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -D - -H \"rsc: 1\" -H \"next-router-state-tree: %5B%22%22%2C%7B%22children%22%3A%5B%22\\(manufacturer\\)%22%2C%7B%22children%22%3A%5B%22manufacturer%22%2C%7B%22children%22%3A%5B%22\\(dashboard\\)%22%2C%7B%22children%22%3A%5B%22jobs%22%2C%7B%22children%22%3A%5B%22__PAGE__%22%2C%7B%7D%2Cnull%2Cnull%2C4096%5D%2C%22jobDetail%22%3A%5B%22__DEFAULT__%22%2C%7B%7D%2Cnull%2Cnull%2C4096%5D%7D%2Cnull%2Cnull%2C4096%5D%7D%2Cnull%2Cnull%2C4096%5D%7D%2Cnull%2Cnull%2C4096%5D%7D%2Cnull%2Cnull%2C4096%5D%7D%2Cnull%2Cnull%2C4116%5D\" -H \"next-url: /manufacturer/jobs\" \"http://localhost:3000/manufacturer/jobs/job-2?_rsc=test123\" -o /tmp/rsc_body.txt)",
+      "Read(//tmp/**)"
+    ]
+  }
+}
