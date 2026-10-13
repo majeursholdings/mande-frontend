@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { useStaffPlatform } from "@/components/adminPlatform/dashboardLayout/staffPlatformContext";
 import { superAdminService } from "@/lib/services/superAdminService";
+import { machineBookingService, type UpdateMachineBookingSettingsPayload } from "@/lib/services/machineBookingService";
 import { type PricingPlan } from "@/constant/plans";
 import {
     type SuperAdminInviteRecord,
@@ -43,6 +44,8 @@ type SuperAdminSettingsValue = {
     /** Null until loaded (or if it can't load). */
     platformSettings: PlatformSettings | null;
     updatePlatformSettings: (changes: Partial<PlatformSettings>, reauthToken?: string) => Promise<void>;
+    /** Sets what machine time costs (the unit, rate in kobo and longest booking). */
+    updateMachineBookingSettings: (settings: UpdateMachineBookingSettingsPayload) => Promise<void>;
 
     apiKeys: ApiKey[];
     /**
@@ -160,6 +163,24 @@ export function SuperAdminSettingsProvider({ children }: { children: ReactNode }
                     await superAdminService.updateJobRules(changes);
                 }
                 await queryClient.invalidateQueries({ queryKey: queryKeys.settings.platform() });
+            },
+            updateMachineBookingSettings: async (settings) => {
+                const machineBooking = await machineBookingService.updateMachineBookingSettings(settings);
+                queryClient.setQueryData(queryKeys.settings.platform(), (old: PlatformSettings | undefined) =>
+                    old
+                        ? {
+                              ...old,
+                              machineBooking: machineBooking ?? {
+                                  rateKobo: old.machineBooking?.rateKobo ?? 0,
+                                  ...settings,
+                              },
+                          }
+                        : old,
+                );
+                await Promise.all([
+                    queryClient.invalidateQueries({ queryKey: queryKeys.settings.platform() }),
+                    queryClient.invalidateQueries({ queryKey: queryKeys.machineBookings.pricing() }),
+                ]);
             },
 
             apiKeys,

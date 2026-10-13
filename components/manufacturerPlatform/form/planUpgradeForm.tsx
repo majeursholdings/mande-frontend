@@ -5,7 +5,7 @@ import { useController, useForm } from "react-hook-form";
 import { ArrowRight, CreditCard, Plus, Wallet, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { formatBalance, formatPrice } from "@/lib/currency";
+import { formatBalance, formatPrice, fromKobo } from "@/lib/currency";
 import { formatOrdinalDate } from "@/lib/date";
 import { getErrorMessage } from "@/lib/api";
 import MainForm, { CheckboxInput } from "@/components/form";
@@ -16,6 +16,12 @@ import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashbo
 import { useManufacturerSubscription } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerSubscriptionContext";
 import { useManufacturerWallet } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerWalletContext";
 import { FormSubmitButton } from "./formButtons";
+import CouponField, {
+    getCouponDiscountKobo,
+    getCouponErrorMessage,
+    pickBestDiscount,
+    type AppliedCoupon,
+} from "./couponField";
 
 type PlanUpgradeFormValues = {
     /** "wallet", "new-card", or "card:<saved card id>". */
@@ -51,11 +57,19 @@ export default function PlanUpgradeForm({
     const { wallet } = useManufacturerWallet();
     const { savedCards, upgradePlan } = useManufacturerSubscription();
     const [isLoading, setIsLoading] = useState(false);
+    const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
+    const [couponError, setCouponError] = useState<string | null>(null);
 
     const cycle = subscription.billingCycle;
     const per = cycle === "annual" ? "year" : "month";
     const newPrice = getPlanPrice(newPlan, cycle, discountPercent);
-    const amountDue = newPrice - getPlanPrice(currentPlan, cycle, discountPercent);
+    const offerAmountDue = newPrice - getPlanPrice(currentPlan, cycle, discountPercent);
+    // A coupon and the platform offer never stack: the one that saves more is used.
+    // The coupon is checked against the difference at full price.
+    const listAmountDueKobo = Math.round((getPlanPrice(newPlan, cycle, 0) - getPlanPrice(currentPlan, cycle, 0)) * 100);
+    const couponDiscountKobo = getCouponDiscountKobo(coupon, listAmountDueKobo);
+    const best = pickBestDiscount(listAmountDueKobo - Math.round(offerAmountDue * 100), couponDiscountKobo);
+    const amountDue = best.source === "coupon" ? fromKobo(listAmountDueKobo - couponDiscountKobo) : offerAmountDue;
     const canPayFromWallet = wallet.balance >= amountDue;
     // Solo doesn't need these, other plans do — they're asked for right after paying
     const needsBusinessDocuments =
@@ -88,13 +102,15 @@ export default function PlanUpgradeForm({
                   : ({ from: "new-card", saveCard } as const);
             // A new card is entered on the payment partner's checkout, which
             // sends them back to the Plan tab (it confirms the payment there)
-            ({ redirected } = await upgradePlan(newPlan.id, pay));
+            ({ redirected } = await upgradePlan(newPlan.id, pay, coupon?.coupon.code));
             if (!redirected) {
                 toast.success(`You're now on the ${newPlan.name} plan`);
                 onUpgraded();
             }
         } catch (err) {
-            toast.error(getErrorMessage(err, "Payment didn't go through. Please try again."));
+            const couponMessage = getCouponErrorMessage(err);
+            if (couponMessage) setCouponError(couponMessage);
+            toast.error(couponMessage ?? getErrorMessage(err, "Payment didn't go through. Please try again."));
         } finally {
             // Stays loading while the browser leaves for the checkout
             if (!redirected) setIsLoading(false);
@@ -109,6 +125,13 @@ export default function PlanUpgradeForm({
                     <ArrowRight className="size-4 shrink-0 text-mist-400" aria-hidden />
                     <PlanPrice name={newPlan.name} price={formatPrice(newPrice)} per={per} />
                 </div>
+                {coupon && (
+                    <p className="border-t border-border pt-3 text-xs text-primary-800">
+                        {best.source === "coupon"
+                            ? `Coupon ${coupon.coupon.code} applied: ${formatPrice(fromKobo(couponDiscountKobo))} off today.`
+                            : `The current ${discountPercent}% offer saves more, so it's used instead.`}
+                    </p>
+                )}
                 <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
                     <span className="text-sm text-mist-600">Due today</span>
                     <span className="text-lg font-semibold text-mist-950">{formatPrice(amountDue)}</span>
@@ -135,6 +158,23 @@ export default function PlanUpgradeForm({
                 isLoading={isLoading}
                 footerSlot={
                     <div className="flex flex-col gap-3">
+                        <CouponField
+                            kind="subscription"
+                            amountKobo={listAmountDueKobo}
+                            email={profile.email}
+                            applied={coupon}
+                            onApply={(applied) => {
+                                setCoupon(applied);
+                                setCouponError(null);
+                            }}
+                            onRemove={() => {
+                                setCoupon(null);
+                                setCouponError(null);
+                            }}
+                            disabled={isLoading}
+                            error={couponError}
+                            className="mb-2"
+                        />
                         <h3 className="text-xs font-semibold font-text uppercase tracking-wide text-mist-700">
                             Pay with
                         </h3>

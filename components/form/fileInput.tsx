@@ -80,13 +80,15 @@ const API_UPLOAD_CATEGORY_PREFIX = "api:";
 /** Uploads `file` through the API's signed media flow, in the shape a form keeps it. */
 function uploadFileThroughApi(
     file: File,
-    purpose: UploadPurpose,
+    purpose: UploadPurpose | "custom",
     onProgress: (percent: number) => void,
+    upload?: FormFieldConfig["upload"],
 ): { promise: Promise<CloudinaryUploadResult>; cancel: () => void } {
     const controller = new AbortController();
     const category = `${API_UPLOAD_CATEGORY_PREFIX}${purpose}`;
-    const promise = mediaService
-        .uploadFile(file, purpose, onProgress, controller.signal)
+    const uploading =
+        upload ? upload(file, onProgress, controller.signal) : mediaService.uploadFile(file, purpose as UploadPurpose, onProgress, controller.signal);
+    const promise = uploading
         .then((result) => ({
             id: result.publicId,
             publicId: result.publicId,
@@ -161,7 +163,8 @@ export const FileInput = <T extends FieldValues = FieldValues>({
         }
 
         const kindError = getFileKindError(file, field.type === "image" ? "image" : "file");
-        if (kindError) return kindError;
+        // A "file" field set to take images too lets a photo through
+        if (kindError && !(field.type === "file" && field.acceptImages && isImageFile(file))) return kindError;
 
         const acceptStr = field.accept;
         if (acceptStr) {
@@ -247,7 +250,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                 );
             };
 
-            if (!field.uploadPurpose) {
+            if (!field.uploadPurpose && !field.upload) {
                 // A developer error: the API won't sign an upload without knowing what it's for
                 console.error(`File field "${field.name}" has no uploadPurpose`);
                 setItems((prev) =>
@@ -256,7 +259,12 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                 return;
             }
 
-            const { promise, cancel } = uploadFileThroughApi(item.file, field.uploadPurpose, onProgress);
+            const { promise, cancel } = uploadFileThroughApi(
+                item.file,
+                field.uploadPurpose ?? "custom",
+                onProgress,
+                field.upload,
+            );
 
             // Store cancel function on item
             setItems((prev) =>
@@ -297,7 +305,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                     toast.error(`Failed to upload ${item.originalName}: ${message}`);
                 });
         },
-        [field.name, field.uploadPurpose]
+        [field.name, field.uploadPurpose, field.upload]
     );
 
     // Handle file selection (drag & drop or click)

@@ -14,6 +14,7 @@ export interface StaffNotificationsPayload {
   appeals?: { "in-app"?: boolean; email?: boolean };
   disputes?: { "in-app"?: boolean; email?: boolean };
   accounts?: { "in-app"?: boolean; email?: boolean };
+  "machine-bookings"?: { "in-app"?: boolean; email?: boolean };
   points?: { "in-app"?: boolean; email?: boolean };
   [key: string]: { "in-app"?: boolean; email?: boolean } | undefined;
 }

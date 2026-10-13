@@ -2,6 +2,7 @@ import {
     BookOpen,
     BriefcaseBusiness,
     CircleHelp,
+    Cog,
     Factory,
     House,
     Info,
@@ -18,6 +19,7 @@ import {
     CONTACT_URL,
     FAQ_URL,
     KNOWLEDGE_BASE_URL,
+    MACHINES_URL,
     OPEN_JOBS_URL,
     SERVICES_URL,
 } from "@/constant/navigation";
@@ -29,6 +31,7 @@ const ICONS: Record<string, LucideIcon> = {
     "/": House,
     [OPEN_JOBS_URL]: BriefcaseBusiness,
     [SERVICES_URL]: Factory,
+    [MACHINES_URL]: Cog,
     [COMMUNITY_URL]: UsersRound,
     [BLOG_URL]: Newspaper,
     [ABOUT_URL]: Info,

@@ -2,6 +2,8 @@
 export const OPEN_JOBS_URL = "/open-jobs";
 export const ABOUT_URL = "/about-mande";
 export const SERVICES_URL = "/mande-services";
+/** The factory's machine catalogue; each machine has its own page under it. */
+export const MACHINES_URL = "/machines";
 export const COMMUNITY_URL = "/community";
 export const CONTACT_URL = "/contact-mande";
 export const FAQ_URL = "/faq";
@@ -10,6 +12,10 @@ export const KNOWLEDGE_BASE_URL = "/knowledge-base";
 export const BLOG_URL = "/blog";
 export const TERMS_URL = "/terms-and-conditions";
 export const PRIVACY_POLICY_URL = "/privacy-policy";
+/** A guest's machine bookings, looked up by email and a code. */
+export const MACHINE_BOOKING_MY_BOOKINGS_URL = "/machine-booking/my-bookings";
+/** One machine booking, from the private link in a booking email (?token=). */
+export const MACHINE_BOOKING_VIEW_URL = "/machine-booking/view";
 
 /**
  * Where a legal document lives on the website — the terms and privacy policy
@@ -43,6 +49,10 @@ export const mainmenu:Mainmenu[] = [
     {
         label: "Services",
         href: SERVICES_URL,
+    },
+    {
+        label: "Machines",
+        href: MACHINES_URL,
     },
     {
         label: "Community",
@@ -88,6 +98,10 @@ export const footerMenu: Mainmenu[] = [
         href: SERVICES_URL,
     },
     {
+        label: "Machines",
+        href: MACHINES_URL,
+    },
+    {
         label: "Community",
         href: COMMUNITY_URL,
     },
@@ -108,6 +122,10 @@ export const footerMenu: Mainmenu[] = [
         href: KNOWLEDGE_BASE_URL,
     },
     {
+        label: "My bookings",
+        href: MACHINE_BOOKING_MY_BOOKINGS_URL,
+    },
+    {
         label: "Terms",
         href: TERMS_URL,
     },
@@ -123,6 +141,13 @@ export const footerMenu: Mainmenu[] = [
 
 /** A help article's page. */
 export const getKnowledgeBaseArticleUrl = (slug: string) => `${KNOWLEDGE_BASE_URL}/${slug}`;
+
+/** A machine's page in the catalogue. */
+export const getMachineUrl = (machineId: string) => `${MACHINES_URL}/${encodeURIComponent(machineId)}`;
+
+/** The machine catalogue, filtered to one category when there is one ("/machines?category=Cutting"). */
+export const getMachinesListUrl = (category?: string) =>
+    category ? `${MACHINES_URL}?${new URLSearchParams({ category })}` : MACHINES_URL;
 
 /** A blog post's page. */
 export const getBlogPostUrl = (slug: string) => `${BLOG_URL}/${slug}`;

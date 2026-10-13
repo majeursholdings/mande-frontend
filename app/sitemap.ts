@@ -1,16 +1,17 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/site";
-import { getWebsiteOpenJobs } from "@/lib/services/websiteService";
+import { getWebsiteMachines, getWebsiteOpenJobs } from "@/lib/services/websiteService";
 import { getBlogSlugs } from "@/lib/cms/blog";
 import { getKnowledgeBaseSlugs } from "@/lib/cms/knowledgeBase";
 import { getLegalDocuments } from "@/lib/cms/legal";
-import { BLOG_URL, KNOWLEDGE_BASE_URL, LEGALS_URL, getBlogPostUrl, getKnowledgeBaseArticleUrl, getLegalDocumentUrl } from "@/constant/navigation";
+import { BLOG_URL, KNOWLEDGE_BASE_URL, LEGALS_URL, MACHINES_URL, getBlogPostUrl, getMachineUrl, getKnowledgeBaseArticleUrl, getLegalDocumentUrl } from "@/constant/navigation";
 
 /** The public website's pages. */
 const PUBLIC_PATHS = [
     "",
     "/about-mande",
     "/mande-services",
+    MACHINES_URL,
     "/open-jobs",
     "/community",
     "/faq",
@@ -34,6 +35,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         lastModified: job.postedAt,
         changeFrequency: "daily",
         priority: 0.7,
+    }));
+    // Each machine's own page (the API down leaves just the catalogue)
+    const machines: MetadataRoute.Sitemap = ((await getWebsiteMachines())?.machines ?? []).map((machine) => ({
+        url: `${SITE_URL}${getMachineUrl(machine.id)}`,
+        changeFrequency: "monthly",
+        priority: 0.5,
     }));
     // The CMS's pages (the CMS down leaves them out)
     const [articles, posts, legalDocuments] = await Promise.all([
@@ -64,5 +71,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
                 priority: 0.3,
             })),
     ];
-    return [...pages, ...jobs, ...cms];
+    return [...pages, ...jobs, ...machines, ...cms];
 }

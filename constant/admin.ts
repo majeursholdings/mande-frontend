@@ -28,6 +28,8 @@ import {
     type TwoFactorMethod,
 } from "@/constant/platformRecords";
 import {
+    CalendarClock,
+    Cog,
     LayoutGrid,
     ListChecks,
     ReceiptText,
@@ -87,11 +89,14 @@ export const ADMIN_DASHBOARD_URL = "/admin/dashboard";
 export const ADMIN_JOBS_URL = "/admin/jobs";
 export const ADMIN_MANUFACTURERS_URL = "/admin/manufacturers";
 export const ADMIN_TRANSACTIONS_URL = "/admin/transactions";
+export const ADMIN_MACHINE_BOOKINGS_URL = "/admin/machine-bookings";
+export const ADMIN_MACHINES_URL = "/admin/machines";
 export const ADMIN_PROFILE_URL = "/admin/profile";
 export const ADMIN_SETTINGS_URL = "/admin/profile/settings";
 export const ADMIN_SECURITY_URL = "/admin/profile/security";
 
 export const getAdminManufacturerUrl = (manufacturerId: string) => `${ADMIN_MANUFACTURERS_URL}/${encodeURIComponent(manufacturerId)}`;
+export const getAdminMachineBookingUrl = (bookingId: string) => `${ADMIN_MACHINE_BOOKINGS_URL}/${encodeURIComponent(bookingId)}`;
 
 export type AdminNavItem = {
     label: string;
@@ -116,6 +121,8 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
         inBottomBar: true,
     },
     { label: "Transactions", href: ADMIN_TRANSACTIONS_URL, icon: ReceiptText, inBottomBar: true },
+    { label: "Machine bookings", href: ADMIN_MACHINE_BOOKINGS_URL, icon: CalendarClock },
+    { label: "Machines", href: ADMIN_MACHINES_URL, icon: Cog },
     { label: "Profile", href: ADMIN_PROFILE_URL, icon: UserRound },
 ];
 
@@ -134,6 +141,7 @@ export type AdminNotificationType =
     | "appeals"
     | "disputes"
     | "accounts"
+    | "machine-bookings"
     | "points";
 
 export const ADMIN_NOTIFICATION_TYPES: { value: AdminNotificationType; label: string; description: string }[] = [
@@ -171,6 +179,11 @@ export const ADMIN_NOTIFICATION_TYPES: { value: AdminNotificationType; label: st
         value: "accounts",
         label: "Manufacturer accounts",
         description: "A super admin answers your request to close a manufacturer's account",
+    },
+    {
+        value: "machine-bookings",
+        label: "Machine bookings",
+        description: "When a machine booking is paid",
     },
     {
         value: "points",
@@ -237,6 +250,7 @@ export const BLANK_ADMIN_PROFILE: AdminProfile = {
         appeals: channelsOn(["in-app", "email"]),
         disputes: channelsOn(["in-app", "email"]),
         accounts: channelsOn(["in-app", "email"]),
+        "machine-bookings": channelsOn(["in-app", "email"]),
         points: channelsOn(["in-app", "email"]),
     },
 };
