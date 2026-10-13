@@ -299,8 +299,10 @@ export type ManufacturerRecord = {
         /** A PRICING_PLANS id. */
         planId: string;
         billingCycle: BillingCycle;
-        /** ISO date the plan renews. */
-        renewsAt: string;
+        /** ISO date the plan renews. Null when the server has no period end yet. */
+        renewsAt: string | null;
+        status?: "active" | "past_due" | "pending_payment" | "cancelled";
+        cancelAtPeriodEnd?: boolean;
         /** How renewals are paid — a saved card, or the wallet balance. The first payment, at sign-up, is always by card. */
         renewalsPaidFrom: "card" | "wallet";
     };
@@ -360,7 +362,7 @@ export function registerManufacturers(
             sub?.billingCycle ||
             (((m as Record<string, unknown>).billingCycle === "yearly" ? "annual" : "monthly") as BillingCycle) ||
             "monthly";
-        const renewsAt = sub?.renewsAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        const renewsAt = sub?.renewsAt ?? null;
         const renewalsPaidFrom = sub?.renewalsPaidFrom || "wallet";
 
         const record: ManufacturerRecord = {
@@ -392,6 +394,8 @@ export function registerManufacturers(
                 billingCycle,
                 renewsAt,
                 renewalsPaidFrom,
+                status: sub?.status,
+                cancelAtPeriodEnd: sub?.cancelAtPeriodEnd,
             },
             bankAccount: (m.bankAccount as ManufacturerRecord["bankAccount"]) || existing?.bankAccount || null,
             security: (m.security as ManufacturerRecord["security"]) || existing?.security || { twoFactorMethod: null, linkedAccounts: { google: null, facebook: null } },
