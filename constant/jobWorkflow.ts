@@ -154,9 +154,9 @@ export const REVIEW_WINDOW_HOURS = 24;
  * reviewed it — REVIEW_WINDOW_HOURS later, with Sundays not counted (sent
  * Saturday at 3pm, it's approved on Monday at 3pm).
  */
-export function getAutoApproveAt(submittedAt: string | Date): Date {
+export function getAutoApproveAt(submittedAt: string | Date, windowHours: number = REVIEW_WINDOW_HOURS): Date {
     let at = new Date(submittedAt);
-    let remaining = REVIEW_WINDOW_HOURS * HOUR_MS;
+    let remaining = windowHours * HOUR_MS;
     while (remaining > 0 || at.getDay() === 0) {
         const nextMidnight = new Date(at.getFullYear(), at.getMonth(), at.getDate() + 1);
         if (at.getDay() === 0) {
@@ -246,10 +246,14 @@ export function getOriginalDueDate(
  * The latest due date a delay can ask for — MAX_EXTENSION_PERCENT of the
  * job's original length past its original due date.
  */
-export function getLatestAllowedDueDate(start: string, originalDueDate: string): Date {
+export function getLatestAllowedDueDate(
+    start: string,
+    originalDueDate: string,
+    maxExtensionPercent: number = MAX_EXTENSION_PERCENT,
+): Date {
     const startMs = new Date(start).getTime();
     const dueMs = new Date(originalDueDate).getTime();
-    return new Date(dueMs + (Math.max(0, dueMs - startMs) * MAX_EXTENSION_PERCENT) / 100);
+    return new Date(dueMs + (Math.max(0, dueMs - startMs) * maxExtensionPercent) / 100);
 }
 
 // ─── Payments ────────────────────────────────────────────────────────────────
@@ -282,6 +286,23 @@ export const REJECTION_CHARGE_PERCENT = 5;
 export const getRejectionCharge = (amount: number) => Math.round((amount * REJECTION_CHARGE_PERCENT) / 100);
 /** How long after sign-off a fault can be reported — the bonus is released after it. */
 export const FAULT_REPORT_DAYS = 7;
+
+/**
+ * The rules a job runs under: the platform's settings when it was created,
+ * as the API sends them on each job. The constants above are the defaults,
+ * for copy that isn't about one job.
+ */
+export type JobRules = {
+    maxRejections: number;
+    maxExtensionPercent: number;
+    rejectionChargePercent: number;
+    reviewWindowHours: number;
+    faultReportDays: number;
+    bonusPercent: number;
+    minSignOffRating: number;
+    /** Each milestone's percent of the pay. */
+    paymentSchedule: Partial<Record<JobPaymentMilestone, number>>;
+};
 
 /** A lead reporting a fault in delivered work, which cancels the bonus. */
 export type JobFaultReport = {

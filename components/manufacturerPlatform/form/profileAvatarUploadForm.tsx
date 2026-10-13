@@ -10,6 +10,9 @@ import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashbo
 import { getManufacturerFullName } from "@/constant/manufacturer";
 import { DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fileRules";
 import { mediaService } from "@/lib/services/mediaService";
+import { manufacturerService } from "@/lib/services/manufacturerService";
+import { getErrorMessage } from "@/lib/api";
+import LoadError from "@/components/manufacturerPlatform/loadError";
 
 const AVATAR_ACCEPT = "image/png, image/jpeg, image/webp";
 const AVATAR_MAX_SIZE_MB = DEFAULT_MAX_FILE_SIZE_MB;
@@ -21,30 +24,26 @@ const AVATAR_MAX_SIZE_MB = DEFAULT_MAX_FILE_SIZE_MB;
 // a single round avatar, so this is a plain file input behind the photo.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { manufacturerService } from "@/lib/services/manufacturerService";
-
 /** The signed-in manufacturer's profile photo. */
 export default function ProfileAvatarUploadForm() {
-    const { profile, updateProfile, isLoading } = useManufacturerProfile();
+    const { profile, applyProfileResponse, isLoading, isError } = useManufacturerProfile();
+
+    if (isError) {
+        return <LoadError className="justify-center">Couldn&apos;t load your photo. Please refresh the page to try again.</LoadError>;
+    }
+
     return (
         <AvatarUploadForm
             loading={isLoading}
             name={getManufacturerFullName(profile)}
             avatarUrl={profile.avatarUrl}
-            onUploaded={async (avatarUrl, publicId) => {
-                let savedUrl = avatarUrl;
-                if (publicId) {
-                    try {
-                        const res = await manufacturerService.setAvatar(publicId);
-                        if (res?.profile?.avatar?.url || res?.profile?.avatarUrl) {
-                            savedUrl = res.profile.avatar?.url ?? res.profile.avatarUrl;
-                        }
-                    } catch (e) {
-                        console.error("Failed to sync avatar to backend:", e);
-                        throw e;
-                    }
-                }
-                updateProfile({ avatarUrl: savedUrl });
+            onUploaded={async (_avatarUrl, publicId) => {
+                if (!publicId) throw new Error("Couldn't upload your photo. Please try again.");
+                // The API's answer has the saved photo's link
+                applyProfileResponse(await manufacturerService.setAvatar(publicId));
+            }}
+            onRemove={async () => {
+                applyProfileResponse(await manufacturerService.setAvatar(null));
             }}
         />
     );
@@ -55,16 +54,34 @@ export function AvatarUploadForm({
     name,
     avatarUrl,
     onUploaded,
+    onRemove,
     loading = false,
 }: {
     /** For the initials avatar while there's no photo. */
     name: string;
     avatarUrl: string | null;
     onUploaded: (avatarUrl: string, publicId?: string) => void | Promise<void>;
+    /** Removes the photo. Without it (or while there's no photo) there's no "Remove photo". */
+    onRemove?: () => Promise<void>;
     /** A skeleton in place of the photo while it loads. */
     loading?: boolean;
 }) {
     const [isUploading, setIsUploading] = useState(false);
+    const [isRemoving, setIsRemoving] = useState(false);
+    const isBusy = isUploading || isRemoving;
+
+    const handleRemove = async () => {
+        if (!onRemove || isBusy) return;
+        setIsRemoving(true);
+        try {
+            await onRemove();
+            toast.success("Profile photo removed");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't remove your photo. Please try again."));
+        } finally {
+            setIsRemoving(false);
+        }
+    };
     const [progress, setProgress] = useState(0);
 
     const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -88,12 +105,8 @@ export function AvatarUploadForm({
             const res = await mediaService.uploadFile(file, "avatar", (p) => setProgress(p));
             await onUploaded(res.url, res.publicId);
             toast.success("Profile photo updated successfully");
-        } catch (err: unknown) {
-            const message =
-                (err as { response?: { data?: { error?: { message?: string } } } })?.response?.data?.error?.message ||
-                (err as Error)?.message ||
-                "Couldn't upload your photo. Please try again.";
-            toast.error(message);
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't upload your photo. Please try again."));
         } finally {
             setIsUploading(false);
             setProgress(0);
@@ -114,7 +127,7 @@ export function AvatarUploadForm({
             <label
                 className={cn(
                     "relative rounded-full ring-offset-2 has-focus-visible:ring-2 has-focus-visible:ring-secondary-300",
-                    isUploading ? "cursor-wait" : "cursor-pointer",
+                    isBusy ? "cursor-wait" : "cursor-pointer",
                 )}
             >
                 <UserAvatar name={name} src={avatarUrl} className="size-32 text-3xl" />
@@ -131,12 +144,23 @@ export function AvatarUploadForm({
                     type="file"
                     accept={AVATAR_ACCEPT}
                     aria-label="Upload new avatar"
-                    disabled={isUploading}
+                    disabled={isBusy}
                     onChange={handleFileChange}
                     className="sr-only"
                 />
             </label>
             <p className="text-xs font-text text-mist-500">Click image to upload new avatar</p>
+            {onRemove && avatarUrl && (
+                <button
+                    type="button"
+                    onClick={handleRemove}
+                    disabled={isBusy}
+                    className="flex items-center gap-1.5 text-sm font-medium font-text text-error-600 enabled:hover:underline cursor-pointer disabled:cursor-default disabled:opacity-60"
+                >
+                    {isRemoving && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
+                    Remove photo
+                </button>
+            )}
         </div>
     );
 }

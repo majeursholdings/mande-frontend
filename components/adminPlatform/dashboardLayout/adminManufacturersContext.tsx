@@ -145,7 +145,13 @@ type ServerManufacturer = {
     phone: string;
     avatar: { url: string } | null;
     specialities: string[];
-    plan: { planId: string; billingCycle: "monthly" | "yearly"; status: string; renewsAt: string | null } | null;
+    plan: {
+        planId: string;
+        billingCycle: "monthly" | "yearly";
+        status: "active" | "past_due" | "pending_payment" | "cancelled";
+        cancelAtPeriodEnd?: boolean;
+        renewsAt: string | null;
+    } | null;
     accountStatus: ManufacturerRecord["accountStatus"];
     isDeactivated: boolean;
     verification: VerificationStatus;
@@ -185,8 +191,10 @@ const toManufacturerRecord = (sm: ServerManufacturer): ManufacturerRecord => ({
         // No plan: an empty id, which no plan matches (shown as having none)
         planId: sm.plan?.planId ?? "",
         billingCycle: sm.plan?.billingCycle === "yearly" ? "annual" : "monthly",
-        renewsAt: sm.plan?.renewsAt ?? new Date().toISOString(),
+        renewsAt: sm.plan?.renewsAt ?? null,
         renewalsPaidFrom: "card",
+        status: sm.plan?.status,
+        cancelAtPeriodEnd: sm.plan?.cancelAtPeriodEnd ?? false,
     },
     bankAccount: null,
     security: { twoFactorMethod: null, linkedAccounts: { google: null, facebook: null } },

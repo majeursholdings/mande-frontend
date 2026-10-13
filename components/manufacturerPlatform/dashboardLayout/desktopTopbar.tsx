@@ -34,8 +34,10 @@ export default function DesktopTopbar() {
     const searchRef = useOutsideClickRef<HTMLDivElement>(closeSearch);
     const inputRef = useRef<HTMLInputElement>(null);
     const { hasUnread } = useNotifications();
-    const { profile, isLoading: isProfileLoading } = useManufacturerProfile();
-    const fullName = getManufacturerFullName(profile);
+    const { profile, isLoading: isProfileLoading, isError: isProfileError } = useManufacturerProfile();
+    // Couldn't load: a plain account icon, not the empty profile's blank name
+    const fullName = isProfileError ? "" : getManufacturerFullName(profile);
+    const avatarUrl = isProfileError ? null : profile.avatarUrl;
 
     return (
         <header className={cn(DESKTOP_TOPBAR_CLASS, "justify-between px-8")}>
@@ -94,7 +96,7 @@ export default function DesktopTopbar() {
                             <ChevronDown className="size-4 text-mist-500" />
                         </>
                     ) : (
-                        <UserCardContent name={fullName} avatarUrl={profile.avatarUrl} />
+                        <UserCardContent name={fullName} avatarUrl={avatarUrl} />
                     )}
                 </UserMenu>
             </div>

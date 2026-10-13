@@ -16,14 +16,20 @@ export interface FeedbackRecord {
   sentAt: string | null;
 }
 
+export interface FeedbackPage {
+  feedback: FeedbackRecord[];
+  /** Where the next, older page starts; null on the last page. */
+  nextBefore: string | null;
+}
+
 export const supportService = {
   async sendFeedback(payload: SendFeedbackPayload) {
     const { data } = await api.post("/support/feedback", payload);
     return data;
   },
 
-  async listFeedback(params: { category?: string; limit?: number; before?: string } = {}) {
-    const { data } = await api.get("/support/feedback", { params });
+  async listFeedback(params: { category?: string; limit?: number; before?: string } = {}): Promise<FeedbackPage> {
+    const { data } = await api.get<FeedbackPage>("/support/feedback", { params });
     return data;
   },
 };

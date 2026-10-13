@@ -5,10 +5,9 @@ import { Star } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { jobsService } from "@/lib/services/jobsService";
-import { type ManufacturerReview } from "@/constant/manufacturer";
 import EmptyState from "../dashboardPage/emptyState";
 import PageHeader from "../pageHeader";
-import ReviewItem, { ReviewItemSkeleton } from "./reviewItem";
+import ReviewItem, { ReviewItemSkeleton, type ReviewItemData } from "./reviewItem";
 import LoadError from "../loadError";
 import ReviewsOverviewCards from "./reviewsOverviewCards";
 
@@ -18,12 +17,15 @@ export default function ManufacturerReviewsPage() {
         queryFn: () => jobsService.getReviews(),
     });
 
-    const reviews: ManufacturerReview[] = useMemo(() => {
+    const reviews: ReviewItemData[] = useMemo(() => {
         return (data?.reviews ?? []).map((r) => ({
             id: r.id,
-            customerName: r.author || "Project Lead",
+            // A role label, not a name: shown when the review has no author on record
+            customerName: r.author || "Project lead",
             rating: r.rating,
             comment: r.comment,
+            jobTitle: r.jobTitle || null,
+            createdAt: r.createdAt || null,
         }));
     }, [data]);
 

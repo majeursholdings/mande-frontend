@@ -5,7 +5,7 @@ import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
 import MainForm from "@/components/form";
-import type { PricingPlan } from "@/constant/plans";
+import { getAnnualSavingPercent, type PricingPlan } from "@/constant/plans";
 import ListPrice from "@/components/ui/listPrice";
 import { Skeleton } from "@/components/ui/skeleton";
 import Notice from "../../notice";
@@ -22,8 +22,23 @@ import { usePlans } from "@/hooks/usePlans";
 
 const BILLING_CYCLES: { value: BillingCycle; label: string }[] = [
     { value: "monthly", label: "Monthly" },
-    { value: "annual", label: "Yearly · save 17%" },
+    { value: "annual", label: "Yearly" },
 ];
+
+/**
+ * What yearly billing saves across the plans, from their prices: the same
+ * saving on every plan reads "save 17%", differing ones "save up to 17%".
+ * Null when no plan saves anything (or there are no plans yet).
+ */
+function getAnnualSavingLabel(plans: PricingPlan[]): string | null {
+    const savings = plans
+        .filter((plan) => plan.monthlyPrice > 0 && plan.annualPrice > 0)
+        .map(getAnnualSavingPercent)
+        .filter((percent) => percent > 0);
+    if (savings.length === 0) return null;
+    const best = Math.max(...savings);
+    return savings.every((percent) => percent === best) ? `save ${best}%` : `save up to ${best}%`;
+}
 
 const PER: Record<BillingCycle, string> = { monthly: "month", annual: "year" };
 
@@ -61,13 +76,18 @@ export default function ChoosePlanStep({
     const price = plan ? getPlanPrice(plan, billingCycle, discountPercent) : 0;
     const isPaid = !!paymentReference;
     const offerText = discountPercent > 0 ? `Every plan is ${discountPercent}% off for now. ` : "";
+    const annualSaving = getAnnualSavingLabel(plans);
+    const savingText = annualSaving
+        ? ` With yearly billing you ${annualSaving} on paying monthly.`
+        : "";
+    const hasNoPlans = !isPlansPending && !isPlansError && plans.length === 0;
 
     return (
         <div className="flex flex-col gap-6">
             <StepHeader
                 step={3}
                 title="Choose a plan"
-                description={`${offerText}Pick the plan that fits your business. With yearly billing you pay for 10 months and work all 12.`}
+                description={`${offerText}Pick the plan that fits your business.${savingText}`}
             />
 
             <MainForm<RegistrationFormValues>
@@ -99,7 +119,9 @@ export default function ChoosePlanStep({
                                         disabled={isPaid}
                                         className="sr-only"
                                     />
-                                    {cycle.label}
+                                    {cycle.value === "annual" && annualSaving
+                                        ? `${cycle.label} · ${annualSaving}`
+                                        : cycle.label}
                                 </label>
                             ))}
                         </div>
@@ -109,6 +131,14 @@ export default function ChoosePlanStep({
                                 <LoadError>Couldn&apos;t load the plans. Please refresh the page to try again.</LoadError>
                             )}
                             {isPlansPending && [1, 2, 3].map((i) => <PlanOptionSkeleton key={i} />)}
+                            {hasNoPlans && (
+                                <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center font-text">
+                                    <p className="text-sm font-medium text-mist-900">No plans available right now</p>
+                                    <p className="mt-1 text-xs text-mist-500">
+                                        Please check back later, or contact support to get set up.
+                                    </p>
+                                </div>
+                            )}
                             {plans.map((option) => (
                                 <PlanOption
                                     key={option.id}

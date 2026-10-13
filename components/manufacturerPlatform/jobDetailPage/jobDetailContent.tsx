@@ -12,9 +12,11 @@ import JobDetailRejections from "./jobDetailRejections";
 import JobDetailCallAssignee from "./jobDetailCallAssignee";
 import JobDetailPayments from "./jobDetailPayments";
 import JobDetailLeadReview, { HeldForReviewNote } from "./jobDetailLeadReview";
+import JobDetailNotes from "./jobDetailNotes";
 import JobDetailCompletionUpload from "@/components/manufacturerPlatform/form/jobDetailCompletionUploadForm";
 import CancelJobForm from "@/components/manufacturerPlatform/form/cancelJobForm";
 import ReportDelayForm from "@/components/manufacturerPlatform/form/reportDelayForm";
+import DeclineJobForm from "@/components/manufacturerPlatform/form/declineJobForm";
 import { useJobDetailState } from "./useJobDetailState";
 import { useManufacturerAccount } from "../dashboardLayout/manufacturerAccountContext";
 import { JOB_DETAIL_PRIMARY_BUTTON_CLASS } from "./styles";
@@ -24,26 +26,43 @@ import { formatDuration, formatOrdinalDate, getCountdownLabel } from "@/lib/date
 import { formatPrice } from "@/lib/currency";
 import {
     JOB_STATUS_CONFIG,
-    MAX_JOB_REJECTIONS,
     isActiveJob,
     getJobCategoryLabel,
-    getJobPaymentInput,
     getJobSteps,
     type Job,
 } from "@/constant/manufacturer";
 import {
     MAX_EXTENSION_PERCENT,
-    canCancelJob,
     getJobPayments,
     getLatestAllowedDueDate,
     getOriginalDueDate,
     getStepProgress,
+    type JobBonus,
+    type JobPayment,
 } from "@/constant/jobWorkflow";
 import { useMyJobList } from "@/components/manufacturerPlatform/dashboardLayout/useManufacturerJobLists";
 
-type DialogKind = "reportDelay" | "cancelJob" | null;
+type DialogKind = "reportDelay" | "cancelJob" | "declineJob" | null;
 
 const COMPLETION_UPLOAD_ID = "job-detail-completion-upload";
+
+/**
+ * The job's payments and bonus: the API's own (it decides what's paid), or,
+ * only if it didn't send them, worked out from the job.
+ */
+function getPaymentsOf(job: Job): { payments: JobPayment[]; bonus: JobBonus | null } {
+    if (job.payments) return { payments: job.payments, bonus: job.bonus ?? null };
+    if (!job.dueDate) return { payments: [], bonus: null };
+    return getJobPayments({
+        amount: job.price,
+        dueDate: job.dueDate,
+        acceptedAt: job.dateAssigned,
+        stepSubmissions: job.stepSubmissions,
+        signedOffAt: job.completedAt ?? null,
+        rejectionCount: job.rejections?.length ?? 0,
+        faultReport: job.faultReport ?? null,
+    });
+}
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
     return (
@@ -57,6 +76,8 @@ function DetailRow({ label, value }: { label: string; value: ReactNode }) {
 export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSlot: ReactNode }) {
     const {
         state,
+        maxRejections,
+        canCancel,
         isResponding,
         acceptJob,
         declineJob,
@@ -65,15 +86,21 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
         submitStepProof,
         uploadCompletionPhoto,
         resubmitForReview,
+        addNote,
     } = useJobDetailState(job);
 
     const [dialog, setDialog] = useState<DialogKind>(null);
 
     const statusConfig = JOB_STATUS_CONFIG[state.status];
-    const { steps: productionSteps, completedCount: completedStepCount } = getJobSteps(state);
+    const { steps: productionSteps, completedCount: completedStepCount } = getJobSteps({ ...state, maxRejections });
     const stepProgress = getStepProgress(state.stepSubmissions);
-    const allStepsComplete = stepProgress.every((step) => step.state === "approved");
-    const { payments, bonus } = getJobPayments(getJobPaymentInput({ ...job, ...state }));
+    // Every step approved: the API says so with no current step left (it sends one while the job is theirs)
+    const allStepsComplete =
+        job.currentStep !== undefined && state.status === "in-progress"
+            ? job.currentStep === null
+            : stepProgress.every((step) => step.state === "approved");
+    const { payments, bonus } = getPaymentsOf(job);
+    const rules = job.rules ?? null;
     const progressPercent = Math.round(
         (completedStepCount / productionSteps.length) * 100,
     );
@@ -90,19 +117,28 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
     const canMarkAsDone =
         state.status === "in-progress" && allStepsComplete && completionImageUrls.length === 0;
     const isPending = state.status === "pending";
+    // Accepted a shared job: it starts once the other manufacturer(s) accept too
+    const isAwaitingOthers = isPending && !!job.awaitingOthers;
     const isCancelled = state.status === "cancelled";
     const isRejected = state.status === "rejected";
-    const canResubmit = isRejected && state.rejections.length < MAX_JOB_REJECTIONS;
+    const canResubmit = isRejected && state.rejections.length < maxRejections;
     const showHeaderActions = state.status === "in-progress";
-    const dueDate = new Date(job.dueDate);
+    const notes = job.notes ?? [];
+    // The API takes notes from a manufacturer only while the job is theirs (not an offer, not cancelled)
+    const canAddNote = !isPending && !isCancelled;
+    const dueDate = job.dueDate ? new Date(job.dueDate) : null;
     // The job's length runs from its planned start (or when they accepted) to the due date
     const start = job.startDate ?? state.dateAssigned;
-    const originalDueDate = getOriginalDueDate(job.dueDate, state.extensionRequests);
-    const latestDueDate = start ? getLatestAllowedDueDate(start, originalDueDate) : dueDate;
+    const originalDueDate = job.dueDate ? getOriginalDueDate(job.dueDate, state.extensionRequests) : null;
+    // The API checks the limit too; the job's own rules say what it is
+    const maxExtensionPercent = rules?.maxExtensionPercent ?? MAX_EXTENSION_PERCENT;
+    const latestDueDate =
+        start && originalDueDate ? getLatestAllowedDueDate(start, originalDueDate, maxExtensionPercent) : dueDate;
     const pendingExtension = state.extensionRequests.find((request) => request.status === "pending");
     const latestApprovedExtension = state.extensionRequests.find((request) => request.status === "approved");
     // Room for a later date only if the limit falls on a later day
-    const canExtend = new Date(latestDueDate.toDateString()) > new Date(dueDate.toDateString());
+    const canExtend =
+        !!latestDueDate && !!dueDate && new Date(latestDueDate.toDateString()) > new Date(dueDate.toDateString());
 
     const closeDialog = () => {
         setDialog(null);
@@ -132,7 +168,7 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                         }
                         onReportDelay={() => setDialog("reportDelay")}
                         onCancelJob={() => setDialog("cancelJob")}
-                        canCancel={canCancelJob(state.stepSubmissions)}
+                        canCancel={canCancel}
                     />
                 ) : (
                     <span />
@@ -168,12 +204,14 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                     />
 
                     {/* Mobile: countdown only. Desktop: percentage bar. */}
-                    <div className="md:hidden">
-                        <DetailRow
-                            label="Countdown"
-                            value={getCountdownLabel(dueDate)}
-                        />
-                    </div>
+                    {dueDate && (
+                        <div className="md:hidden">
+                            <DetailRow
+                                label="Countdown"
+                                value={getCountdownLabel(dueDate)}
+                            />
+                        </div>
+                    )}
                     <div className="hidden md:flex items-center justify-between gap-4">
                         <dt className="text-mist-400 shrink-0">Progress</dt>
                         <dd className="flex items-center gap-2">
@@ -199,6 +237,7 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                                 : "Yet to be assigned"
                         }
                     />
+                    {dueDate && (
                     <DetailRow
                         label="Due date"
                         value={
@@ -218,7 +257,8 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                             </span>
                         }
                     />
-                    {start && (
+                    )}
+                    {start && dueDate && (
                         <DetailRow
                             label="Project duration"
                             value={formatDuration(new Date(start), dueDate)}
@@ -255,6 +295,8 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                     rejections={state.rejections}
                     status={state.status}
                     jobTitle={job.title}
+                    maxRejections={maxRejections}
+                    rejectionChargePercent={rules?.rejectionChargePercent ?? null}
                 />
 
                 {job.attachments.length > 0 && (
@@ -286,6 +328,7 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                         completedCount={completedStepCount}
                         progress={stepProgress}
                         payments={payments}
+                        reviewWindowHours={rules?.reviewWindowHours ?? null}
                         onSubmitProof={submitStepProof}
                         readOnly={state.status !== "in-progress"}
                     />
@@ -337,7 +380,7 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                     />
                 )}
 
-                {!isCancelled && (
+                {!isCancelled && payments.length > 0 && (
                     <JobDetailPayments
                         amount={job.price}
                         dueDate={job.dueDate}
@@ -345,17 +388,33 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                         bonus={bonus}
                         progress={stepProgress}
                         faultReport={job.faultReport ?? null}
+                        reviewWindowHours={rules?.reviewWindowHours ?? null}
+                        faultReportDays={rules?.faultReportDays ?? null}
                     />
                 )}
 
                 {state.status === "completed" && <JobDetailLeadReview job={job} />}
+
+                {(canAddNote || notes.length > 0) && (
+                    <JobDetailNotes notes={notes} canAddNote={canAddNote} addNote={addNote} />
+                )}
 
                 {!isCancelled && (
                     <JobDetailCallAssignee assignee={job.assignee} />
                 )}
             </div>
 
-            {isPending && (
+            {isAwaitingOthers && (
+                <div role="status" className="flex flex-col gap-1 border-t border-border px-4 py-4">
+                    <p className="text-sm font-medium font-text text-mist-950">You&apos;ve accepted this job</p>
+                    <p className="text-xs font-text text-mist-600">
+                        It&apos;s shared with another manufacturer, so it starts once they accept too. Your first
+                        payment goes into your wallet then.
+                    </p>
+                </div>
+            )}
+
+            {isPending && !isAwaitingOthers && (
                 <div className="flex flex-col gap-3 border-t border-border px-4 py-4">
                     {acceptBlocker && <p className="text-xs font-text text-mist-600">{acceptBlocker}</p>}
                     <div className="flex items-center gap-3">
@@ -366,7 +425,7 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                         >
                             Accept job
                         </Button>
-                        <Button variant="outline" className="flex-1" disabled={isResponding} onClick={() => declineJob()}>
+                        <Button variant="outline" className="flex-1" disabled={isResponding} onClick={() => setDialog("declineJob")}>
                             Decline
                         </Button>
                     </div>
@@ -383,13 +442,13 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                     <p className="text-sm text-mist-600">
                         You&apos;ve asked to move the due date to{" "}
                         {formatOrdinalDate(new Date(pendingExtension.requestedDueDate))}. Your project lead will
-                        approve or reject it — you can ask again once they have.
+                        approve or reject it, and you can ask again once they have.
                     </p>
-                ) : !start || !canExtend ? (
+                ) : !start || !canExtend || !job.dueDate || !latestDueDate || !originalDueDate ? (
                     <p className="text-sm text-mist-600">
-                        The due date can&apos;t move any further — it&apos;s already been pushed back by the most
-                        allowed, {MAX_EXTENSION_PERCENT}% of the job&apos;s original length. Call your project
-                        assistant if you need to talk it through.
+                        The due date can&apos;t move any further. It&apos;s already been pushed back by the most
+                        allowed{rules ? `, ${rules.maxExtensionPercent}% of the job's original length` : ""}. Call
+                        your project assistant if you need to talk it through.
                     </p>
                 ) : (
                     <ReportDelayForm
@@ -397,10 +456,20 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                         latestDueDate={latestDueDate}
                         start={start}
                         originalDueDate={originalDueDate}
+                        maxExtensionPercent={maxExtensionPercent}
                         reportDelay={reportDelay}
                         closeDialog={closeDialog}
                     />
                 )}
+            </TableDialog>
+
+            <TableDialog
+                open={dialog === "declineJob"}
+                onClose={closeDialog}
+                title="Decline this job?"
+                variant="delete"
+            >
+                <DeclineJobForm declineJob={declineJob} closeDialog={closeDialog} />
             </TableDialog>
 
             <TableDialog

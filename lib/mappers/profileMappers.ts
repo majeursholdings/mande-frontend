@@ -6,6 +6,31 @@ import type {
     VerificationStatus,
 } from "@/constant/manufacturer";
 import { EMPTY_MANUFACTURER_PROFILE, PENDING_VERIFICATION } from "@/constant/manufacturer";
+import type { SelectOption } from "@/components/form/types";
+
+/**
+ * Option values the API still accepts from older sign-ups, but that the forms
+ * no longer offer. They get a label for display only, never a select option.
+ */
+const LEGACY_OPTION_LABELS: Record<string, string> = {
+    "1-5": "1 to 5",
+    "6-10": "6 to 10",
+    "2-4-weeks": "2 to 4 weeks",
+};
+
+/** Whether `value` is one the forms no longer offer (see LEGACY_OPTION_LABELS). */
+export function isLegacyOptionValue(value: string): boolean {
+    return value in LEGACY_OPTION_LABELS;
+}
+
+/**
+ * The label for a profile option value: the current option's label, else a
+ * legacy value's label, else the value itself. "" stays "" (not set).
+ */
+export function getProfileOptionLabel(options: SelectOption[], value: string | null | undefined): string {
+    if (!value) return "";
+    return options.find((option) => option.value === value)?.label ?? LEGACY_OPTION_LABELS[value] ?? value;
+}
 
 export interface ApiProfilePayload {
     userId?: string | null;
@@ -137,13 +162,14 @@ export function mapApiProfileToManufacturerProfile(
         specialities: Array.isArray(data.specialities) ? data.specialities : fallback.specialities,
         staffRange: data.staffRange ?? fallback.staffRange ?? "",
         productionLeadTime: data.productionLeadTime ?? fallback.productionLeadTime ?? "",
+        materialsInventory: data.materialsInventory ?? fallback.materialsInventory ?? "",
         ninCard,
         security: {
             linkedAccounts: fallback.security.linkedAccounts,
             twoFactorMethod:
                 data.twoFactorMethod === "app" || data.twoFactorMethod === "email"
                     ? data.twoFactorMethod
-                    : "email",
+                    : null,
         },
     };
 }

@@ -9,6 +9,7 @@ import type { FormFieldConfig } from "@/components/form/types";
 import { cleanupFormFieldUploads, clearFormUploadedFiles } from "@/components/form/fileInput";
 import { FEEDBACK_CATEGORY_OPTIONS } from "@/constant/support";
 import type { ManufacturerFeedback } from "@/constant/manufacturer";
+import { getErrorMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { FormSubmitButton } from "./formButtons";
 import { supportService } from "@/lib/services/supportService";
@@ -62,12 +63,8 @@ const FIELDS: FormFieldConfig[] = [
     },
 ];
 
-/** Sending feedback to support: onSend gets it once it is gone, to show in their history. */
-export default function SupportFeedbackForm({
-    onSend,
-}: {
-    onSend?: (feedback: Pick<ManufacturerFeedback, "category" | "message" | "screenshotUrl">) => void;
-}) {
+/** Sending feedback to support. Their history refetches once it's sent. */
+export default function SupportFeedbackForm() {
     const queryClient = useQueryClient();
     const [isLoading, setIsLoading] = useState(false);
     // Bumped after sending to remount the form: the upload field keeps its
@@ -87,12 +84,6 @@ export default function SupportFeedbackForm({
                 fileObj && typeof fileObj === "object" && "publicId" in fileObj && typeof fileObj.publicId === "string"
                     ? fileObj.publicId
                     : undefined;
-            const screenshotUrl =
-                fileObj && typeof fileObj === "object" && "url" in fileObj && typeof fileObj.url === "string"
-                    ? fileObj.url
-                    : file instanceof File
-                      ? URL.createObjectURL(file)
-                      : null;
 
             await supportService.sendFeedback({
                 category: category as ManufacturerFeedback["category"],
@@ -100,19 +91,14 @@ export default function SupportFeedbackForm({
                 screenshot: publicId,
             });
 
-            onSend?.({
-                category: category as ManufacturerFeedback["category"],
-                message: message.trim(),
-                screenshotUrl,
-            });
             void queryClient.invalidateQueries({ queryKey: queryKeys.support.feedback() });
             clearFormUploadedFiles("screenshot");
             methods.reset(SUPPORT_FEEDBACK_DEFAULT_VALUES);
             setFormKey((key) => key + 1);
             toast.success("Thanks, we've received your feedback");
-        } catch {
+        } catch (err) {
             await cleanupFormFieldUploads("screenshot");
-            toast.error("Couldn't send your feedback. Please try again.");
+            toast.error(getErrorMessage(err, "Couldn't send your feedback. Please try again."));
         } finally {
             setIsLoading(false);
         }

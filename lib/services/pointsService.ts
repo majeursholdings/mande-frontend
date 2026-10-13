@@ -1,5 +1,5 @@
 import { api } from "@/lib/api";
-import type { DeliveryDisputeRecord, PointEntryRecord, RankProgression } from "@/constant/points";
+import type { DeliveryDisputeRecord, PointEntryRecord, PointSettingsConfig, RankProgression } from "@/constant/points";
 
 export interface PointsSummaryResponse {
     points: number;
@@ -8,6 +8,11 @@ export interface PointsSummaryResponse {
     /** Null before anyone has rated them. */
     averageRating: number | null;
     progression: RankProgression;
+    /** How many points each event is worth, as the super admins set them (may be partial on older APIs). */
+    pointSettings?: {
+        manufacturer?: Partial<PointSettingsConfig["manufacturer"]>;
+        admin?: Partial<PointSettingsConfig["admin"]>;
+    };
 }
 
 export interface PointsHistoryResponse {

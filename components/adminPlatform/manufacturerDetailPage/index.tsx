@@ -257,8 +257,10 @@ export default function AdminManufacturerDetailPage({ manufacturerId }: { manufa
                     ? {
                           planId: raw.plan.planId,
                           billingCycle: raw.plan.billingCycle === "yearly" ? "annual" : "monthly",
-                          renewsAt: raw.plan.renewsAt ?? new Date().toISOString(),
+                          renewsAt: raw.plan.renewsAt ?? null,
                           renewalsPaidFrom: raw.plan.renewalsPaidFrom ?? "wallet",
+                          status: raw.plan.status,
+                          cancelAtPeriodEnd: raw.plan.cancelAtPeriodEnd ?? false,
                       }
                     : undefined,
             };

@@ -7,6 +7,7 @@ import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { validators } from "@/components/form/form.validators";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
+import LoadError from "@/components/manufacturerPlatform/loadError";
 import { authService } from "@/lib/services/authService";
 import { getErrorMessage } from "@/lib/api";
 import { OtpCodeDialog } from "@/components/manufacturerPlatform/otpVerificationDialog";
@@ -63,7 +64,11 @@ const FIELDS: FormFieldConfig[] = [
 
 /** The signed-in manufacturer's password change. */
 export default function ProfileChangePasswordForm() {
-    const { profile } = useManufacturerProfile();
+    const { profile, isError } = useManufacturerProfile();
+    // Where the code comes from depends on their two-factor method, so it needs the profile
+    if (isError) {
+        return <LoadError>Couldn&apos;t load your account. Please refresh the page to try again.</LoadError>;
+    }
     return <ChangePasswordForm email={profile.email} codeChannel={getOtpChannel(profile)} />;
 }
 

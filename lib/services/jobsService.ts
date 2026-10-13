@@ -1,14 +1,23 @@
 import { api } from "@/lib/api";
 
 /**
- * What the API's job lists take: a page size (up to 50) and a date cursor.
- * Nothing else: they're strict, and an unknown key is a 422. Filter and
- * search the loaded list instead.
+ * What the API's job lists take: a page size (up to 100), a date cursor and
+ * a search. Nothing else: they're strict, and an unknown key is a 422.
  */
 export interface JobQueryFilters {
   limit?: number;
   /** ISO date: jobs created before it (the previous page's nextBefore). */
   before?: string;
+  /**
+   * A search (1 to 100 characters): every word must appear in the job's
+   * title, code or category (and, for the manufacturer's own jobs, its status).
+   */
+  q?: string;
+}
+
+/** The manufacturer's own jobs also filter by where each stands for them. */
+export interface MyJobQueryFilters extends JobQueryFilters {
+  status?: "pending" | "in-progress" | "in-review" | "rejected" | "completed" | "cancelled";
 }
 
 export interface StepProofPayload {
@@ -94,7 +103,7 @@ export const jobsService = {
 
   // ── Manufacturer Own Jobs ──────────────────────────────────────────
 
-  async getMyJobs(params: JobQueryFilters = {}) {
+  async getMyJobs(params: MyJobQueryFilters = {}) {
     const { data } = await api.get("/my-jobs", { params });
     return data;
   },
@@ -109,8 +118,10 @@ export const jobsService = {
     return data;
   },
 
-  async declineJob(jobId: string, reason: string) {
-    const { data } = await api.post(`/my-jobs/${jobId}/decline`, { reason });
+  /** The reason is optional (at most 500 characters); left out when empty. */
+  async declineJob(jobId: string, reason?: string) {
+    const trimmed = reason?.trim();
+    const { data } = await api.post(`/my-jobs/${jobId}/decline`, trimmed ? { reason: trimmed } : {});
     return data;
   },
 
@@ -158,10 +169,10 @@ export const jobsService = {
         createdAt: string;
       }>;
       overview: {
-        averageRating: number;
+        averageRating: number | null;
         totalReviews: number;
         fiveStarCount: number;
-        positiveRate: number;
+        positiveRate: number | null;
       };
     }>("/my-jobs/reviews");
     return data;
@@ -174,6 +185,10 @@ export const jobsService = {
         inReviewCount: number;
         completedCount: number;
         openMarketCount: number;
+        /** Slots in use on their plan: jobs on, plus applications waiting. */
+        usedSlots: number;
+        /** What their plan allows at once (one while flagged, none without a plan). Null for no limit. */
+        slotLimit: number | null;
       };
     }>("/my-jobs/overview");
     return data.overview;

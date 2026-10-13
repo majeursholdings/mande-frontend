@@ -4,8 +4,18 @@ import type {
     JobAttachment,
     JobAssignee,
     JobRejection,
+    JobNote,
 } from "@/constant/manufacturer";
-import type { StepSubmission, JobFaultReport } from "@/constant/jobWorkflow";
+import {
+    JOB_PAYMENT_SCHEDULE,
+    type JobBonus,
+    type JobFaultReport,
+    type JobPayment,
+    type JobPaymentMilestone,
+    type JobRules,
+    type ProductionStepKey,
+    type StepSubmission,
+} from "@/constant/jobWorkflow";
 import type { TimelineExtensionRecord } from "@/constant/platformRecords";
 
 interface ApiMedia {
@@ -36,7 +46,7 @@ export interface ApiJobPayload {
     price?: number;
     dateAssigned?: string | null;
     startDate?: string | null;
-    dueDate: string;
+    dueDate?: string | null;
     completedAt?: string | null;
     image?: ApiMedia | null;
     imageUrl?: string;
@@ -71,7 +81,25 @@ export interface ApiJobPayload {
         submissionPhotos?: string[];
         imageUrls?: string[];
         submissionImageUrls?: string[];
+        attachments?: Array<ApiJobAttachment | null>;
     }>;
+    /** Accepted a shared job, waiting for the other manufacturer(s). */
+    awaitingOthers?: boolean;
+    currentStep?: ProductionStepKey | null;
+    canCancel?: boolean;
+    maxRejections?: number;
+    rules?: Partial<JobRules> | null;
+    /** Their payments and bonus, as the API works them out (amounts in kobo). */
+    payments?: {
+        payments?: Array<{ milestone: JobPaymentMilestone; amountKobo: number; releasedAt?: string | null }>;
+        bonus?: {
+            status: JobBonus["status"];
+            lostReason?: JobBonus["lostReason"];
+            releaseAt?: string | null;
+            percent: number;
+            amountKobo: number;
+        } | null;
+    } | null;
     faultReport?: (Omit<JobFaultReport, "reportedBy"> & { reportedBy?: string }) | null;
     extensionRequests?: Array<{
         id?: string;
@@ -88,7 +116,15 @@ export interface ApiJobPayload {
     isHeldForReview?: boolean;
     deliveryLocation?: { city: string; state: string } | null;
     commentCount?: number;
-    notes?: Array<unknown>;
+    /** Newest first, as the API sends them. */
+    notes?: Array<{
+        id?: string;
+        _id?: string;
+        authorName?: string | null;
+        authorRole?: string | null;
+        message?: string | null;
+        createdAt?: string | null;
+    } | null>;
     application?: unknown;
 }
 
@@ -123,12 +159,84 @@ function resolveJobImage(apiJob: ApiJobPayload): string {
     return apiJob.imageUrl || "";
 }
 
-function mapAttachments(attachments?: ApiJobAttachment[]): JobAttachment[] {
+function mapAttachments(attachments?: Array<ApiJobAttachment | null>): JobAttachment[] {
     if (!attachments || attachments.length === 0) return [];
-    return attachments.map((att) => ({
-        name: att.name || "attachment",
-        url: att.url || "",
-    }));
+    return attachments.flatMap((att) =>
+        att?.url ? [{ name: att.name || "attachment", url: att.url }] : [],
+    );
+}
+
+/** An ISO date from the API's, or null when it sent none: a missing date is never "now". */
+function toIsoOrNull(value?: string | null): string | null {
+    if (!value) return null;
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+const naira = (kobo: number) => kobo / 100;
+
+/** The job's notes, oldest first (the API sends them newest first), so the thread reads top to bottom. */
+function mapNotes(notes: ApiJobPayload["notes"]): JobNote[] {
+    if (!Array.isArray(notes)) return [];
+    return notes
+        .flatMap((note, index) =>
+            note && note.message
+                ? [{
+                      id: note.id || note._id || `note-${index}`,
+                      authorName: note.authorName || "Unknown",
+                      roleLabel: note.authorRole || "",
+                      message: note.message,
+                      createdAt: toIsoOrNull(note.createdAt),
+                  }]
+                : [],
+        )
+        .reverse();
+}
+
+/** The job's rules, when the API sent every one of them. */
+function mapRules(rules?: Partial<JobRules> | null): JobRules | null {
+    if (!rules) return null;
+    const { maxRejections, maxExtensionPercent, rejectionChargePercent, reviewWindowHours, faultReportDays, bonusPercent, minSignOffRating } = rules;
+    const numbers = [maxRejections, maxExtensionPercent, rejectionChargePercent, reviewWindowHours, faultReportDays, bonusPercent, minSignOffRating];
+    if (numbers.some((value) => typeof value !== "number")) return null;
+    return {
+        maxRejections: maxRejections as number,
+        maxExtensionPercent: maxExtensionPercent as number,
+        rejectionChargePercent: rejectionChargePercent as number,
+        reviewWindowHours: reviewWindowHours as number,
+        faultReportDays: faultReportDays as number,
+        bonusPercent: bonusPercent as number,
+        minSignOffRating: minSignOffRating as number,
+        paymentSchedule: rules.paymentSchedule ?? {},
+    };
+}
+
+/** The six payments as the API sent them, labelled; percents from the job's own schedule. */
+function mapPayments(apiJob: ApiJobPayload, rules: JobRules | null): JobPayment[] | undefined {
+    const sent = apiJob.payments?.payments;
+    if (!Array.isArray(sent)) return undefined;
+    return sent.map((payment) => {
+        const scheduled = JOB_PAYMENT_SCHEDULE.find((candidate) => candidate.milestone === payment.milestone);
+        return {
+            milestone: payment.milestone,
+            label: scheduled?.label ?? payment.milestone,
+            percent: rules?.paymentSchedule[payment.milestone] ?? scheduled?.percent ?? 0,
+            amount: naira(payment.amountKobo),
+            releasedAt: toIsoOrNull(payment.releasedAt),
+        };
+    });
+}
+
+function mapBonus(apiJob: ApiJobPayload): JobBonus | undefined {
+    const bonus = apiJob.payments?.bonus;
+    if (!bonus) return undefined;
+    return {
+        percent: bonus.percent,
+        amount: naira(bonus.amountKobo),
+        status: bonus.status,
+        lostReason: bonus.lostReason ?? null,
+        releaseAt: toIsoOrNull(bonus.releaseAt),
+    };
 }
 
 export function mapApiJobToManufacturerJob(apiJob: ApiJobPayload): Job {
@@ -156,11 +264,12 @@ export function mapApiJobToManufacturerJob(apiJob: ApiJobPayload): Job {
               step: sub.step,
               imageUrls: sub.imageUrls || sub.photos || [],
               note: sub.note ?? undefined,
-              submittedAt: sub.submittedAt ? new Date(sub.submittedAt).toISOString() : new Date().toISOString(),
+              // Always sent (the API requires it); empty, never "now", if it ever isn't
+              submittedAt: toIsoOrNull(sub.submittedAt) ?? "",
               review: sub.review
                   ? {
                         outcome: sub.review.outcome === "approved" ? "approved" : "sent-back",
-                        at: sub.review.at ? new Date(sub.review.at).toISOString() : new Date().toISOString(),
+                        at: toIsoOrNull(sub.review.at) ?? "",
                         by: sub.review.by || sub.review.byName || null,
                         reason: sub.review.reason ?? undefined,
                     }
@@ -171,8 +280,9 @@ export function mapApiJobToManufacturerJob(apiJob: ApiJobPayload): Job {
     const rejections: JobRejection[] = Array.isArray(apiJob.rejections)
         ? apiJob.rejections.map((rej) => ({
               reason: rej.reason || "",
-              rejectedAt: rej.rejectedAt ? new Date(rej.rejectedAt).toISOString() : new Date().toISOString(),
+              rejectedAt: toIsoOrNull(rej.rejectedAt),
               imageUrls: rej.imageUrls || rej.submissionPhotos || rej.submissionImageUrls || [],
+              attachments: mapAttachments(rej.attachments),
           }))
         : [];
 
@@ -182,12 +292,14 @@ export function mapApiJobToManufacturerJob(apiJob: ApiJobPayload): Job {
               previousDueDate: ext.previousDueDate ? new Date(ext.previousDueDate).toISOString() : "",
               requestedDueDate: ext.requestedDueDate ? new Date(ext.requestedDueDate).toISOString() : "",
               reason: ext.reason || "",
-              requestedAt: ext.requestedAt ? new Date(ext.requestedAt).toISOString() : new Date().toISOString(),
+              requestedAt: toIsoOrNull(ext.requestedAt) ?? "",
               status: ext.status || "pending",
               decidedAt: ext.decidedAt ? new Date(ext.decidedAt).toISOString() : null,
               step: ext.step ?? null,
           }))
         : [];
+
+    const rules = mapRules(apiJob.rules);
 
     return {
         id: apiJob.id || apiJob._id || "",
@@ -200,7 +312,7 @@ export function mapApiJobToManufacturerJob(apiJob: ApiJobPayload): Job {
         assignedLabel,
         assignedDaysAgo,
         startDate: apiJob.startDate ? new Date(apiJob.startDate).toISOString() : null,
-        dueDate: apiJob.dueDate ? new Date(apiJob.dueDate).toISOString() : new Date().toISOString(),
+        dueDate: toIsoOrNull(apiJob.dueDate),
         dateAssigned: assignedDate ? assignedDate.toISOString() : null,
         imageUrl: resolveJobImage(apiJob),
         attachments: mapAttachments(apiJob.attachments),
@@ -223,12 +335,20 @@ export function mapApiJobToManufacturerJob(apiJob: ApiJobPayload): Job {
         leadReview: apiJob.leadReview ? { rating: apiJob.leadReview.rating, comment: apiJob.leadReview.comment, createdAt: apiJob.leadReview.createdAt } : null,
         isHeldForReview: Boolean(apiJob.isHeldForReview),
         commentCount: apiJob.commentCount ?? (Array.isArray(apiJob.notes) ? apiJob.notes.length : 0),
+        awaitingOthers: Boolean(apiJob.awaitingOthers),
+        payments: mapPayments(apiJob, rules),
+        bonus: mapBonus(apiJob),
+        maxRejections: apiJob.maxRejections ?? rules?.maxRejections,
+        canCancel: apiJob.canCancel,
+        currentStep: apiJob.currentStep,
+        rules,
+        notes: mapNotes(apiJob.notes),
     };
 }
 
 export function mapApiOpenJobToOpenJob(apiJob: ApiJobPayload): OpenJob {
     const amountKobo = apiJob.amountKobo ?? (apiJob.price ? apiJob.price * 100 : 0);
-    const postedAt = apiJob.postedAt || apiJob.createdAt || new Date().toISOString();
+    const postedAt = toIsoOrNull(apiJob.postedAt || apiJob.createdAt);
     return {
         id: apiJob.id || apiJob._id || "",
         code: apiJob.code || "",
@@ -236,9 +356,9 @@ export function mapApiOpenJobToOpenJob(apiJob: ApiJobPayload): OpenJob {
         description: apiJob.description || "",
         category: apiJob.category,
         price: Math.round(amountKobo / 100),
-        postedAt: new Date(postedAt).toISOString(),
-        startDate: apiJob.startDate ? new Date(apiJob.startDate).toISOString() : new Date(postedAt).toISOString(),
-        dueDate: apiJob.dueDate ? new Date(apiJob.dueDate).toISOString() : new Date().toISOString(),
+        postedAt,
+        startDate: toIsoOrNull(apiJob.startDate) ?? postedAt,
+        dueDate: toIsoOrNull(apiJob.dueDate),
         imageUrl: resolveJobImage(apiJob),
         attachments: mapAttachments(apiJob.attachments),
         deliveryLocation: apiJob.deliveryLocation

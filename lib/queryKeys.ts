@@ -19,6 +19,8 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.jobs.details(), id] as const,
     openJobs: (filters?: Record<string, unknown>) =>
       [...queryKeys.jobs.all, "open", filters] as const,
+    /** The top bar's job search: one scope ("open" or "active") and term. */
+    search: (scope: string, q: string) => [...queryKeys.jobs.all, "search", scope, q] as const,
     steps: (jobId: string) => [...queryKeys.jobs.detail(jobId), "steps"] as const,
     overview: () => [...queryKeys.jobs.all, "overview"] as const,
     reviews: () => [...queryKeys.jobs.all, "reviews"] as const,
@@ -52,6 +54,12 @@ export const queryKeys = {
   // Support Feedback
   support: {
     feedback: (filters?: Record<string, unknown>) => ["support", "feedback", filters] as const,
+  },
+
+  // The community channels and testimonials (public)
+  community: {
+    all: ["community"] as const,
+    public: () => [...queryKeys.community.all, "public"] as const,
   },
 
   // Staff & Project Leads
@@ -98,6 +106,8 @@ export const queryKeys = {
     all: ["settings"] as const,
     platform: () => [...queryKeys.settings.all, "platform"] as const,
     plans: () => [...queryKeys.settings.all, "plans"] as const,
+    /** The job rules the help pages quote (GET /settings/public-rules). */
+    publicRules: () => [...queryKeys.settings.all, "public-rules"] as const,
   },
 
   // Super Admin Platform

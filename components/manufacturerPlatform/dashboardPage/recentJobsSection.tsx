@@ -17,15 +17,15 @@ import JobCardSkeleton from "@/components/ui/jobCardSkeleton";
 import LoadError from "../loadError";
 
 export default function RecentJobsSection() {
+    // The API filters by status, so the newest four active jobs come back
+    // however many newer jobs (offers, finished ones) there are
+    const filters = { limit: 4, status: "in-progress" } as const;
     const { data, isPending, isError } = useQuery({
-        queryKey: queryKeys.jobs.list({ limit: 4, status: "in-progress" }),
-        queryFn: () => jobsService.getMyJobs({ limit: 4 }),
+        queryKey: queryKeys.jobs.list(filters),
+        queryFn: () => jobsService.getMyJobs(filters),
     });
 
-    const activeJobs: Job[] = ((data?.jobs ?? []) as ApiJobPayload[])
-        .map((j: ApiJobPayload) => mapApiJobToManufacturerJob(j))
-        .filter((j: Job) => j.status === "in-progress")
-        .slice(0, 4);
+    const activeJobs: Job[] = ((data?.jobs ?? []) as ApiJobPayload[]).map((j: ApiJobPayload) => mapApiJobToManufacturerJob(j));
 
     return (
         <section>

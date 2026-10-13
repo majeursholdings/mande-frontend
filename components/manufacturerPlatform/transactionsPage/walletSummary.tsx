@@ -4,7 +4,8 @@ import { formatCompactPrice, formatPrice } from "@/lib/currency";
 
 export type WalletFigure = {
     label: string;
-    amount: number;
+    /** Null when it couldn't load: shown as "-", never as ₦0. */
+    amount: number | null;
     /** The line under it: a second figure. */
     detail: { label: string; value: string; tone: OverviewTone };
     icon: LucideIcon;
@@ -12,38 +13,35 @@ export type WalletFigure = {
 
 /** The figures above the balance, from the wallet's totals and the jobs underway. */
 export function getWalletFigures({
-    earned,
-    paymentCount,
-    subscriptions,
-    subscriptionCount,
+    totals,
     currentJobs,
 }: {
-    earned: number;
-    paymentCount: number;
-    subscriptions: number;
-    subscriptionCount: number;
-    currentJobs: { count: number; worth: number; stillToCome: number };
+    /** The wallet's all-time totals, in naira. Null when they couldn't load. */
+    totals: { earned: number; paymentCount: number; subscriptions: number; subscriptionCount: number } | null;
+    /** The jobs underway. Null when they couldn't load. */
+    currentJobs: { count: number; worth: number; stillToCome: number } | null;
 }): WalletFigure[] {
     return [
         {
             label: "Total made",
-            amount: earned,
-            detail: { label: "Job payments", value: paymentCount.toLocaleString(), tone: "green" },
+            amount: totals?.earned ?? null,
+            detail: { label: "Job payments", value: totals ? totals.paymentCount.toLocaleString() : "-", tone: "green" },
             icon: HandCoins,
         },
         {
             label: "Spent on subscriptions",
-            amount: subscriptions,
-            detail: { label: "Plan payments", value: subscriptionCount.toLocaleString(), tone: "blue" },
+            amount: totals?.subscriptions ?? null,
+            detail: { label: "Plan payments", value: totals ? totals.subscriptionCount.toLocaleString() : "-", tone: "blue" },
             icon: CreditCard,
         },
         {
             label: "Current jobs worth",
-            amount: currentJobs.worth,
-            detail:
-                currentJobs.count === 0
-                    ? { label: "No jobs underway", value: "0", tone: "gray" }
-                    : { label: "Still to come", value: formatCompactPrice(currentJobs.stillToCome), tone: "amber" },
+            amount: currentJobs?.worth ?? null,
+            detail: !currentJobs
+                ? { label: "Still to come", value: "-", tone: "gray" }
+                : currentJobs.count === 0
+                  ? { label: "No jobs underway", value: "0", tone: "gray" }
+                  : { label: "Still to come", value: formatCompactPrice(currentJobs.stillToCome), tone: "amber" },
             icon: BriefcaseBusiness,
         },
     ];
@@ -58,8 +56,8 @@ export default function WalletSummary({ figures, isLoading }: { figures: WalletF
                     key={label}
                     icon={icon}
                     label={label}
-                    value={formatCompactPrice(amount)}
-                    fullValue={formatPrice(amount)}
+                    value={amount === null ? "-" : formatCompactPrice(amount)}
+                    fullValue={amount === null ? undefined : formatPrice(amount)}
                     detail={detail}
                     loading={isLoading}
                 />

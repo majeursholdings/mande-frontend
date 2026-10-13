@@ -1,50 +1,56 @@
-import { AlertTriangle, Info, XCircle } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, Info, Paperclip, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatOrdinalDate } from "@/lib/date";
-import { MAX_JOB_REJECTIONS, type JobRejection, type JobStatus } from "@/constant/manufacturer";
-import { REJECTION_CHARGE_PERCENT } from "@/constant/jobWorkflow";
+import type { JobAttachment, JobRejection, JobStatus } from "@/constant/manufacturer";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// JobDetailRejections — everything about a job's rejection history:
-//   • an alert about the MAX_JOB_REJECTIONS limit (how many are left, or that
+// JobDetailRejections: everything about a job's rejection history:
+//   • an alert about the job's rejection limit (its rules) (how many are left, or that
 //     the job can no longer be resubmitted), and what each rejection charges
 //   • the latest rejection reason, while the job is still rejected
 //   • earlier rejections, with the photos each one turned down
+//   • the lead's proof (of the defect, or the client's rejection) on each
 // Renders nothing for a job that has never been rejected.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function RejectionLimitAlert({
     rejectionCount,
     isRejected,
+    maxRejections,
+    rejectionChargePercent,
 }: {
     rejectionCount: number;
     isRejected: boolean;
+    maxRejections: number;
+    /** Null when the API didn't send the job's rules: the charge isn't quoted then. */
+    rejectionChargePercent: number | null;
 }) {
-    const remaining = MAX_JOB_REJECTIONS - rejectionCount;
+    const remaining = maxRejections - rejectionCount;
 
     const alert =
         !isRejected
             ? {
                   tone: "info" as const,
-                  title: `Rejected ${rejectionCount} of ${MAX_JOB_REJECTIONS} times`,
+                  title: `Rejected ${rejectionCount} of ${maxRejections} times`,
                   message: `This job has been resubmitted. It can be rejected ${remaining} more time${remaining === 1 ? "" : "s"} before it can no longer be resubmitted.`,
               }
             : remaining <= 0
               ? {
                     tone: "danger" as const,
                     title: "Rejection limit reached",
-                    message: `This job has been rejected ${MAX_JOB_REJECTIONS} times, the maximum allowed, so it can no longer be resubmitted. Contact your project lead for next steps.`,
+                    message: `This job has been rejected ${maxRejections} times, the maximum allowed, so it can no longer be resubmitted. Contact your project lead for next steps.`,
                 }
               : remaining === 1
                 ? {
                       tone: "warning" as const,
                       title: "Last chance to resubmit",
-                      message: `This job has been rejected ${rejectionCount} of ${MAX_JOB_REJECTIONS} times. If it's rejected again, it can no longer be resubmitted.`,
+                      message: `This job has been rejected ${rejectionCount} of ${maxRejections} times. If it's rejected again, it can no longer be resubmitted.`,
                   }
                 : {
                       tone: "warning" as const,
-                      title: `Rejected ${rejectionCount} of ${MAX_JOB_REJECTIONS} times`,
-                      message: `A job can be rejected up to ${MAX_JOB_REJECTIONS} times. After that it can no longer be resubmitted, so review the feedback carefully.`,
+                      title: `Rejected ${rejectionCount} of ${maxRejections} times`,
+                      message: `A job can be rejected up to ${maxRejections} times. After that it can no longer be resubmitted, so review the feedback carefully.`,
                   };
 
     const Icon = alert.tone === "danger" ? XCircle : alert.tone === "warning" ? AlertTriangle : Info;
@@ -79,10 +85,12 @@ function RejectionLimitAlert({
                     {alert.title}
                 </p>
                 <p className="text-xs font-text text-mist-600">{alert.message}</p>
-                <p className="text-xs font-text text-mist-600">
-                    Each rejection charges {REJECTION_CHARGE_PERCENT}% of the job&apos;s amount from your wallet. You&apos;ll
-                    see it in Transactions.
-                </p>
+                {rejectionChargePercent !== null && (
+                    <p className="text-xs font-text text-mist-600">
+                        Each rejection charges {rejectionChargePercent}% of the job&apos;s amount from your wallet.
+                        You&apos;ll see it in Transactions.
+                    </p>
+                )}
             </div>
         </div>
     );
@@ -106,14 +114,40 @@ function RejectionThumbnails({ imageUrls, title }: { imageUrls: string[]; title:
     );
 }
 
+function RejectionAttachments({ attachments }: { attachments?: JobAttachment[] }) {
+    if (!attachments || attachments.length === 0) return null;
+
+    return (
+        <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-text text-mist-500">Proof from your project lead</span>
+            <div className="flex flex-wrap gap-2">
+                {attachments.map((attachment, index) => (
+                    <Link key={`${attachment.url}-${index}`} href={attachment.url} target="_blank" title={attachment.name}>
+                        <span className="flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-xs font-text text-mist-700">
+                            <Paperclip className="size-3.5 text-mist-400" aria-hidden />
+                            {attachment.name}
+                        </span>
+                    </Link>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 export default function JobDetailRejections({
     rejections,
     status,
     jobTitle,
+    maxRejections,
+    rejectionChargePercent,
 }: {
     rejections: JobRejection[];
     status: JobStatus;
     jobTitle: string;
+    /** The job's limit on rejections (its rules). */
+    maxRejections: number;
+    /** What each rejection charges, as a percent (its rules). Null when not known. */
+    rejectionChargePercent: number | null;
 }) {
     if (rejections.length === 0) return null;
 
@@ -127,7 +161,12 @@ export default function JobDetailRejections({
     return (
         <div className="flex flex-col gap-4">
             {showLimitAlert && (
-                <RejectionLimitAlert rejectionCount={rejections.length} isRejected={isRejected} />
+                <RejectionLimitAlert
+                    rejectionCount={rejections.length}
+                    isRejected={isRejected}
+                    maxRejections={maxRejections}
+                    rejectionChargePercent={rejectionChargePercent}
+                />
             )}
 
             {isRejected && (
@@ -137,11 +176,14 @@ export default function JobDetailRejections({
                             <AlertTriangle className="size-4 shrink-0" />
                             Reason for rejection
                         </h3>
-                        <span className="text-xs font-text text-mist-500">
-                            {formatOrdinalDate(new Date(latest.rejectedAt))}
-                        </span>
+                        {latest.rejectedAt && (
+                            <span className="text-xs font-text text-mist-500">
+                                {formatOrdinalDate(new Date(latest.rejectedAt))}
+                            </span>
+                        )}
                     </div>
                     <p className="text-sm font-text text-mist-700">{latest.reason}</p>
+                    <RejectionAttachments attachments={latest.attachments} />
                 </div>
             )}
 
@@ -153,22 +195,25 @@ export default function JobDetailRejections({
                     <ol className="flex flex-col gap-3">
                         {earlier.map((rejection, index) => (
                             <li
-                                key={rejection.rejectedAt}
+                                key={`${rejection.rejectedAt ?? "rejection"}-${index}`}
                                 className="flex flex-col gap-2 rounded-xl border border-border p-3"
                             >
                                 <div className="flex items-center justify-between gap-3">
                                     <span className="text-xs font-semibold font-text text-red-600">
                                         Rejection #{index + 1}
                                     </span>
-                                    <span className="text-xs font-text text-mist-500">
-                                        {formatOrdinalDate(new Date(rejection.rejectedAt))}
-                                    </span>
+                                    {rejection.rejectedAt && (
+                                        <span className="text-xs font-text text-mist-500">
+                                            {formatOrdinalDate(new Date(rejection.rejectedAt))}
+                                        </span>
+                                    )}
                                 </div>
                                 <p className="text-sm font-text text-mist-700">{rejection.reason}</p>
                                 <RejectionThumbnails
                                     imageUrls={rejection.imageUrls}
                                     title={`${jobTitle} rejection ${index + 1}`}
                                 />
+                                <RejectionAttachments attachments={rejection.attachments} />
                             </li>
                         ))}
                     </ol>

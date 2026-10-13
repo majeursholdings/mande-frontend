@@ -8,13 +8,18 @@ import type { FormFieldConfig } from "@/components/form/types";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
 import { useManufacturerSubscription } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerSubscriptionContext";
 import { manufacturerService } from "@/lib/services/manufacturerService";
+import { getErrorMessage } from "@/lib/api";
+import { getProfileOptionLabel, isLegacyOptionValue } from "@/lib/mappers/profileMappers";
+import LoadError from "@/components/manufacturerPlatform/loadError";
 import VerificationBadge from "@/components/manufacturerPlatform/verificationBadge";
 import {
     COMPANY_SPECIALITY_OPTIONS,
+    MATERIALS_INVENTORY_OPTIONS,
     MAX_COMPANY_SPECIALITIES,
+    PRODUCTION_LEAD_TIME_OPTIONS,
     STAFF_RANGE_OPTIONS,
-    getVerificationAfterSave,
     type DocumentVerification,
+    type ManufacturerProfile,
 } from "@/constant/manufacturer";
 import { requiresBusinessDocuments } from "@/constant/plans";
 import { ADDRESS_ROW_PAIRS, getAddressFields, type AddressFormValues } from "./addressFields";
@@ -28,21 +33,56 @@ type AboutCompanyFormValues = AddressFormValues & {
     companyTaxNumber: string;
     businessLicenseNumber: string;
     staffRange: string;
+    productionLeadTime: string;
+    materialsInventory: string;
     specialities: string[];
 };
+
+// The same checks as the API's /kyc/business (kyc.validation.ts)
+const TAX_NUMBER_PATTERN = /^[A-Za-z0-9-]{5,40}$/;
+const TAX_NUMBER_MESSAGE = "Enter the tax number as it's written (5 to 40 letters, numbers or dashes)";
+const LICENSE_NUMBER_PATTERN = /^[A-Za-z0-9/-]{3,40}$/;
+const LICENSE_NUMBER_MESSAGE = "Enter the registration number as it's written (3 to 40 letters, numbers, dashes or slashes)";
 
 // Trimmed so a value made of only spaces doesn't pass
 const notBlank = (label: string) => (value: string) =>
     value.trim().length > 0 || `${label} is required`;
 
-const COMPANY_DETAIL_FIELDS: FormFieldConfig[] = [
+/**
+ * A saved value the select no longer offers (from an older sign-up): it's
+ * kept, and named under the field, until they choose one of today's options.
+ */
+const legacyDescription = (value: string, options: FormFieldConfig["options"] = []) =>
+    isLegacyOptionValue(value)
+        ? `Currently ${getProfileOptionLabel(options, value)}. Choose an option to update it.`
+        : undefined;
+
+const getCompanyDetailFields = (profile: ManufacturerProfile): FormFieldConfig[] => [
     {
         name: "staffRange",
         type: "select",
         label: "How many staff members do you have?",
         placeholder: "e.g. 21 to 30",
         options: STAFF_RANGE_OPTIONS,
+        description: legacyDescription(profile.staffRange, STAFF_RANGE_OPTIONS),
         validation: { required: "Please select a staff range" },
+    },
+    {
+        name: "productionLeadTime",
+        type: "select",
+        label: "How long does a typical order take to produce?",
+        placeholder: "e.g. 3 to 4 weeks",
+        options: PRODUCTION_LEAD_TIME_OPTIONS,
+        description: legacyDescription(profile.productionLeadTime, PRODUCTION_LEAD_TIME_OPTIONS),
+        validation: { required: "Please select a production lead time" },
+    },
+    {
+        name: "materialsInventory",
+        type: "select",
+        label: "Do you keep an inventory of materials?",
+        placeholder: "Yes or no",
+        options: MATERIALS_INVENTORY_OPTIONS,
+        validation: { required: "Please choose yes or no" },
     },
     {
         name: "specialities",
@@ -70,23 +110,31 @@ function businessDocumentField({
     placeholder,
     isRequired,
     verification,
+    pattern,
 }: {
     name: keyof AboutCompanyFormValues;
     label: string;
     placeholder: string;
     isRequired: boolean;
+    /** The API's format check for the number, and what to say when it fails. */
+    pattern: { value: RegExp; message: string };
     /** Null until the number has been submitted. */
     verification: DocumentVerification | null;
 }): FormFieldConfig {
+    // Blank passes unless it's required; anything typed must match the API's format
+    const validate = (value: string) => {
+        const trimmed = value.trim();
+        if (!trimmed) return isRequired ? notBlank(label)(value) : true;
+        return pattern.value.test(trimmed) || pattern.message;
+    };
+
     if (!verification) {
         return {
             name,
             type: "text",
             label: isRequired ? label : `${label} (optional)`,
             placeholder,
-            validation: isRequired
-                ? { required: `${label} is required`, validate: notBlank(label) }
-                : undefined,
+            validation: isRequired ? { required: `${label} is required`, validate } : { validate },
         };
     }
 
@@ -107,7 +155,7 @@ function businessDocumentField({
         description: `${verification.rejectionReason ?? `We couldn't verify this ${label.toLowerCase()}.`} Correct it and save to resubmit.`,
         // Not `required` — it already holds the rejected number, and an
         // asterisk after the badge would only add noise
-        validation: isRequired ? { validate: notBlank(label) } : undefined,
+        validation: { validate },
     };
 }
 
@@ -118,13 +166,19 @@ export default function ProfileAboutCompanyForm() {
     const { profile } = useManufacturerProfile();
     return (
         <AboutCompanyForm
-            key={`${profile.companyName}|${profile.companyTaxNumber}|${profile.businessLicenseNumber}|${profile.companyAddress.streetAddress}|${profile.companyAddress.city}|${profile.staffRange}|${profile.specialities.join(",")}`}
+            key={`${profile.companyName}|${profile.companyTaxNumber}|${profile.businessLicenseNumber}|${profile.companyAddress.streetAddress}|${profile.companyAddress.city}|${profile.staffRange}|${profile.productionLeadTime}|${profile.materialsInventory ?? ""}|${profile.specialities.join(",")}`}
         />
     );
 }
 
 function AboutCompanyForm() {
-    const { profile, updateProfile, isLoading: isProfileLoading } = useManufacturerProfile();
+    const {
+        profile,
+        applyProfileResponse,
+        applyKycResponse,
+        isLoading: isProfileLoading,
+        isError: isProfileError,
+    } = useManufacturerProfile();
     const { subscription, isLoading: isSubscriptionLoading } = useManufacturerSubscription();
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<AboutCompanyFormValues>({
@@ -135,6 +189,8 @@ function AboutCompanyForm() {
             businessLicenseNumber: profile.businessLicenseNumber,
             ...profile.companyAddress,
             staffRange: profile.staffRange,
+            productionLeadTime: profile.productionLeadTime,
+            materialsInventory: profile.materialsInventory ?? "",
             specialities: profile.specialities,
         },
     });
@@ -157,6 +213,7 @@ function AboutCompanyForm() {
             placeholder: "e.g. TT-0444339",
             isRequired: documentsRequired,
             verification: taxNumberVerification,
+            pattern: { value: TAX_NUMBER_PATTERN, message: TAX_NUMBER_MESSAGE },
         }),
         businessDocumentField({
             name: "businessLicenseNumber",
@@ -164,12 +221,13 @@ function AboutCompanyForm() {
             placeholder: "e.g. 45599KT",
             isRequired: documentsRequired,
             verification: licenseVerification,
+            pattern: { value: LICENSE_NUMBER_PATTERN, message: LICENSE_NUMBER_MESSAGE },
         }),
         ...getAddressFields({
             country,
             onCountryChange: () => methods.setValue("state", "", { shouldDirty: true }),
         }),
-        ...COMPANY_DETAIL_FIELDS,
+        ...getCompanyDetailFields(profile),
     ];
 
     const isLocked = (verification: DocumentVerification | null) =>
@@ -181,65 +239,50 @@ function AboutCompanyForm() {
 
     const handleSubmit = async (values: AboutCompanyFormValues) => {
         setIsLoading(true);
+        const companyTaxNumber = values.companyTaxNumber.trim();
+        const businessLicenseNumber = values.businessLicenseNumber.trim();
+        const documentsChanged =
+            (!!companyTaxNumber && companyTaxNumber !== profile.companyTaxNumber) ||
+            (!!businessLicenseNumber && businessLicenseNumber !== profile.businessLicenseNumber);
+        // Two saves: the numbers go to /kyc/business (checked there) first, then
+        // the company details. Each is reported on its own if it fails.
+        let documentsSaved = false;
         try {
-            const companyAddress = {
-                streetAddress: values.streetAddress.trim(),
-                city: values.city.trim(),
-                state: values.state,
-                country: values.country,
-            };
-            const companyTaxNumber = values.companyTaxNumber.trim();
-            const businessLicenseNumber = values.businessLicenseNumber.trim();
-
-            await manufacturerService.updateCompanyInfo({
-                streetAddress: companyAddress.streetAddress,
-                city: companyAddress.city,
-                state: companyAddress.state,
-                country: companyAddress.country,
-                specialities: values.specialities,
-                staffRange: values.staffRange,
-            });
-
-            if (
-                (companyTaxNumber && companyTaxNumber !== profile.companyTaxNumber) ||
-                (businessLicenseNumber && businessLicenseNumber !== profile.businessLicenseNumber)
-            ) {
-                await manufacturerService.submitBusinessDocuments({
-                    companyTaxNumber: companyTaxNumber || undefined,
-                    businessLicenseNumber: businessLicenseNumber || undefined,
-                });
+            if (documentsChanged) {
+                applyKycResponse(
+                    await manufacturerService.submitBusinessDocuments({
+                        companyTaxNumber: companyTaxNumber || undefined,
+                        businessLicenseNumber: businessLicenseNumber || undefined,
+                    }),
+                );
+                documentsSaved = true;
             }
 
-            const changes = {
-                companyTaxNumber,
-                companyTaxNumberVerification: getVerificationAfterSave(
-                    profile.companyTaxNumber,
-                    companyTaxNumber,
-                    profile.companyTaxNumberVerification,
-                ),
-                businessLicenseNumber,
-                businessLicenseNumberVerification: getVerificationAfterSave(
-                    profile.businessLicenseNumber,
-                    businessLicenseNumber,
-                    profile.businessLicenseNumberVerification,
-                ),
-                companyAddress,
-                staffRange: values.staffRange,
-                specialities: values.specialities,
-            };
-            updateProfile(changes);
-            // The saved values become the new baseline, so Save greys out again
-            methods.reset({
-                companyName: profile.companyName,
-                companyTaxNumber: changes.companyTaxNumber,
-                businessLicenseNumber: changes.businessLicenseNumber,
-                ...companyAddress,
-                staffRange: changes.staffRange,
-                specialities: changes.specialities,
-            });
+            // The API's answer (with the documents' new status) replaces what's shown,
+            // and the form remounts on it, so Save greys out again
+            applyProfileResponse(
+                await manufacturerService.updateCompanyInfo({
+                    streetAddress: values.streetAddress.trim(),
+                    city: values.city.trim(),
+                    state: values.state,
+                    country: values.country,
+                    specialities: values.specialities,
+                    staffRange: values.staffRange,
+                    productionLeadTime: values.productionLeadTime,
+                    materialsInventory: values.materialsInventory,
+                }),
+            );
             toast.success("Company details updated successfully");
-        } catch {
-            toast.error("Couldn't update your company details. Please try again.");
+        } catch (err) {
+            if (documentsSaved) {
+                toast.error(
+                    `Your tax and license numbers were submitted, but the other company details weren't saved. ${getErrorMessage(err, "Please try again.")}`,
+                );
+            } else if (documentsChanged) {
+                toast.error(getErrorMessage(err, "Couldn't submit your tax and license numbers, so nothing was saved. Please try again."));
+            } else {
+                toast.error(getErrorMessage(err, "Couldn't update your company details. Please try again."));
+            }
         } finally {
             setIsLoading(false);
         }
@@ -249,6 +292,10 @@ function AboutCompanyForm() {
 
     if (isProfileLoading || isSubscriptionLoading) {
         return <FormFieldsSkeleton fields={fields} rowPairs={rowPairs} />;
+    }
+
+    if (isProfileError) {
+        return <LoadError>Couldn&apos;t load your company details. Please refresh the page to try again.</LoadError>;
     }
 
     return (

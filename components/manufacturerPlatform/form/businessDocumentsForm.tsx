@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { manufacturerService } from "@/lib/services/manufacturerService";
+import { getErrorMessage } from "@/lib/api";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
 import Notice from "@/components/manufacturerPlatform/notice";
 import { getVerificationAfterSave } from "@/constant/manufacturer";
@@ -18,9 +19,16 @@ type BusinessDocumentsFormValues = {
     licenseNumber: string;
 };
 
+// The API's formats (mande-backend kyc.validation.ts), checked on the trimmed value
+const TAX_NUMBER_PATTERN = /^[A-Za-z0-9-]{5,40}$/;
+const LICENSE_NUMBER_PATTERN = /^[A-Za-z0-9/-]{3,40}$/;
+
 // Trimmed so a value made of only spaces doesn't pass
-const notBlank = (label: string) => (value: string) =>
-    value.trim().length > 0 || `${label} is required`;
+const matches = (label: string, pattern: RegExp, formatMessage: string) => (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return `${label} is required`;
+    return pattern.test(trimmed) || formatMessage;
+};
 
 const TAX_NUMBER_FIELD: FormFieldConfig = {
     name: "taxNumber",
@@ -29,7 +37,11 @@ const TAX_NUMBER_FIELD: FormFieldConfig = {
     placeholder: "e.g. TT-0444339",
     validation: {
         required: "Company tax number is required",
-        validate: notBlank("Company tax number"),
+        validate: matches(
+            "Company tax number",
+            TAX_NUMBER_PATTERN,
+            "Use 5 to 40 letters, numbers or hyphens, as written on your documents",
+        ),
     },
 };
 
@@ -40,7 +52,11 @@ const LICENSE_NUMBER_FIELD: FormFieldConfig = {
     placeholder: "e.g. 45599KT",
     validation: {
         required: "Business license number is required",
-        validate: notBlank("Business license number"),
+        validate: matches(
+            "Business license number",
+            LICENSE_NUMBER_PATTERN,
+            "Use 3 to 40 letters, numbers, hyphens or slashes, as written on your documents",
+        ),
     },
 };
 
@@ -85,8 +101,8 @@ export default function BusinessDocumentsForm() {
                 ),
             });
             toast.success("Business details submitted");
-        } catch {
-            toast.error("Couldn't submit your business details. Please try again.");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't submit your business details. Please try again."));
         } finally {
             setIsLoading(false);
         }

@@ -4,7 +4,6 @@ import { useState } from "react";
 import {
     ArrowUpRight,
     Award,
-    ExternalLink,
     Loader2,
     Plus,
     Quote,
@@ -223,7 +222,7 @@ export default function CommunityTestimonialsSection({
                                 <div className="flex flex-col gap-3">
                                     <div className="flex items-center justify-between gap-2">
                                         <div className="flex items-center gap-1 text-amber-500">
-                                            {Array.from({ length: t.rating ?? 5 }).map((_, i) => (
+                                            {Array.from({ length: t.rating ?? 0 }).map((_, i) => (
                                                 <Star key={i} className="size-3.5 fill-amber-400 text-amber-400" />
                                             ))}
                                         </div>

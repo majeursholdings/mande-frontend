@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Notice from "../notice";
 import SettingsSection from "../settingsSection";
 import VerificationBadge from "../verificationBadge";
+import LoadError from "../loadError";
 import { useManufacturerProfile } from "../dashboardLayout/manufacturerProfileContext";
 
 // A rejection has its own notice, with the reason and a way to upload a new photo
@@ -32,7 +33,7 @@ const STATUS_NOTICES: Record<Exclude<VerificationStatus, "rejected">, string> = 
  * unless it's rejected — then a new photo can be uploaded for another review.
  */
 export default function IdentityVerification() {
-    const { profile, isLoading } = useManufacturerProfile();
+    const { profile, isLoading, isError } = useManufacturerProfile();
     const { imageUrl, status, rejectionReason } = profile.ninCard;
     const [isReuploadOpen, setIsReuploadOpen] = useState(false);
     const isRejected = status === "rejected";
@@ -48,6 +49,19 @@ export default function IdentityVerification() {
             >
                 <Skeleton className="aspect-27/17 w-full max-w-sm rounded-xl" />
                 <Skeleton className="h-12 w-full max-w-sm rounded-lg" />
+            </SettingsSection>
+        );
+    }
+
+    if (isError) {
+        return (
+            <SettingsSection
+                headingLevel="h3"
+                title="NIN card"
+                description="The ID you added when you signed up."
+                className="first-of-type:border-t first-of-type:pt-6"
+            >
+                <LoadError>Couldn&apos;t load your NIN card. Please refresh the page to try again.</LoadError>
             </SettingsSection>
         );
     }

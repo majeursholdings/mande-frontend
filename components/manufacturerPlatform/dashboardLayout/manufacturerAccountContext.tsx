@@ -4,7 +4,13 @@ import { createContext, useCallback, useContext, useMemo, type ReactNode } from 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/queryKeys";
 import { manufacturerService, type AccountStanding } from "@/lib/services/manufacturerService";
-import { getAccountHold, type AccountAppealRecord, type AccountStatusEventRecord, type ManufacturerAccountStatus } from "@/constant/platformRecords";
+import {
+    getAccountHold,
+    type AccountAppealRecord,
+    type AccountStatusEventRecord,
+    type JobAttachmentRecord,
+    type ManufacturerAccountStatus,
+} from "@/constant/platformRecords";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ManufacturerAccountProvider — whether an admin has flagged or suspended
@@ -15,10 +21,18 @@ import { getAccountHold, type AccountAppealRecord, type AccountStatusEventRecord
 // the account reads as active with no history, and the API still enforces it.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** A file sent with an appeal. `url` is null when the API has no link for it (shown as its name only). */
+export type AppealAttachment = Omit<JobAttachmentRecord, "url"> & { url: string | null };
+
+/** An appeal as the account screens show it. */
+export type ManufacturerAppeal = Omit<AccountAppealRecord, "attachments"> & {
+    attachments: AppealAttachment[];
+};
+
 type ManufacturerAccount = {
     accountStatus: ManufacturerAccountStatus;
     statusHistory: AccountStatusEventRecord[];
-    appeals: AccountAppealRecord[];
+    appeals: ManufacturerAppeal[];
 };
 
 const NO_STANDING: ManufacturerAccount = { accountStatus: "active", statusHistory: [], appeals: [] };
@@ -31,7 +45,7 @@ type ManufacturerAccountContextValue = ManufacturerAccount & {
     /** The flag or suspension on the account now. Null while it's active. */
     hold: AccountStatusEventRecord | null;
     /** Their appeal still waiting for an admin, if any. */
-    pendingAppeal: AccountAppealRecord | undefined;
+    pendingAppeal: ManufacturerAppeal | undefined;
     /** Sends an appeal to the API; it refuses unless suspended with no appeal waiting. */
     sendAppeal: (appeal: Pick<AccountAppealRecord, "message" | "attachments">) => Promise<void>;
 };
@@ -52,7 +66,7 @@ function toAccount(standing: AccountStanding): ManufacturerAccount {
             id: appeal.id,
             message: appeal.message,
             attachments: appeal.attachments.flatMap((file) =>
-                file ? [{ name: file.name ?? "Attachment", url: file.url ?? "", kind: file.kind, publicId: file.publicId }] : [],
+                file ? [{ name: file.name ?? "Attachment", url: file.url || null, kind: file.kind, publicId: file.publicId }] : [],
             ),
             sentAt: appeal.sentAt,
             status: appeal.status,

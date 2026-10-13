@@ -7,6 +7,7 @@ import MainForm from "@/components/form";
 import OtpInput from "@/components/form/otpInput";
 import { useCountdown } from "@/hooks/useCountdown";
 import { OTP_LENGTH, OTP_RESEND_SECONDS } from "@/constant/global";
+import { getErrorMessage } from "@/lib/api";
 import { FormCancelButton, FormSubmitButton } from "./formButtons";
 
 type OtpFormValues = {
@@ -28,11 +29,12 @@ export default function OtpVerificationForm({
     onCancel,
     children,
 }: {
-    /** Where the code was sent (e.g. a masked email) — shows the resend link. Omit for authenticator codes. */
+    /** Where the code was sent (e.g. a masked email). With onResend, shows the resend link. Omit for authenticator codes. */
     resendTo?: string;
     confirmLabel?: string;
     /** Runs once the code checks out — perform the action it was guarding. */
     onVerified: (code: string) => void | Promise<void>;
+    /** Sends a new code. Without it there's no resend link: nothing would be sent. */
     onResend?: () => void | Promise<void>;
     onCancel: () => void;
     /** Shown above the code boxes, e.g. authenticator setup steps. */
@@ -52,18 +54,17 @@ export default function OtpVerificationForm({
     const { secondsLeft, restart } = useCountdown(OTP_RESEND_SECONDS);
     const code = field.value ?? "";
 
+    const canResend = Boolean(resendTo && onResend);
+
     const handleResend = async () => {
-        if (secondsLeft > 0) return;
+        if (secondsLeft > 0 || !onResend) return;
         restart();
-        if (onResend) {
-            try {
-                await onResend();
-            } catch {
-                toast.error("Couldn't send a new code. Please try again.");
-                return;
-            }
+        try {
+            await onResend();
+            toast.success(`A new code was sent to ${resendTo}`);
+        } catch (error) {
+            toast.error(getErrorMessage(error, "Couldn't send a new code. Please try again."));
         }
-        toast.success(`A new code was sent to ${resendTo}`);
     };
 
     const handleSubmit = async ({ otp }: OtpFormValues) => {
@@ -71,8 +72,7 @@ export default function OtpVerificationForm({
         try {
             await onVerified(otp);
         } catch (error) {
-            const message = error instanceof Error ? error.message : "Couldn't verify the code. Please try again.";
-            toast.error(message);
+            toast.error(getErrorMessage(error, "Couldn't verify the code. Please try again."));
         } finally {
             setIsLoading(false);
         }
@@ -100,7 +100,7 @@ export default function OtpVerificationForm({
                                 {fieldState.error.message}
                             </span>
                         )}
-                        {resendTo && (
+                        {canResend && (
                             <p className="text-sm font-text text-mist-500">
                                 Didn&apos;t get it?{" "}
                                 {secondsLeft > 0 ? (

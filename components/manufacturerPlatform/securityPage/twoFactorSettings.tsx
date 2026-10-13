@@ -14,6 +14,8 @@ import {
 import OtpVerificationForm from "@/components/manufacturerPlatform/form/otpVerificationForm";
 import ReauthSteps from "@/components/superAdminPlatform/reauthSteps";
 import { authService } from "@/lib/services/authService";
+import { getErrorMessage } from "@/lib/api";
+import LoadError from "../loadError";
 import type { TwoFactorMethod } from "@/constant/manufacturer";
 import { useManufacturerProfile } from "../dashboardLayout/manufacturerProfileContext";
 import { QRCodeSVG } from "qrcode.react";
@@ -48,7 +50,10 @@ type SetupPhase = "reauth" | "verify";
 
 /** The signed-in manufacturer's two-factor settings. */
 export default function TwoFactorSettings() {
-    const { profile, updateSecurity, isLoading } = useManufacturerProfile();
+    const { profile, updateSecurity, isLoading, isError } = useManufacturerProfile();
+    if (isError) {
+        return <LoadError>Couldn&apos;t load your two-factor settings. Please refresh the page to try again.</LoadError>;
+    }
     return (
         <TwoFactorMethods
             loading={isLoading}
@@ -175,8 +180,7 @@ export function TwoFactorMethods({
                                 await authService.disable2FA(token);
                                 applyMethod(null);
                             } catch (err) {
-                                const message = err instanceof Error ? err.message : "Couldn't turn off two-factor authentication.";
-                                toast.error(message);
+                                toast.error(getErrorMessage(err, "Couldn't turn off two-factor authentication."));
                             }
                         }}
                         onCancel={() => closeDialog(false)}
@@ -211,8 +215,8 @@ export function TwoFactorMethods({
                                     await authService.sendEmailTwoFactorCode(token);
                                     toast.success(`Verification code sent to ${maskEmail(email)}`);
                                     setPhase("verify");
-                                } catch {
-                                    toast.error("Couldn't send the verification code. Please try again.");
+                                } catch (err) {
+                                    toast.error(getErrorMessage(err, "Couldn't send the verification code. Please try again."));
                                 }
                             }}
                             onCancel={() => closeDialog(false)}
@@ -226,8 +230,7 @@ export function TwoFactorMethods({
                                     await authService.enable2FA("email", code, reauthToken);
                                     applyMethod("email");
                                 } catch (err) {
-                                    const message = err instanceof Error ? err.message : "Couldn't verify the code. Please try again.";
-                                    toast.error(message);
+                                    toast.error(getErrorMessage(err, "Couldn't verify the code. Please try again."));
                                 }
                             }}
                             onResend={async () => {
@@ -267,8 +270,8 @@ export function TwoFactorMethods({
                                     setAppSecret(setup.secret);
                                     setOtpauthUrl(setup.otpauthUrl);
                                     setPhase("verify");
-                                } catch {
-                                    toast.error("Couldn't start authenticator setup. Please try again.");
+                                } catch (err) {
+                                    toast.error(getErrorMessage(err, "Couldn't start authenticator setup. Please try again."));
                                 }
                             }}
                             onCancel={() => closeDialog(false)}
@@ -320,8 +323,7 @@ function AuthenticatorSetupBody({
                     await authService.enable2FA("app", code, reauthToken);
                     onVerified();
                 } catch (err) {
-                    const message = err instanceof Error ? err.message : "That code isn't right. Check the app and try again.";
-                    toast.error(message);
+                    toast.error(getErrorMessage(err, "That code isn't right. Check the app and try again."));
                 }
             }}
             onCancel={onCancel}

@@ -1,13 +1,19 @@
 import { cn } from "@/lib/utils";
-import { formatBalance } from "@/lib/currency";
+import { formatBalance, formatPrice } from "@/lib/currency";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function BalanceCard({
     balance,
+    owed = 0,
+    pendingWithdrawal = null,
     isLoading,
     className,
 }: {
     balance: number;
+    /** Money owed (charges the balance didn't cover), in naira: taken from the next money in. */
+    owed?: number;
+    /** A withdrawal still on its way to the bank, in naira. */
+    pendingWithdrawal?: number | null;
     isLoading?: boolean;
     className?: string;
 }) {
@@ -26,6 +32,16 @@ export default function BalanceCard({
                 <p className="text-2xl font-semibold font-text lg:text-3xl">{formatBalance(balance)}</p>
             )}
             <p className="text-xs font-text text-white/60">Available to withdraw</p>
+            {!isLoading && pendingWithdrawal !== null && (
+                <p className="text-xs font-text text-white/85">
+                    Withdrawal on its way: {formatPrice(pendingWithdrawal)}
+                </p>
+            )}
+            {!isLoading && owed > 0 && (
+                <p className="text-xs font-text text-white/85">
+                    Amount owed: {formatPrice(owed)} (taken from your next payment)
+                </p>
+            )}
         </div>
     );
 }

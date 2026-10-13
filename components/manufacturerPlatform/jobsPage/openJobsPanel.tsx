@@ -18,18 +18,21 @@ import { useOpenJobList } from "@/components/manufacturerPlatform/dashboardLayou
 
 type OpenJobsFilter = "all" | "applied";
 
+/** A date's time, or `missing` when there's none (so it sorts last). */
+const timeOf = (iso: string | null, missing: number) => (iso ? new Date(iso).getTime() : missing);
+
 function sortOpenJobs(jobs: OpenJob[], sortBy: string): OpenJob[] {
     if (sortBy === "name") return [...jobs].sort((a, b) => a.title.localeCompare(b.title));
     // Newest first
     if (sortBy === "date") {
         return [...jobs].sort(
-            (a, b) => new Date(b.postedAt).getTime() - new Date(a.postedAt).getTime(),
+            (a, b) => timeOf(b.postedAt, -Infinity) - timeOf(a.postedAt, -Infinity),
         );
     }
     // Soonest due first
     if (sortBy === "due-date") {
         return [...jobs].sort(
-            (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
+            (a, b) => timeOf(a.dueDate, Infinity) - timeOf(b.dueDate, Infinity),
         );
     }
     // Alphabetical by category, then by name within a category

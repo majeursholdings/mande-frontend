@@ -19,6 +19,7 @@ import {
     type PricingPlan,
 } from "@/constant/plans";
 import { SUPPORT_HOURS } from "@/constant/support";
+import type { PublicJobRules } from "@/lib/services/settingsService";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The website's copy: the values FAQ answers quote, and the contact page's
@@ -33,15 +34,26 @@ function joinList(items: string[]): string {
 }
 
 // "10% when you accept the job, 12% at Frame, …, and 28% once it's signed off"
-const PAYMENT_SHARES = joinList(
-    JOB_PAYMENT_SCHEDULE.map(({ milestone, label, percent }) =>
-        milestone === "accepted"
-            ? `${percent}% when you accept the job`
-            : milestone === "signed-off"
-              ? `${percent}% once it's signed off`
-              : `${percent}% at ${label.replace(" approved", "")}`,
-    ),
-);
+function formatPaymentShares(schedule: { milestone: string; label: string; percent: number }[]): string {
+    return joinList(
+        schedule.map(({ milestone, label, percent }) =>
+            milestone === "accepted"
+                ? `${percent}% when you accept the job`
+                : milestone === "signed-off"
+                  ? `${percent}% once it's signed off`
+                  : `${percent}% at ${label.replace(" approved", "")}`,
+        ),
+    );
+}
+
+/** The payment schedule with the API's shares (in the app's milestone order), or the built-in one. */
+function paymentScheduleFrom(rules?: PublicJobRules | null) {
+    if (!rules?.paymentSchedule) return JOB_PAYMENT_SCHEDULE;
+    return JOB_PAYMENT_SCHEDULE.map((part) => ({
+        ...part,
+        percent: rules.paymentSchedule[part.milestone] ?? part.percent,
+    })).filter((part) => part.percent > 0);
+}
 
 export function formatPlanPricesList(discountPercent: number, plans: PricingPlan[]): string {
     return joinList(
@@ -65,21 +77,27 @@ const formatJobSlots = (plans: PricingPlan[]) =>
  * left out when there are no plans (the API couldn't be reached), so answers
  * that use them can't be shown. Keep the names in step with the studio's
  * list (mande-sanity/schemaTypes/faq/faqTokens.ts), which checks answers
- * as they're written.
+ * as they're written. `jobRules` (GET /settings/public-rules) are the
+ * platform's current rules; without them, the built-in defaults are used.
  */
-export function getFaqTokens(discountPercent: number, plans: PricingPlan[]): Record<string, string> {
+export function getFaqTokens(
+    discountPercent: number,
+    plans: PricingPlan[],
+    jobRules?: PublicJobRules | null,
+): Record<string, string> {
+    const schedule = paymentScheduleFrom(jobRules);
     const rules = {
-        paymentPartCount: String(JOB_PAYMENT_SCHEDULE.length),
-        paymentShares: PAYMENT_SHARES,
-        jobBonusPercent: String(JOB_BONUS_PERCENT),
-        faultReportDays: String(FAULT_REPORT_DAYS),
-        reviewWindowHours: String(REVIEW_WINDOW_HOURS),
+        paymentPartCount: String(schedule.length),
+        paymentShares: formatPaymentShares(schedule),
+        jobBonusPercent: String(jobRules?.bonusPercent ?? JOB_BONUS_PERCENT),
+        faultReportDays: String(jobRules?.faultReportDays ?? FAULT_REPORT_DAYS),
+        reviewWindowHours: String(jobRules?.reviewWindowHours ?? REVIEW_WINDOW_HOURS),
         productionStepCount: String(JOB_PRODUCTION_STEPS.length),
         productionSteps: joinList(JOB_PRODUCTION_STEPS.map((step) => step.label)),
         maxProofPhotos: String(MAX_STEP_PROOF_PHOTOS),
-        maxExtensionPercent: String(MAX_EXTENSION_PERCENT),
-        maxRejections: String(MAX_JOB_REJECTIONS),
-        rejectionChargePercent: String(REJECTION_CHARGE_PERCENT),
+        maxExtensionPercent: String(jobRules?.maxExtensionPercent ?? MAX_EXTENSION_PERCENT),
+        maxRejections: String(jobRules?.maxRejections ?? MAX_JOB_REJECTIONS),
+        rejectionChargePercent: String(jobRules?.rejectionChargePercent ?? REJECTION_CHARGE_PERCENT),
     };
     if (plans.length === 0) return rules;
 

@@ -94,10 +94,18 @@ export default function PointsSummaryCard({
                         />
                     </div>
                     <p className="text-[11px] font-text text-mist-500 mt-0.5">
-                        {progression?.pointsToNext.toLocaleString()} points needed to reach {nextRank.name}
+                        {progression && progression.pointsToNext > 0
+                            ? `${progression.pointsToNext.toLocaleString()} points needed to reach ${nextRank.name}`
+                            : `You have the points for ${nextRank.name}`}
                         {progression && progression.completedJobsNeeded > 0 && ` (${progression.completedJobsNeeded} more completed jobs)`}
                         .
                     </p>
+                    {progression && progression.ratingNeeded > 0 && (
+                        <p className="text-[11px] font-text text-amber-700">
+                            {nextRank.name} also needs an average rating of {nextRank.minAverageRating.toFixed(1)} or
+                            higher.
+                        </p>
+                    )}
                 </div>
             ) : (
                 <div className="rounded-lg bg-amber-50/70 border border-amber-200/60 px-3 py-2 text-xs text-amber-900 flex items-center gap-2">

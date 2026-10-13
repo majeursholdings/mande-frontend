@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
+import { queryKeys } from "@/lib/queryKeys";
 import type { CommunityChannel, CommunityTestimonial } from "@/constant/community";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadError } from "@/components/adminPlatform/emptyState";
@@ -20,7 +21,7 @@ type CommunityResponse = {
 
 export default function ManufacturerCommunityPage() {
     const { data, isPending, isError } = useQuery<CommunityResponse>({
-        queryKey: ["community-public"],
+        queryKey: queryKeys.community.public(),
         queryFn: async () => {
             const res = await api.get<CommunityResponse>("/community");
             return res.data;
@@ -169,17 +170,23 @@ export function TestimonialCard({ testimonial }: { testimonial: CommunityTestimo
     const platformConfig = PLATFORMS[testimonial.platform] ?? PLATFORMS.mande;
     const { name, Icon, badgeClass } = platformConfig;
     const isMande = testimonial.platform === "mande";
-    const ratingCount = testimonial.rating ?? 5;
+    // Stars only when the testimonial gave a rating: none is never shown as five
+    const rating: number | null | undefined = testimonial.rating;
+    const ratingCount = typeof rating === "number" ? Math.max(0, Math.min(5, Math.round(rating))) : null;
 
     return (
         <figure className="flex h-full flex-col justify-between gap-4 rounded-xl border border-border bg-white p-5 transition-shadow duration-200 hover:shadow-md">
             <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-1 text-amber-500" aria-label={`${ratingCount} out of 5 stars`}>
-                        {Array.from({ length: ratingCount }).map((_, i) => (
-                            <Star key={i} className="size-3.5 fill-amber-400 text-amber-400" />
-                        ))}
-                    </div>
+                    {ratingCount !== null ? (
+                        <div className="flex items-center gap-1 text-amber-500" aria-label={`${ratingCount} out of 5 stars`}>
+                            {Array.from({ length: ratingCount }).map((_, i) => (
+                                <Star key={i} className="size-3.5 fill-amber-400 text-amber-400" />
+                            ))}
+                        </div>
+                    ) : (
+                        <span />
+                    )}
                     <span className="flex items-center gap-1.5 text-xs font-medium font-text text-mist-500">
                         <span className={cn("flex size-5 items-center justify-center rounded-full text-white", badgeClass)}>
                             <Icon className="size-3" />

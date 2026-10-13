@@ -114,9 +114,10 @@ export default function PlanUpgradeForm({
                     <span className="text-lg font-semibold text-mist-950">{formatPrice(amountDue)}</span>
                 </div>
                 <p className="text-xs text-mist-500">
-                    The difference for the rest of this billing period. From{" "}
-                    {formatOrdinalDate(new Date(subscription.renewsAt))} you&apos;ll pay{" "}
-                    {formatPrice(newPrice)} per {per}.
+                    The difference for the rest of this billing period.{" "}
+                    {subscription.renewsAt
+                        ? `From ${formatOrdinalDate(new Date(subscription.renewsAt))} you'll pay ${formatPrice(newPrice)} per ${per}.`
+                        : `After that you'll pay ${formatPrice(newPrice)} per ${per}.`}
                 </p>
             </div>
 
@@ -222,7 +223,8 @@ function PlanPrice({
     );
 }
 
-function PaymentOption({
+/** A radio option for a way to pay (the wallet, a saved card, a new card). */
+export function PaymentOption({
     name,
     value,
     selected,

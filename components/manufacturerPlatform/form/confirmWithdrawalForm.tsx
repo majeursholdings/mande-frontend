@@ -22,24 +22,26 @@ const FIELDS: FormFieldConfig[] = [
 ];
 
 /**
- * Step two of a withdrawal — the manufacturer's password. Once it checks out,
- * a one-time code is still needed (step three) before any money moves.
+ * Step two of a withdrawal: the manufacturer's password. It isn't checked
+ * here; it's sent with the one-time code (step three), and the server checks
+ * both before any money moves.
  */
 export default function ConfirmWithdrawalForm({
     onCancel,
-    onPasswordConfirmed,
+    onPasswordEntered,
 }: {
     onCancel: () => void;
-    onPasswordConfirmed: (password: string) => void;
+    /** Hands the password on to the code step, where it's checked with the code. */
+    onPasswordEntered: (password: string) => void;
 }) {
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async ({ password }: ConfirmWithdrawalFormValues) => {
         setIsLoading(true);
         try {
-            onPasswordConfirmed(password);
+            onPasswordEntered(password);
         } catch {
-            toast.error("Couldn't confirm your password. Please try again.");
+            toast.error("Something went wrong. Please try again.");
         } finally {
             setIsLoading(false);
         }
@@ -54,8 +56,8 @@ export default function ConfirmWithdrawalForm({
                 <div className="flex justify-end gap-3 pt-1">
                     <FormCancelButton onClick={onCancel} disabled={isLoading} />
                     <FormSubmitButton
-                        label="Confirm"
-                        loadingLabel="Confirming..."
+                        label="Continue"
+                        loadingLabel="Continuing..."
                         isLoading={isLoading}
                         disabled={!canSubmit}
                     />

@@ -1,10 +1,10 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
-import { walletService } from "@/lib/services/walletService";
+import { walletService, type ApiWalletTransaction } from "@/lib/services/walletService";
 import {
     EMPTY_MANUFACTURER_WALLET,
     type ManufacturerBankAccount,
@@ -17,7 +17,11 @@ import {
 // and transactions, straight from the server. Nothing is changed locally ahead
 // of the server: money only moves once the API says it has, and each change
 // refetches the wallet. Until it loads (or if it can't), the wallet is empty.
+// Transactions load a page at a time (newest first); older ones on request.
 // ─────────────────────────────────────────────────────────────────────────────
+
+/** How many transactions each page of the history loads. */
+const TRANSACTIONS_PAGE_SIZE = 50;
 
 interface ApiWalletData {
     balanceKobo?: number;
@@ -30,26 +34,63 @@ interface ApiWalletData {
         accountName: string;
         currency: string;
     } | null;
+    pendingWithdrawal?: { amountKobo: number; reference: string; createdAt: string } | null;
 }
 
-interface ApiTransactionItem {
-    id: string;
-    type: string;
-    direction?: "credit" | "debit";
-    amountKobo?: number;
-    balanceAfterKobo?: number;
-    status?: string;
-    description?: string;
-    jobId?: string | null;
-    reference?: string;
-    createdAt?: string;
+/** A wallet transaction, with which way the money went and how a withdrawal stands. */
+export type WalletTransaction = ManufacturerTransaction & {
+    direction: "credit" | "debit";
+    status: "pending" | "completed" | "failed";
+    /** Why a withdrawal failed, in words the manufacturer can read. */
+    failureReason: string | null;
+};
+
+/** A withdrawal still on its way to the bank. Amount in naira. */
+export type PendingWithdrawal = { amount: number; reference: string; createdAt: string };
+
+export type ManufacturerWalletWithLedger = ManufacturerWallet & {
+    transactions: WalletTransaction[];
+    /** Money owed (rejection charges the balance didn't cover), in naira. */
+    owed: number;
+    pendingWithdrawal: PendingWithdrawal | null;
+};
+
+/** The ledger's types, as the app's transaction types. A reversal puts money back, like a payment. */
+function toTransactionType(type: string): ManufacturerTransaction["type"] {
+    if (type === "withdrawal" || type === "subscription") return type;
+    if (type === "rejection_charge") return "charge";
+    return "payment";
+}
+
+function toWalletTransaction(t: ApiWalletTransaction): WalletTransaction {
+    const type = toTransactionType(t.type);
+    const status = t.status === "pending" || t.status === "failed" ? t.status : "completed";
+    return {
+        id: t.id,
+        type,
+        direction: t.direction ?? (type === "payment" ? "credit" : "debit"),
+        status,
+        failureReason: t.failureReason ?? null,
+        label: t.description || t.type,
+        projectName: t.jobTitle ?? null,
+        date: t.createdAt ?? "",
+        amount: (t.amountKobo ?? 0) / 100,
+        ...(t.paidByCard && { paidByCard: true }),
+    };
 }
 
 type ManufacturerWalletContextValue = {
-    wallet: ManufacturerWallet;
+    wallet: ManufacturerWalletWithLedger;
     isLoading?: boolean;
     /** True when the wallet or its transactions couldn't load. */
     isError?: boolean;
+    /** Whether there are older transactions than the ones loaded. */
+    hasOlderTransactions: boolean;
+    /** Loads the next page of older transactions. */
+    loadOlderTransactions: () => Promise<void>;
+    isLoadingOlder: boolean;
+    /** The last "show older" failed (the loaded ones stay). */
+    isLoadOlderError: boolean;
     /** Saves (or, with null, removes) the payout account. Rejects if the server doesn't. */
     setBankAccount: (bankAccount: ManufacturerBankAccount | null) => Promise<void>;
     /** Asks the server to send `amount` (naira) to the bank. Rejects if it doesn't. */
@@ -70,16 +111,28 @@ export function ManufacturerWalletProvider({ children }: { children: ReactNode }
         retry: false,
     });
 
-    const { data: serverTransactions, isPending: isTxPending, isError: isTxError } = useQuery({
-        queryKey: queryKeys.wallet.transactions(),
-        queryFn: async () => {
-            const { data } = await api.get<{ transactions: ApiTransactionItem[] }>("/wallet/transactions");
-            return data.transactions;
-        },
+    const transactionsQuery = useInfiniteQuery({
+        queryKey: queryKeys.wallet.transactions({ limit: TRANSACTIONS_PAGE_SIZE }),
+        queryFn: ({ pageParam }) =>
+            walletService.getTransactions({
+                limit: TRANSACTIONS_PAGE_SIZE,
+                ...(pageParam && { before: pageParam }),
+            }),
+        initialPageParam: "" as string,
+        getNextPageParam: (lastPage) => lastPage.nextBefore ?? undefined,
         retry: false,
     });
+    const {
+        data: serverTransactions,
+        isPending: isTxPending,
+        isError: isTxError,
+        hasNextPage,
+        fetchNextPage,
+        isFetchingNextPage,
+        isFetchNextPageError,
+    } = transactionsQuery;
 
-    const wallet: ManufacturerWallet = useMemo(() => {
+    const wallet: ManufacturerWalletWithLedger = useMemo(() => {
         const balance = serverWallet ? (serverWallet.balanceKobo ?? 0) / 100 : EMPTY_MANUFACTURER_WALLET.balance;
 
         const bankAccount: ManufacturerBankAccount | null = serverWallet?.bankAccount
@@ -92,19 +145,25 @@ export function ManufacturerWalletProvider({ children }: { children: ReactNode }
               }
             : null;
 
-        const transactions: ManufacturerTransaction[] = serverTransactions
-                ? serverTransactions.map((t) => ({
-                      id: t.id,
-                      type: (t.type === "withdrawal" || t.type === "subscription" ? t.type : "payment") as ManufacturerTransaction["type"],
-                      label: t.description || t.type,
-                      projectName: null,
-                      date: t.createdAt ?? "",
-                      amount: (t.amountKobo ?? 0) / 100,
-                  }))
-                : [];
+        const transactions = (serverTransactions?.pages ?? []).flatMap((page) =>
+            page.transactions.map(toWalletTransaction),
+        );
 
-        return { balance, bankAccount, transactions };
+        const pending = serverWallet?.pendingWithdrawal;
+        return {
+            balance,
+            bankAccount,
+            transactions,
+            owed: (serverWallet?.owedKobo ?? 0) / 100,
+            pendingWithdrawal: pending
+                ? { amount: pending.amountKobo / 100, reference: pending.reference, createdAt: pending.createdAt }
+                : null,
+        };
     }, [serverWallet, serverTransactions]);
+
+    const loadOlderTransactions = useCallback(async () => {
+        await fetchNextPage();
+    }, [fetchNextPage]);
 
     const setBankAccount = useCallback(
         async (bankAccount: ManufacturerBankAccount | null) => {
@@ -133,8 +192,18 @@ export function ManufacturerWalletProvider({ children }: { children: ReactNode }
     const isError = isWalletError || isTxError;
 
     const value: ManufacturerWalletContextValue = useMemo(
-        () => ({ wallet, isLoading, isError, setBankAccount, withdraw }),
-        [wallet, isLoading, isError, setBankAccount, withdraw],
+        () => ({
+            wallet,
+            isLoading,
+            isError,
+            hasOlderTransactions: hasNextPage,
+            loadOlderTransactions,
+            isLoadingOlder: isFetchingNextPage,
+            isLoadOlderError: isFetchNextPageError,
+            setBankAccount,
+            withdraw,
+        }),
+        [wallet, isLoading, isError, hasNextPage, loadOlderTransactions, isFetchingNextPage, isFetchNextPageError, setBankAccount, withdraw],
     );
 
     return (
