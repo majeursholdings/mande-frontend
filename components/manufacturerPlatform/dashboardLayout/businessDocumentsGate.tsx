@@ -23,15 +23,17 @@ import { usePlans } from "@/hooks/usePlans";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function BusinessDocumentsGate() {
-    const { profile, isLoading: isProfileLoading } = useManufacturerProfile();
+    const { profile, isLoading: isProfileLoading, isError: isProfileError } = useManufacturerProfile();
     const { subscription, isLoading: isSubscriptionLoading } = useManufacturerSubscription();
     const { requestLogout } = useLogout();
     const planId = subscription?.planId ?? "";
     const { getPlan } = usePlans();
     const plan = getPlan(planId);
-    // Not until the profile has loaded: before then it has no documents on file
+    // Not until the profile has loaded: before then (or if it failed to load)
+    // it has no documents on file, which says nothing about the real account
     const isRequired =
         !isProfileLoading &&
+        !isProfileError &&
         !isSubscriptionLoading &&
         !!planId &&
         requiresBusinessDocuments(planId) &&

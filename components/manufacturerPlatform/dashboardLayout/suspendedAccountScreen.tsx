@@ -9,7 +9,7 @@ import { MANUFACTURER_DASHBOARD_URL } from "@/constant/manufacturer";
 import AppealForm from "@/components/manufacturerPlatform/form/appealForm";
 import { useLogout } from "./logoutContext";
 import type { AccountAppealRecord } from "@/constant/platformRecords";
-import { useManufacturerAccount } from "./manufacturerAccountContext";
+import { useManufacturerAccount, type AppealAttachment, type ManufacturerAppeal } from "./manufacturerAccountContext";
 
 const APPEAL_STATUS: Record<
     AccountAppealRecord["status"],
@@ -66,7 +66,7 @@ export default function SuspendedAccountScreen() {
                         <p className="rounded-lg bg-red-50 px-4 py-3 text-sm font-text text-red-700">{hold.reason}</p>
                     )}
                     <p className="text-sm font-text text-mist-600">
-                        Everything on your account is paused while it&apos;s suspended — your jobs, payments,
+                        Everything on your account is paused while it&apos;s suspended: your jobs, payments,
                         profile and settings. If you think it&apos;s a mistake, send an appeal and an admin will look at
                         it.
                     </p>
@@ -92,7 +92,7 @@ export default function SuspendedAccountScreen() {
                             </h2>
                             <p className="text-xs font-text text-mist-500">
                                 {lastTurnedDown
-                                    ? "Your last appeal was turned down — see why below. Send another with anything that answers it."
+                                    ? "Your last appeal was turned down (see why below). Send another with anything that answers it."
                                     : "Tell us what happened, with any invoices, receipts or photos that show it."}
                             </p>
                         </div>
@@ -143,22 +143,36 @@ function AppealStatus({ status }: { status: AccountAppealRecord["status"] }) {
 }
 
 /** What they wrote, and the files they sent with it. */
-function AppealMessage({ appeal }: { appeal: AccountAppealRecord }) {
+function AppealMessage({ appeal }: { appeal: ManufacturerAppeal }) {
     return (
         <>
             <p className="text-sm font-text whitespace-pre-line text-mist-800">{appeal.message}</p>
             {appeal.attachments.length > 0 && (
                 <div className="flex flex-wrap gap-2">
-                    {appeal.attachments.map((attachment) => (
-                        <Link key={attachment.url} href={attachment.url} target="_blank" title={attachment.name}>
-                            <span className="flex items-center gap-1.5 rounded-lg border border-border bg-mist-50 px-3 py-2 text-xs font-text text-mist-700">
-                                <Paperclip className="size-3.5 text-mist-400" aria-hidden />
-                                {attachment.name}
-                            </span>
-                        </Link>
+                    {appeal.attachments.map((attachment, index) => (
+                        <AppealAttachmentChip
+                            key={attachment.publicId ?? `${attachment.name}-${index}`}
+                            attachment={attachment}
+                        />
                     ))}
                 </div>
             )}
         </>
+    );
+}
+
+/** A sent file: a link when it has one, else just its name. */
+function AppealAttachmentChip({ attachment }: { attachment: AppealAttachment }) {
+    const chip = (
+        <span className="flex items-center gap-1.5 rounded-lg border border-border bg-mist-50 px-3 py-2 text-xs font-text text-mist-700">
+            <Paperclip className="size-3.5 text-mist-400" aria-hidden />
+            {attachment.name}
+        </span>
+    );
+    if (!attachment.url) return <span title={attachment.name}>{chip}</span>;
+    return (
+        <Link href={attachment.url} target="_blank" rel="noopener noreferrer" title={attachment.name}>
+            {chip}
+        </Link>
     );
 }

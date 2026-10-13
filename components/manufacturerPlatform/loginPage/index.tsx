@@ -10,14 +10,23 @@ import MainForm from "@/components/form";
 import { FormFieldConfig } from "@/components/form/types";
 import { validators } from "@/components/form/form.validators";
 import AuthScreenLayout from "../authScreenLayout";
-import { GoogleIcon, FacebookIcon } from "../socialIcons";
 import {
     ARTISAN_FORGOT_PASSWORD_URL,
     ARTISAN_SIGNUP_URL,
 } from "@/constant/navigation";
 import { MANUFACTURER_DASHBOARD_URL } from "@/constant/manufacturer";
-import { authService, type LoginMfaRequiredResponse } from "@/lib/services/authService";
-import { MandeApiError } from "@/lib/types/api";
+import {
+    authService,
+    type LoginMfaRequiredResponse,
+    type LoginPayload,
+    type LoginSuccessResponse,
+} from "@/lib/services/authService";
+import { MandeApiError, getErrorMessage } from "@/lib/api";
+import { REGISTRATION_DEFAULT_VALUES } from "../registrationPage/types";
+import {
+    loadRegistrationProgress,
+    saveRegistrationProgress,
+} from "../registrationPage/registrationProgress";
 import { queryKeys } from "@/lib/queryKeys";
 import { useRedirectIfAuthenticated } from "@/hooks/useAuthRedirect";
 import { OtpCodeDialog } from "../otpVerificationDialog";
@@ -43,11 +52,21 @@ function landingUrl(): string {
         : MANUFACTURER_DASHBOARD_URL;
 }
 
+/** The sign-up step right after verifying the email: choosing a plan. */
+const STEP_AFTER_EMAIL_VERIFIED = 2;
+
+type ManufacturerCredentials = Required<Pick<LoginPayload, "email" | "password" | "rememberMe">>;
+
 export default function ManufacLoginPage() {
     const router = useRouter();
     const queryClient = useQueryClient();
     const [isLoading, setIsLoading] = useState(false);
-    const [challenge, setChallenge] = useState<(LoginMfaRequiredResponse & { email: string }) | null>(null);
+    // The credentials stay with the challenge, so "Resend code" can log in again for a new code
+    const [challenge, setChallenge] = useState<
+        (LoginMfaRequiredResponse & { credentials: ManufacturerCredentials }) | null
+    >(null);
+    // Set when the account's email isn't verified yet: the API has just emailed a code
+    const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
 
     // Redirect to respective dashboard if already authenticated with a valid token
     useRedirectIfAuthenticated();
@@ -89,43 +108,49 @@ export default function ManufacLoginPage() {
         },
     ];
 
-    const handleSocialSignIn = (provider: "Google" | "Facebook") => {
-        toast.info(`Sign in with ${provider} isn't available yet.`);
+    const loginAsManufacturer = (credentials: ManufacturerCredentials) =>
+        authService.login({ ...credentials, role: "manufacturer" });
+
+    /** Signed in: only a manufacturer account carries on to the dashboard. */
+    const completeLogin = async (result: LoginSuccessResponse) => {
+        if (result.user.role !== "manufacturer") {
+            await authService.logout().catch(() => undefined);
+            setChallenge(null);
+            toast.error("That email or password isn't right.");
+            return;
+        }
+        queryClient.setQueryData(queryKeys.auth.profile(), result.user);
+        toast.success("Logged in successfully");
+        setChallenge(null);
+        router.replace(landingUrl());
     };
 
     const handleSubmit = async ({ email, password, rememberMe }: LoginFormValues) => {
         setIsLoading(true);
         try {
-            const trimmedEmail = email.trim().toLowerCase();
-            const result = await authService.login({
-                email: trimmedEmail,
+            const credentials: ManufacturerCredentials = {
+                email: email.trim().toLowerCase(),
                 password,
                 rememberMe,
-                role: "manufacturer",
-            });
+            };
+            const result = await loginAsManufacturer(credentials);
 
             if ("mfaRequired" in result && result.mfaRequired) {
-                setChallenge({ ...result, email: trimmedEmail });
+                setChallenge({ ...result, credentials });
                 return;
             }
 
             if ("user" in result) {
-                if (result.user.role !== "manufacturer") {
-                    await authService.logout().catch(() => undefined);
-                    toast.error("That email or password isn't right.");
-                    return;
-                }
-
-                queryClient.setQueryData(queryKeys.auth.profile(), result.user);
-                toast.success("Logged in successfully");
-                router.replace(landingUrl());
+                await completeLogin(result);
             }
         } catch (error) {
-            if (error instanceof MandeApiError) {
-                toast.error(error.message || "That email or password isn't right.");
-            } else {
-                toast.error("That email or password isn't right.");
+            if (error instanceof MandeApiError && error.code === "EMAIL_NOT_VERIFIED") {
+                // The API has emailed a fresh code: verify it here
+                setUnverifiedEmail(email.trim().toLowerCase());
+                toast.info(error.message || "Verify your email first. We've sent you a code.");
+                return;
             }
+            toast.error(getErrorMessage(error, "That email or password isn't right."));
         } finally {
             setIsLoading(false);
         }
@@ -136,25 +161,49 @@ export default function ManufacLoginPage() {
         setIsLoading(true);
         try {
             const result = await authService.login2FA(challenge.mfaToken, code);
-            if (result.user.role !== "manufacturer") {
-                await authService.logout().catch(() => undefined);
-                setChallenge(null);
-                toast.error("That email or password isn't right.");
-                return;
-            }
-            queryClient.setQueryData(queryKeys.auth.profile(), result.user);
-            toast.success("Logged in successfully");
-            setChallenge(null);
-            router.replace(landingUrl());
+            await completeLogin(result);
         } catch (error) {
-            if (error instanceof MandeApiError) {
-                toast.error(error.message || "That code isn't right or has expired.");
-            } else {
-                toast.error("That code isn't right or has expired.");
-            }
+            toast.error(getErrorMessage(error, "That code isn't right or has expired."));
         } finally {
             setIsLoading(false);
         }
+    };
+
+    // Logging in again starts a new challenge, which emails a new code.
+    // Errors reach the code form, which shows them.
+    const handleResendLoginCode = async () => {
+        if (!challenge) return;
+        const result = await loginAsManufacturer(challenge.credentials);
+        if ("mfaRequired" in result && result.mfaRequired) {
+            setChallenge({ ...result, credentials: challenge.credentials });
+            return;
+        }
+        if ("user" in result) await completeLogin(result);
+    };
+
+    // Verifying the email signs them in. An unverified account has only done
+    // the first sign-up step, so they carry on with sign-up from choosing a plan.
+    const handleEmailVerified = async (code: string) => {
+        if (!unverifiedEmail) return;
+        try {
+            await authService.verifyEmail(unverifiedEmail, code);
+            const saved = loadRegistrationProgress();
+            saveRegistrationProgress(
+                Math.max(saved?.stepIndex ?? 0, STEP_AFTER_EMAIL_VERIFIED),
+                { ...REGISTRATION_DEFAULT_VALUES, ...saved?.values, email: unverifiedEmail },
+                saved?.paymentReference ?? null,
+            );
+            toast.success("Email verified. Let's finish setting up your account.");
+            setUnverifiedEmail(null);
+            router.replace(ARTISAN_SIGNUP_URL);
+        } catch (error) {
+            toast.error(getErrorMessage(error, "That code isn't right or has expired."));
+        }
+    };
+
+    const handleResendVerification = async () => {
+        if (!unverifiedEmail) return;
+        await authService.resendVerification(unverifiedEmail);
     };
 
     return (
@@ -170,33 +219,6 @@ export default function ManufacLoginPage() {
                     <p className="text-sm font-normal font-text text-[#6B7280]">
                         Welcome back, log into your manufacturer account.
                     </p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-3">
-                    <button
-                        type="button"
-                        onClick={() => handleSocialSignIn("Google")}
-                        className="flex-1 flex items-center justify-center gap-2 h-11 rounded-button border border-gray-200 text-sm font-medium font-text text-[#1F2937] hover:bg-gray-50 transition-colors duration-200 cursor-pointer"
-                    >
-                        <GoogleIcon className="size-4" />
-                        Sign in with Google
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => handleSocialSignIn("Facebook")}
-                        className="flex-1 flex items-center justify-center gap-2 h-11 rounded-button border border-gray-200 text-sm font-medium font-text text-[#1F2937] hover:bg-gray-50 transition-colors duration-200 cursor-pointer"
-                    >
-                        <FacebookIcon className="size-4" />
-                        Sign in with Facebook
-                    </button>
-                </div>
-
-                <div className="flex items-center gap-3" aria-hidden>
-                    <span className="h-px flex-1 bg-gray-200" />
-                    <span className="text-xs font-medium font-text text-[#9CA3AF]">
-                        OR
-                    </span>
-                    <span className="h-px flex-1 bg-gray-200" />
                 </div>
 
                 <MainForm<LoginFormValues>
@@ -223,9 +245,23 @@ export default function ManufacLoginPage() {
                     open={Boolean(challenge)}
                     onOpenChange={(open) => !open && setChallenge(null)}
                     title="Enter your code"
-                    email={challenge.email}
+                    email={challenge.credentials.email}
                     channel={challenge.method}
                     onVerified={handleOtpVerified}
+                    onResend={challenge.method === "email" ? handleResendLoginCode : undefined}
+                />
+            )}
+
+            {unverifiedEmail && (
+                <OtpCodeDialog
+                    open={Boolean(unverifiedEmail)}
+                    onOpenChange={(open) => !open && setUnverifiedEmail(null)}
+                    title="Verify your email"
+                    intro="Your email isn't verified yet."
+                    email={unverifiedEmail}
+                    channel="email"
+                    onVerified={handleEmailVerified}
+                    onResend={handleResendVerification}
                 />
             )}
         </AuthScreenLayout>

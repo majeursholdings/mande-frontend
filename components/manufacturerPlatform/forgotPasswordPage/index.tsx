@@ -9,6 +9,8 @@ import { FormFieldConfig } from "@/components/form/types";
 import { validators } from "@/components/form/form.validators";
 import AuthScreenLayout from "../authScreenLayout";
 import { ARTISAN_SIGNUP_URL } from "@/constant/navigation";
+import { authService } from "@/lib/services/authService";
+import { getErrorMessage } from "@/lib/api";
 
 type ForgotPasswordFormValues = {
     email: string;
@@ -35,12 +37,13 @@ export default function ManufacForgotPasswordPage() {
     const handleSubmit = async (values: ForgotPasswordFormValues) => {
         setIsLoading(true);
         try {
-            // No backend is wired up yet — simulate the request so the flow
-            // is testable end-to-end.
-            await new Promise((resolve) => setTimeout(resolve, 800));
-            toast.success(`A reset link was sent to ${values.email}`);
-        } catch {
-            toast.error("Something went wrong. Please try again.");
+            const email = values.email.trim().toLowerCase();
+            const res = await authService.forgotPassword(email);
+            toast.success(
+                res.message || `If an account exists for ${email}, a reset link is on its way.`,
+            );
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't send the reset link. Please try again."));
         } finally {
             setIsLoading(false);
         }

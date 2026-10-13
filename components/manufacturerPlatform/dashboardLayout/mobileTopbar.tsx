@@ -24,7 +24,7 @@ export default function MobileTopbar() {
     const [searchScope, setSearchScope] = useState<SearchScope>("open");
     const searchInputRef = useRef<HTMLInputElement>(null);
     const { hasUnread } = useNotifications();
-    const { profile, isLoading: isProfileLoading } = useManufacturerProfile();
+    const { profile, isLoading: isProfileLoading, isError: isProfileError } = useManufacturerProfile();
     const backLink = getSubpageBackLink(usePathname());
 
     if (backLink) {
@@ -67,9 +67,10 @@ export default function MobileTopbar() {
                         {isProfileLoading ? (
                             <Skeleton className="size-8 rounded-full" />
                         ) : (
+                            // Couldn't load: a plain account icon, not the empty profile's blank name
                             <UserAvatar
-                                name={getManufacturerFullName(profile)}
-                                src={profile.avatarUrl}
+                                name={isProfileError ? "" : getManufacturerFullName(profile)}
+                                src={isProfileError ? null : profile.avatarUrl}
                                 className="size-8 text-xs"
                             />
                         )}

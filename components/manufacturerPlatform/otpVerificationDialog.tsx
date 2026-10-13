@@ -21,7 +21,7 @@ type OtpDialogProps = {
     channel: TwoFactorMethod;
     confirmLabel?: string;
     onVerified: (code: string) => void | Promise<void>;
-    /** Sends a new emailed code; without it, "Resend" only says one was sent. */
+    /** Sends a new emailed code; without it, no "Resend" link is shown. */
     onResend?: () => void | Promise<void>;
 };
 
