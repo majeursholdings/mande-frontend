@@ -5,7 +5,7 @@ import ServicesPage from "@/components/mainWebsite/servicesPage";
 export const metadata: Metadata = pageMetadata({
     title: "Services | MANDE",
     description:
-        "Paid furniture jobs, your MANDE wallet, a dedicated officer, and time on the country's top furniture machines at our Lagos factory.",
+        "Paid furniture jobs, the country's top furniture machines at our Lagos factory (open to every maker), and loans of up to ₦10 million through the MANDE Accelerator Program.",
     path: "/mande-services",
 });
 
