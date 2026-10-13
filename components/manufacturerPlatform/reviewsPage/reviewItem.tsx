@@ -1,14 +1,18 @@
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RatingStars } from "@/components/customTable/ratingStars";
+import { formatOrdinalDate } from "@/lib/date";
 import type { ManufacturerReview } from "@/constant/manufacturer";
+
+/** A review, with the job it was for and when it was left when those are known. */
+export type ReviewItemData = ManufacturerReview & { jobTitle?: string | null; createdAt?: string | null };
 
 /** One customer review — "sm" in the profile card, "md" on the reviews page. */
 export default function ReviewItem({
     review,
     size = "sm",
 }: {
-    review: ManufacturerReview;
+    review: ReviewItemData;
     size?: "sm" | "md";
 }) {
     return (
@@ -27,6 +31,13 @@ export default function ReviewItem({
                     <span className="sr-only">{review.rating} out of 5 stars</span>
                 </div>
             </div>
+            {(review.jobTitle || review.createdAt) && (
+                <p className="text-xs font-text text-mist-400">
+                    {review.jobTitle && <span className="text-mist-600">{review.jobTitle}</span>}
+                    {review.jobTitle && review.createdAt && <span aria-hidden> · </span>}
+                    {review.createdAt && formatOrdinalDate(new Date(review.createdAt))}
+                </p>
+            )}
             <p
                 className={cn(
                     "font-text text-mist-600 leading-5",
@@ -47,6 +58,7 @@ export function ReviewItemSkeleton() {
                 <Skeleton className="h-5 w-32" />
                 <Skeleton className="h-4 w-20" />
             </div>
+            <Skeleton className="h-3 w-40" />
             <Skeleton className="h-3.5 w-full" />
             <Skeleton className="h-3.5 w-2/3" />
         </div>

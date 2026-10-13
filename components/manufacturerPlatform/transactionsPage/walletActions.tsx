@@ -23,6 +23,9 @@ import DeleteBankAccountConfirm from "./deleteBankAccountConfirm";
 import { WalletActionCard, WalletTile, bankAccountSubtitle } from "./walletTile";
 import { getErrorMessage } from "@/lib/api";
 
+/** What the emailed code's message says it's for. */
+const REAUTH_ACTION = "a withdrawal from your wallet";
+
 type WalletDialog =
     | "add-bank"
     | "bank-details"
@@ -42,7 +45,8 @@ type WalletDialog =
 export default function WalletActions() {
     const { profile } = useManufacturerProfile();
     const { wallet, withdraw, isLoading } = useManufacturerWallet();
-    const { balance, bankAccount } = wallet;
+    const { balance, bankAccount, pendingWithdrawal } = wallet;
+    const otpChannel = getOtpChannel(profile);
     const [dialog, setDialog] = useState<WalletDialog | null>(null);
     // Carried between the withdraw and confirm steps, so Cancel on the
     // confirm step goes back to the amount that was entered
@@ -84,8 +88,16 @@ export default function WalletActions() {
                     size="sm"
                     icon={ArrowRightLeft}
                     title="Withdraw to your bank"
-                    subtitle={bankAccount || isLoading ? undefined : "Add a bank account first"}
-                    disabled={!bankAccount}
+                    subtitle={
+                        isLoading
+                            ? undefined
+                            : !bankAccount
+                              ? "Add a bank account first"
+                              : pendingWithdrawal
+                                ? `${formatPrice(pendingWithdrawal.amount)} on its way. Wait for it to arrive`
+                                : undefined
+                    }
+                    disabled={!bankAccount || !!pendingWithdrawal}
                     onClick={() => {
                         setWithdrawalAmount(null);
                         setDialog("withdraw");
@@ -154,15 +166,20 @@ export default function WalletActions() {
                                         {formatPrice(withdrawalAmount ?? 0)}
                                     </span>{" "}
                                     from your balance, plus processing and bank charges. Enter
-                                    your password to confirm this transaction.
+                                    your password, then a one-time code, to confirm it.
                                 </DialogDescription>
                             </div>
                             <ConfirmWithdrawalForm
                                 onCancel={() => setDialog("withdraw")}
-                                onPasswordConfirmed={(password) => {
+                                onPasswordEntered={(password) => {
                                     setEnteredPassword(password);
                                     setDialog("withdrawal-otp");
-                                    authService.sendReauthCode().catch(() => {});
+                                    // Authenticator-app users read their code from the app: nothing to send
+                                    if (otpChannel === "email") {
+                                        authService.sendReauthCode(REAUTH_ACTION).catch((err: unknown) => {
+                                            toast.error(getErrorMessage(err, "Couldn't send your code. Use Resend to try again."));
+                                        });
+                                    }
                                 }}
                             />
                         </DialogContent>
@@ -172,8 +189,15 @@ export default function WalletActions() {
                         {...dialogProps("withdrawal-otp")}
                         title="Verify withdrawal"
                         intro={`One last step before ${formatPrice(withdrawalAmount ?? 0)} is sent to your bank.`}
-                        channel={getOtpChannel(profile)}
+                        channel={otpChannel}
                         confirmLabel="Withdraw"
+                        onResend={
+                            otpChannel === "email"
+                                ? async () => {
+                                      await authService.sendReauthCode(REAUTH_ACTION);
+                                  }
+                                : undefined
+                        }
                         onVerified={async (code: string) => {
                             try {
                                 const { reauthToken } = await authService.verifyReauth(enteredPassword, code);

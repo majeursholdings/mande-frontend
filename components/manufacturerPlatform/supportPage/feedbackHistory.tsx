@@ -8,6 +8,9 @@ import LoadError from "../loadError";
 import SettingsSection from "../settingsSection";
 import FeedbackCategoryBadge from "./feedbackCategoryBadge";
 
+/** A sent message as the history shows it. `sentAt` is null when the server has no date for it. */
+export type FeedbackHistoryItem = Omit<ManufacturerFeedback, "sentAt"> & { sentAt: string | null };
+
 /** How many show before "Show all". */
 const PREVIEW_COUNT = 3;
 
@@ -19,10 +22,19 @@ export default function FeedbackHistory({
     feedback,
     isLoading = false,
     isError = false,
+    hasOlder = false,
+    onLoadOlder,
+    isLoadingOlder = false,
+    isLoadOlderError = false,
 }: {
-    feedback: ManufacturerFeedback[];
+    feedback: FeedbackHistoryItem[];
     isLoading?: boolean;
     isError?: boolean;
+    /** There are older messages than the ones loaded. */
+    hasOlder?: boolean;
+    onLoadOlder?: () => void;
+    isLoadingOlder?: boolean;
+    isLoadOlderError?: boolean;
 }) {
     const [showAll, setShowAll] = useState(false);
     const shown = showAll ? feedback : feedback.slice(0, PREVIEW_COUNT);
@@ -59,9 +71,11 @@ export default function FeedbackHistory({
                             <li key={item.id} className="flex flex-col gap-3 rounded-xl border border-border bg-white p-5">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                     <FeedbackCategoryBadge category={item.category} />
-                                    <span className="text-xs font-text text-mist-400">
-                                        Sent {formatDayAndTime(new Date(item.sentAt))}
-                                    </span>
+                                    {item.sentAt && (
+                                        <span className="text-xs font-text text-mist-400">
+                                            Sent {formatDayAndTime(new Date(item.sentAt))}
+                                        </span>
+                                    )}
                                 </div>
                                 <p className="text-sm font-text whitespace-pre-line text-mist-900">{item.message}</p>
                                 {item.screenshotUrl && (
@@ -71,7 +85,7 @@ export default function FeedbackHistory({
                                         rel="noreferrer"
                                         className="w-fit rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-secondary-300"
                                     >
-                                        {/* eslint-disable-next-line @next/next/no-img-element -- may be a client-side blob: URL from the form */}
+                                        {/* eslint-disable-next-line @next/next/no-img-element -- an uploaded screenshot from the media host */}
                                         <img
                                             src={item.screenshotUrl}
                                             alt="Screenshot you attached"
@@ -82,15 +96,30 @@ export default function FeedbackHistory({
                             </li>
                         ))}
                     </ul>
-                    {feedback.length > PREVIEW_COUNT && (
-                        <button
-                            type="button"
-                            onClick={() => setShowAll((current) => !current)}
-                            className="self-start text-sm font-medium font-text text-secondary-700 hover:underline cursor-pointer"
-                        >
-                            {showAll ? "Show less" : `Show all (${hiddenCount} more)`}
-                        </button>
+                    {isLoadOlderError && (
+                        <LoadError>Couldn&apos;t load older feedback. Please try again.</LoadError>
                     )}
+                    <div className="flex flex-wrap items-center gap-4">
+                        {(feedback.length > PREVIEW_COUNT || (hasOlder && !showAll)) && (
+                            <button
+                                type="button"
+                                onClick={() => setShowAll((current) => !current)}
+                                className="text-sm font-medium font-text text-secondary-700 hover:underline cursor-pointer"
+                            >
+                                {showAll ? "Show less" : hiddenCount > 0 ? `Show all (${hiddenCount} more)` : "Show all"}
+                            </button>
+                        )}
+                        {showAll && hasOlder && onLoadOlder && (
+                            <button
+                                type="button"
+                                onClick={onLoadOlder}
+                                disabled={isLoadingOlder}
+                                className="text-sm font-medium font-text text-secondary-700 hover:underline cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isLoadingOlder ? "Loading older..." : "Show older"}
+                            </button>
+                        )}
+                    </div>
                 </div>
             )}
         </SettingsSection>

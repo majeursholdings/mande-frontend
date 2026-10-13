@@ -5,7 +5,7 @@ import { Info, Landmark } from "lucide-react";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
-import { formatBalance } from "@/lib/currency";
+import { formatBalance, formatPrice } from "@/lib/currency";
 import type { ManufacturerBankAccount } from "@/constant/manufacturer";
 import {
     WalletTile,
@@ -13,6 +13,10 @@ import {
 } from "@/components/manufacturerPlatform/transactionsPage/walletTile";
 import Notice from "@/components/manufacturerPlatform/notice";
 import { FormSubmitButton } from "./formButtons";
+
+/** The server's limits on one withdrawal, in naira (mande-backend src/constants/payments.ts). */
+export const MIN_WITHDRAWAL = 100;
+export const MAX_WITHDRAWAL = 5_000_000;
 
 type WithdrawFormValues = {
     /** Whole naira, as a digit string — see MainForm's "amount" field. */
@@ -55,6 +59,12 @@ export default function WithdrawForm({
                 validate: {
                     positive: (value: string) =>
                         Number(value) > 0 || "Enter an amount to withdraw",
+                    atLeastMinimum: (value: string) =>
+                        Number(value) >= MIN_WITHDRAWAL ||
+                        `The smallest withdrawal is ${formatPrice(MIN_WITHDRAWAL)}`,
+                    atMostMaximum: (value: string) =>
+                        Number(value) <= MAX_WITHDRAWAL ||
+                        `The largest single withdrawal is ${formatPrice(MAX_WITHDRAWAL)}`,
                     withinBalance: (value: string) =>
                         Number(value) <= balance || "Insufficient balance",
                 },

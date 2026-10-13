@@ -5,10 +5,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface ReviewsOverviewProps {
     overview?: {
-        averageRating: number;
+        /** Null when nobody has reviewed them yet: shown as "-", never a made-up score. */
+        averageRating: number | null;
         totalReviews: number;
         fiveStarCount: number;
-        positiveRate: number;
+        /** Null when there are no reviews yet. */
+        positiveRate: number | null;
     };
     isPending?: boolean;
 }
@@ -18,7 +20,7 @@ export default function ReviewsOverviewCards({ overview, isPending }: ReviewsOve
         {
             id: "avg-rating",
             label: "Average Rating",
-            value: `${overview?.averageRating ?? 0} / 5.0`,
+            value: overview?.averageRating == null ? "-" : `${overview.averageRating.toFixed(1)} / 5.0`,
             icon: Star,
             iconColor: "bg-warning-50 text-warning-600",
             fill: true,
@@ -42,7 +44,7 @@ export default function ReviewsOverviewCards({ overview, isPending }: ReviewsOve
         {
             id: "positive-rate",
             label: "Positive Rate",
-            value: `${overview?.positiveRate ?? 0}%`,
+            value: overview?.positiveRate == null ? "-" : `${overview.positiveRate}%`,
             icon: TrendingUp,
             iconColor: "bg-indigo-50 text-indigo-600",
             fill: false,

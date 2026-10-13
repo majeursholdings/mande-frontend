@@ -1,25 +1,23 @@
 "use client";
 
 import { DataTable, type ColumnDef } from "@/components/customTable";
-import { formatPrice } from "@/lib/currency";
 import LoadError from "../loadError";
 import { formatOrdinalDate } from "@/lib/date";
-import type { ManufacturerTransaction } from "@/constant/manufacturer";
 import TransactionListItem, {
     PaidByCardNote,
     TransactionIcon,
     TransactionListItemSkeleton,
+    TransactionStatusBadge,
+    formatSignedAmount,
+    type TransactionRow,
 } from "./transactionListItem";
 
 // Same-day ones by id, so the order never changes between renders
-const newestFirst = (a: ManufacturerTransaction, b: ManufacturerTransaction) =>
+const newestFirst = (a: TransactionRow, b: TransactionRow) =>
     new Date(b.date).getTime() - new Date(a.date).getTime() || a.id.localeCompare(b.id);
 
 /** Transactions in a TRANSACTION_SORT_OPTIONS order — or as they are for any other value. */
-export function sortTransactions(
-    transactions: ManufacturerTransaction[],
-    sortBy: string,
-): ManufacturerTransaction[] {
+export function sortTransactions<T extends TransactionRow>(transactions: T[], sortBy: string): T[] {
     // A → Z, newest first within a project; withdrawals (no project) last
     if (sortBy === "project-name") {
         return [...transactions].sort((a, b) => {
@@ -38,16 +36,19 @@ export function sortTransactions(
     return transactions;
 }
 
-const COLUMNS: ColumnDef<ManufacturerTransaction>[] = [
+const COLUMNS: ColumnDef<TransactionRow>[] = [
     {
         key: "payment",
         header: "Payment",
         cell: (transaction) => (
             <span className="flex items-center gap-3 font-medium text-mist-950">
-                <TransactionIcon type={transaction.type} />
-                <span>
-                    {transaction.label}
-                    {transaction.paidByCard && <PaidByCardNote />}
+                <TransactionIcon type={transaction.type} direction={transaction.direction} />
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span>
+                        {transaction.label}
+                        {transaction.paidByCard && <PaidByCardNote />}
+                    </span>
+                    <TransactionStatusBadge transaction={transaction} />
                 </span>
             </span>
         ),
@@ -69,7 +70,7 @@ const COLUMNS: ColumnDef<ManufacturerTransaction>[] = [
         header: "Amount",
         className: "text-right",
         cell: (transaction) => (
-            <span className="font-semibold text-mist-950">{formatPrice(transaction.amount)}</span>
+            <span className="font-semibold text-mist-950">{formatSignedAmount(transaction)}</span>
         ),
     },
 ];
@@ -85,7 +86,7 @@ export default function TransactionsList({
     loading = false,
     error,
 }: {
-    transactions: ManufacturerTransaction[];
+    transactions: TransactionRow[];
     tableId: string;
     /** Skeleton rows while the transactions load. */
     loading?: boolean;

@@ -45,7 +45,7 @@ export type CommunityTestimonial = {
     business: string;
     avatarUrl?: string | null;
     sourceUrl?: string | null;
-    rating?: number;
+    rating?: number | null;
     verifiedMaker?: boolean;
     isFeatured?: boolean;
     createdAt?: string;

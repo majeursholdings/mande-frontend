@@ -8,7 +8,7 @@ import PointsSummaryCard from "@/components/common/points/pointsSummaryCard";
 import PointsHistoryList from "@/components/common/points/pointsHistoryList";
 import PointsGuideModal from "@/components/common/points/pointsGuideModal";
 import DeliveryDisputeDialog from "@/components/common/points/deliveryDisputeDialog";
-import type { PointEntryRecord } from "@/constant/points";
+import { DEFAULT_POINT_SETTINGS, type PointEntryRecord, type PointSettingsConfig } from "@/constant/points";
 import { cn } from "@/lib/utils";
 import { LoadError } from "@/components/adminPlatform/emptyState";
 
@@ -26,6 +26,13 @@ export default function PointsProfilePageView({ role, backUrl }: PointsProfilePa
 
     const points = summary?.points ?? 0;
     const progression = summary?.progression;
+    // The values the super admins set, over the built-in ones for anything missing
+    const pointSettings: PointSettingsConfig | undefined = summary?.pointSettings
+        ? {
+              manufacturer: { ...DEFAULT_POINT_SETTINGS.manufacturer, ...summary.pointSettings.manufacturer },
+              admin: { ...DEFAULT_POINT_SETTINGS.admin, ...summary.pointSettings.admin },
+          }
+        : undefined;
 
     return (
         <div className="flex flex-col gap-6">
@@ -129,6 +136,7 @@ export default function PointsProfilePageView({ role, backUrl }: PointsProfilePa
                 open={guideOpen}
                 onClose={() => setGuideOpen(false)}
                 role={role}
+                pointSettings={pointSettings}
             />
 
             {disputeEntry?.dispute && disputeEntry.jobId && (

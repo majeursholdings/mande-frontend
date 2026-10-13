@@ -1,10 +1,11 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState, useMemo, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { type NotificationItem } from "@/constant/manufacturer";
+import { getErrorMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { getSocket } from "@/lib/socket";
 import { notificationService, type BackendNotification } from "@/lib/services/notificationService";
@@ -58,22 +59,41 @@ export function toManufacturerNotification(raw: BackendNotification): Notificati
 /** How many the bell's list shows. */
 export const POPUP_LIMIT = 10;
 
+/**
+ * Notifications marked read here, until the server's list catches up. They
+ * hold only for the list they were marked against (`stamp`, the query's
+ * dataUpdatedAt): once a newer list arrives, the server's word is final, so
+ * a notification that came in after "mark all" never shows as read.
+ */
+type ReadOverride = { ids: Set<string>; all: boolean; allAt: number; stamp: number };
+
+const NO_OVERRIDE: ReadOverride = { ids: new Set(), all: false, allAt: 0, stamp: -1 };
+
+/** A notification that came over the socket, and when. */
+type LiveNotification = { item: NotificationItem; receivedAt: number };
+
 export function NotificationsProvider({ children }: { children: ReactNode }) {
     const router = useRouter();
     const queryClient = useQueryClient();
 
-    const [liveNotifications, setLiveNotifications] = useState<NotificationItem[]>([]);
-    const [locallyReadIds, setLocallyReadIds] = useState<Set<string>>(new Set());
-    const [allLocallyRead, setAllLocallyRead] = useState(false);
+    const [liveNotifications, setLiveNotifications] = useState<LiveNotification[]>([]);
+    const [override, setOverride] = useState<ReadOverride>(NO_OVERRIDE);
+    // Marked read but not yet confirmed: shown read meanwhile, put back if the server says no
+    const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
+    const [pendingAllAt, setPendingAllAt] = useState<number | null>(null);
 
     // Fetch initial notifications from backend
-    const { data: apiData, isPending, isError } = useQuery({
+    const { data: apiData, isPending, isError, dataUpdatedAt } = useQuery({
         queryKey: queryKeys.notifications.list(),
         // The newest few, for the bell: every one is on the Notifications page
         queryFn: () => notificationService.getNotifications({ limit: POPUP_LIMIT }),
         staleTime: 60 * 1000,
         retry: 1,
     });
+    const dataUpdatedAtRef = useRef(dataUpdatedAt);
+    useEffect(() => {
+        dataUpdatedAtRef.current = dataUpdatedAt;
+    }, [dataUpdatedAt]);
 
     // Connect to WebSocket and listen for live notifications
     useEffect(() => {
@@ -84,7 +104,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
             const newNotif = toManufacturerNotification(raw);
 
             // Prepend new notification to the live list
-            setLiveNotifications((prev) => [newNotif, ...prev.filter((n) => n.id !== newNotif.id)]);
+            setLiveNotifications((prev) => [
+                { item: newNotif, receivedAt: Date.now() },
+                ...prev.filter((n) => n.item.id !== newNotif.id),
+            ]);
 
             // Toast with notification details
             toast.info(raw.actorName || "New notification", {
@@ -103,12 +126,15 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
             queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
         };
 
+        // Read somewhere else (another tab): shown read until the refetch confirms it
         const handleReadNotification = (payload: { ids: string[] | "all" }) => {
-            if (payload.ids === "all") {
-                setAllLocallyRead(true);
-            } else if (Array.isArray(payload.ids)) {
-                setLocallyReadIds((prev) => new Set([...prev, ...payload.ids]));
-            }
+            const stamp = dataUpdatedAtRef.current;
+            setOverride((prev) => {
+                const base = prev.stamp === stamp ? prev : { ...NO_OVERRIDE, stamp };
+                return payload.ids === "all"
+                    ? { ...base, all: true, allAt: Date.now() }
+                    : { ...base, ids: new Set([...base.ids, ...(Array.isArray(payload.ids) ? payload.ids : [])]) };
+            });
             queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
         };
 
@@ -125,43 +151,84 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         return (apiData?.notifications ?? []).map(toManufacturerNotification);
     }, [apiData]);
 
-    const notifications = useMemo(() => {
-        const liveIds = new Set(liveNotifications.map((n) => n.id));
-        const merged = [...liveNotifications, ...baseNotifications.filter((n) => !liveIds.has(n.id))];
+    // What's shown read locally, on top of what the server says
+    const activeOverride = override.stamp === dataUpdatedAt ? override : NO_OVERRIDE;
+    const readAllAt = Math.max(activeOverride.all ? activeOverride.allAt : 0, pendingAllAt ?? 0);
+    const isLocallyRead = useCallback(
+        (id: string, receivedAt: number | null) =>
+            activeOverride.ids.has(id) ||
+            pendingIds.has(id) ||
+            // "Mark all" covers what was in the list then, not what arrived after
+            (readAllAt > 0 && (receivedAt === null || receivedAt <= readAllAt)),
+        [activeOverride, pendingIds, readAllAt],
+    );
 
-        if (allLocallyRead) {
-            return merged.map((n) => ({ ...n, isRead: true }));
-        }
-        if (locallyReadIds.size > 0) {
-            return merged.map((n) => (locallyReadIds.has(n.id) ? { ...n, isRead: true } : n));
-        }
-        return merged;
-    }, [liveNotifications, baseNotifications, allLocallyRead, locallyReadIds]);
+    // The server's copy wins once it has one: live ones only until the list includes them
+    const newLive = useMemo(() => {
+        const baseIds = new Set(baseNotifications.map((n) => n.id));
+        return liveNotifications.filter((n) => !baseIds.has(n.item.id));
+    }, [liveNotifications, baseNotifications]);
 
+    const notifications = useMemo(
+        () => [
+            ...newLive.map(({ item, receivedAt }) =>
+                isLocallyRead(item.id, receivedAt) ? { ...item, isRead: true } : item,
+            ),
+            ...baseNotifications.map((n) => (isLocallyRead(n.id, null) ? { ...n, isRead: true } : n)),
+        ],
+        [newLive, baseNotifications, isLocallyRead],
+    );
+
+    // From the server's unread count (it counts ones beyond the newest few), less
+    // those read here since, plus ones that came in live since
     const hasUnread = useMemo(() => {
-        return notifications.some((n) => !n.isRead);
-    }, [notifications]);
+        const readHere = baseNotifications.filter((n) => !n.isRead && isLocallyRead(n.id, null)).length;
+        const serverUnread = readAllAt > 0
+            ? 0
+            : Math.max(0, (apiData?.unreadCount ?? baseNotifications.filter((n) => !n.isRead).length) - readHere);
+        const liveUnread = newLive.filter(({ item, receivedAt }) => !item.isRead && !isLocallyRead(item.id, receivedAt)).length;
+        return serverUnread + liveUnread > 0;
+    }, [apiData, baseNotifications, newLive, isLocallyRead, readAllAt]);
 
     const markAsRead = useCallback(
         async (id: string) => {
-            setLocallyReadIds((prev) => new Set([...prev, id]));
+            setPendingIds((prev) => new Set([...prev, id]));
             try {
                 await notificationService.markAsRead(id);
-                queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+                const stamp = dataUpdatedAtRef.current;
+                setOverride((prev) => {
+                    const base = prev.stamp === stamp ? prev : { ...NO_OVERRIDE, stamp };
+                    return { ...base, ids: new Set([...base.ids, id]) };
+                });
+                void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
             } catch (err) {
-                console.error("Failed to mark notification read on backend:", err);
+                toast.error(getErrorMessage(err, "Couldn't mark that notification as read. Please try again."));
+            } finally {
+                setPendingIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(id);
+                    return next;
+                });
             }
         },
         [queryClient],
     );
 
     const markAllAsRead = useCallback(async () => {
-        setAllLocallyRead(true);
+        const at = Date.now();
+        setPendingAllAt(at);
         try {
             await notificationService.markAllAsRead();
-            queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
+            const stamp = dataUpdatedAtRef.current;
+            setOverride((prev) => {
+                const base = prev.stamp === stamp ? prev : { ...NO_OVERRIDE, stamp };
+                return { ...base, all: true, allAt: at };
+            });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.notifications.all });
         } catch (err) {
-            console.error("Failed to mark notifications read on backend:", err);
+            toast.error(getErrorMessage(err, "Couldn't mark your notifications as read. Please try again."));
+        } finally {
+            setPendingAllAt((current) => (current === at ? null : current));
         }
     }, [queryClient]);
 
