@@ -60,6 +60,16 @@ type ManufacturerSubscriptionContextValue = {
     keepCurrentPlan: () => Promise<void>;
     /** Ends the plan when the current period ends. */
     cancelPlan: () => Promise<void>;
+    /** Chooses where renewals are charged: the wallet, or one of the saved cards. Only for an active plan. */
+    setRenewalSource: (source: { from: "wallet" } | { from: "card"; cardId: string }) => Promise<void>;
+    /**
+     * Saves a new card: leaves for the payment partner's checkout (a small
+     * charge, refunded once the card is saved), which comes back to the Plan
+     * tab with ?reference=…, for confirmPayment.
+     */
+    addCard: () => Promise<void>;
+    /** Removes a saved card. If it paid renewals, the newest other card pays them instead. */
+    removeCard: (cardId: string) => Promise<void>;
 };
 
 const ManufacturerSubscriptionContext =
@@ -77,9 +87,11 @@ function toSubscription(view: SubscriptionView["subscription"]): ManufacturerSub
         planId: view.planId,
         billingCycle: view.billingCycle,
         status: view.status,
-        renewsAt: view.renewsAt ?? new Date().toISOString(),
+        renewsAt: view.renewsAt,
         cancelAtPeriodEnd: view.cancelAtPeriodEnd,
         scheduledPlanId: view.scheduledPlanId,
+        renewalsPaidFrom: view.renewalsPaidFrom,
+        renewalCardId: view.renewalCardId,
     };
 }
 
@@ -137,9 +149,23 @@ export function ManufacturerSubscriptionProvider({ children }: { children: React
             scheduleDowngrade: async (planId) => show(await subscriptionService.scheduleDowngrade(planId)),
             keepCurrentPlan: async () => show(await subscriptionService.keepCurrentPlan()),
             cancelPlan: async () => show(await subscriptionService.cancelPlan()),
+            setRenewalSource: async (source) => show(await subscriptionService.setRenewalSource(source)),
+            addCard: async () => {
+                const { checkoutUrl } = await subscriptionService.addCard(PLAN_SETTINGS_PATH);
+                goToCheckout(checkoutUrl);
+            },
+            removeCard: async (cardId) => show(await subscriptionService.removeCard(cardId)),
         } satisfies Pick<
             ManufacturerSubscriptionContextValue,
-            "payForPlan" | "upgradePlan" | "confirmPayment" | "scheduleDowngrade" | "keepCurrentPlan" | "cancelPlan"
+            | "payForPlan"
+            | "upgradePlan"
+            | "confirmPayment"
+            | "scheduleDowngrade"
+            | "keepCurrentPlan"
+            | "cancelPlan"
+            | "setRenewalSource"
+            | "addCard"
+            | "removeCard"
         >;
     }, [queryClient]);
 

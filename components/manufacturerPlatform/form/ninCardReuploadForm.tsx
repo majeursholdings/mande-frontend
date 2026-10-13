@@ -7,7 +7,7 @@ import type { FormFieldConfig } from "@/components/form/types";
 import { cleanupFormFieldUploads, clearFormUploadedFiles } from "@/components/form/fileInput";
 import { manufacturerService } from "@/lib/services/manufacturerService";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
-import { PENDING_VERIFICATION } from "@/constant/manufacturer";
+import { getErrorMessage } from "@/lib/api";
 import { FormSubmitButton } from "./formButtons";
 
 // Named apart from the sign-up form's fields: MainForm uses field names as input ids
@@ -49,7 +49,7 @@ const FIELDS: FormFieldConfig[] = [
 
 /** Replaces a rejected NIN (the number and a new photo of the card) and sends it back to be checked. */
 export default function NinCardReuploadForm({ onSubmitted }: { onSubmitted: () => void }) {
-    const { profile, updateProfile } = useManufacturerProfile();
+    const { applyKycResponse } = useManufacturerProfile();
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSubmit = async (values: NinCardReuploadFormValues) => {
@@ -63,34 +63,24 @@ export default function NinCardReuploadForm({ onSubmitted }: { onSubmitted: () =
                 return;
             }
 
-            const imageUrl =
-                photoItem && typeof photoItem === "object" && "url" in photoItem && typeof photoItem.url === "string"
-                    ? photoItem.url
-                    : photoItem instanceof File
-                      ? URL.createObjectURL(photoItem)
-                      : "";
-
             const publicId =
                 photoItem && typeof photoItem === "object" && "publicId" in photoItem && typeof photoItem.publicId === "string"
                     ? photoItem.publicId
                     : undefined;
 
-            await manufacturerService.submitNin({
+            const response = await manufacturerService.submitNin({
                 ninNumber: values.ninNumberAgain.trim(),
                 image: publicId,
             });
 
-            const previousUrl = profile.ninCard.imageUrl;
-            updateProfile({
-                ninCard: { imageUrl, ...PENDING_VERIFICATION },
-            });
-            if (previousUrl?.startsWith("blob:")) URL.revokeObjectURL(previousUrl);
+            // The API's answer has the card's new status (and photo link)
+            applyKycResponse(response);
             clearFormUploadedFiles("ninCardPhoto");
             toast.success("NIN card sent for review");
             onSubmitted();
-        } catch {
+        } catch (err) {
             await cleanupFormFieldUploads("ninCardPhoto");
-            toast.error("Couldn't upload your NIN card. Please try again.");
+            toast.error(getErrorMessage(err, "Couldn't upload your NIN card. Please try again."));
         } finally {
             setIsLoading(false);
         }

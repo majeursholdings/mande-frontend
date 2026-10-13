@@ -21,17 +21,23 @@ export interface CheckoutResponse {
   reference: string;
 }
 
-/** A plan payment, as the API shows it. */
+/**
+ * A plan payment, as the API shows it. Confirming the checkout that saves a
+ * new card answers with one of kind "card_check" (a small charge that's
+ * refunded once the card is saved); those never appear in `payments`.
+ */
 export interface SubscriptionPayment {
   id: string;
   reference: string;
-  kind: "signup" | "renewal" | "upgrade";
+  kind: "signup" | "renewal" | "upgrade" | "card_check";
   planId: string;
   billingCycle: "monthly" | "annual";
   amountKobo: number;
   status: "pending" | "succeeded" | "failed";
   failureReason: string | null;
   paidAt: string | null;
+  /** Card checks only: giving the charge back. */
+  refundStatus?: "none" | "pending" | "refunded" | "failed";
 }
 
 /** The manufacturer's plan, saved cards and recent plan payments, as every plan route answers. */
@@ -101,8 +107,18 @@ export const subscriptionService = {
     return data;
   },
 
+  /**
+   * Saves a new card: answers with the payment partner's checkout for a small
+   * charge, refunded once the card is saved. It comes back to `returnPath`
+   * with ?reference=…, confirmed with confirmPayment.
+   */
+  async addCard(returnPath: string): Promise<CheckoutResponse> {
+    const { data } = await api.post<CheckoutResponse>("/subscription/cards", { returnPath });
+    return data;
+  },
+
   async removeCard(cardId: string): Promise<SubscriptionView> {
-    const { data } = await api.delete<SubscriptionView>(`/subscription/cards/${cardId}`);
+    const { data } = await api.delete<SubscriptionView>(`/subscription/cards/${encodeURIComponent(cardId)}`);
     return data;
   },
 };

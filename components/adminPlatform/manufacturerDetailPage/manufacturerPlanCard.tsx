@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarClock, CreditCard, Wallet } from "lucide-react";
+import { CalendarClock, CircleAlert, CreditCard, Wallet } from "lucide-react";
 import { formatPrice } from "@/lib/currency";
 import { formatOrdinalDate } from "@/lib/date";
 import ListPrice from "@/components/ui/listPrice";
@@ -7,6 +7,35 @@ import { getPlanPrice } from "@/constant/plans";
 import type { ManufacturerRecord } from "@/constant/platformRecords";
 import { usePlans } from "@/hooks/usePlans";
 import { Skeleton } from "@/components/ui/skeleton";
+
+/**
+ * The plan as the card shows it. `status` and `cancelAtPeriodEnd` are optional
+ * (staff screens may not have them): without them it reads as an active plan.
+ * A null `renewsAt` leaves the date line out.
+ */
+export type ManufacturerPlanCardSubscription = Omit<ManufacturerRecord["subscription"], "renewsAt"> & {
+    renewsAt: string | null;
+    status?: "active" | "past_due" | "pending_payment" | "cancelled";
+    cancelAtPeriodEnd?: boolean;
+};
+
+/** The date line, worded like the Plan tab's badge: ends, payment due, ended or renews. */
+function getRenewalLine(subscription: ManufacturerPlanCardSubscription, isOwn: boolean): { text: string; warn: boolean } | null {
+    const date = subscription.renewsAt ? formatOrdinalDate(new Date(subscription.renewsAt)) : null;
+    switch (subscription.status ?? "active") {
+        case "past_due":
+            return { text: date ? `Payment due since ${date}` : "Payment due", warn: true };
+        case "pending_payment":
+            return { text: "Not paid yet", warn: true };
+        case "cancelled":
+            return { text: date ? `Ended on ${date}` : "Ended", warn: true };
+        default:
+            if (subscription.cancelAtPeriodEnd) {
+                return { text: date ? `Ends on ${date}` : `Cancelled, ends at the end of ${isOwn ? "your" : "their"} billing period`, warn: true };
+            }
+            return date ? { text: `Renews ${date}`, warn: false } : null;
+    }
+}
 
 /**
  * The plan a manufacturer is on — what it costs them now (with the usual
@@ -19,7 +48,7 @@ export default function ManufacturerPlanCard({
     discountPercent: propDiscount,
     manageHref,
 }: {
-    subscription?: ManufacturerRecord["subscription"];
+    subscription?: ManufacturerPlanCardSubscription;
     className?: string;
     discountPercent?: number;
     /** The manufacturer's own card: worded to them, with a link to manage it. Staff see "their". */
@@ -33,6 +62,9 @@ export default function ManufacturerPlanCard({
     const plan = getPlan(subscription.planId);
     if (!plan) return null;
     const isAnnual = subscription.billingCycle === "annual";
+    const renewal = getRenewalLine(subscription, !!manageHref);
+    // Renewals only happen for an active plan that isn't cancelled
+    const renews = (subscription.status ?? "active") === "active" && !subscription.cancelAtPeriodEnd;
 
     return (
         <section className={`flex flex-col gap-4 rounded-xl border border-border bg-white p-5 ${className ?? ""}`}>
@@ -55,10 +87,17 @@ export default function ManufacturerPlanCard({
             </p>
 
             <ul className="flex flex-col gap-2 text-sm font-text text-mist-600">
-                <li className="flex items-center gap-2">
-                    <CalendarClock className="size-4 shrink-0 text-mist-400" strokeWidth={1.75} aria-hidden />
-                    Renews {formatOrdinalDate(new Date(subscription.renewsAt))}
-                </li>
+                {renewal && (
+                    <li className={`flex items-center gap-2 ${renewal.warn ? "text-error-600" : ""}`}>
+                        {renewal.warn ? (
+                            <CircleAlert className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                        ) : (
+                            <CalendarClock className="size-4 shrink-0 text-mist-400" strokeWidth={1.75} aria-hidden />
+                        )}
+                        {renewal.text}
+                    </li>
+                )}
+                {renews && (
                 <li className="flex items-center gap-2">
                     {subscription.renewalsPaidFrom === "wallet" ? (
                         <Wallet className="size-4 shrink-0 text-mist-400" strokeWidth={1.75} aria-hidden />
@@ -69,6 +108,7 @@ export default function ManufacturerPlanCard({
                         ? `Renews from ${manageHref ? "your" : "their"} wallet`
                         : "Renews by card"}
                 </li>
+                )}
             </ul>
             {manageHref && (
                 <Link href={manageHref} className="self-start text-sm font-medium font-text text-secondary-700 hover:underline">

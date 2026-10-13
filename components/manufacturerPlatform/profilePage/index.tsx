@@ -11,8 +11,9 @@ import {
     MANUFACTURER_SUPPORT_URL,
     PRODUCTION_LEAD_TIME_OPTIONS,
     STAFF_RANGE_OPTIONS,
-    getOptionLabel,
 } from "@/constant/manufacturer";
+import { getProfileOptionLabel } from "@/lib/mappers/profileMappers";
+import LoadError from "../loadError";
 import { useManufacturerProfile } from "../dashboardLayout/manufacturerProfileContext";
 import { useLogout } from "../dashboardLayout/logoutContext";
 import LinkList, { type LinkListItem } from "../linkList";
@@ -55,7 +56,7 @@ const PROFILE_LINKS: LinkListItem[] = [
         href: MANUFACTURER_SECURITY_URL,
         icon: ShieldCheck,
         title: "Security",
-        description: "Password, linked accounts and two-factor authentication",
+        description: "Password and two-factor authentication",
     },
     {
         href: MANUFACTURER_LEGAL_URL,
@@ -71,21 +72,21 @@ const PROFILE_LINKS: LinkListItem[] = [
     },
 ];
 
-/** "21 to 30" -> "21 - 30". */
+/** "21 to 30" -> "21 - 30". "" (never set) -> "Not set". */
 function formatRange(label: string): string {
-    return label.replace(" to ", " - ");
+    return label ? label.replace(" to ", " - ") : "Not set";
 }
 
 /** Their points page: history and how ranks work. */
 const POINTS_URL = "/manufacturer/profile/points";
 
 export default function ManufacturerProfilePage() {
-    const { profile, isLoading } = useManufacturerProfile();
+    const { profile, isLoading, isError } = useManufacturerProfile();
     const { requestLogout } = useLogout();
     const router = useRouter();
     // Their standing (rank, stars, points; over completed jobs) and their plan (the shell has loaded it already)
     const points = useMyPoints();
-    const { data: plan, isPending: isPlanLoading } = useQuery({
+    const { data: plan, isPending: isPlanLoading, isError: isPlanError } = useQuery({
         queryKey: queryKeys.subscription.details(),
         queryFn: () => subscriptionService.getSubscription(),
     });
@@ -97,23 +98,36 @@ export default function ManufacturerProfilePage() {
 
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
                 <div className="flex flex-col gap-6 lg:w-65 lg:shrink-0">
-                    <ProfileCard
-                        profile={profile}
-                        loading={isLoading}
-                        standing={
-                            points.summary ? { rankId: points.summary.rank, averageRating: points.summary.averageRating } : undefined
-                        }
-                    />
+                    {isError ? (
+                        <section className="rounded-xl border border-border bg-white p-5">
+                            <LoadError>Couldn&apos;t load your profile. Please refresh the page to try again.</LoadError>
+                        </section>
+                    ) : (
+                        <ProfileCard
+                            profile={profile}
+                            loading={isLoading}
+                            standing={
+                                points.summary ? { rankId: points.summary.rank, averageRating: points.summary.averageRating } : undefined
+                            }
+                        />
+                    )}
                     {isPlanLoading ? (
                         <ManufacturerPlanCardSkeleton />
+                    ) : isPlanError ? (
+                        <section className="flex flex-col gap-2 rounded-xl border border-border bg-white p-5">
+                            <h2 className="text-xs font-medium font-text tracking-wide text-mist-500 uppercase">Current plan</h2>
+                            <LoadError>Couldn&apos;t load your plan. Please refresh the page to try again.</LoadError>
+                        </section>
                     ) : (
                         subscription && (
                             <ManufacturerPlanCard
                                 subscription={{
                                     planId: subscription.planId,
                                     billingCycle: subscription.billingCycle,
-                                    renewsAt: subscription.renewsAt ?? new Date().toISOString(),
+                                    renewsAt: subscription.renewsAt,
                                     renewalsPaidFrom: subscription.renewalsPaidFrom,
+                                    status: subscription.status,
+                                    cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
                                 }}
                                 manageHref={MANUFACTURER_PLAN_SETTINGS_URL}
                             />
@@ -122,23 +136,30 @@ export default function ManufacturerProfilePage() {
                 </div>
 
                 <div className="flex min-w-0 flex-1 flex-col gap-8 lg:gap-6">
-                    <OverviewCardGrid columns={2}>
-                        <OverviewCard
-                            icon={UsersRound}
-                            label="Number of staff"
-                            value={formatRange(getOptionLabel(STAFF_RANGE_OPTIONS, profile.staffRange))}
-                            loading={isLoading}
-                        />
-                        <OverviewCard
-                            icon={Clock}
-                            label="Avg. production time"
-                            value={formatRange(getOptionLabel(PRODUCTION_LEAD_TIME_OPTIONS, profile.productionLeadTime))}
-                            loading={isLoading}
-                        />
-                    </OverviewCardGrid>
+                    {/* On a profile error the card's place says so: no "Not set" for figures that didn't load */}
+                    {!isError && (
+                        <OverviewCardGrid columns={2}>
+                            <OverviewCard
+                                icon={UsersRound}
+                                label="Number of staff"
+                                value={formatRange(getProfileOptionLabel(STAFF_RANGE_OPTIONS, profile.staffRange))}
+                                loading={isLoading}
+                            />
+                            <OverviewCard
+                                icon={Clock}
+                                label="Avg. production time"
+                                value={formatRange(getProfileOptionLabel(PRODUCTION_LEAD_TIME_OPTIONS, profile.productionLeadTime))}
+                                loading={isLoading}
+                            />
+                        </OverviewCardGrid>
+                    )}
 
                     {/* Their rank, points and how far to the next rank */}
-                    {points.isError ? null : (
+                    {points.isError ? (
+                        <section className="rounded-2xl border border-mist-200 bg-white p-5">
+                            <LoadError>Couldn&apos;t load your points. Please refresh the page to try again.</LoadError>
+                        </section>
+                    ) : (
                         <PointsSummaryCard
                             points={points.summary?.points ?? 0}
                             progression={points.summary?.progression}

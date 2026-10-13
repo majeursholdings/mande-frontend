@@ -26,6 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Notice from "../notice";
 import LoadError from "../loadError";
 import SettingsSection from "../settingsSection";
+import PaymentMethods, { PaymentMethodsSkeleton } from "./paymentMethods";
 import { PLAN_SETTINGS_PATH, useManufacturerSubscription } from "../dashboardLayout/manufacturerSubscriptionContext";
 import type { ManufacturerSubscription } from "@/constant/manufacturer";
 import { usePlans } from "@/hooks/usePlans";
@@ -41,7 +42,7 @@ const STATUS_BADGE: Record<ManufacturerSubscription["status"], { label: string; 
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PlanTab — the current plan, switching plans, and cancelling.
+// PlanTab — the current plan, switching plans, saved cards and cancelling.
 //   Upgrade   → pay the difference (wallet or card), applies now
 //   Downgrade → confirm, applies when the billing period ends
 //   Cancel    → confirm, the plan ends when the billing period ends
@@ -49,7 +50,8 @@ const STATUS_BADGE: Record<ManufacturerSubscription["status"], { label: string; 
 // that isn't active (it lapsed or ended) is paid for in full instead, any
 // plan they choose; a failed payment can be tried again from here. An upgrade
 // paid with a new card comes back here from the payment partner's checkout
-// with ?reference=…, which is checked before the new plan shows.
+// with ?reference=…, which is checked before the new plan shows. Adding a
+// card (see PaymentMethods) comes back the same way.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function PlanTab() {
@@ -86,8 +88,14 @@ export default function PlanTab() {
                     toast.info("We're still confirming your payment. Refresh this page in a minute to check again.");
                     return;
                 }
-                if (payment?.status === "succeeded") toast.success("Payment successful. Your new plan is active.");
-                else toast.error(payment?.failureReason || "Payment didn't go through. Please try again.");
+                const isCardCheck = payment?.kind === "card_check";
+                if (payment?.status === "succeeded") {
+                    toast.success(isCardCheck
+                        ? `Card saved. The ${formatPrice(payment.amountKobo / 100)} check will be refunded to it.`
+                        : "Payment successful. Your new plan is active.");
+                } else {
+                    toast.error(payment?.failureReason || (isCardCheck ? "Your card couldn't be saved. Please try again." : "Payment didn't go through. Please try again."));
+                }
                 router.replace(`${pathname}?tab=plan`);
             } catch (err) {
                 toast.error(getErrorMessage(err, "Couldn't check your payment. Refresh this page to try again."));
@@ -99,6 +107,8 @@ export default function PlanTab() {
     const [dialog, setDialog] = useState<PlanDialog | null>(null);
     // Kept after closing so the dialog's content stays put while it animates out
     const [targetPlanId, setTargetPlanId] = useState<string | null>(null);
+    // While "Keep" / "Resume plan" is saving, so it can't be sent twice
+    const [isKeepingPlan, setIsKeepingPlan] = useState(false);
 
     if (isLoading || isPlansPending || isConfirming) {
         return <PlanTabSkeleton isConfirming={isConfirming} />;
@@ -116,8 +126,13 @@ export default function PlanTab() {
     const cycle = subscription.billingCycle;
     const per = cycle === "annual" ? "year" : "month";
     const currentPrice = getPlanPrice(currentPlan, cycle, discountPercent);
-    const periodEnd = formatOrdinalDate(new Date(subscription.renewsAt));
+    // Null when the API has no period end: the lines that name it are left out or reworded
+    const periodEnd = subscription.renewsAt ? formatOrdinalDate(new Date(subscription.renewsAt)) : null;
+    /** "on 3rd May", or "when this billing period ends" without a date. */
+    const atPeriodEnd = periodEnd ? `on ${periodEnd}` : "when this billing period ends";
     const scheduledPlan = getPlan(subscription.scheduledPlanId);
+    // What the next renewal charges: the scheduled downgrade's price, if there is one
+    const renewalPrice = getPlanPrice(scheduledPlan ?? currentPlan, cycle, discountPercent);
     const targetPlan = getPlan(targetPlanId);
 
     const openDialog = (kind: PlanDialog, planId?: string) => {
@@ -162,11 +177,15 @@ export default function PlanTab() {
     };
 
     const handleKeepPlan = async () => {
+        if (isKeepingPlan) return;
+        setIsKeepingPlan(true);
         try {
             await keepCurrentPlan();
             toast.success(`You'll stay on the ${currentPlan.name} plan`);
         } catch (err) {
             toast.error(getErrorMessage(err, "Couldn't update your plan. Please try again."));
+        } finally {
+            setIsKeepingPlan(false);
         }
     };
 
@@ -195,7 +214,7 @@ export default function PlanTab() {
                         </p>
                     </div>
                     <PlanFeatures plan={currentPlan} />
-                    {isActive && (
+                    {isActive && periodEnd && (
                         <p className="text-sm font-text text-mist-600">
                             {subscription.cancelAtPeriodEnd ? "Ends" : "Renews"} on {periodEnd}
                         </p>
@@ -210,7 +229,7 @@ export default function PlanTab() {
                     {!isActive && (
                         <Notice tone="warning">
                             {subscription.status === "past_due"
-                                ? `Your plan ran out on ${periodEnd} and hasn't been renewed.`
+                                ? `Your plan ran out${periodEnd ? ` on ${periodEnd}` : ""} and hasn't been renewed.`
                                 : subscription.status === "cancelled"
                                   ? "Your plan has ended."
                                   : "Your plan hasn't been paid for yet."}{" "}
@@ -233,17 +252,17 @@ export default function PlanTab() {
 
                     {scheduledPlan && (
                         <Notice>
-                            Your plan changes to {scheduledPlan.name} on {periodEnd}.{" "}
-                            <InlineAction onClick={handleKeepPlan}>
+                            Your plan changes to {scheduledPlan.name} {atPeriodEnd}.{" "}
+                            <InlineAction onClick={handleKeepPlan} pending={isKeepingPlan}>
                                 Keep {currentPlan.name}
                             </InlineAction>
                         </Notice>
                     )}
                     {subscription.cancelAtPeriodEnd && (
                         <Notice tone="warning">
-                            Your plan ends on {periodEnd}. After that, you won&apos;t be matched
+                            Your plan ends {atPeriodEnd}. After that, you won&apos;t be matched
                             with new jobs.{" "}
-                            <InlineAction onClick={handleKeepPlan}>Resume plan</InlineAction>
+                            <InlineAction onClick={handleKeepPlan} pending={isKeepingPlan}>Resume plan</InlineAction>
                         </Notice>
                     )}
                 </div>
@@ -310,6 +329,8 @@ export default function PlanTab() {
                 </ul>
             </SettingsSection>
 
+            <PaymentMethods subscription={subscription} renewalPrice={renewalPrice} renewsOn={periodEnd} />
+
             {isActive && (
             <SettingsSection headingLevel="h3"
                 title="Cancel plan"
@@ -322,7 +343,7 @@ export default function PlanTab() {
                         onClick={() => openDialog("cancel")}
                         className="h-9 rounded-button border border-error-200 px-4 text-sm font-medium font-text text-error-600 transition-colors duration-200 cursor-pointer enabled:hover:bg-error-50 disabled:cursor-default disabled:border-border disabled:text-mist-400"
                     >
-                        {subscription.cancelAtPeriodEnd ? `Ends on ${periodEnd}` : "Cancel plan"}
+                        {subscription.cancelAtPeriodEnd ? (periodEnd ? `Ends on ${periodEnd}` : "Cancelled") : "Cancel plan"}
                     </button>
                 </div>
             </SettingsSection>
@@ -348,7 +369,7 @@ export default function PlanTab() {
                     <div className="flex flex-col gap-1">
                         <DialogTitle>Switch to {targetPlan?.name}?</DialogTitle>
                         <DialogDescription>
-                            Your plan changes on {periodEnd}, when this billing period ends.
+                            Your plan changes {periodEnd ? `on ${periodEnd}, ` : ""}when this billing period ends.
                             You&apos;ll keep {currentPlan.name}&apos;s features until then, and
                             pay {targetPlan && formatPrice(getPlanPrice(targetPlan, cycle, discountPercent))} per{" "}
                             {per} after.
@@ -360,7 +381,7 @@ export default function PlanTab() {
                         onConfirm={async () => {
                             if (!targetPlan) return;
                             await scheduleDowngrade(targetPlan.id);
-                            toast.success(`Your plan changes to ${targetPlan.name} on ${periodEnd}`);
+                            toast.success(`Your plan changes to ${targetPlan.name} ${atPeriodEnd}`);
                             closeDialog();
                         }}
                     />
@@ -372,7 +393,7 @@ export default function PlanTab() {
                     <div className="flex flex-col gap-1">
                         <DialogTitle>Cancel your plan?</DialogTitle>
                         <DialogDescription>
-                            You&apos;ll keep {currentPlan.name} until {periodEnd}. After that, it
+                            You&apos;ll keep {currentPlan.name} until {periodEnd ?? "the end of this billing period"}. After that, it
                             won&apos;t renew and you won&apos;t be matched with new jobs.
                         </DialogDescription>
                     </div>
@@ -383,7 +404,7 @@ export default function PlanTab() {
                         onCancel={closeDialog}
                         onConfirm={async () => {
                             await cancelPlan();
-                            toast.success(`Your plan will end on ${periodEnd}`);
+                            toast.success(`Your plan will end ${atPeriodEnd}`);
                             closeDialog();
                         }}
                     />
@@ -438,6 +459,8 @@ function PlanTabSkeleton({ isConfirming }: { isConfirming: boolean }) {
                     ))}
                 </ul>
             </SettingsSection>
+
+            <PaymentMethodsSkeleton />
         </>
     );
 }
@@ -455,13 +478,25 @@ function PlanFeatures({ plan }: { plan: PricingPlan }) {
     );
 }
 
-function InlineAction({ onClick, children }: { onClick: () => void | Promise<void>; children: ReactNode }) {
+function InlineAction({
+    onClick,
+    pending = false,
+    children,
+}: {
+    onClick: () => void | Promise<void>;
+    /** Disabled with a spinner while its change is saving. */
+    pending?: boolean;
+    children: ReactNode;
+}) {
     return (
         <button
             type="button"
             onClick={onClick}
-            className="font-medium text-secondary-700 hover:underline cursor-pointer"
+            disabled={pending}
+            aria-busy={pending}
+            className="inline-flex items-center gap-1 font-medium text-secondary-700 enabled:hover:underline cursor-pointer disabled:cursor-default disabled:opacity-60"
         >
+            {pending && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
             {children}
         </button>
     );

@@ -7,6 +7,9 @@ import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { isPhoneNumber, validators } from "@/components/form/form.validators";
 import { manufacturerService } from "@/lib/services/manufacturerService";
+import { mapApiProfileToManufacturerProfile } from "@/lib/mappers/profileMappers";
+import { getErrorMessage } from "@/lib/api";
+import LoadError from "@/components/manufacturerPlatform/loadError";
 import { useManufacturerProfile } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerProfileContext";
 import { FormSubmitButton } from "./formButtons";
 import FormFieldsSkeleton from "./formFieldsSkeleton";
@@ -77,7 +80,7 @@ const FIELDS: FormFieldConfig[] = [
 ];
 
 export default function ProfileBasicInfoForm() {
-    const { profile, updateProfile, isLoading: isProfileLoading } = useManufacturerProfile();
+    const { profile, applyProfileResponse, isLoading: isProfileLoading, isError: isProfileError } = useManufacturerProfile();
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<BasicInfoFormValues>({
         mode: "onTouched",
@@ -106,24 +109,25 @@ export default function ProfileBasicInfoForm() {
     const handleSubmit = async (values: BasicInfoFormValues) => {
         setIsLoading(true);
         try {
-            const changes = {
+            const response = await manufacturerService.updateBasicInfo({
                 firstName: values.firstName.trim(),
                 lastName: values.lastName.trim(),
-                phoneNumber: values.phoneNumber.trim(),
-                dateOfBirth: values.dateOfBirth,
-            };
-            await manufacturerService.updateBasicInfo({
-                firstName: changes.firstName,
-                lastName: changes.lastName,
-                phone: changes.phoneNumber,
-                dateOfBirth: changes.dateOfBirth || undefined,
+                phone: values.phoneNumber.trim(),
+                dateOfBirth: values.dateOfBirth || undefined,
             });
-            updateProfile(changes);
-            // The saved values become the new baseline, so Save greys out again
-            methods.reset({ ...changes, email: profile.email });
+            applyProfileResponse(response);
+            // What the API saved becomes the new baseline, so Save greys out again
+            const saved = mapApiProfileToManufacturerProfile(response, profile);
+            methods.reset({
+                firstName: saved.firstName,
+                lastName: saved.lastName,
+                email: saved.email,
+                phoneNumber: saved.phoneNumber,
+                dateOfBirth: saved.dateOfBirth ?? "",
+            });
             toast.success("Profile updated successfully");
-        } catch {
-            toast.error("Couldn't update your profile. Please try again.");
+        } catch (err) {
+            toast.error(getErrorMessage(err, "Couldn't update your profile. Please try again."));
         } finally {
             setIsLoading(false);
         }
@@ -136,6 +140,10 @@ export default function ProfileBasicInfoForm() {
 
     if (isProfileLoading) {
         return <FormFieldsSkeleton fields={FIELDS} rowPairs={rowPairs} />;
+    }
+
+    if (isProfileError) {
+        return <LoadError>Couldn&apos;t load your details. Please refresh the page to try again.</LoadError>;
     }
 
     return (
