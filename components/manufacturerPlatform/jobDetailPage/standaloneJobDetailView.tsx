@@ -9,6 +9,7 @@ import {
     useManufacturerJobDetail,
     JobDetailSkeleton,
     JobDetailNotFound,
+    JobDetailLoadError,
 } from "./useManufacturerJobDetail";
 import {
     MANUFACTURER_ACTIVE_JOBS_URL,
@@ -17,7 +18,7 @@ import {
 
 export default function StandaloneJobDetailView({ jobId }: { jobId: string }) {
     const router = useRouter();
-    const { data, isPending, isError } = useManufacturerJobDetail(jobId);
+    const { data, isPending, isError, refetch, isFetching } = useManufacturerJobDetail(jobId);
 
     const backUrl =
         data?.type === "assigned"
@@ -36,7 +37,9 @@ export default function StandaloneJobDetailView({ jobId }: { jobId: string }) {
             <div className="rounded-xl border border-border bg-white overflow-hidden min-h-[480px]">
                 {isPending ? (
                     <JobDetailSkeleton closeSlot={<span />} />
-                ) : !data || isError ? (
+                ) : isError ? (
+                    <JobDetailLoadError closeSlot={<span />} onRetry={() => void refetch()} isRetrying={isFetching} />
+                ) : !data ? (
                     <JobDetailNotFound
                         closeSlot={<span />}
                         onBack={() => router.push(MANUFACTURER_JOBS_URL)}

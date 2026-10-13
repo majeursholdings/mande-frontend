@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { isActiveJob, type JobApplication } from "@/constant/manufacturer";
 import type { PricingPlan } from "@/constant/plans";
@@ -18,9 +18,10 @@ import { usePlans } from "@/hooks/usePlans";
 // and how many of their plan's concurrent job slots are in use: one for each
 // active assigned job, and one for each application. Applying needs a free
 // slot. The dashboard, the jobs page and the open job detail all read the
-// count from here, so it's the same everywhere. Both come from the API: each
-// open job carries the manufacturer's own application, and their assigned
-// jobs say which are active. Applying and withdrawing go to the API first.
+// count from here, so it's the same everywhere. The slots in use and the
+// limit come from the API's jobs overview (the same count it checks on
+// applying); each open job carries the manufacturer's own application.
+// Applying and withdrawing go to the API first.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type JobSlots = {
@@ -59,6 +60,11 @@ export function JobApplicationsProvider({ children }: { children: ReactNode }) {
 
     const { rawJobs: openJobs, isPending: isOpenJobsPending } = useOpenJobList();
     const { jobs: myJobs, isPending: isMyJobsPending } = useMyJobList();
+    // The server's own count of slots in use, and its limit: what it checks when they apply
+    const { data: overview, isPending: isOverviewPending, isError: isOverviewError } = useQuery({
+        queryKey: queryKeys.jobs.overview(),
+        queryFn: () => jobsService.getOverview(),
+    });
 
     const applications: JobApplication[] = useMemo(
         () =>
@@ -67,47 +73,64 @@ export function JobApplicationsProvider({ children }: { children: ReactNode }) {
                 .map((job) => ({ jobId: job.id, appliedAt: job.application?.appliedAt ?? "" })),
         [openJobs],
     );
-    const activeJobCount = useMemo(() => myJobs.filter(isActiveJob).length, [myJobs]);
-
     const { getPlan, isPending: isPlansPending } = usePlans();
     const plan = getPlan(subscription?.planId);
-    // An unknown plan gets no slots rather than unlimited ones; a flagged
-    // account gets one, whatever the plan
-    const planLimit = plan ? plan.maxConcurrentJobs : 0;
-    const limit = isFlagged ? Math.min(planLimit ?? 1, 1) : planLimit;
     const applicationCount = applications.length;
+    // Only if the overview couldn't load: counted from the loaded lists and plan instead
+    const browserActiveJobCount = useMemo(() => myJobs.filter(isActiveJob).length, [myJobs]);
+    const planLimit = plan ? plan.maxConcurrentJobs : 0;
+    const browserLimit = isFlagged ? Math.min(planLimit ?? 1, 1) : planLimit;
+
+    const used = overview ? overview.usedSlots : browserActiveJobCount + applicationCount;
+    const limit = overview ? overview.slotLimit : browserLimit;
+    // The breakdown: the server counts both together, so active jobs are what isn't an application
+    const activeJobCount = overview ? Math.max(0, overview.usedSlots - applicationCount) : browserActiveJobCount;
 
     const slots: JobSlots = useMemo(
         () => ({
             activeJobCount,
             applicationCount,
-            used: activeJobCount + applicationCount,
+            used,
             limit,
-            canApply: limit === null || activeJobCount + applicationCount < limit,
+            canApply: limit === null || used < limit,
             accountHold: isFlagged ? "flagged" : null,
         }),
-        [activeJobCount, applicationCount, limit, isFlagged],
+        [activeJobCount, applicationCount, used, limit, isFlagged],
     );
 
     const getApplication = useCallback(
         (jobId: string) => applications.find((application) => application.jobId === jobId),
         [applications],
     );
+    // The job lists and overview (under jobs.all), and the dashboard's figures
+    const refreshJobs = useCallback(
+        () =>
+            Promise.all([
+                queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.manufacturers.dashboard() }),
+            ]),
+        [queryClient],
+    );
     const apply = useCallback(
         async (jobId: string) => {
             await jobsService.applyForJob(jobId);
-            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+            await refreshJobs();
         },
-        [queryClient],
+        [refreshJobs],
     );
     const withdraw = useCallback(
         async (jobId: string) => {
             await jobsService.withdrawApplication(jobId);
-            await queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+            await refreshJobs();
         },
-        [queryClient],
+        [refreshJobs],
     );
-    const isLoading = isSubscriptionLoading || isOpenJobsPending || isMyJobsPending || isPlansPending;
+    const isLoading =
+        isSubscriptionLoading ||
+        isOpenJobsPending ||
+        isPlansPending ||
+        isOverviewPending ||
+        (isOverviewError && isMyJobsPending);
 
     const value: JobApplicationsContextValue = useMemo(
         () => ({ applications, getApplication, apply, withdraw, slots, plan, isLoading }),

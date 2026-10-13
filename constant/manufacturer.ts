@@ -8,11 +8,13 @@ import {
     JOB_PRODUCTION_STEPS,
     MAX_JOB_REJECTIONS,
     getApprovedStepKeys,
-    getAutoApproveAt,
     getJobPayments,
-    settleStepSubmissions,
+    type JobBonus,
     type JobFaultReport,
+    type JobPayment,
     type JobPaymentInput,
+    type JobRules,
+    type ProductionStepKey,
     type StepSubmission,
 } from "@/constant/jobWorkflow";
 import {
@@ -95,8 +97,6 @@ export const MATERIALS_INVENTORY_OPTIONS: SelectOption[] = [
 
 export const MANUFACTURER_DASHBOARD_URL = "/manufacturer/dashboard";
 export const MANUFACTURER_JOBS_URL = "/manufacturer/jobs";
-export const MANUFACTURER_TIMELINE_URL = "/manufacturer/timeline";
-export const MANUFACTURER_FILES_URL = "/manufacturer/files";
 export const MANUFACTURER_TRANSACTIONS_URL = "/manufacturer/transactions";
 export const MANUFACTURER_REVIEWS_URL = "/manufacturer/reviews";
 export const MANUFACTURER_PROFILE_URL = "/manufacturer/profile";
@@ -214,12 +214,25 @@ export type JobAttachment = {
     url: string;
 };
 
+/** A note on a job's thread, from the manufacturer(s) on it or its project lead / a super admin. */
+export type JobNote = {
+    id: string;
+    authorName: string;
+    /** "Project lead", "Super admin", or the manufacturer's company name. */
+    roleLabel: string;
+    message: string;
+    /** ISO date it was posted. Null if the API didn't say. */
+    createdAt: string | null;
+};
+
 export type JobRejection = {
     reason: string;
-    /** ISO date string the admin rejected the work. */
-    rejectedAt: string;
+    /** ISO date string the admin rejected the work. Null if the API didn't say. */
+    rejectedAt: string | null;
     /** The submitted photos this rejection was for. */
     imageUrls: string[];
+    /** The lead's proof of the defect or the client's rejection. */
+    attachments?: JobAttachment[];
 };
 
 /**
@@ -231,10 +244,13 @@ export function getJobSteps({
     stepSubmissions,
     rejections,
     status,
+    maxRejections = MAX_JOB_REJECTIONS,
 }: {
     stepSubmissions: StepSubmission[];
     rejections: JobRejection[];
     status: JobStatus;
+    /** The job's own limit (its rules), when the API sent it. */
+    maxRejections?: number;
 }): { steps: ProductionStep[]; completedCount: number } {
     const steps: ProductionStep[] = [...JOB_PRODUCTION_STEPS];
     let completedCount = getApprovedStepKeys(stepSubmissions).length;
@@ -247,7 +263,7 @@ export function getJobSteps({
         completedCount += 1;
 
         // No resubmission is allowed after the final rejection
-        if (n >= MAX_JOB_REJECTIONS) return;
+        if (n >= maxRejections) return;
         steps.push({ key: `redeliver-${n}`, label: `Redeliver${suffix}` });
         // Redelivered if a later rejection exists, or it's been resubmitted
         // since the latest one (i.e. the job has moved on from "rejected")
@@ -270,8 +286,8 @@ export type Job = {
     dateAssigned: string | null;
     /** ISO date the work is planned to start. Null if none was set. */
     startDate: string | null;
-    /** ISO date string the job is due. */
-    dueDate: string;
+    /** ISO date string the job is due. Null if the API didn't say. */
+    dueDate: string | null;
     commentCount: number;
     /** What the manufacturer is paid for the job, in naira. */
     price: number;
@@ -302,12 +318,29 @@ export type Job = {
     leadReview: { rating: number; comment: string; createdAt: string } | null;
     /** The lead rated the finished work 3 stars or less: a super admin is taking a second look before it's signed off. */
     isHeldForReview: boolean;
+    /** They accepted a shared job, which waits for the other manufacturer(s) to accept too. */
+    awaitingOthers?: boolean;
+    /** Their six payments as the API worked them out (amounts in naira). Absent on records not from the API. */
+    payments?: JobPayment[];
+    /** Their on-time bonus as the API worked it out. */
+    bonus?: JobBonus;
+    /** How many times the finished work can be rejected (the job's rules). */
+    maxRejections?: number;
+    /** Whether the API says they can still cancel. */
+    canCancel?: boolean;
+    /** The step they're on, as the API says. Null once all are approved, or before the job is theirs. */
+    currentStep?: ProductionStepKey | null;
+    /** The rules the job runs under (the platform's when it was created). */
+    rules?: JobRules | null;
+    /** The job's notes thread, oldest first. Empty until the job is theirs. */
+    notes?: JobNote[];
 };
 
-/** What a job's payments are worked out from (see constant/jobWorkflow.ts). */
-export function getJobPaymentInput(
+/** What a job's payments are worked out from, for a job the API didn't send them for. */
+function getJobPaymentInput(
     job: Pick<Job, "price" | "dueDate" | "dateAssigned" | "stepSubmissions" | "completedAt" | "rejections" | "faultReport">,
-): JobPaymentInput {
+): JobPaymentInput | null {
+    if (!job.dueDate) return null;
     return {
         amount: job.price,
         dueDate: job.dueDate,
@@ -318,22 +351,6 @@ export function getJobPaymentInput(
         faultReport: job.faultReport ?? null,
     };
 }
-
-/**
- * The job with every auto-approval that's come due by `now` applied — step
- * proof, and finished work, left unreviewed for a day (not counting Sundays).
- */
-export function settleJob<
-    T extends Pick<Job, "status" | "stepSubmissions" | "submittedForReviewAt" | "completedAt"> &
-        Partial<Pick<Job, "isHeldForReview">>,
->(job: T, now: Date = new Date()): T {
-    const settled = { ...job, stepSubmissions: settleStepSubmissions(job.stepSubmissions, now) };
-    // Held for further review: waiting for a super admin, not the clock
-    if (job.status !== "in-review" || !job.submittedForReviewAt || job.isHeldForReview) return settled;
-    const approveAt = getAutoApproveAt(job.submittedForReviewAt);
-    return approveAt <= now ? { ...settled, status: "completed", completedAt: approveAt.toISOString() } : settled;
-}
-
 
 export const JOB_STATUS_ORDER: JobStatus[] = [
     "pending",
@@ -484,13 +501,13 @@ export type ManufacturerFeedback = Omit<SupportFeedbackRecord, "manufacturerId">
  * slots — from assignment until it's completed, cancelled, or rejected for
  * the last time (when it can no longer be resubmitted).
  */
-export function isActiveJob(job: Pick<Job, "status" | "rejections">): boolean {
+export function isActiveJob(job: Pick<Job, "status" | "rejections" | "maxRejections">): boolean {
     switch (job.status) {
         case "completed":
         case "cancelled":
             return false;
         case "rejected":
-            return (job.rejections?.length ?? 0) < MAX_JOB_REJECTIONS;
+            return (job.rejections?.length ?? 0) < (job.maxRejections ?? MAX_JOB_REJECTIONS);
         default:
             return true;
     }
@@ -506,14 +523,20 @@ export function getCurrentJobsWorth(
     now: Date = new Date(),
 ): { count: number; worth: number; stillToCome: number } {
     const current = jobs.filter((job) => job.status !== "pending" && isActiveJob(job));
+    // The API's own payments when it sent them; worked out here only for a job it didn't
+    const paymentsOf = (job: Job): JobPayment[] => {
+        if (job.payments) return job.payments;
+        const input = getJobPaymentInput(job);
+        return input ? getJobPayments(input, now).payments : [];
+    };
     return current.reduce(
         (total, job) => ({
             count: total.count + 1,
             worth: total.worth + job.price,
             stillToCome:
                 total.stillToCome +
-                getJobPayments(getJobPaymentInput(job), now)
-                    .payments.filter((payment) => !payment.releasedAt)
+                paymentsOf(job)
+                    .filter((payment) => !payment.releasedAt)
                     .reduce((sum, payment) => sum + payment.amount, 0),
         }),
         { count: 0, worth: 0, stillToCome: 0 },
@@ -541,12 +564,12 @@ export type OpenJob = {
     category: string;
     /** What the manufacturer is paid for the job, in naira. */
     price: number;
-    /** ISO date the work is planned to start. */
-    startDate: string;
-    /** ISO date the finished furniture is due. */
-    dueDate: string;
-    /** ISO date the job was posted. */
-    postedAt: string;
+    /** ISO date the work is planned to start. Null if the API didn't say. */
+    startDate: string | null;
+    /** ISO date the finished furniture is due. Null if the API didn't say. */
+    dueDate: string | null;
+    /** ISO date the job was posted. Null if the API didn't say. */
+    postedAt: string | null;
     /** A photo of the furniture to make — every open job has one. */
     imageUrl: string;
     deliveryLocation?: { city: string; state: string } | null;
@@ -618,6 +641,8 @@ export type ManufacturerProfile = {
     staffRange: string;
     /** A PRODUCTION_LEAD_TIME_OPTIONS value, e.g. "5-8-weeks". Empty until set. */
     productionLeadTime: string;
+    /** A MATERIALS_INVENTORY_OPTIONS value ("yes" / "no"). Empty until set; left out where it isn't known. */
+    materialsInventory?: string;
     /** The NIN card photo uploaded at sign-up (or re-uploaded after a rejection), and where it is in verification. */
     ninCard: ManufacturerNinCard;
     security: ManufacturerSecurity;
@@ -882,12 +907,19 @@ export type ManufacturerSubscription = {
      * Only an active plan can be upgraded, downgraded or cancelled.
      */
     status: "active" | "past_due" | "pending_payment" | "cancelled";
-    /** ISO date the current billing period ends and the plan renews. */
-    renewsAt: string;
+    /** ISO date the current billing period ends and the plan renews. Null when the API has no period end (e.g. never paid for). */
+    renewsAt: string | null;
     /** Cancelled by the manufacturer — the plan stays active until renewsAt, then ends. */
     cancelAtPeriodEnd: boolean;
     /** A downgrade waiting to take effect at renewsAt. Null when none is scheduled. */
     scheduledPlanId: string | null;
+    /** Where renewals are charged: the wallet balance, or a saved card. */
+    renewalsPaidFrom: "wallet" | "card";
+    /**
+     * The saved card renewals are charged to, when paid by card. Null when
+     * none is chosen: the newest saved card is charged instead.
+     */
+    renewalCardId: string | null;
 };
 
 export type SavedCard = {
@@ -898,4 +930,35 @@ export type SavedCard = {
     /** "MM/YY" */
     expiry: string;
 };
+
+/** What saving a new card charges (refunded once it's saved), in naira. Mirrors the API's CARD_CHECK_KOBO. */
+export const CARD_CHECK_AMOUNT = 50;
+/** The most cards a manufacturer can keep saved. Mirrors the API's MAX_SAVED_CARDS. */
+export const MAX_SAVED_CARDS = 5;
+
+/** "Visa •••• 4081", the way a saved card is named on screen. */
+export const savedCardLabel = (card: Pick<SavedCard, "brand" | "last4">) => `${card.brand} •••• ${card.last4}`;
+
+/** True once the card's expiry month ("MM/YY") is over. False when the expiry isn't known. */
+export function isCardExpired(card: Pick<SavedCard, "expiry">, now = new Date()): boolean {
+    const match = /^(\d{2})\/(\d{2})$/.exec(card.expiry.trim());
+    if (!match) return false;
+    const month = Number(match[1]);
+    if (month < 1 || month > 12) return false;
+    // A card works until the end of its expiry month: the 1st of the next month, local time
+    return now >= new Date(2000 + Number(match[2]), month, 1);
+}
+
+/**
+ * The saved card renewals are charged to, as the API picks it: the chosen
+ * card, or else the newest saved one (`cards` come newest first). Null when
+ * renewals are paid from the wallet or there's no card to charge.
+ */
+export function renewalCardOf(
+    subscription: Pick<ManufacturerSubscription, "renewalsPaidFrom" | "renewalCardId">,
+    cards: SavedCard[],
+): SavedCard | null {
+    if (subscription.renewalsPaidFrom !== "card") return null;
+    return cards.find((card) => card.id === subscription.renewalCardId) ?? cards[0] ?? null;
+}
 

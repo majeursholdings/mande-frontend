@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import type { Job, OpenJob } from "@/constant/manufacturer";
 import { mapApiJobToManufacturerJob, mapApiOpenJobToOpenJob, type ApiJobPayload } from "@/lib/mappers/jobMappers";
 import { queryKeys } from "@/lib/queryKeys";
@@ -38,4 +38,35 @@ export function useOpenJobList() {
     const rawJobs = useMemo(() => (query.data?.jobs ?? []) as ApiOpenJobWithApplication[], [query.data]);
     const jobs: OpenJob[] = useMemo(() => rawJobs.map((job) => mapApiOpenJobToOpenJob(job)), [rawJobs]);
     return { ...query, rawJobs, jobs };
+}
+
+/** How many matches the job search loads at a time. */
+const SEARCH_PAGE_LIMIT = 20;
+
+type JobListPage = { jobs?: unknown[]; nextBefore?: string | null };
+
+/**
+ * Searches every job in one list on the server, a page at a time: the open
+ * jobs on the marketplace, or the signed-in manufacturer's own ("active").
+ * Off while `term` is empty. A new term keeps showing the last results until
+ * its own arrive, so the list doesn't flash.
+ */
+export function useJobSearch<T>(scope: "open" | "active", term: string, mapJob: (job: never) => T) {
+    const q = term.trim().slice(0, 100);
+    const query = useInfiniteQuery({
+        queryKey: queryKeys.jobs.search(scope, q),
+        queryFn: ({ pageParam }): Promise<JobListPage> => {
+            const params = { limit: SEARCH_PAGE_LIMIT, q, before: pageParam ?? undefined };
+            return scope === "open" ? jobsService.getOpenJobs(params) : jobsService.getMyJobs(params);
+        },
+        initialPageParam: null as string | null,
+        getNextPageParam: (last) => last.nextBefore ?? null,
+        enabled: q.length > 0,
+        placeholderData: keepPreviousData,
+    });
+    const jobs: T[] = useMemo(
+        () => (query.data?.pages ?? []).flatMap((page) => (page.jobs ?? []) as never[]).map((job) => mapJob(job)),
+        [query.data, mapJob],
+    );
+    return { ...query, jobs };
 }

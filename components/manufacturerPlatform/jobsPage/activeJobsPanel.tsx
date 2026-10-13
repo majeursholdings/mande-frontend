@@ -19,6 +19,9 @@ import { FilterChips, FilterDropdown, type FilterOption } from "./jobFilters";
 import { SortByDropdown } from "./sortByDropdown";
 import { useMyJobList } from "@/components/manufacturerPlatform/dashboardLayout/useManufacturerJobLists";
 
+/** A date's time, or `missing` when there's none (so it sorts last). */
+const timeOf = (iso: string | null, missing: number) => (iso ? new Date(iso).getTime() : missing);
+
 function sortJobs(jobs: Job[], sortBy: string): Job[] {
     if (sortBy === "name") return [...jobs].sort((a, b) => a.title.localeCompare(b.title));
     if (sortBy === "date") {
@@ -29,7 +32,7 @@ function sortJobs(jobs: Job[], sortBy: string): Job[] {
     // Soonest due first
     if (sortBy === "due-date") {
         return [...jobs].sort(
-            (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
+            (a, b) => timeOf(a.dueDate, Infinity) - timeOf(b.dueDate, Infinity),
         );
     }
     // Alphabetical by category, then by name within a category

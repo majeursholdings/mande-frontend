@@ -13,11 +13,12 @@ import {
     useManufacturerJobDetail,
     JobDetailSkeleton,
     JobDetailNotFound,
+    JobDetailLoadError,
 } from "./useManufacturerJobDetail";
 
 export default function JobDetailSheet({ jobId }: { jobId: string }) {
     const router = useRouter();
-    const { data, isPending, isError } = useManufacturerJobDetail(jobId);
+    const { data, isPending, isError, refetch, isFetching } = useManufacturerJobDetail(jobId);
 
     const closeSlot = (
         <SheetClose className="p-1.5 rounded-full text-mist-400 hover:text-mist-700 hover:bg-mist-100 transition-colors cursor-pointer">
@@ -47,7 +48,9 @@ export default function JobDetailSheet({ jobId }: { jobId: string }) {
                 </SheetTitle>
                 {isPending ? (
                     <JobDetailSkeleton closeSlot={closeSlot} />
-                ) : !data || isError ? (
+                ) : isError ? (
+                    <JobDetailLoadError closeSlot={closeSlot} onRetry={() => void refetch()} isRetrying={isFetching} />
+                ) : !data ? (
                     <JobDetailNotFound closeSlot={closeSlot} onBack={handleClose} />
                 ) : data.type === "open" ? (
                     <OpenJobDetailContent key={data.job.id} job={data.job} closeSlot={closeSlot} />

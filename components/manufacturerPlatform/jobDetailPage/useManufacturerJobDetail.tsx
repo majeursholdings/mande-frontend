@@ -15,6 +15,10 @@ import {
 } from "@/constant/manufacturer";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { MandeApiError } from "@/lib/api";
+import LoadError from "../loadError";
+
+const isNotFound = (err: unknown) => err instanceof MandeApiError && err.status === 404;
 
 export type ManufacturerJobDetailResult =
     | { type: "assigned"; job: Job }
@@ -26,7 +30,8 @@ export async function fetchManufacturerJobDetail(
     const cleanId = (jobId ?? "").trim();
     if (!cleanId) return null;
 
-    // 1. Try to fetch as an assigned job for the signed-in manufacturer
+    // 1. Try to fetch as an assigned job for the signed-in manufacturer.
+    // Only a 404 means "not theirs": any other failure is an error to retry.
     try {
         const response = await jobsService.getMyJobDetail(cleanId);
         if (response?.job) {
@@ -35,8 +40,8 @@ export async function fetchManufacturerJobDetail(
                 job: mapApiJobToManufacturerJob(response.job as ApiJobPayload),
             };
         }
-    } catch {
-        // Not an assigned job for this user, check open jobs next
+    } catch (err) {
+        if (!isNotFound(err)) throw err;
     }
 
     // 2. Try to fetch as an open marketplace job
@@ -48,10 +53,11 @@ export async function fetchManufacturerJobDetail(
                 job: mapApiOpenJobToOpenJob(response.job as ApiJobPayload),
             };
         }
-    } catch {
-        // Not an open job either
+    } catch (err) {
+        if (!isNotFound(err)) throw err;
     }
 
+    // Neither: the job isn't there (or isn't theirs to see)
     return null;
 }
 
@@ -60,7 +66,27 @@ export function useManufacturerJobDetail(jobId: string) {
         queryKey: queryKeys.jobs.detail(jobId),
         queryFn: () => fetchManufacturerJobDetail(jobId),
         enabled: Boolean(jobId),
+        // A missing job won't appear on a retry; a network or server error might clear
+        retry: (failureCount, err) => !isNotFound(err) && failureCount < 2,
     });
+}
+
+/** The job couldn't load (not a 404): says so, with a retry. */
+export function JobDetailLoadError({ closeSlot, onRetry, isRetrying }: { closeSlot?: ReactNode; onRetry: () => void; isRetrying?: boolean }) {
+    return (
+        <div className="flex h-full flex-col">
+            <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3 border-b border-border">
+                <span className="text-sm font-medium font-text text-mist-500">Job Detail</span>
+                {closeSlot}
+            </div>
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 p-8 text-center">
+                <LoadError>Couldn&apos;t load this job. Check your connection and try again.</LoadError>
+                <Button type="button" variant="outline" size="sm" onClick={onRetry} disabled={isRetrying}>
+                    Try again
+                </Button>
+            </div>
+        </div>
+    );
 }
 
 export function JobDetailSkeleton({ closeSlot }: { closeSlot?: ReactNode }) {

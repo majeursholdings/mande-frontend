@@ -3,11 +3,10 @@
 import { CheckIcon, Clock, Undo2, XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
-import { getRelativeTimeLabel, getTimeUntilLabel } from "@/lib/date";
+import { getRelativeTimeLabel } from "@/lib/date";
 import type { ProductionStep } from "@/constant/manufacturer";
 import {
     MAX_STEP_PROOF_PHOTOS,
-    getAutoApproveAt,
     type JobPayment,
     type ProductionStepKey,
     type StepProgress,
@@ -15,11 +14,12 @@ import {
 import JobDetailCompletionUpload, { type ProofPhoto } from "@/components/manufacturerPlatform/form/jobDetailCompletionUploadForm";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// JobDetailStepRecorder — the manufacturer's production steps, in order. The
+// JobDetailStepRecorder: the manufacturer's production steps, in order. The
 // step they're on takes up to MAX_STEP_PROOF_PHOTOS photos as proof; the lead
 // approves it (the next step opens, and any payment it carries goes to their
-// wallet) or sends it back with a reason, for new proof. Proof waiting over a
-// day is approved automatically, Sundays aside. The derived "Rejected" /
+// wallet) or sends it back with a reason, for new proof. Step proof is never
+// approved automatically: a review that runs past the job's review window
+// (Sundays aside) adds days to the due date instead. The derived "Rejected" /
 // "Redeliver" steps (tone "danger" shows red with an X) follow the
 // production steps once the finished work has been reviewed.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -29,6 +29,7 @@ export default function JobDetailStepRecorder({
     completedCount,
     progress,
     payments,
+    reviewWindowHours,
     onSubmitProof,
     readOnly = false,
 }: {
@@ -39,6 +40,8 @@ export default function JobDetailStepRecorder({
     /** Where each production step stands. */
     progress: StepProgress[];
     payments: JobPayment[];
+    /** The job's review window (its rules). Null when not known: the copy leaves the number out. */
+    reviewWindowHours: number | null;
     onSubmitProof: (step: ProductionStepKey, photos: ProofPhoto[], note?: string) => Promise<void>;
     readOnly?: boolean;
 }) {
@@ -57,6 +60,7 @@ export default function JobDetailStepRecorder({
                                 <ProductionStepRow
                                     step={stepProgress}
                                     payment={payment}
+                                    reviewWindowHours={reviewWindowHours}
                                     readOnly={readOnly}
                                     onSubmitProof={(photos, note) => onSubmitProof(stepProgress.key, photos, note)}
                                 />
@@ -85,11 +89,13 @@ export default function JobDetailStepRecorder({
 function ProductionStepRow({
     step,
     payment,
+    reviewWindowHours,
     readOnly,
     onSubmitProof,
 }: {
     step: StepProgress;
     payment: JobPayment | undefined;
+    reviewWindowHours: number | null;
     readOnly: boolean;
     onSubmitProof: (photos: ProofPhoto[], note?: string) => Promise<void>;
 }) {
@@ -133,9 +139,9 @@ function ProductionStepRow({
                         step.state === "current" && "text-primary-600",
                     )}
                 >
-                    {step.state === "approved" && latest?.review && `Approved ${getRelativeTimeLabel(new Date(latest.review.at))}`}
+                    {step.state === "approved" && (latest?.review?.at ? `Approved ${getRelativeTimeLabel(new Date(latest.review.at))}` : "Approved")}
                     {step.state === "in-review" && "Waiting for review"}
-                    {step.state === "sent-back" && latest?.review && `Sent back ${getRelativeTimeLabel(new Date(latest.review.at))}`}
+                    {step.state === "sent-back" && (latest?.review?.at ? `Sent back ${getRelativeTimeLabel(new Date(latest.review.at))}` : "Sent back")}
                     {step.state === "current" && !readOnly && "You're here"}
                 </span>
             </div>
@@ -143,16 +149,19 @@ function ProductionStepRow({
             <div className="ml-9 flex flex-col gap-2">
                 {step.state === "approved" && latest?.review && (
                     <p className="text-xs font-text text-mist-500">
-                        {latest.review.by ? `Approved by ${latest.review.by}` : "Approved automatically"}
+                        {latest.review.by ? `Approved by ${latest.review.by}` : "Approved"}
                         {payment && ` · ${formatPrice(payment.amount)} paid to your wallet`}
                     </p>
                 )}
 
                 {step.state === "in-review" && latest && (
                     <p className="text-xs font-text text-mist-500">
-                        Sent {getRelativeTimeLabel(new Date(latest.submittedAt))}. If it isn&apos;t reviewed, it&apos;s approved
-                        automatically {getTimeUntilLabel(getAutoApproveAt(latest.submittedAt))}
-                        {paysLabel ? ` and ${paysLabel}` : ""}.
+                        {latest.submittedAt ? `Sent ${getRelativeTimeLabel(new Date(latest.submittedAt))}. ` : ""}
+                        Your project lead reviews it{paysLabel ? `, and once it's approved ${paysLabel}` : ""}.
+                        {step.key !== "delivery" &&
+                            (reviewWindowHours !== null
+                                ? ` If the review takes longer than ${reviewWindowHours} hours (Sundays don't count), extra days are added to your due date.`
+                                : " If the review runs late, extra days are added to your due date.")}
                     </p>
                 )}
 

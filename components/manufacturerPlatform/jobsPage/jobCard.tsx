@@ -53,7 +53,11 @@ export default function JobCard({ job, href }: { job: Job; href?: string }) {
             meta={`${getJobCategoryLabel(job.category)} · ${job.assignedLabel}`}
             description={job.description}
             price={job.price}
-            duration={formatShortDuration(new Date(job.startDate ?? job.dateAssigned ?? job.dueDate), new Date(job.dueDate))}
+            duration={
+                job.dueDate
+                    ? formatShortDuration(new Date(job.startDate ?? job.dateAssigned ?? job.dueDate), new Date(job.dueDate))
+                    : undefined
+            }
             imageUrl={displayImageUrl}
             trailing={<StatusBadge label={config.badgeLabel} tone={config.tone} variant="pill" />}
         />
@@ -74,10 +78,18 @@ export function OpenJobCard({ job }: { job: OpenJob }) {
         <JobCardFrame
             href={`${MANUFACTURER_JOBS_URL}/${job.code || job.id}`}
             title={job.title}
-            meta={`${getJobCategoryLabel(job.category)} · Posted ${getTimeAgoLabel(new Date(job.postedAt))}`}
+            meta={
+                job.postedAt
+                    ? `${getJobCategoryLabel(job.category)} · Posted ${getTimeAgoLabel(new Date(job.postedAt))}`
+                    : getJobCategoryLabel(job.category)
+            }
             description={job.description}
             price={job.price}
-            duration={formatShortDuration(new Date(job.startDate || job.postedAt), new Date(job.dueDate))}
+            duration={
+                job.dueDate && (job.startDate || job.postedAt)
+                    ? formatShortDuration(new Date((job.startDate || job.postedAt) as string), new Date(job.dueDate))
+                    : undefined
+            }
             imageUrl={displayImageUrl}
             trailing={<ApplyNowButton jobId={job.id} jobTitle={job.title} />}
         />

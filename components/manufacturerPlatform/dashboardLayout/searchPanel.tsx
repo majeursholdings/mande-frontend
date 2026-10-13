@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { X } from "lucide-react";
+import { useDebounce } from "use-debounce";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCompactPrice } from "@/lib/currency";
@@ -16,10 +17,12 @@ import {
     type JobsPageTab,
     type OpenJob,
 } from "@/constant/manufacturer";
+import { mapApiJobToManufacturerJob, mapApiOpenJobToOpenJob } from "@/lib/mappers/jobMappers";
 import EmptyState from "../dashboardPage/emptyState";
+import LoadError from "../loadError";
 import { useJobApplications } from "./jobApplicationsContext";
 import { useRecentSearches } from "./recentSearchesContext";
-import { useMyJobList, useOpenJobList } from "./useManufacturerJobLists";
+import { useJobSearch } from "./useManufacturerJobLists";
 
 /** Where a search looks — split the same way as the jobs page's tabs. */
 export type SearchScope = JobsPageTab;
@@ -39,31 +42,8 @@ const SEARCH_HINTS: Record<SearchScope, string> = {
     active: "Search your jobs by name, code, category or status.",
 };
 
-const toTerms = (query: string) => query.toLowerCase().split(/\s+/).filter(Boolean);
-
-/** Whether the fields contain every term, ignoring case — "leather rejected" finds the rejected leather jobs. */
-const matchesTerms = (terms: string[], fields: string[]) => {
-    const searchable = fields.join(" ").toLowerCase();
-    return terms.every((term) => searchable.includes(term));
-};
-
-// Filtered here, over the lists the API sent: its job lists don't take a search yet
-function searchActiveJobs(jobs: Job[], terms: string[]): Job[] {
-    return jobs.filter((job) =>
-        matchesTerms(terms, [
-            job.title,
-            job.code,
-            getJobCategoryLabel(job.category),
-            JOB_STATUS_CONFIG[job.status].label,
-        ]),
-    );
-}
-
-function searchOpenJobs(jobs: OpenJob[], terms: string[]): OpenJob[] {
-    return jobs.filter((job) =>
-        matchesTerms(terms, [job.title, job.code, getJobCategoryLabel(job.category)]),
-    );
-}
+/** How long typing pauses before the search is sent. */
+const SEARCH_DEBOUNCE_MS = 300;
 
 /** Open jobs / Active jobs — which set of jobs the search looks through. */
 function SearchScopeToggle({
@@ -118,12 +98,16 @@ export default function SearchPanel({
 }) {
     const { recentSearches, addRecentSearch, clearRecentSearches } = useRecentSearches();
     const { getApplication } = useJobApplications();
-    const terms = toTerms(query);
-    const { jobs: openJobs, isPending: isOpenJobsPending } = useOpenJobList();
-    const { jobs: myJobs, isPending: isMyJobsPending } = useMyJobList();
-    const isScopeLoading = scope === "open" ? isOpenJobsPending : isMyJobsPending;
-    const openResults = terms.length > 0 ? searchOpenJobs(openJobs, terms) : [];
-    const activeResults = terms.length > 0 ? searchActiveJobs(myJobs, terms) : [];
+    const hasTerm = query.trim().length > 0;
+    // Searched on the server, over every job, once typing pauses; cleared at once
+    const [debouncedTerm] = useDebounce(query.trim(), SEARCH_DEBOUNCE_MS);
+    const term = hasTerm ? debouncedTerm : "";
+    // Both scopes, so an empty one can offer the other's matches
+    const openSearch = useJobSearch("open", term, mapApiOpenJobToOpenJob);
+    const activeSearch = useJobSearch("active", term, mapApiJobToManufacturerJob);
+    const scopeSearch = scope === "open" ? openSearch : activeSearch;
+    // Typed but not sent yet, or sent and nothing back so far
+    const isScopeLoading = term.length === 0 || scopeSearch.isPending;
 
     const selectResult = () => {
         addRecentSearch(query);
@@ -134,7 +118,7 @@ export default function SearchPanel({
         <div className={cn("flex flex-col gap-4", className)}>
             <SearchScopeToggle scope={scope} onScopeChange={onScopeChange} />
 
-            {terms.length === 0 ? (
+            {!hasTerm ? (
                 recentSearches.length === 0 ? (
                     <p className="text-xs font-text text-mist-500">{SEARCH_HINTS[scope]}</p>
                 ) : (
@@ -144,20 +128,30 @@ export default function SearchPanel({
                         onClear={clearRecentSearches}
                     />
                 )
+            ) : scopeSearch.isError && !scopeSearch.data ? (
+                <LoadError>
+                    Couldn&apos;t search your {scope === "open" ? "open" : "active"} jobs. Please try again.
+                </LoadError>
             ) : isScopeLoading ? (
                 <SearchResultsSkeleton />
             ) : scope === "open" ? (
                 <SearchResults
-                    count={openResults.length}
+                    count={openSearch.jobs.length}
+                    hasMore={openSearch.hasNextPage}
+                    isUpdating={openSearch.isPlaceholderData}
+                    isLoadingMore={openSearch.isFetchingNextPage}
+                    loadMoreFailed={openSearch.isFetchNextPageError}
+                    onLoadMore={() => void openSearch.fetchNextPage()}
                     noun="open job"
                     emptyDescription="Try a job name, code or category."
                     otherScope={{
                         label: "active jobs",
-                        count: activeResults.length,
+                        count: activeSearch.isPlaceholderData ? 0 : activeSearch.jobs.length,
+                        hasMore: activeSearch.hasNextPage,
                         onShow: () => onScopeChange("active"),
                     }}
                 >
-                    {openResults.map((job) => (
+                    {openSearch.jobs.map((job) => (
                         <li key={job.id}>
                             <OpenJobSearchResult
                                 job={job}
@@ -169,16 +163,22 @@ export default function SearchPanel({
                 </SearchResults>
             ) : (
                 <SearchResults
-                    count={activeResults.length}
+                    count={activeSearch.jobs.length}
+                    hasMore={activeSearch.hasNextPage}
+                    isUpdating={activeSearch.isPlaceholderData}
+                    isLoadingMore={activeSearch.isFetchingNextPage}
+                    loadMoreFailed={activeSearch.isFetchNextPageError}
+                    onLoadMore={() => void activeSearch.fetchNextPage()}
                     noun="job"
                     emptyDescription="Try a job name, code, category or status."
                     otherScope={{
                         label: "open jobs",
-                        count: openResults.length,
+                        count: openSearch.isPlaceholderData ? 0 : openSearch.jobs.length,
+                        hasMore: openSearch.hasNextPage,
                         onShow: () => onScopeChange("open"),
                     }}
                 >
-                    {activeResults.map((job) => (
+                    {activeSearch.jobs.map((job) => (
                         <li key={job.id}>
                             <JobSearchResult job={job} onSelect={selectResult} />
                         </li>
@@ -227,28 +227,43 @@ function RecentSearches({
     );
 }
 
+/** "20" or, when there are more to load, "20+". */
+const countLabel = (count: number, hasMore: boolean) => `${count}${hasMore ? "+" : ""}`;
+
 /**
- * The results list, or an empty state — which offers to switch scope when
- * the other set of jobs has matches.
+ * The results list, or an empty state, which offers to switch scope when
+ * the other set of jobs has matches. More matches load a page at a time.
  */
 function SearchResults({
     count,
+    hasMore,
+    isUpdating,
+    isLoadingMore,
+    loadMoreFailed,
+    onLoadMore,
     noun,
     emptyDescription,
     otherScope,
     children,
 }: {
     count: number;
-    /** e.g. "open job" — pluralised with an "s". */
+    /** The server has more matches than are shown. */
+    hasMore: boolean;
+    /** These are the last term's results, kept while the new term's load. */
+    isUpdating: boolean;
+    isLoadingMore: boolean;
+    loadMoreFailed: boolean;
+    onLoadMore: () => void;
+    /** e.g. "open job": pluralised with an "s". */
     noun: string;
     emptyDescription: string;
     /** The scope the toggle isn't on, and how many matches it has. */
-    otherScope: { label: string; count: number; onShow: () => void };
+    otherScope: { label: string; count: number; hasMore: boolean; onShow: () => void };
     children: ReactNode;
 }) {
     if (count === 0) {
         return (
-            <div className="flex flex-col items-center">
+            <div className={cn("flex flex-col items-center transition-opacity", isUpdating && "opacity-60")}>
                 <EmptyState compact title={`No ${noun}s found`} description={emptyDescription} />
                 {otherScope.count > 0 && (
                     <button
@@ -256,8 +271,8 @@ function SearchResults({
                         onClick={otherScope.onShow}
                         className="-mt-4 mb-4 text-xs font-medium font-text text-secondary-700 hover:underline cursor-pointer"
                     >
-                        See {otherScope.count} {otherScope.count === 1 ? "match" : "matches"} in{" "}
-                        {otherScope.label}
+                        See {countLabel(otherScope.count, otherScope.hasMore)}{" "}
+                        {otherScope.count === 1 && !otherScope.hasMore ? "match" : "matches"} in {otherScope.label}
                     </button>
                 )}
             </div>
@@ -265,21 +280,38 @@ function SearchResults({
     }
 
     return (
-        <div className="flex flex-col gap-2">
+        <div aria-busy={isUpdating || isLoadingMore} className={cn("flex flex-col gap-2 transition-opacity", isUpdating && "opacity-60")}>
             <span className="text-xs font-medium font-text text-mist-500">
-                {count} {noun}
-                {count === 1 ? "" : "s"} found
+                {countLabel(count, hasMore)} {noun}
+                {count === 1 && !hasMore ? "" : "s"} found
             </span>
             <ul className="-mx-2 flex flex-col">{children}</ul>
+            {isLoadingMore ? (
+                <SearchResultsSkeleton rows={2} />
+            ) : (
+                <>
+                    {loadMoreFailed && <LoadError className="text-xs">Couldn&apos;t load more matches. Please try again.</LoadError>}
+                    {hasMore && (
+                        <button
+                            type="button"
+                            onClick={onLoadMore}
+                            disabled={isUpdating}
+                            className="self-center rounded-md px-3 py-1.5 text-xs font-medium font-text text-secondary-700 hover:bg-mist-50 transition-colors cursor-pointer disabled:cursor-default disabled:opacity-60"
+                        >
+                            Show more
+                        </button>
+                    )}
+                </>
+            )}
         </div>
     );
 }
 
 /** Result rows while the jobs being searched load. */
-function SearchResultsSkeleton() {
+function SearchResultsSkeleton({ rows = 3 }: { rows?: number }) {
     return (
         <ul aria-hidden className="-mx-2 flex flex-col">
-            {[1, 2, 3].map((i) => (
+            {Array.from({ length: rows }, (_, i) => (
                 <li key={i} className="flex items-center gap-3 px-2 py-2">
                     <Skeleton className="size-10 shrink-0 rounded-md" />
                     <div className="flex min-w-0 flex-1 flex-col gap-1.5">

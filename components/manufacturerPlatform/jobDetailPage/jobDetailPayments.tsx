@@ -3,8 +3,6 @@ import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
 import { formatOrdinalDate, getRelativeTimeLabel, getTimeUntilLabel } from "@/lib/date";
 import {
-    FAULT_REPORT_DAYS,
-    REVIEW_WINDOW_HOURS,
     type JobBonus,
     type JobFaultReport,
     type JobPayment,
@@ -12,10 +10,10 @@ import {
 } from "@/constant/jobWorkflow";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// JobDetailPayments — the manufacturer's pay for the job, in the six parts
+// JobDetailPayments: the manufacturer's pay for the job, in the six parts
 // it reaches their wallet in as the work passes, and the on-time bonus on
-// top. Every percentage is a share of their pay; nothing is kept back to
-// the end.
+// top, as the API works them out (what's been released, and when). Every
+// percentage is a share of their pay; nothing is kept back to the end.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function JobDetailPayments({
@@ -25,16 +23,24 @@ export default function JobDetailPayments({
     bonus,
     progress,
     faultReport,
+    reviewWindowHours,
+    faultReportDays,
 }: {
     /** Their pay for the job, in naira. */
     amount: number;
-    /** ISO date. */
-    dueDate: string;
+    /** ISO date. Null if the API didn't say. */
+    dueDate: string | null;
     payments: JobPayment[];
-    bonus: JobBonus;
+    /** Null if the API didn't send it. */
+    bonus: JobBonus | null;
     progress: StepProgress[];
     faultReport: JobFaultReport | null;
+    /** The job's review window (its rules). Null when not known: the copy leaves the number out. */
+    reviewWindowHours: number | null;
+    /** How long after sign-off a fault can be reported (its rules). Null when not known. */
+    faultReportDays: number | null;
 }) {
+    // What's in their wallet: every payment the API says has been released
     const paid = payments.reduce((sum, payment) => sum + (payment.releasedAt ? payment.amount : 0), 0);
 
     return (
@@ -44,8 +50,8 @@ export default function JobDetailPayments({
                 <span className="text-xs font-text text-mist-500">{formatPrice(paid)} paid so far</span>
             </div>
             <p className="text-xs font-text text-mist-500">
-                {formatPrice(amount)} for your labour, paid into your wallet in six parts as your work passes. Nothing is
-                kept back to the end.
+                {formatPrice(amount)} for your labour, paid into your wallet in {payments.length} parts as your work
+                passes. Nothing is kept back to the end.
             </p>
 
             <ul className="flex flex-col divide-y divide-border rounded-xl border border-border">
@@ -68,38 +74,51 @@ export default function JobDetailPayments({
                         />
                     );
                 })}
-                <PaymentRow
-                    label="On-time bonus"
-                    percent={bonus.percent}
-                    amount={bonus.amount}
-                    status={getBonusStatus(bonus, dueDate, faultReport)}
-                    tone={bonus.status === "released" ? "paid" : bonus.status === "lost" ? "lost" : "due"}
-                />
+                {bonus && (
+                    <PaymentRow
+                        label="On-time bonus"
+                        percent={bonus.percent}
+                        amount={bonus.amount}
+                        status={getBonusStatus(bonus, dueDate, faultReport, faultReportDays)}
+                        tone={bonus.status === "released" ? "paid" : bonus.status === "lost" ? "lost" : "due"}
+                    />
+                )}
             </ul>
 
             <p className="flex gap-2 text-xs font-text text-mist-500">
                 <Clock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-                Review taking a while? Anything waiting more than {REVIEW_WINDOW_HOURS} hours is approved automatically —
-                Sundays don&apos;t count.
+                {reviewWindowHours !== null
+                    ? `Review taking a while? Finished work waiting more than ${reviewWindowHours} hours is signed off automatically, and step proof reviewed late adds days to your due date. Sundays don't count.`
+                    : "Review taking a while? Finished work left unreviewed is signed off automatically, and step proof reviewed late adds days to your due date. Sundays don't count."}
             </p>
         </div>
     );
 }
 
-function getBonusStatus(bonus: JobBonus, dueDate: string, faultReport: JobFaultReport | null): string {
+function getBonusStatus(
+    bonus: JobBonus,
+    dueDate: string | null,
+    faultReport: JobFaultReport | null,
+    faultReportDays: number | null,
+): string {
     switch (bonus.status) {
         case "released":
-            return `In your wallet · ${bonus.releaseAt ? getRelativeTimeLabel(new Date(bonus.releaseAt)) : ""}`;
+            return bonus.releaseAt ? `In your wallet · ${getRelativeTimeLabel(new Date(bonus.releaseAt))}` : "In your wallet";
         case "due":
-            return `Paid ${bonus.releaseAt ? getTimeUntilLabel(new Date(bonus.releaseAt)) : ""} if no fault is reported`;
+            return bonus.releaseAt
+                ? `Paid ${getTimeUntilLabel(new Date(bonus.releaseAt))} if no fault is reported`
+                : "Paid if no fault is reported";
         case "lost":
             return bonus.lostReason === "fault"
-                ? `Missed — a fault was reported${faultReport ? `: ${faultReport.reason}` : ""}`
+                ? `Missed: a fault was reported${faultReport ? ` (${faultReport.reason})` : ""}`
                 : bonus.lostReason === "late"
-                  ? "Missed — delivered after the due date"
-                  : "Missed — a stage was sent back";
-        default:
-            return `Yours if you deliver by ${formatOrdinalDate(new Date(dueDate))} with no stage sent back and no fault reported in the ${FAULT_REPORT_DAYS} days after sign-off`;
+                  ? "Missed: delivered after the due date"
+                  : "Missed: a stage was sent back";
+        default: {
+            const by = dueDate ? ` by ${formatOrdinalDate(new Date(dueDate))}` : " on time";
+            const window = faultReportDays !== null ? ` in the ${faultReportDays} days after sign-off` : " after sign-off";
+            return `Yours if you deliver${by} with no stage sent back and no fault reported${window}`;
+        }
     }
 }
 

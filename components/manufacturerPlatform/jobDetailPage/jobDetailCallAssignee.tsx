@@ -21,6 +21,8 @@ export default function JobDetailCallAssignee({ assignee }: { assignee: JobAssig
         );
     }
 
+    const phone = assignee.phone.trim();
+
     return (
         <div className="flex flex-col gap-3">
             <h3 className="text-sm font-semibold font-text text-mist-950">Project lead</h3>
@@ -34,15 +36,19 @@ export default function JobDetailCallAssignee({ assignee }: { assignee: JobAssig
                         <p className="text-xs font-text text-mist-400">{assignee.role}</p>
                     </div>
                 </div>
-                <Button
-                    size="sm"
-                    nativeButton={false}
-                    className={JOB_DETAIL_PRIMARY_BUTTON_CLASS}
-                    render={<a href={`tel:${assignee.phone}`} />}
-                >
-                    <Phone data-icon="inline-start" />
-                    Call assignee
-                </Button>
+                {phone ? (
+                    <Button
+                        size="sm"
+                        nativeButton={false}
+                        className={JOB_DETAIL_PRIMARY_BUTTON_CLASS}
+                        render={<a href={`tel:${phone}`} />}
+                    >
+                        <Phone data-icon="inline-start" />
+                        Call assignee
+                    </Button>
+                ) : (
+                    <span className="shrink-0 text-xs font-text text-mist-400">No phone number yet</span>
+                )}
             </div>
         </div>
     );

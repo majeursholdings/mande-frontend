@@ -19,6 +19,7 @@ import { useApplyForJob, useJobApplications } from "../dashboardLayout/jobApplic
 import Notice from "../notice";
 import { JOB_DETAIL_PRIMARY_BUTTON_CLASS } from "./styles";
 import { getErrorMessage } from "@/lib/api";
+import { DEFAULT_IMAGE } from "@/constant/global";
 
 function DetailRow({ label, value }: { label: string; value: ReactNode }) {
     return (
@@ -73,7 +74,7 @@ export default function OpenJobDetailContent({
             <div className="flex-1 overflow-y-auto px-4 py-5 flex flex-col gap-6">
                 <div className="relative aspect-4/3 shrink-0 overflow-hidden rounded-xl border border-border bg-mist-100">
                     <Image
-                        src={job.imageUrl}
+                        src={job.imageUrl || DEFAULT_IMAGE}
                         alt={job.title}
                         fill
                         sizes="(min-width: 768px) 440px, 100vw"
@@ -83,16 +84,18 @@ export default function OpenJobDetailContent({
 
                 <div className="flex flex-col gap-1">
                     <h1 className="text-xl font-semibold font-text text-mist-950">{job.title}</h1>
-                    <p className="text-xs font-text text-mist-400">
-                        Posted {getTimeAgoLabel(new Date(job.postedAt))}
-                    </p>
+                    {job.postedAt && (
+                        <p className="text-xs font-text text-mist-400">
+                            Posted {getTimeAgoLabel(new Date(job.postedAt))}
+                        </p>
+                    )}
                 </div>
 
                 <dl className="flex flex-col gap-3 text-sm font-text">
                     <DetailRow label="Job code" value={job.code} />
                     <DetailRow label="Job price" value={formatPrice(job.price)} />
                     <DetailRow label="Category" value={getJobCategoryLabel(job.category)} />
-                    <DetailRow label="Due date" value={formatOrdinalDate(new Date(job.dueDate))} />
+                    {job.dueDate && <DetailRow label="Due date" value={formatOrdinalDate(new Date(job.dueDate))} />}
                     <div className="flex flex-col gap-1">
                         <dt className="text-mist-400">Description</dt>
                         <dd className="text-mist-700">{job.description}</dd>

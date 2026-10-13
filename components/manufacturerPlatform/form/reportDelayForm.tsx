@@ -3,7 +3,6 @@
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { formatDuration, formatOrdinalDate } from "@/lib/date";
-import { MAX_EXTENSION_PERCENT } from "@/constant/jobWorkflow";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api";
 
@@ -13,12 +12,14 @@ type ReportDelayFormValues = {
 };
 
 type ReportDelayFormProps = {
-    /** ISO dates — the job's due date now, and the latest one it can move to (see getLatestAllowedDueDate). */
+    /** ISO dates: the job's due date now, and the latest one it can move to (see getLatestAllowedDueDate). */
     dueDate: string;
     latestDueDate: Date;
-    /** ISO dates the job's original length is measured between — its start, and its first due date. */
+    /** ISO dates the job's original length is measured between: its start, and its first due date. */
     start: string;
     originalDueDate: string;
+    /** The job's limit on moving the due date, as a percent of its original length (its rules). */
+    maxExtensionPercent: number;
     reportDelay: (request: { requestedDueDate: string; reason: string }) => Promise<void>;
     closeDialog: () => void;
 };
@@ -26,9 +27,9 @@ type ReportDelayFormProps = {
 const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ReportDelayForm — the manufacturer asks for a later due date, and says why.
+// ReportDelayForm: the manufacturer asks for a later due date, and says why.
 // The new date has to be after the current one and no later than
-// MAX_EXTENSION_PERCENT of the job's original length past its original due
+// maxExtensionPercent (the job's rules) of its original length past its original due
 // date; their project lead approves or rejects it.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -37,6 +38,7 @@ export default function ReportDelayForm({
     latestDueDate,
     start,
     originalDueDate,
+    maxExtensionPercent,
     reportDelay,
     closeDialog,
 }: ReportDelayFormProps) {
@@ -50,7 +52,7 @@ export default function ReportDelayForm({
             type: "date",
             label: "New due date",
             placeholder: "Pick the date you can deliver by",
-            description: `By ${formatOrdinalDate(latest)} at the latest — up to ${MAX_EXTENSION_PERCENT}% of the job's original ${formatDuration(new Date(start), new Date(originalDueDate))}.`,
+            description: `By ${formatOrdinalDate(latest)} at the latest: up to ${maxExtensionPercent}% of the job's original ${formatDuration(new Date(start), new Date(originalDueDate))}.`,
             minDate: earliest,
             maxDate: latest,
             validation: {
