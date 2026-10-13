@@ -1,8 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ChannelCard, FeaturedChannel, TestimonialCard } from "@/components/manufacturerPlatform/communityPage";
+import { TestimonialCard } from "@/components/manufacturerPlatform/communityPage";
 import type { CommunityChannel, CommunityTestimonial } from "@/constant/community";
-import { SERVICES_URL } from "@/constant/navigation";
+import { MACHINES_URL } from "@/constant/navigation";
+import { ChannelLinkCard, FeaturedChannelCard, NoChannelsYet } from "../common/communityChannels";
 import CtaBand from "../common/ctaBand";
 import PageHero from "../common/pageHero";
 import SectionHeading from "../common/sectionHeading";
@@ -10,7 +11,7 @@ import SectionWrapper from "../common/sectionWrapper";
 import { WEBSITE_PRIMARY_BUTTON } from "../common/buttonStyles";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Community — where makers on MANDE meet: the WhatsApp channel first (new
+// Community: where makers on MANDE meet: the WhatsApp channel first (new
 // jobs are announced there), the other channels, what makers say, and the
 // Lagos factory, where they meet in person.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -37,24 +38,30 @@ export default function CommunityPage({ data }: CommunityPageProps = {}) {
                 description="Swap tips, see what other furniture makers are building, and hear about new jobs first. Join the MANDE community on the channels you already use."
             />
 
-            {(featuredChannel || channels.length > 0) && (
-                <SectionWrapper containerClassName="flex flex-col gap-10 md:gap-12">
-                    {featuredChannel && <FeaturedChannel channel={featuredChannel} />}
+            <SectionWrapper containerClassName="flex flex-col gap-10 md:gap-12">
+                {featuredChannel && <FeaturedChannelCard channel={featuredChannel} />}
 
-                    {channels.length > 0 && (
-                        <div className="flex flex-col gap-6">
-                            <SectionHeading as="h2">Follow MANDE.</SectionHeading>
-                            <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-                                {channels.map((channel) => (
-                                    <li key={channel.platform}>
-                                        <ChannelCard channel={channel} />
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-                </SectionWrapper>
-            )}
+                {channels.length > 0 && (
+                    <div className="flex flex-col gap-6">
+                        <SectionHeading as="h2">Follow MANDE.</SectionHeading>
+                        <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+                            {channels.map((channel) => (
+                                <li key={channel.platform}>
+                                    <ChannelLinkCard channel={channel} />
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {/* Nothing set up in Settings › Community yet: a calm note, never stand-in links */}
+                {!featuredChannel && channels.length === 0 && (
+                    <div className="flex flex-col gap-6">
+                        <SectionHeading as="h2">Follow MANDE.</SectionHeading>
+                        <NoChannelsYet />
+                    </div>
+                )}
+            </SectionWrapper>
 
             {testimonials.length > 0 && (
                 <SectionWrapper className="bg-mist-200" containerClassName="flex flex-col gap-8 md:gap-12">
@@ -90,11 +97,11 @@ export default function CommunityPage({ data }: CommunityPageProps = {}) {
                     <span className="text-lg font-medium">Meet in person</span>
                     <SectionHeading as="h2">Build side by side at our Lagos factory.</SectionHeading>
                     <p className="text-base font-light">
-                        Members book time on the country&apos;s top furniture machines at the MANDE factory in Lagos. It&apos;s where makers
+                        The country&apos;s top furniture machines are at the MANDE factory in Lagos, open to every maker. It&apos;s where makers
                         trade techniques, share jobs and see how others finish their pieces.
                     </p>
-                    <Link href={SERVICES_URL} className={WEBSITE_PRIMARY_BUTTON}>
-                        See our services
+                    <Link href={MACHINES_URL} className={WEBSITE_PRIMARY_BUTTON}>
+                        See our machines
                     </Link>
                 </div>
             </SectionWrapper>
