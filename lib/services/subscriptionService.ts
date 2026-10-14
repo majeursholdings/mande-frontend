@@ -6,6 +6,8 @@ export interface UpgradePlanPayload {
     | { from: "wallet" }
     | { from: "card"; cardId: string }
     | { from: "new-card"; saveCard?: boolean; returnPath?: string };
+  /** A subscription coupon (best one only against the platform plan offer). */
+  couponCode?: string;
 }
 
 export interface CheckoutPayload {
@@ -13,6 +15,8 @@ export interface CheckoutPayload {
   billingCycle: "monthly" | "annual";
   saveCard?: boolean;
   returnPath?: string;
+  /** A subscription coupon (best one only against the platform plan offer). */
+  couponCode?: string;
 }
 
 /** Where to send the manufacturer to pay (the payment partner's hosted checkout). */
@@ -36,6 +40,9 @@ export interface SubscriptionPayment {
   status: "pending" | "succeeded" | "failed";
   failureReason: string | null;
   paidAt: string | null;
+  /** The coupon used for this payment, if any. */
+  couponCode?: string | null;
+  discountKobo?: number;
   /** Card checks only: giving the charge back. */
   refundStatus?: "none" | "pending" | "refunded" | "failed";
 }

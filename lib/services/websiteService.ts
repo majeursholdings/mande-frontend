@@ -1,5 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// What the public website reads from the API: the open jobs and the plans.
+// What the public website reads from the API: the open jobs, the plans, the
+// community and the factory's machine catalogue.
 // These run on the server (in Server Components), with plain fetch so Next.js
 // caches them: each page is served from the cache and refreshed at most once
 // a minute. Neither needs a signed-in user. When the API can't be reached they
@@ -8,6 +9,7 @@
 
 import { API_BASE_URL } from "@/lib/api";
 import { NOT_INCLUDED, type PricingPlan } from "@/constant/plans";
+import type { MachineBookingUnit } from "@/lib/services/machineBookingService";
 
 /** How often, in seconds, the website asks the API again. */
 const REVALIDATE_SECONDS = 60;
@@ -133,4 +135,47 @@ export type WebsiteCommunityData = {
 /** Community channels and testimonials for public pages. */
 export async function getWebsiteCommunity(): Promise<WebsiteCommunityData | null> {
     return getJson<WebsiteCommunityData>("/community");
+}
+
+/** A factory machine, as the public catalogue shows it (active machines only). */
+export type WebsiteMachine = {
+    id: string;
+    name: string;
+    imageUrl: string | null;
+    functions: string[];
+    category: string;
+    model: string | null;
+    type: string | null;
+    description: string | null;
+    /** Null when it isn't offered that way. */
+    hourlyPriceKobo: number | null;
+    dailyPriceKobo: number | null;
+    /** The price for the booking unit now, or null when it has none. */
+    priceKobo: number | null;
+    /** Whether it can be booked now (it has a price for the booking unit). */
+    bookable: boolean;
+};
+
+export type WebsiteMachineCatalogue = {
+    /** What machine time is booked by now. */
+    unit: MachineBookingUnit;
+    machines: WebsiteMachine[];
+    /** Every category in the catalogue, for the filter (whatever `category` was asked for). */
+    categories: string[];
+};
+
+export type WebsiteMachineDetail = { unit: MachineBookingUnit; machine: WebsiteMachine };
+
+/** The machine catalogue, or just one category of it. Null when the API can't be reached. */
+export async function getWebsiteMachines(category?: string): Promise<WebsiteMachineCatalogue | null> {
+    const params = category ? `?${new URLSearchParams({ category })}` : "";
+    const data = await getJson<WebsiteMachineCatalogue>(`/machines/catalogue${params}`);
+    return data ? { unit: data.unit, machines: data.machines ?? [], categories: data.categories ?? [] } : null;
+}
+
+/** One machine in the catalogue. Null when there's no such (active) machine or the API can't be reached. */
+export async function getWebsiteMachine(machineId: string): Promise<WebsiteMachineDetail | null> {
+    if (!/^[a-f\d]{24}$/i.test(machineId)) return null;
+    const data = await getJson<WebsiteMachineDetail>(`/machines/catalogue/${machineId}`);
+    return data?.machine ? data : null;
 }

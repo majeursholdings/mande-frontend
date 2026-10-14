@@ -67,7 +67,11 @@ export function AdminProfileProvider({ children }: { children: ReactNode }) {
                         ? (overrides.security.twoFactorMethod ?? null)
                         : (currentUser?.twoFactorMethod ?? null),
             },
-            notificationPreferences: overrides.notificationPreferences ?? p.notificationPreferences ?? initialProfile.notificationPreferences,
+            // A kind the saved preferences don't have yet (e.g. a new one) starts from the default
+            notificationPreferences: overrides.notificationPreferences ?? {
+                ...initialProfile.notificationPreferences,
+                ...p.notificationPreferences,
+            },
         };
     }, [initialProfile, currentUser, overrides]);
 

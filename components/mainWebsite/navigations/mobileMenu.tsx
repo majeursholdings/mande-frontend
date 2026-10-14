@@ -8,7 +8,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import LogoLink from "@/components/ui/logoLink";
-import { ARTISAN_LOGIN_URL, ARTISAN_SIGNUP_URL, mainmenu } from "@/constant/navigation";
+import { ARTISAN_LOGIN_URL, ARTISAN_SIGNUP_URL, isMenuHrefActive, mainmenu } from "@/constant/navigation";
 import { WEBSITE_OUTLINE_BUTTON, WEBSITE_PRIMARY_BUTTON } from "../common/buttonStyles";
 import { MenuIcon } from "./menuIcons";
 
@@ -23,7 +23,7 @@ const ROW_ACTIVE_CLASS =
 type MenuItem = (typeof mainmenu)[number];
 
 function MobileMenuItem({ item, pathname, onNavigate }: { item: MenuItem; pathname: string; onNavigate: () => void }) {
-    const isChildActive = Boolean(item.subMenu?.some((sub) => sub.href === pathname));
+    const isChildActive = Boolean(item.subMenu?.some((sub) => isMenuHrefActive(sub.href, pathname)));
     const [isOpen, setIsOpen] = useState(isChildActive);
 
     if (item.subMenu && item.subMenu.length > 0) {
@@ -53,7 +53,7 @@ function MobileMenuItem({ item, pathname, onNavigate }: { item: MenuItem; pathna
                             className="flex flex-col overflow-hidden"
                         >
                             {item.subMenu.map((subItem) => {
-                                const isSubActive = subItem.href === pathname;
+                                const isSubActive = isMenuHrefActive(subItem.href, pathname);
                                 return (
                                     <li key={subItem.label}>
                                         <Link
@@ -81,7 +81,7 @@ function MobileMenuItem({ item, pathname, onNavigate }: { item: MenuItem; pathna
         );
     }
 
-    const isActive = item.href === pathname;
+    const isActive = isMenuHrefActive(item.href, pathname);
     return (
         <li>
             <Link
@@ -99,7 +99,7 @@ function MobileMenuItem({ item, pathname, onNavigate }: { item: MenuItem; pathna
 
 /**
  * The website menu below lg — a white drawer in the platforms' style: the
- * logo, every page as a row (Help Center opening to its pages), and Log in /
+ * logo, every page as a row (Services and Help Center opening to their pages), and Log in /
  * Sign up at the bottom. It closes once a page is picked.
  */
 export default function MobileMenu() {

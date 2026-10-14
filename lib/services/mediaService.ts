@@ -11,7 +11,8 @@ export type UploadPurpose =
   | "appeal-attachment"
   | "job-image"
   | "job-attachment"
-  | "review-attachment";
+  | "review-attachment"
+  | "machine-image";
 
 export interface SignatureResponse {
   uploadUrl: string;

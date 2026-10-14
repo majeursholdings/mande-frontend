@@ -117,12 +117,14 @@ export type TransactionSummary = {
 
 export type TransactionSummaryResponse = { summary: TransactionSummary };
 
-export type RevenueType = "subscription" | "charge" | "bonus";
+export type RevenueType = "subscription" | "charge" | "bonus" | "machine-booking";
 
-export type RevenueEntry = ReportPerson & {
+export type RevenueEntry = Omit<ReportPerson, "manufacturerId"> & {
+  /** Null for a guest's machine booking (manufacturerName is then the name they booked with). */
+  manufacturerId: string | null;
   id: string;
   type: RevenueType;
-  /** Money in to MANDE, or out (bonuses). */
+  /** Money in to MANDE, or out (bonuses, machine booking refunds). */
   direction: "in" | "out";
   description: string;
   detail: string;
@@ -138,6 +140,8 @@ export type RevenueSummary = {
   subscription: { totalKobo: number; count: number };
   charge: { totalKobo: number; count: number; stillOwedKobo: number };
   bonus: { totalKobo: number; count: number };
+  /** Paid machine bookings less the ones refunded (totalKobo and count), and the refunds. */
+  machineBooking: { totalKobo: number; count: number; refundedKobo: number; refundedCount: number };
   netKobo: number;
 };
 

@@ -34,6 +34,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import { authService } from "@/lib/services/authService";
 import { saveCompanyDetails, saveCompanySpecifications } from "./registrationRequests";
 import { subscriptionService, type SubscriptionPayment } from "@/lib/services/subscriptionService";
+import { getCouponErrorMessage } from "@/components/manufacturerPlatform/form/couponField";
 
 const hasValue = (value: unknown): boolean => {
     if (typeof value === "boolean") return value === true;
@@ -157,6 +158,7 @@ function RegistrationWizard({
         // Back from the checkout means the plan step at least
         return returnedPaymentReference ? Math.max(step, 2) : step;
     });
+    const [couponError, setCouponError] = useState<string | null>(null);
     const [paymentReference, setPaymentReference] = useState(
         savedProgress?.paymentReference ?? null,
     );
@@ -261,7 +263,7 @@ function RegistrationWizard({
 
     // Step 3: sends them to the payment partner's checkout, which comes back
     // here with ?reference=… (see the effect above). Already paid: just continue.
-    const handlePayment = async () => {
+    const handlePayment = async (couponCode?: string) => {
         if (paymentReference) {
             completePayment(paymentReference);
             return;
@@ -276,6 +278,7 @@ function RegistrationWizard({
                 billingCycle: values.billingCycle,
                 saveCard: true,
                 returnPath: ARTISAN_SIGNUP_URL,
+                ...(couponCode ? { couponCode } : {}),
             });
             if (!checkoutUrl.startsWith("https://")) {
                 throw new Error("Payments aren't available right now. Please try again later.");
@@ -287,6 +290,12 @@ function RegistrationWizard({
             if (err instanceof MandeApiError && err.code === "SUBSCRIPTION_ACTIVE") {
                 toast.success("Your plan is already paid for");
                 completePayment(ALREADY_PAID);
+                return;
+            }
+            const couponMessage = getCouponErrorMessage(err);
+            if (couponMessage) {
+                setCouponError(couponMessage);
+                toast.error(couponMessage);
                 return;
             }
             toast.error(getErrorMessage(err, "Payment didn't go through. Please try again."));
@@ -359,8 +368,12 @@ function RegistrationWizard({
                     <ChoosePlanStep
                         methods={methods}
                         paymentReference={paymentReference}
-                        onSubmit={handlePayment}
+                        onSubmit={(couponCode) => {
+                            setCouponError(null);
+                            void handlePayment(couponCode);
+                        }}
                         isLoading={isLoading}
+                        couponError={couponError}
                     />
                 )}
                 {currentStep === 3 && (

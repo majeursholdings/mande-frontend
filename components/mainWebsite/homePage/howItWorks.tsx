@@ -1,76 +1,117 @@
-import { Blocks, Hammer, Package, Paintbrush, PencilRuler, Truck, type LucideIcon } from "lucide-react";
+import Image from "next/image";
+import { Blocks, Hammer, Package, Paintbrush, PencilRuler, Truck, Wallet, type LucideIcon } from "lucide-react";
 import { JOB_PAYMENT_SCHEDULE, JOB_PRODUCTION_STEPS, type ProductionStepKey } from "@/constant/jobWorkflow";
 import SectionHeading from "../common/sectionHeading";
 import SectionWrapper from "../common/sectionWrapper";
+import HoverCard, { HoverCardIcon } from "../common/hoverCard";
 
 const percentAt = (milestone: (typeof JOB_PAYMENT_SCHEDULE)[number]["milestone"]) =>
     JOB_PAYMENT_SCHEDULE.find((payment) => payment.milestone === milestone)?.percent ?? 0;
 
+type Stage = {
+    icon: LucideIcon;
+    description: string;
+    pay: string;
+    /** A photo of the stage, from /public (e.g. "/images/steps/design.jpg"). Until one is set, a placeholder shows. */
+    image?: string;
+};
+
 // Each stage's work, and what's paid around it (from JOB_PAYMENT_SCHEDULE)
-const STAGES: Record<ProductionStepKey, { icon: LucideIcon; description: string; pay: string }> = {
+const STAGES: Record<ProductionStepKey, Stage> = {
     design: {
         icon: PencilRuler,
-        description: "Drawings and the bill of materials are agreed and filed against the job.",
+        description: "You and your project lead agree the drawings and the bill of materials before any wood is cut.",
         pay: `${percentAt("accepted")}% paid when you accept the job`,
     },
     materials: {
         icon: Package,
-        description: "Timber and fittings are bought out of the money held for this job, by you or by MANDE, decided job by job.",
-        pay: "Paid for from the job's materials money",
+        description: "Timber and fittings are bought from the money set aside for the job, by you or by MANDE, decided job by job.",
+        pay: "Covered by the job's materials budget",
     },
     frame: {
         icon: Hammer,
-        description: "The carcass is built. Photograph the joints before the carcass is closed.",
+        description: "Build the carcass and photograph the joints before it's closed, so the structure can be checked.",
         pay: `${percentAt("frame")}% when it's approved`,
     },
     assembly: {
         icon: Blocks,
-        description: "Components come together, checked against the Frame photographs.",
+        description: "The parts come together and are checked against the Frame photos and the drawing.",
         pay: `${percentAt("assembly")}% when it's approved`,
     },
     finishing: {
         icon: Paintbrush,
-        description: "Sanding, staining, lacquer. Shoot finishing in daylight so the colour reads true.",
+        description: "Sanding, staining and lacquer. Shoot in daylight so the colour reads true.",
         pay: `${percentAt("finishing")}% when it's approved`,
     },
     delivery: {
         icon: Truck,
-        description: "Signed off by the customer at their address.",
+        description: "The piece is delivered and the customer signs it off at their address.",
         pay: `${percentAt("delivery")}% at delivery, ${percentAt("signed-off")}% at sign-off`,
     },
 };
 
-/** The six stages every job moves through — what's done at each, and what's paid. */
+/** The six stages every job moves through: a photo of each, what's done, and what's paid. */
 export default function HowItWorks() {
     return (
         <SectionWrapper className="bg-mist-200" containerClassName="flex flex-col gap-8 md:gap-12">
-            <div className="flex max-w-175 flex-col gap-3">
-                <SectionHeading as="h2">A smarter way to get furniture work, grow and earn more.</SectionHeading>
-                <p className="text-base font-light">
-                    Every job moves through {JOB_PRODUCTION_STEPS.length} stages. You prove each one with photos, and
-                    you&apos;re paid as they&apos;re approved.
+            <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between md:gap-12">
+                <div className="flex max-w-175 flex-col gap-3">
+                    <span className="text-lg font-medium">How a job works</span>
+                    <SectionHeading as="h2">From drawing to doorstep, paid at every step.</SectionHeading>
+                </div>
+                <p className="max-w-120 text-base font-light">
+                    Every job moves through {JOB_PRODUCTION_STEPS.length} stages. Prove each one with photos, your project
+                    lead approves it, and your payment follows.
                 </p>
             </div>
             <ol className="grid w-full grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
                 {JOB_PRODUCTION_STEPS.map((step, index) => {
-                    const { icon: Icon, description, pay } = STAGES[step.key];
+                    const stage = STAGES[step.key];
                     return (
-                        <li key={step.key} className="flex flex-col gap-4 rounded-[10px] bg-white p-6 lg:p-8">
-                            <div className="flex items-center justify-between">
-                                <span className="flex size-11 items-center justify-center rounded-full bg-primary-100 text-primary-900">
-                                    <Icon className="size-5" strokeWidth={1.75} aria-hidden />
-                                </span>
-                                <span className="font-mono text-sm font-semibold text-primary-700">
-                                    {String(index + 1).padStart(2, "0")}
-                                </span>
+                        <HoverCard as="li" key={step.key} className="flex flex-col overflow-hidden rounded-[10px] bg-white">
+                            <StageImage stage={stage} label={step.label} number={index + 1} />
+                            <div className="flex flex-1 flex-col gap-3 p-6">
+                                <h3 className="text-xl font-medium">{step.label}</h3>
+                                <p className="flex-1 text-base font-light text-mist-700">{stage.description}</p>
+                                <p className="flex items-center gap-2 border-t border-mist-200 pt-4 text-sm font-medium text-primary-800">
+                                    <Wallet className="size-4 shrink-0" strokeWidth={1.75} aria-hidden />
+                                    {stage.pay}
+                                </p>
                             </div>
-                            <h3 className="text-xl font-medium">{step.label}</h3>
-                            <p className="flex-1 text-base font-light text-mist-700">{description}</p>
-                            <p className="w-fit rounded-full bg-primary-50 px-3 py-1 text-sm text-primary-900">{pay}</p>
-                        </li>
+                        </HoverCard>
                     );
                 })}
             </ol>
         </SectionWrapper>
+    );
+}
+
+/** The stage's photo, or a placeholder in its place until one is added, with the step number over it. */
+function StageImage({ stage, label, number }: { stage: Stage; label: string; number: number }) {
+    const { icon: Icon, image } = stage;
+    return (
+        <div className="relative aspect-4/3 w-full overflow-hidden bg-mist-100">
+            {image ? (
+                <Image
+                    src={image}
+                    alt={`The ${label} stage of a MANDE job`}
+                    fill
+                    sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+                    className="object-cover object-center"
+                />
+            ) : (
+                <div
+                    aria-hidden
+                    className="flex h-full w-full items-center justify-center bg-[radial-gradient(var(--color-mist-300)_1px,transparent_1px)] bg-size-[16px_16px]"
+                >
+                    <HoverCardIcon className="flex size-16 items-center justify-center rounded-full bg-white text-primary-800 shadow-xs">
+                        <Icon className="size-7" strokeWidth={1.5} />
+                    </HoverCardIcon>
+                </div>
+            )}
+            <span className="absolute top-4 left-4 rounded-md bg-white/90 px-2 py-1 font-mono text-sm font-semibold text-primary-800 backdrop-blur-sm">
+                {String(number).padStart(2, "0")}
+            </span>
+        </div>
     );
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useController, UseFormReturn } from "react-hook-form";
+import { useState } from "react";
+import { useController, useWatch, UseFormReturn } from "react-hook-form";
 import { CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatPrice } from "@/lib/currency";
+import { formatPrice, fromKobo } from "@/lib/currency";
 import MainForm from "@/components/form";
 import { getAnnualSavingPercent, type PricingPlan } from "@/constant/plans";
 import ListPrice from "@/components/ui/listPrice";
@@ -12,6 +13,11 @@ import Notice from "../../notice";
 import LoadError from "../../loadError";
 import StepFooter from "../stepFooter";
 import StepHeader from "../stepHeader";
+import CouponField, {
+    getCouponDiscountKobo,
+    pickBestDiscount,
+    type AppliedCoupon,
+} from "@/components/manufacturerPlatform/form/couponField";
 import {
     getPlanPrice,
     isSoloPlan,
@@ -46,8 +52,11 @@ export type ChoosePlanStepProps = {
     methods: UseFormReturn<RegistrationFormValues>;
     /** Set once the plan is paid for — the choice is then locked. */
     paymentReference: string | null;
-    onSubmit: () => void;
+    /** Starts the payment, with the coupon code when one is applied. */
+    onSubmit: (couponCode?: string) => void;
     isLoading: boolean;
+    /** A coupon error from starting the payment, shown under the coupon. */
+    couponError?: string | null;
 };
 
 // Step 3 — pick a plan and billing cycle, then pay. Submitting starts the
@@ -58,7 +67,10 @@ export default function ChoosePlanStep({
     paymentReference,
     onSubmit,
     isLoading,
+    couponError,
 }: ChoosePlanStepProps) {
+    const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
+    const email = useWatch({ control: methods.control, name: "email" });
     const { plans, discountPercent, getPlan, isPending: isPlansPending, isError: isPlansError } = usePlans();
 
     const { field: planField, fieldState: planState } = useController({
@@ -73,8 +85,14 @@ export default function ChoosePlanStep({
 
     const plan = getPlan(planField.value);
     const billingCycle: BillingCycle = cycleField.value;
-    const price = plan ? getPlanPrice(plan, billingCycle, discountPercent) : 0;
+    const offerPrice = plan ? getPlanPrice(plan, billingCycle, discountPercent) : 0;
     const isPaid = !!paymentReference;
+    // A coupon and the platform offer never stack: the one that saves more is used
+    const listPrice = plan ? getPlanPrice(plan, billingCycle, 0) : 0;
+    const listPriceKobo = Math.round(listPrice * 100);
+    const couponDiscountKobo = isPaid ? 0 : getCouponDiscountKobo(coupon, listPriceKobo);
+    const best = pickBestDiscount(Math.round((listPrice - offerPrice) * 100), couponDiscountKobo);
+    const price = best.source === "coupon" ? fromKobo(listPriceKobo - couponDiscountKobo) : offerPrice;
     const offerText = discountPercent > 0 ? `Every plan is ${discountPercent}% off for now. ` : "";
     const annualSaving = getAnnualSavingLabel(plans);
     const savingText = annualSaving
@@ -93,7 +111,8 @@ export default function ChoosePlanStep({
             <MainForm<RegistrationFormValues>
                 methods={methods}
                 fields={[]}
-                onSubmit={onSubmit}
+                // The API picks the best one again, so an applied coupon is always sent
+                onSubmit={() => onSubmit(!isPaid ? coupon?.coupon.code : undefined)}
                 isLoading={isLoading}
                 footerSlot={
                     <div className="flex flex-col gap-5">
@@ -176,7 +195,25 @@ export default function ChoosePlanStep({
                                     </p>
                                 </div>
                             ) : (
+                                <div className="flex flex-col gap-4">
+                                <CouponField
+                                    kind="subscription"
+                                    amountKobo={listPriceKobo}
+                                    email={email}
+                                    applied={coupon}
+                                    onApply={setCoupon}
+                                    onRemove={() => setCoupon(null)}
+                                    disabled={isLoading}
+                                    error={couponError}
+                                />
                                 <div className="flex flex-col gap-1 rounded-xl border border-border px-4 py-3.5 font-text">
+                                    {coupon && (
+                                        <p className="mb-1 text-xs text-primary-800">
+                                            {best.source === "coupon"
+                                                ? `Coupon ${coupon.coupon.code} applied: ${formatPrice(fromKobo(couponDiscountKobo))} off.`
+                                                : `The current ${discountPercent}% offer saves more, so it's used instead.`}
+                                        </p>
+                                    )}
                                     <div className="flex items-center justify-between gap-3 text-sm">
                                         <span className="text-mist-600">Total due today</span>
                                         <span className="text-base font-semibold text-mist-950">
@@ -187,7 +224,9 @@ export default function ChoosePlanStep({
                                         {plan.name}, billed{" "}
                                         {billingCycle === "annual" ? "yearly" : "monthly"}. You&apos;ll
                                         pay securely through our payment partner.
+                                        {best.source === "coupon" && " The coupon applies to this first payment only."}
                                     </p>
+                                </div>
                                 </div>
                             ))}
                     </div>

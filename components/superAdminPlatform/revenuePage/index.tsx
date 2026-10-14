@@ -1,8 +1,9 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, Banknote, Gift, Scale, TrendingUp, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, Banknote, Factory, Gift, Scale, TrendingUp, type LucideIcon } from "lucide-react";
 import {
     DataTable,
     TableToolbar,
@@ -17,7 +18,7 @@ import { formatOrdinalDate } from "@/lib/date";
 import { queryKeys } from "@/lib/queryKeys";
 import { reportsService } from "@/lib/services/reportsService";
 import AdminPageHeader from "@/components/adminPlatform/pageHeader";
-import { StatCard, StatCardRow } from "@/components/adminPlatform/statCard";
+import { StatCard } from "@/components/adminPlatform/statCard";
 import { ReportError, StatCardSkeleton } from "@/components/adminPlatform/dashboardPage/reportStates";
 import { useStaffPlatform } from "@/components/adminPlatform/dashboardLayout/staffPlatformContext";
 import {
@@ -40,8 +41,9 @@ const SORT_OPTIONS: SortOptionDef<RevenueEntry>[] = [
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SuperAdminRevenuePage: the platform's own money: what's come in from
-// manufacturers' plans and from charges for rejected work, the on-time
-// bonuses paid out of it, and what that leaves (/reports/revenue/summary).
+// manufacturers' plans, charges for rejected work and paid machine bookings
+// (less refunds), the on-time bonuses paid out of it, and what that leaves
+// (/reports/revenue/summary).
 // Then every entry (/reports/revenue), to search, filter by kind and sort.
 // The API pages by date, so every page is loaded up front (see
 // getAllPlatformRevenue) and the table searches, sorts and pages them here.
@@ -51,6 +53,7 @@ const NO_SUMMARY: RevenueSummary = {
     subscription: { total: 0, count: 0 },
     charge: { total: 0, count: 0 },
     bonus: { total: 0, count: 0 },
+    machineBooking: { total: 0, count: 0, refunded: 0, refundedCount: 0 },
     net: 0,
 };
 
@@ -97,6 +100,17 @@ export default function SuperAdminRevenuePage() {
             footer: `For ${plural(summary.charge.count, "rejection")}`,
         },
         {
+            key: "machine-bookings",
+            label: "From machine bookings",
+            amount: summary.machineBooking.total,
+            icon: Factory,
+            iconClassName: "bg-sky-600",
+            footer:
+                summary.machineBooking.refundedCount > 0
+                    ? `Over ${plural(summary.machineBooking.count, "booking")}, after ${plural(summary.machineBooking.refundedCount, "refund")}`
+                    : `Over ${plural(summary.machineBooking.count, "paid booking")}`,
+        },
+        {
             key: "bonuses",
             label: "Paid in bonuses",
             amount: summary.bonus.total,
@@ -110,7 +124,7 @@ export default function SuperAdminRevenuePage() {
             amount: summary.net,
             icon: TrendingUp,
             iconClassName: "bg-primary-600",
-            footer: "What came in, less bonuses",
+            footer: "What came in, less bonuses and refunds",
         },
     ];
 
@@ -172,13 +186,13 @@ export default function SuperAdminRevenuePage() {
         <div className="flex flex-col gap-6">
             <AdminPageHeader
                 title="Revenue"
-                description="What the platform has made: plan payments and charges for rejected work, less the on-time bonuses it pays."
+                description="What the platform has made: plan payments, charges for rejected work and machine bookings, less the on-time bonuses and refunds it pays."
             />
 
             {summaryQuery.isError ? (
                 <ReportError message="Couldn't load the revenue totals. Please refresh to try again." />
             ) : (
-                <StatCardRow>
+                <RevenueCardRow>
                     {cards.map((card) =>
                         summaryQuery.isPending ? (
                             <StatCardSkeleton
@@ -199,7 +213,7 @@ export default function SuperAdminRevenuePage() {
                             />
                         ),
                     )}
-                </StatCardRow>
+                </RevenueCardRow>
             )}
 
             <DataTable
@@ -211,11 +225,12 @@ export default function SuperAdminRevenuePage() {
                 error={entriesQuery.isError ? "Couldn't load the revenue. Please refresh to try again." : undefined}
                 emptyMessage="No revenue matches your search."
                 onRowClick={(entry) => {
-                    if (entry.companyName) router.push(getManufacturerUrl(entry.manufacturerId));
+                    // A guest's machine booking has no manufacturer page
+                    if (entry.manufacturerId && entry.companyName) router.push(getManufacturerUrl(entry.manufacturerId));
                 }}
                 toolbar={
                     <TableToolbar
-                        search={{ placeholder: "Search by manufacturer, plan or job" }}
+                        search={{ placeholder: "Search by name, plan, job or booking" }}
                         filters={[{ title: "Type", paramKey: "type", items: REVENUE_ENTRY_TYPES }]}
                         sortBy={{
                             title: "Sort by",
@@ -227,6 +242,19 @@ export default function SuperAdminRevenuePage() {
                     />
                 }
             />
+        </div>
+    );
+}
+
+/**
+ * The five totals: a row that scrolls sideways on phones, two across on
+ * tablets, three on laptops and all five on wide screens (StatCardRow stops at
+ * four, which would leave the fifth alone on its own row).
+ */
+function RevenueCardRow({ children }: { children: ReactNode }) {
+    return (
+        <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-3 2xl:grid-cols-5">
+            {children}
         </div>
     );
 }

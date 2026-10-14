@@ -33,7 +33,7 @@ export default function CtaBand({
                         <PlanOffer />
                     </Suspense>
                 ) : (
-                    offerText && <OfferPill>{offerText}</OfferPill>
+                    offerText && <OfferLabel>{offerText}</OfferLabel>
                 )}
                 <SectionHeading as="h2">{title}</SectionHeading>
                 <p className="text-base font-light text-mist-300">{description}</p>
@@ -50,16 +50,12 @@ export default function CtaBand({
     );
 }
 
-function OfferPill({ children }: { children: React.ReactNode }) {
-    return (
-        <span className="w-fit rounded-full bg-primary-500/15 px-3 py-1 text-sm font-medium text-primary-300">
-            {children}
-        </span>
-    );
+function OfferLabel({ children }: { children: React.ReactNode }) {
+    return <span className="text-lg font-medium text-primary-300">{children}</span>;
 }
 
 /** "Every plan is X% off for now", while the plans have an offer. */
 async function PlanOffer() {
     const discountPercent = (await getWebsitePlans())?.discountPercent ?? 0;
-    return discountPercent > 0 ? <OfferPill>Every plan is {discountPercent}% off for now</OfferPill> : null;
+    return discountPercent > 0 ? <OfferLabel>Every plan is {discountPercent}% off for now</OfferLabel> : null;
 }

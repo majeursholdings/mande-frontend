@@ -1,6 +1,6 @@
 import { HTMLAttributes, ReactNode } from "react";
 import { FieldValues, RegisterOptions, UseFormReturn } from "react-hook-form";
-import type { UploadPurpose } from "@/lib/services/mediaService";
+import type { UploadPurpose, UploadResult } from "@/lib/services/mediaService";
 
 export type FieldType =
     | "text"
@@ -72,6 +72,14 @@ export type FormFieldConfig = {
      * for "file" and "image" fields.
      */
     uploadPurpose?: UploadPurpose;
+    /**
+     * Uploads a file through its own signed flow instead of the API's media
+     * signature (e.g. a machine booking's ID card, signed by its own
+     * endpoint). Takes the place of `uploadPurpose`.
+     */
+    upload?: (file: File, onProgress: (percent: number) => void, signal: AbortSignal) => Promise<UploadResult>;
+    /** For a "file" field: take images as well as documents (e.g. an ID card as a photo or a PDF). */
+    acceptImages?: boolean;
 };
 
 export type MainFormProps<T extends FieldValues = FieldValues> = {

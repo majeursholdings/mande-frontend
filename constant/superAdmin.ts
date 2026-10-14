@@ -1,5 +1,7 @@
 import {
+    CalendarClock,
     ChartLine,
+    Cog,
     Coins,
     LayoutGrid,
     ListChecks,
@@ -7,6 +9,7 @@ import {
     ReceiptText,
     Settings,
     ShieldUser,
+    TicketPercent,
     UserRound,
     Wrench,
 } from "lucide-react";
@@ -39,6 +42,11 @@ export const SUPER_ADMIN_JOBS_URL = "/super-admin/jobs";
 export const SUPER_ADMIN_MANUFACTURERS_URL = "/super-admin/manufacturers";
 export const SUPER_ADMIN_PROJECT_LEADS_URL = "/super-admin/project-leads";
 export const SUPER_ADMIN_TRANSACTIONS_URL = "/super-admin/transactions";
+export const SUPER_ADMIN_MACHINE_BOOKINGS_URL = "/super-admin/machine-bookings";
+/** The machine catalogue makers book time on. */
+export const SUPER_ADMIN_MACHINES_URL = "/super-admin/machines";
+/** Coupon codes for machine bookings, subscriptions or both. */
+export const SUPER_ADMIN_COUPONS_URL = "/super-admin/coupons";
 /** The platform's own money: plan payments and rejection charges in, bonuses out. */
 export const SUPER_ADMIN_REVENUE_URL = "/super-admin/revenue";
 export const SUPER_ADMIN_REPORTING_URL = "/super-admin/reporting";
@@ -53,6 +61,8 @@ export const SUPER_ADMIN_SETTINGS_URL = "/super-admin/settings";
 
 export const getSuperAdminManufacturerUrl = (manufacturerId: string) =>
     `${SUPER_ADMIN_MANUFACTURERS_URL}/${encodeURIComponent(manufacturerId)}`;
+export const getSuperAdminMachineBookingUrl = (bookingId: string) =>
+    `${SUPER_ADMIN_MACHINE_BOOKINGS_URL}/${encodeURIComponent(bookingId)}`;
 
 export const SUPER_ADMIN_NAV_ITEMS: AdminNavItem[] = [
     { label: "Dashboard", href: SUPER_ADMIN_DASHBOARD_URL, icon: LayoutGrid, inBottomBar: true },
@@ -67,6 +77,9 @@ export const SUPER_ADMIN_NAV_ITEMS: AdminNavItem[] = [
     },
     { label: "Project Leads", href: SUPER_ADMIN_PROJECT_LEADS_URL, icon: ShieldUser },
     { label: "Transactions", href: SUPER_ADMIN_TRANSACTIONS_URL, icon: ReceiptText, inBottomBar: true },
+    { label: "Machine bookings", href: SUPER_ADMIN_MACHINE_BOOKINGS_URL, icon: CalendarClock },
+    { label: "Machines", href: SUPER_ADMIN_MACHINES_URL, icon: Cog },
+    { label: "Coupons", href: SUPER_ADMIN_COUPONS_URL, icon: TicketPercent },
     { label: "Revenue", href: SUPER_ADMIN_REVENUE_URL, icon: Coins },
     { label: "Reporting", href: SUPER_ADMIN_REPORTING_URL, icon: ChartLine },
     { label: "Profile", href: SUPER_ADMIN_PROFILE_URL, icon: UserRound },
@@ -170,6 +183,7 @@ export const SUPER_ADMIN_NOTIFICATION_TYPES: { value: AdminNotificationType; lab
         label: "Manufacturer accounts",
         description: "An admin asks for a manufacturer's account to be closed",
     },
+    { value: "machine-bookings", label: "Machine bookings", description: "When a machine booking is paid" },
 ];
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
@@ -200,6 +214,8 @@ export type PlatformSettings = {
     pointSettings?: import("@/constant/points").PointSettingsConfig;
     /** Social channels config for the community pages. */
     communityChannels?: import("@/constant/community").CommunityChannel[];
+    /** Machine booking: the unit, the longest booking, machines per booking and the schedule (prices live on the machines). */
+    machineBooking?: import("@/lib/services/machineBookingService").MachineBookingSettings;
 };
 
 export type CandidateJobReview = {

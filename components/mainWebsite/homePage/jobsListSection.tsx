@@ -14,8 +14,14 @@ export default function JobsListSection() {
     return (
         <SectionWrapper containerClassName="flex flex-col items-start gap-8 md:gap-12">
             <div className="w-full space-y-6 md:space-y-8">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                    <SectionHeading as="h2">Available furniture jobs.</SectionHeading>
+                <div className="flex flex-wrap items-end justify-between gap-4">
+                    <div className="flex max-w-175 flex-col gap-3">
+                        <span className="text-lg font-medium">Open jobs</span>
+                        <SectionHeading as="h2">Furniture jobs waiting for a maker.</SectionHeading>
+                        <p className="text-base font-light">
+                            Each job lists the budget, the timeline and what&apos;s being made. Create your profile to apply.
+                        </p>
+                    </div>
                     <Link href={OPEN_JOBS_URL} className={WEBSITE_PRIMARY_BUTTON}>
                         Discover more jobs
                     </Link>

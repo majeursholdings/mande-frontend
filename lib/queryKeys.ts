@@ -110,6 +110,34 @@ export const queryKeys = {
     publicRules: () => [...queryKeys.settings.all, "public-rules"] as const,
   },
 
+  // Machine booking (time on the factory machines)
+  machineBookings: {
+    all: ["machine-bookings"] as const,
+    pricing: () => [...queryKeys.machineBookings.all, "pricing"] as const,
+    mine: () => [...queryKeys.machineBookings.all, "mine"] as const,
+    list: (filters?: Record<string, unknown>) =>
+      [...queryKeys.machineBookings.all, "list", filters] as const,
+    detail: (id: string) => [...queryKeys.machineBookings.all, "detail", id] as const,
+    /** A guest's bookings, looked up by email + code (keyed by the short-lived lookup token). */
+    lookup: (lookupToken: string) => [...queryKeys.machineBookings.all, "lookup", lookupToken] as const,
+    /** One booking from the private link in a booking email. */
+    view: (token: string) => [...queryKeys.machineBookings.all, "view", token] as const,
+  },
+
+  // The machine catalogue (super admins)
+  machines: {
+    all: ["machines"] as const,
+    list: (filters?: Record<string, unknown>) => [...queryKeys.machines.all, "list", filters] as const,
+    categories: () => [...queryKeys.machines.all, "categories"] as const,
+  },
+
+  // Coupons (super admins create them; anyone can check one)
+  coupons: {
+    all: ["coupons"] as const,
+    list: (filters?: Record<string, unknown>) => [...queryKeys.coupons.all, "list", filters] as const,
+    redemptions: (couponId: string) => [...queryKeys.coupons.all, "redemptions", couponId] as const,
+  },
+
   // Super Admin Platform
   superAdmin: {
     all: ["super-admin"] as const,

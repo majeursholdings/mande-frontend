@@ -7,6 +7,7 @@ import SettingsSection from "@/components/manufacturerPlatform/settingsSection";
 import JobPaymentsForm, { JobPaymentsFormSkeleton } from "../form/jobPaymentsForm";
 import JobRulesForm, { JobRulesFormSkeleton } from "../form/jobRulesForm";
 import PointAllocationForm, { PointAllocationFormSkeleton } from "../form/pointAllocationForm";
+import MachineBookingSettingsForm, { MachineBookingSettingsFormSkeleton } from "../form/machineBookingSettingsForm";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadError } from "@/components/adminPlatform/emptyState";
 import { useSuperAdminSettings } from "../settingsContext";
@@ -23,13 +24,14 @@ export const PLATFORM_SECTIONS = [
     { value: "job-payments", label: "Job payments" },
     { value: "job-rules", label: "Job rules" },
     { value: "points", label: "Point allocations" },
+    { value: "machine-booking", label: "Machine booking" },
     { value: "sign-ups", label: "Manufacturer sign-ups" },
 ] as const;
 
 export type PlatformSection = (typeof PLATFORM_SECTIONS)[number]["value"];
 
 export default function PlatformTab({ section }: { section: PlatformSection }) {
-    const { platformSettings, updatePlatformSettings, sectionStatus } = useSuperAdminSettings();
+    const { platformSettings, updatePlatformSettings, updateMachineBookingSettings, sectionStatus } = useSuperAdminSettings();
     const { isLoading } = sectionStatus.platformSettings;
 
     if (!platformSettings && !isLoading) {
@@ -72,6 +74,25 @@ export default function PlatformTab({ section }: { section: PlatformSection }) {
                         <PointAllocationForm initialSettings={platformSettings.pointSettings} onSave={updatePlatformSettings} />
                     ) : (
                         <PointAllocationFormSkeleton />
+                    )}
+                </SettingsSection>
+            </div>
+
+            <div hidden={section !== "machine-booking"}>
+                <SettingsSection
+                    headingLevel="h3"
+                    title="Machine booking"
+                    description="How time on the factory machines is booked, and when. Members on plans with a machinery discount get their % off the machines' prices."
+                >
+                    {!platformSettings ? (
+                        <MachineBookingSettingsFormSkeleton />
+                    ) : !platformSettings.machineBooking ? (
+                        <LoadError message="We couldn't load the machine booking settings. Please refresh the page." />
+                    ) : (
+                        <MachineBookingSettingsForm
+                            settings={platformSettings.machineBooking}
+                            onSave={updateMachineBookingSettings}
+                        />
                     )}
                 </SettingsSection>
             </div>

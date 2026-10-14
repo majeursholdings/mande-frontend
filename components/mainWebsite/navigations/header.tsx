@@ -4,7 +4,7 @@ import { useState } from "react";
 import Logo from "./logo";
 import Link from "next/link";
 import MobileMenu from "./mobileMenu";
-import { ARTISAN_LOGIN_URL, ARTISAN_SIGNUP_URL, mainmenu } from "@/constant/navigation";
+import { ARTISAN_LOGIN_URL, ARTISAN_SIGNUP_URL, isMenuHrefActive, mainmenu } from "@/constant/navigation";
 import { usePathname } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -22,8 +22,9 @@ const NAV_LINK_ACTIVE_CLASS = "text-white after:bg-primary-400";
 // ─────────────────────────────────────────────────────────────────────────────
 // The website header — the logo, the menu (from lg; the drawer below it) and
 // Log in / Sign up. The page you're on is underlined in green along the
-// bar's bottom edge. Help Center opens a dropdown in the platforms' popover
-// style: a white card with each page's icon, name and a line about it.
+// bar's bottom edge. Services and Help Center open a dropdown in the
+// platforms' popover style: a white card with each page's icon, name and a
+// line about it.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function Header() {
@@ -43,8 +44,8 @@ export default function Header() {
                 <nav aria-label="Main" className="hidden h-full items-stretch justify-center gap-7 lg:flex">
                     {mainmenu.map((item) => {
                         const hasSubMenu = Boolean(item.subMenu && item.subMenu.length > 0);
-                        const isChildActive = Boolean(item.subMenu?.some((sub) => sub.href === pathname));
-                        const isActive = item.href === pathname || isChildActive;
+                        const isChildActive = Boolean(item.subMenu?.some((sub) => isMenuHrefActive(sub.href, pathname)));
+                        const isActive = isMenuHrefActive(item.href, pathname) || isChildActive;
 
                         if (!hasSubMenu) {
                             return (
@@ -135,7 +136,7 @@ function HeaderDropdownItem({
                     >
                         <ul className="flex flex-col gap-0.5 rounded-xl border border-border bg-white p-1.5 shadow-lg">
                             {item.subMenu.map((subItem) => {
-                                const isSubActive = subItem.href === pathname;
+                                const isSubActive = isMenuHrefActive(subItem.href, pathname);
                                 return (
                                     <li key={subItem.label}>
                                         <Link

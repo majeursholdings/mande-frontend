@@ -44,14 +44,23 @@ type ManufacturerSubscriptionContextValue = {
      * page; the checkout comes back to `returnPath` with ?reference=…, for
      * confirmPayment.
      */
-    payForPlan: (planId: string, billingCycle: ManufacturerSubscription["billingCycle"], returnPath: string) => Promise<void>;
+    payForPlan: (
+        planId: string,
+        billingCycle: ManufacturerSubscription["billingCycle"],
+        returnPath: string,
+        couponCode?: string,
+    ) => Promise<void>;
     /**
      * Moves to `planId` now, paid as `pay` says (also undoes a pending
      * cancellation or downgrade). Paying with a new card leaves for the
      * payment partner's checkout: `redirected` is then true, and the plan
      * changes once confirmPayment sees it paid.
      */
-    upgradePlan: (planId: string, pay: UpgradePlanPayload["pay"]) => Promise<{ redirected: boolean }>;
+    upgradePlan: (
+        planId: string,
+        pay: UpgradePlanPayload["pay"],
+        couponCode?: string,
+    ) => Promise<{ redirected: boolean }>;
     /** Checks a payment the checkout sent them back from, and shows the plan it led to. */
     confirmPayment: (reference: string) => Promise<SubscriptionPayment | null>;
     /** Moves to `planId` when the current period ends. */
@@ -123,14 +132,21 @@ export function ManufacturerSubscriptionProvider({ children }: { children: React
         };
 
         return {
-            payForPlan: async (planId, billingCycle, returnPath) => {
-                const { checkoutUrl } = await subscriptionService.startCheckout({ planId, billingCycle, saveCard: true, returnPath });
+            payForPlan: async (planId, billingCycle, returnPath, couponCode) => {
+                const { checkoutUrl } = await subscriptionService.startCheckout({
+                    planId,
+                    billingCycle,
+                    saveCard: true,
+                    returnPath,
+                    ...(couponCode ? { couponCode } : {}),
+                });
                 goToCheckout(checkoutUrl);
             },
-            upgradePlan: async (planId, pay) => {
+            upgradePlan: async (planId, pay, couponCode) => {
                 const result = await subscriptionService.upgradePlan({
                     planId,
                     pay: pay.from === "new-card" ? { ...pay, returnPath: PLAN_SETTINGS_PATH } : pay,
+                    ...(couponCode ? { couponCode } : {}),
                 });
                 if (result.checkoutUrl) {
                     goToCheckout(result.checkoutUrl);

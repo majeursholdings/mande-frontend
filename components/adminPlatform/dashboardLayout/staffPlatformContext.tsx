@@ -5,6 +5,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
     ADMIN_DASHBOARD_URL,
     ADMIN_JOBS_URL,
+    ADMIN_MACHINE_BOOKINGS_URL,
     ADMIN_MANUFACTURERS_URL,
     ADMIN_NAV_ITEMS,
     ADMIN_NOTIFICATION_TYPES,
@@ -13,6 +14,7 @@ import {
     ADMIN_SECURITY_URL,
     ADMIN_SETTINGS_URL,
     ADMIN_TRANSACTIONS_URL,
+    getAdminMachineBookingUrl,
     getAdminManufacturerUrl,
     type AdminNavItem,
     type AdminNotificationType,
@@ -21,6 +23,7 @@ import {
 import {
     SUPER_ADMIN_DASHBOARD_URL,
     SUPER_ADMIN_JOBS_URL,
+    SUPER_ADMIN_MACHINE_BOOKINGS_URL,
     SUPER_ADMIN_MANUFACTURERS_URL,
     SUPER_ADMIN_NAV_ITEMS,
     SUPER_ADMIN_NOTIFICATION_TYPES,
@@ -30,6 +33,7 @@ import {
     SUPER_ADMIN_SECURITY_URL,
     SUPER_ADMIN_SETTINGS_URL,
     SUPER_ADMIN_TRANSACTIONS_URL,
+    getSuperAdminMachineBookingUrl,
     getSuperAdminManufacturerUrl,
     superAdminCan,
     type SuperAdminRole,
@@ -60,6 +64,9 @@ export type StaffPlatform = {
     manufacturersUrl: string;
     getManufacturerUrl: (manufacturerId: string) => string;
     transactionsUrl: string;
+    /** The machine bookings list, and one booking's page. */
+    machineBookingsUrl: string;
+    getMachineBookingUrl: (bookingId: string) => string;
     profileUrl: string;
     /** Where they change their own details, photo and notifications. */
     profileEditUrl: string;
@@ -107,6 +114,8 @@ const STAFF_PLATFORMS: Record<StaffPlatformKey, StaffPlatform> = {
         manufacturersUrl: ADMIN_MANUFACTURERS_URL,
         getManufacturerUrl: getAdminManufacturerUrl,
         transactionsUrl: ADMIN_TRANSACTIONS_URL,
+        machineBookingsUrl: ADMIN_MACHINE_BOOKINGS_URL,
+        getMachineBookingUrl: getAdminMachineBookingUrl,
         profileUrl: ADMIN_PROFILE_URL,
         profileEditUrl: ADMIN_SETTINGS_URL,
         settingsUrl: ADMIN_SETTINGS_URL,
@@ -135,6 +144,8 @@ const STAFF_PLATFORMS: Record<StaffPlatformKey, StaffPlatform> = {
         manufacturersUrl: SUPER_ADMIN_MANUFACTURERS_URL,
         getManufacturerUrl: getSuperAdminManufacturerUrl,
         transactionsUrl: SUPER_ADMIN_TRANSACTIONS_URL,
+        machineBookingsUrl: SUPER_ADMIN_MACHINE_BOOKINGS_URL,
+        getMachineBookingUrl: getSuperAdminMachineBookingUrl,
         profileUrl: SUPER_ADMIN_PROFILE_URL,
         profileEditUrl: SUPER_ADMIN_PROFILE_EDIT_URL,
         settingsUrl: SUPER_ADMIN_SETTINGS_URL,

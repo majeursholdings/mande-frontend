@@ -8,6 +8,7 @@ import { NOT_INCLUDED } from "@/constant/plans";
 import { getWebsitePlans, type WebsitePlan } from "@/lib/services/websiteService";
 import SectionHeading from "../common/sectionHeading";
 import SectionWrapper from "../common/sectionWrapper";
+import HoverCard from "../common/hoverCard";
 import { WEBSITE_ON_DARK_BUTTON } from "../common/buttonStyles";
 
 /** Where "See plans" links land — the offer bar's, for one. */
@@ -38,9 +39,10 @@ export default function PricingSection() {
                 <Suspense fallback={null}>
                     <PricingOfferBadge />
                 </Suspense>
-                <SectionHeading as="h2">Pay for 10 months, work all 12.</SectionHeading>
+                <SectionHeading as="h2">A plan for every size of workshop.</SectionHeading>
                 <p className="text-base font-light text-mist-300">
-                    Pick the plan that fits your team.{" "}
+                    Every plan gets you real jobs and staged payments. Bigger plans let you run more jobs at once, and
+                    add discounted machine time at our Lagos factory and a dedicated officer.{" "}
                     <Suspense fallback={<Skeleton inline className="h-4 w-64 max-w-full" />}>
                         <PricingOfferLine />
                     </Suspense>
@@ -59,21 +61,20 @@ async function PricingOfferBadge() {
     const discountPercent = (await getWebsitePlans())?.discountPercent ?? 0;
     if (discountPercent <= 0) return null;
     return (
-        <span className="w-fit rounded-full bg-primary-500 px-3 py-1 text-sm font-medium text-primary-950">
-            Every plan is {discountPercent}% off for now
-        </span>
+        <span className="text-lg font-medium text-primary-400">Every plan is {discountPercent}% off for now</span>
     );
 }
 
-/** The offer and the yearly saving, after "Pick the plan that fits your team." */
+/** The yearly saving (and whether it adds to an offer), after the introduction. */
 async function PricingOfferLine() {
     const data = await getWebsitePlans();
     const plans = data?.plans ?? [];
     if (plans.length === 0) return null;
     const discountPercent = data?.discountPercent ?? 0;
     const annualSaving = annualSavingPercent(plans[0]);
+    // The offer itself is already in the line above the heading
     return discountPercent > 0
-        ? `Every plan is ${discountPercent}% off for now, and paying for the year saves a further ${annualSaving}%.`
+        ? `Paying for the year saves a further ${annualSaving}%.`
         : `Pay for the year and save ${annualSaving}%.`;
 }
 
@@ -97,8 +98,10 @@ async function PlanCards() {
     return (
         <ul className="grid w-full grid-cols-1 gap-5 md:grid-cols-3 lg:gap-6">
             {plans.map((plan) => (
-                <li
+                <HoverCard
+                    as="li"
                     key={plan.id}
+                    lineClassName="bg-primary-400"
                     className="flex flex-col justify-between gap-8 rounded-[10px] border border-white/10 bg-white/5 p-6 transition-colors duration-300 hover:border-primary-600/50 lg:p-8"
                 >
                     <div className="flex flex-col gap-6 md:gap-8">
@@ -106,7 +109,7 @@ async function PlanCards() {
                             <div className="flex items-center justify-between gap-3">
                                 <span className="font-mono text-sm font-semibold text-primary-400">{plan.tierNumber}</span>
                                 {discountPercent > 0 && (
-                                    <span className="rounded-full bg-primary-500/15 px-2.5 py-0.5 text-xs font-medium text-primary-300">
+                                    <span className="text-xs font-medium tracking-wider text-primary-300 uppercase">
                                         {discountPercent}% off
                                     </span>
                                 )}
@@ -156,7 +159,7 @@ async function PlanCards() {
                     <Link href={`${ARTISAN_SIGNUP_URL}?plan=${plan.id}`} className={cn(WEBSITE_ON_DARK_BUTTON, "w-full py-2.5")}>
                         {buttonTextFor(plan)}
                     </Link>
-                </li>
+                </HoverCard>
             ))}
         </ul>
     );

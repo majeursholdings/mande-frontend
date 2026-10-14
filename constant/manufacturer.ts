@@ -34,6 +34,7 @@ import {
     type TwoFactorMethod,
 } from "@/constant/platformRecords";
 import {
+    Factory,
     LayoutGrid,
     ListChecks,
     ReceiptText,
@@ -99,8 +100,12 @@ export const MANUFACTURER_DASHBOARD_URL = "/manufacturer/dashboard";
 export const MANUFACTURER_JOBS_URL = "/manufacturer/jobs";
 export const MANUFACTURER_TRANSACTIONS_URL = "/manufacturer/transactions";
 export const MANUFACTURER_REVIEWS_URL = "/manufacturer/reviews";
+/** Booking time on the factory machines, and their bookings. */
+export const MANUFACTURER_MACHINE_BOOKINGS_URL = "/manufacturer/machine-bookings";
 export const MANUFACTURER_PROFILE_URL = "/manufacturer/profile";
 // Reached from the profile page
+/** The maker's points and rank. */
+export const MANUFACTURER_POINTS_URL = "/manufacturer/profile/points";
 export const MANUFACTURER_SETTINGS_URL = "/manufacturer/profile/settings";
 /** Opens Settings on the Plan tab — where "Upgrade" links go. */
 export const MANUFACTURER_PLAN_SETTINGS_URL = `${MANUFACTURER_SETTINGS_URL}?tab=plan`;
@@ -124,6 +129,7 @@ export const MANUFACTURER_NAV_ITEMS: ManufacturerNavItem[] = [
     { label: "Jobs", href: MANUFACTURER_JOBS_URL, icon: ListChecks },
     { label: "Transactions", href: MANUFACTURER_TRANSACTIONS_URL, icon: ReceiptText },
     { label: "Reviews", href: MANUFACTURER_REVIEWS_URL, icon: Star },
+    { label: "Machine time", href: MANUFACTURER_MACHINE_BOOKINGS_URL, icon: Factory },
     { label: "Profile", href: MANUFACTURER_PROFILE_URL, icon: UserRound },
 ];
 
