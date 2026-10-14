@@ -70,6 +70,7 @@ export const COMPANY_SPECIALITY_OPTIONS: SelectOption[] = [
     { label: "Desks", value: "desks" },
     { label: "Chairs & Seating", value: "chairs-seating" },
     { label: "Sofas", value: "sofas" },
+    { label: "Armchairs", value: "armchairs" },
     { label: "Leather", value: "leather" },
     { label: "Wood", value: "wood" },
     { label: "Upholstery", value: "upholstery" },

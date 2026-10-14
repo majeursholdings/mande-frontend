@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormSubmitButton } from "@/components/adminPlatform/form/formButtons";
 import { getErrorMessage } from "@/lib/api";
+import { MAX_AMOUNT, MAX_AMOUNT_LABEL } from "@/lib/number";
 import { queryKeys } from "@/lib/queryKeys";
 import { cn } from "@/lib/utils";
 import { mediaService } from "@/lib/services/mediaService";
@@ -113,12 +114,13 @@ const MAIN_FIELDS: FormFieldConfig[] = [
     },
 ];
 
-/** "Enter at least ₦1" for a filled-in price, and at least one of the two prices. */
+/** "Enter at least ₦1" (and at most MAX_AMOUNT) for a filled-in price, and at least one of the two prices. */
 const validatePrice = (value: string, values: Record<string, unknown>) => {
     const hourly = String(values.machineHourlyPrice ?? "").trim();
     const daily = String(values.machineDailyPrice ?? "").trim();
     if (!hourly && !daily) return "Enter a price per hour, per day or both";
     if (value.trim() && Number(value) < MACHINE_LIMITS.priceMinKobo / 100) return "Enter at least ₦1";
+    if (value.trim() && Number(value) > MAX_AMOUNT) return `Enter at most ${MAX_AMOUNT_LABEL}`;
     return true;
 };
 

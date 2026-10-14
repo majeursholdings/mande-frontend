@@ -8,6 +8,7 @@ import type { FormFieldConfig } from "@/components/form/types";
 import { Button } from "@/components/ui/button";
 import { FormSubmitButton } from "@/components/adminPlatform/form/formButtons";
 import { NOT_INCLUDED, type PricingPlan } from "@/constant/plans";
+import { MAX_AMOUNT, MAX_AMOUNT_LABEL } from "@/lib/number";
 import type { PlanChanges } from "../settingsContext";
 
 /** The feature that's also the plan's job limit (maxConcurrentJobs). */
@@ -60,7 +61,10 @@ export default function PlanForm({
             placeholder: "₦0",
             validation: {
                 required: "Monthly price is required",
-                validate: (value: string) => Number(value) > 0 || "The price must be more than ₦0",
+                validate: (value: string) => {
+                    if (Number(value) <= 0) return "The price must be more than ₦0";
+                    return Number(value) <= MAX_AMOUNT || `The price can be at most ${MAX_AMOUNT_LABEL}`;
+                },
             },
         },
         {
@@ -70,9 +74,10 @@ export default function PlanForm({
             placeholder: "₦0",
             validation: {
                 required: "Yearly price is required",
-                validate: (value: string, values: PlanFormValues) =>
-                    Number(value) <= Number(values.monthlyPrice) * 12 ||
-                    "Make it no more than 12 months of the monthly price",
+                validate: (value: string, values: PlanFormValues) => {
+                    if (Number(value) > MAX_AMOUNT) return `The price can be at most ${MAX_AMOUNT_LABEL}`;
+                    return Number(value) <= Number(values.monthlyPrice) * 12 || "Make it no more than 12 months of the monthly price";
+                },
             },
         },
         ...plan.features.map((feature, index): FormFieldConfig =>

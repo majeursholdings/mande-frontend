@@ -474,6 +474,7 @@ const JOB_CATEGORY_CODES: Record<string, string> = {
     desks: "DSK",
     "chairs-seating": "CHR",
     sofas: "SOF",
+    armchairs: "ARM",
     leather: "LTH",
     wood: "WOD",
     upholstery: "UPH",

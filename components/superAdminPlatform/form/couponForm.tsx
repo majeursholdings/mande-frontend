@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { FormSubmitButton } from "@/components/adminPlatform/form/formButtons";
 import { getErrorMessage } from "@/lib/api";
 import { getLagosNow } from "@/lib/machineBookingSchedule";
+import { MAX_AMOUNT, MAX_AMOUNT_LABEL } from "@/lib/number";
 import { MandeApiError } from "@/lib/types/api";
 import type {
     Coupon,
@@ -171,7 +172,10 @@ function getMainFields(type: CouponType, isEdit: boolean): FormFieldConfig[] {
                   placeholder: "₦0",
                   validation: {
                       required: "Enter an amount",
-                      validate: (value: string) => Number(value) >= 1 || "Enter at least ₦1",
+                      validate: (value: string) => {
+                          if (Number(value) < 1) return "Enter at least ₦1";
+                          return Number(value) <= MAX_AMOUNT || `Enter at most ${MAX_AMOUNT_LABEL}`;
+                      },
                   },
               }
             : {

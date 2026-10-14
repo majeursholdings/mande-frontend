@@ -1,3 +1,8 @@
+/** The most any amount can be, in naira (jobs, plans, machines, coupons). The API refuses more. */
+export const MAX_AMOUNT = 999_999_999;
+/** "₦999,999,999", for messages. */
+export const MAX_AMOUNT_LABEL = `₦${MAX_AMOUNT.toLocaleString("en-US")}`;
+
 const compactFormatter = new Intl.NumberFormat("en-US", {
     notation: "compact",
     maximumFractionDigits: 1,

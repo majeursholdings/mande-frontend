@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getErrorMessage } from "@/lib/api";
 import { formatDuration } from "@/lib/date";
+import { MAX_AMOUNT, MAX_AMOUNT_LABEL } from "@/lib/number";
 import {
     ADMIN_POSITION_OPTIONS,
     JOB_DESCRIPTION_MAX_LENGTH,
@@ -225,7 +226,10 @@ export default function JobFormDialog({
             placeholder: "₦0",
             validation: {
                 required: "Amount is required",
-                validate: (value: string) => Number(value) > 0 || "Amount must be more than ₦0",
+                validate: (value: string) => {
+                    if (Number(value) <= 0) return "Amount must be more than ₦0";
+                    return Number(value) <= MAX_AMOUNT || `Amount can be at most ${MAX_AMOUNT_LABEL}`;
+                },
             },
         },
     ];
