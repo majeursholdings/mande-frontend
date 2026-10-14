@@ -21,6 +21,7 @@ import { formatDuration } from "@/lib/date";
 import {
     ADMIN_POSITION_OPTIONS,
     JOB_DESCRIPTION_MAX_LENGTH,
+    MAX_JOB_AMOUNT,
     MAX_JOB_MANUFACTURERS,
     formatJobCodeTimestamp,
     generateJobCode,
@@ -225,7 +226,10 @@ export default function JobFormDialog({
             placeholder: "₦0",
             validation: {
                 required: "Amount is required",
-                validate: (value: string) => Number(value) > 0 || "Amount must be more than ₦0",
+                validate: (value: string) => {
+                    if (Number(value) <= 0) return "Amount must be more than ₦0";
+                    return Number(value) <= MAX_JOB_AMOUNT || "Amount can be at most ₦999,999,999";
+                },
             },
         },
     ];
