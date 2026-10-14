@@ -59,10 +59,13 @@ export default function AdminVerifyEmailForm({
         }
     };
 
-    const handleSubmit = async () => {
+    // The code comes from the form's values, not `code`: the auto-submit below
+    // runs before the re-render, when `code` still lacks the last digit (or is
+    // empty after a paste or autofill of the whole code)
+    const handleSubmit = async ({ otp }: AdminVerifyEmailFormValues) => {
         setIsLoading(true);
         try {
-            const result = await authService.verifyEmail(email, code);
+            const result = await authService.verifyEmail(email, otp);
             toast.success("Email verified successfully!");
             onVerified(result.user);
         } catch (error) {
