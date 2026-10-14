@@ -3,7 +3,6 @@ import type { StatusTone } from "@/components/customTable/statusBadge";
 import { JOB_PRODUCTION_STEPS, MAX_JOB_REJECTIONS as MAX_ADMIN_JOB_REJECTIONS } from "@/constant/jobWorkflow";
 import {
     JOB_DESCRIPTION_MAX_LENGTH,
-    MAX_JOB_AMOUNT,
     MAX_JOB_MANUFACTURERS,
     formatJobCodeTimestamp,
     generateJobCode,
@@ -44,7 +43,6 @@ import {
 export {
     JOB_DESCRIPTION_MAX_LENGTH,
     MAX_ADMIN_JOB_REJECTIONS,
-    MAX_JOB_AMOUNT,
     MAX_JOB_MANUFACTURERS,
     formatJobCodeTimestamp,
     generateJobCode,

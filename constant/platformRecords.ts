@@ -506,8 +506,6 @@ export function generateJobCode(category: string, at: Date): string {
 
 /** A job can go to at most this many manufacturers. */
 export const MAX_JOB_MANUFACTURERS = 2;
-/** Most a job can pay, in naira. The API refuses more. */
-export const MAX_JOB_AMOUNT = 999_999_999;
 /** Longest a job description can be. */
 export const JOB_DESCRIPTION_MAX_LENGTH = 500;
 
