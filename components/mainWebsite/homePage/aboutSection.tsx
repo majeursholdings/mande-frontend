@@ -1,10 +1,10 @@
-import Image from "next/image";
 import Link from "next/link";
 import { BriefcaseBusiness, Factory, UsersRound, Wallet, type LucideIcon } from "lucide-react";
 import { JOB_PAYMENT_SCHEDULE } from "@/constant/jobWorkflow";
 import { ABOUT_URL, ARTISAN_SIGNUP_URL } from "@/constant/navigation";
 import SectionHeading from "../common/sectionHeading";
 import SectionWrapper from "../common/sectionWrapper";
+import VideoPlayer from "../common/videoPlayer";
 import { WEBSITE_OUTLINE_BUTTON, WEBSITE_PRIMARY_BUTTON } from "../common/buttonStyles";
 import { ACCELERATOR_LOAN_LABEL, ACCELERATOR_PROGRAM_NAME } from "@/constant/accelerator";
 
@@ -34,7 +34,7 @@ const PILLARS: { icon: LucideIcon; title: string; description: string }[] = [
     },
 ];
 
-/** What MANDE is and what makers get from it, beside a workshop photo. */
+/** What MANDE is and what makers get from it, beside the MANDE for makers video. */
 export default function AboutSection() {
     return (
         <SectionWrapper containerClassName="flex flex-col gap-12 md:gap-16">
@@ -65,12 +65,10 @@ export default function AboutSection() {
                     </div>
                 </div>
                 <div className="flex-1">
-                    <Image
-                        src="/images/image1.png"
-                        alt="Furniture makers at work on a MANDE job"
-                        width={1000}
-                        height={667}
-                        className="aspect-1000/667 w-full rounded-[10px] object-cover object-center"
+                    <VideoPlayer
+                        src="https://res.cloudinary.com/zihare24/video/upload/v1791997939/MANDE-for-makers-v2.mp4"
+                        poster="https://res.cloudinary.com/zihare24/image/upload/v1791998673/MANDE-thumbnail-1920x1080.jpg"
+                        className="aspect-video w-full"
                     />
                 </div>
             </div>
