@@ -67,12 +67,21 @@ export default function AdminVerifyEmailForm({
             onVerified(result.user);
         } catch (error) {
             methods.setValue("otp", "");
+            // A 422's own message is the generic "Some fields need attention.":
+            // say which check failed instead, as this screen has no fields to mark
+            const details =
+                error instanceof MandeApiError && error.status === 422 && error.details && !Array.isArray(error.details)
+                    ? Object.values(error.details).flat()
+                    : [];
+            const detailMessage = typeof details[0] === "string" ? details[0] : null;
             toast.error(
                 error instanceof MandeApiError && error.status === 429
                     ? "Too many tries. Please wait a few minutes, then try again."
-                    : error instanceof MandeApiError && error.message
-                      ? error.message
-                      : "Couldn't verify the code. Please try again."
+                    : detailMessage
+                      ? detailMessage
+                      : error instanceof MandeApiError && error.message
+                        ? error.message
+                        : "Couldn't verify the code. Please try again."
             );
         } finally {
             setIsLoading(false);
