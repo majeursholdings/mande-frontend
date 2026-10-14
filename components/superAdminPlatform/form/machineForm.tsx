@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent, type KeyboardEvent } from "react";
-import { Controller, FormProvider, useForm, useFormContext, useWatch } from "react-hook-form";
+import { useState, type KeyboardEvent } from "react";
+import { Controller, useForm, useFormContext, useFormState, type Control } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ImageIcon, Loader2, Plus, XIcon } from "lucide-react";
+import { Plus, XIcon } from "lucide-react";
 import MainForm, { ErrorIcon, FormField, inputClass } from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
-import { API_PHOTO_ACCEPT, DEFAULT_MAX_FILE_SIZE_MB, isImageFile } from "@/components/form/fileRules";
+import { API_PHOTO_ACCEPT, DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fileRules";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FormSubmitButton } from "@/components/adminPlatform/form/formButtons";
@@ -15,7 +15,6 @@ import { getErrorMessage } from "@/lib/api";
 import { MAX_AMOUNT, MAX_AMOUNT_LABEL } from "@/lib/number";
 import { queryKeys } from "@/lib/queryKeys";
 import { cn } from "@/lib/utils";
-import { mediaService } from "@/lib/services/mediaService";
 import {
     MACHINE_LIMITS,
     machineService,
@@ -26,6 +25,7 @@ import {
 } from "@/lib/services/machineService";
 
 type MachineValues = {
+    /** From the image field: the saved photo, a new upload, or null once removed. */
     machineImage: MachineImage | null;
     machineName: string;
     machineModel: string;
@@ -65,9 +65,10 @@ const toKobo = (naira: string) => (naira.trim() ? Math.round(Number(naira) * 100
 const orNull = (value: string) => value.trim() || null;
 
 function toPayload(values: MachineValues): CreateMachinePayload {
+    const image = values.machineImage;
     return {
         name: values.machineName.trim(),
-        image: values.machineImage ? { publicId: values.machineImage.publicId } : null,
+        image: image ? { publicId: image.publicId } : null,
         hourlyPriceKobo: toKobo(values.machineHourlyPrice),
         dailyPriceKobo: toKobo(values.machineDailyPrice),
         functions: values.machineFunctions,
@@ -80,7 +81,17 @@ function toPayload(values: MachineValues): CreateMachinePayload {
     };
 }
 
+/** The fields MainForm lays out: the photo (the saved one shows in it), then name, model and type. */
 const MAIN_FIELDS: FormFieldConfig[] = [
+    {
+        name: "machineImage",
+        type: "image",
+        label: "Image (optional)",
+        description: `JPG, PNG or WebP, up to ${DEFAULT_MAX_FILE_SIZE_MB}MB. A new one replaces the current image.`,
+        accept: API_PHOTO_ACCEPT,
+        maxFiles: 1,
+        uploadPurpose: "machine-image",
+    },
     {
         name: "machineName",
         type: "text",
@@ -131,7 +142,8 @@ const EXTRA_FIELDS: Record<string, FormFieldConfig> = {
         label: "Price per hour",
         placeholder: "Not offered",
         description: "Leave empty if it isn't booked by the hour.",
-        validation: { validate: validatePrice },
+        // "At least one price" depends on both, so a change here checks the other again
+        validation: { validate: validatePrice, deps: "machineDailyPrice" },
     },
     machineDailyPrice: {
         name: "machineDailyPrice",
@@ -139,7 +151,7 @@ const EXTRA_FIELDS: Record<string, FormFieldConfig> = {
         label: "Price per day",
         placeholder: "Not offered",
         description: "Leave empty if it isn't booked by the day.",
-        validation: { validate: validatePrice },
+        validation: { validate: validatePrice, deps: "machineHourlyPrice" },
     },
     machineDescription: {
         name: "machineDescription",
@@ -178,95 +190,6 @@ function FieldError({ message }: { message?: string }) {
             <ErrorIcon />
             {message}
         </span>
-    );
-}
-
-/** The machine's photo: upload (media purpose "machine-image"), preview, replace or remove. */
-function MachineImageField() {
-    const { control } = useFormContext<MachineValues>();
-    const [isUploading, setIsUploading] = useState(false);
-    const [progress, setProgress] = useState(0);
-
-    return (
-        <Controller
-            name="machineImage"
-            control={control}
-            render={({ field }) => {
-                const image = field.value;
-                const handleFile = async (event: ChangeEvent<HTMLInputElement>) => {
-                    const file = event.target.files?.[0];
-                    // Cleared so choosing the same file again still fires onChange
-                    event.target.value = "";
-                    if (!file) return;
-                    if (!isImageFile(file)) {
-                        toast.error("Please choose an image (JPG, PNG or WebP)");
-                        return;
-                    }
-                    if (file.size > DEFAULT_MAX_FILE_SIZE_MB * 1024 * 1024) {
-                        toast.error(`The image must be ${DEFAULT_MAX_FILE_SIZE_MB}MB or smaller`);
-                        return;
-                    }
-                    setIsUploading(true);
-                    setProgress(0);
-                    try {
-                        const result = await mediaService.uploadFile(file, "machine-image", setProgress);
-                        field.onChange({ url: result.url, publicId: result.publicId });
-                    } catch (err) {
-                        toast.error(getErrorMessage(err, "Couldn't upload the image. Please try again."));
-                    } finally {
-                        setIsUploading(false);
-                    }
-                };
-                return (
-                    <div className="flex flex-col gap-1.5">
-                        <span className={LABEL_CLASS}>Image (optional)</span>
-                        <div className="flex items-center gap-4">
-                            <div className="relative flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gray-200 bg-mist-50">
-                                {image ? (
-                                    // eslint-disable-next-line @next/next/no-img-element -- an uploaded photo from the media host
-                                    <img src={image.url} alt="Machine" className="size-full object-cover" />
-                                ) : (
-                                    <ImageIcon className="size-8 text-mist-300" strokeWidth={1.5} aria-hidden />
-                                )}
-                                {isUploading && (
-                                    <span className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 text-white">
-                                        <Loader2 className="size-5 animate-spin" />
-                                        <span className="mt-1 text-[10px] font-semibold">{progress}%</span>
-                                    </span>
-                                )}
-                            </div>
-                            <div className="flex flex-col items-start gap-2">
-                                <label
-                                    className={cn(
-                                        "inline-flex h-9 items-center rounded-lg border border-gray-200 bg-white px-3 text-sm font-medium font-text text-mist-950 hover:bg-mist-50 has-focus-visible:ring-2 has-focus-visible:ring-secondary-300",
-                                        isUploading ? "cursor-wait opacity-60" : "cursor-pointer",
-                                    )}
-                                >
-                                    {image ? "Replace image" : "Upload image"}
-                                    <input
-                                        type="file"
-                                        accept={API_PHOTO_ACCEPT}
-                                        disabled={isUploading}
-                                        onChange={handleFile}
-                                        className="sr-only"
-                                    />
-                                </label>
-                                {image && !isUploading && (
-                                    <button
-                                        type="button"
-                                        onClick={() => field.onChange(null)}
-                                        className="text-xs font-medium font-text text-secondary-700 hover:underline cursor-pointer"
-                                    >
-                                        Remove image
-                                    </button>
-                                )}
-                                <span className={HINT_CLASS}>JPG, PNG or WebP, up to {DEFAULT_MAX_FILE_SIZE_MB}MB.</span>
-                            </div>
-                        </div>
-                    </div>
-                );
-            }}
-        />
     );
 }
 
@@ -447,17 +370,8 @@ function FunctionsField() {
 
 /** Category, functions, prices, description, sort order and active, under name, model and type. */
 function MachineExtraFields() {
-    const methods = useFormContext<MachineValues>();
-    const { register, control, getValues, setValue } = methods;
-    const { errors } = methods.formState;
-    const [hourly, daily] = useWatch({ control, name: ["machineHourlyPrice", "machineDailyPrice"] });
-
-    // "At least one price" depends on both: check the other again when one changes
-    useEffect(() => {
-        for (const name of ["machineHourlyPrice", "machineDailyPrice"] as const) {
-            if (methods.getFieldState(name).isTouched || methods.formState.isSubmitted) void methods.trigger(name);
-        }
-    }, [hourly, daily, methods]);
+    const { register, control, getValues, setValue, formState } = useFormContext<MachineValues>();
+    const { errors } = formState;
 
     const renderField = (name: keyof MachineValues) => (
         <FormField<MachineValues>
@@ -507,17 +421,15 @@ export default function MachineForm({
     const isEdit = !!machine;
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<MachineValues>({ mode: "onTouched", defaultValues: toValues(machine) });
-    const { isDirty } = methods.formState;
 
     const handleSubmit = async (values: MachineValues) => {
         setIsLoading(true);
         try {
             const payload = toPayload(values);
             if (isEdit) {
-                const { dirtyFields } = methods.formState;
                 const changes: UpdateMachinePayload = { ...payload };
                 // The photo is only sent when it changed (null removes it)
-                if (!dirtyFields.machineImage && values.machineImage?.publicId === machine.image?.publicId) delete changes.image;
+                if (values.machineImage?.publicId === machine.image?.publicId) delete changes.image;
                 await onUpdate?.(changes);
             } else {
                 await onCreate?.(payload);
@@ -533,9 +445,6 @@ export default function MachineForm({
 
     return (
         <div className="flex flex-col gap-4">
-            <FormProvider {...methods}>
-                <MachineImageField />
-            </FormProvider>
             <MainForm<MachineValues>
                 methods={methods}
                 fields={MAIN_FIELDS}
@@ -545,24 +454,50 @@ export default function MachineForm({
                 hideRequiredMarks
                 footerSlot={<MachineExtraFields />}
                 renderFooter={({ isLoading, canSubmit }) => (
-                    <div className="flex justify-end gap-3">
-                        <Button
-                            type="button"
-                            onClick={onCancel}
-                            disabled={isLoading}
-                            className="h-11 px-5 bg-mist-100 hover:bg-mist-200 text-mist-950 font-medium font-text rounded-button cursor-pointer"
-                        >
-                            Cancel
-                        </Button>
-                        <FormSubmitButton
-                            label={isEdit ? "Save machine" : "Add machine"}
-                            loadingLabel={isEdit ? "Saving..." : "Adding..."}
-                            isLoading={isLoading}
-                            disabled={!canSubmit || (isEdit && !isDirty)}
-                            className="w-auto px-5"
-                        />
-                    </div>
+                    <FormActions
+                        control={methods.control}
+                        isEdit={isEdit}
+                        isLoading={isLoading}
+                        canSubmit={canSubmit}
+                        onCancel={onCancel}
+                    />
                 )}
+            />
+        </div>
+    );
+}
+
+/** Cancel and save. Reads isDirty here, so a change to it re-renders only these buttons. */
+function FormActions({
+    control,
+    isEdit,
+    isLoading,
+    canSubmit,
+    onCancel,
+}: {
+    control: Control<MachineValues>;
+    isEdit: boolean;
+    isLoading: boolean;
+    canSubmit: boolean;
+    onCancel: () => void;
+}) {
+    const { isDirty } = useFormState({ control });
+    return (
+        <div className="flex justify-end gap-3">
+            <Button
+                type="button"
+                onClick={onCancel}
+                disabled={isLoading}
+                className="h-11 px-5 bg-mist-100 hover:bg-mist-200 text-mist-950 font-medium font-text rounded-button cursor-pointer"
+            >
+                Cancel
+            </Button>
+            <FormSubmitButton
+                label={isEdit ? "Save machine" : "Add machine"}
+                loadingLabel={isEdit ? "Saving..." : "Adding..."}
+                isLoading={isLoading}
+                disabled={!canSubmit || (isEdit && !isDirty)}
+                className="w-auto px-5"
             />
         </div>
     );

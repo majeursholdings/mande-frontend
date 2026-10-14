@@ -42,7 +42,8 @@ import type { FormFieldConfig } from "./types";
 
 export interface FileItemState {
     id: string; // client unique ID
-    file: File;
+    /** null for a file that was already saved (see savedItemsFrom): there's nothing local to show or re-upload. */
+    file: File | null;
     renamedName: string;
     originalName: string;
     size: number;
@@ -72,6 +73,44 @@ export function getFormUploadedFiles(fieldName: string): CloudinaryUploadResult[
 
 export function clearFormUploadedFiles(fieldName: string): void {
     activeFormUploadsRegistry.delete(fieldName);
+}
+
+/**
+ * Files the field's value already holds when it mounts (e.g. a machine's
+ * photo when editing it), shown as finished uploads that can be removed or
+ * replaced. Anything without a url and publicId is left out.
+ */
+function savedItemsFrom(value: unknown): FileItemState[] {
+    const list = Array.isArray(value) ? value : value ? [value] : [];
+    return list.flatMap((entry: unknown, index): FileItemState[] => {
+        const saved = entry as Partial<CloudinaryUploadResult> | null;
+        if (!saved?.url || !saved.publicId) return [];
+        const name = saved.originalName ?? saved.name ?? "Current file";
+        return [
+            {
+                id: `saved-${index}-${saved.publicId}`,
+                file: null,
+                renamedName: saved.name ?? name,
+                originalName: name,
+                size: saved.bytes ?? 0,
+                status: "completed",
+                progress: 100,
+                previewUrl: null,
+                uploaded: {
+                    id: saved.publicId,
+                    publicId: saved.publicId,
+                    url: saved.url,
+                    name: saved.name ?? name,
+                    originalName: name,
+                    format: saved.format ?? "",
+                    bytes: saved.bytes ?? 0,
+                    resourceType: saved.resourceType ?? "image",
+                    category: saved.category ?? "saved",
+                    metadata: saved.metadata ?? { id: saved.publicId, date: "", source: "saved", category: "saved" },
+                },
+            },
+        ];
+    });
 }
 
 /** Marks an upload signed by the API (see FormFieldConfig.uploadPurpose). */
@@ -120,14 +159,19 @@ export const FileInput = <T extends FieldValues = FieldValues>({
     field,
     register,
     error,
+    getValues,
     setValue,
 }: FileInputProps<T>) => {
     const formContext = useFormContext<T>();
     const setValueFn = setValue ?? formContext?.setValue;
+    const getValuesFn = getValues ?? formContext?.getValues;
 
     const { data: currentUser } = useCurrentUser();
 
-    const [items, setItems] = useState<FileItemState[]>([]);
+    // Starts with whatever the value already holds, so a saved file shows (and stays unless removed)
+    const [items, setItems] = useState<FileItemState[]>(() =>
+        savedItemsFrom(getValuesFn ? (getValuesFn() as Record<string, unknown>)[field.name] : null),
+    );
     const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
     const [isDragging, setIsDragging] = useState(false);
     const inputRef = useRef<HTMLInputElement | null>(null);
@@ -150,6 +194,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
     const icon = field.uploadIcon ?? defaultIcon;
 
     const getFileKey = (file: File) => `${file.name}-${file.size}-${file.lastModified}`;
+    const getItemKey = (item: FileItemState) => (item.file ? getFileKey(item.file) : item.id);
 
     const isSameFile = (a: File, b: File) =>
         a.name === b.name && a.size === b.size && a.lastModified === b.lastModified;
@@ -223,7 +268,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                 const dt = new DataTransfer();
                 currentItems
                     .filter((item) => item.status === "completed" || item.status === "uploading")
-                    .forEach((item) => dt.items.add(item.file));
+                    .forEach((item) => item.file && dt.items.add(item.file));
                 inputRef.current.files = dt.files;
             } catch {
                 // Ignore environment restrictions
@@ -240,6 +285,18 @@ export const FileInput = <T extends FieldValues = FieldValues>({
         needsSync.current = false;
         syncFormValue(items);
     }, [items, syncFormValue]);
+
+    // A single-file field keeps the file it had (e.g. a saved photo) while a
+    // new one uploads, and puts it back if that upload is stopped or fails.
+    // The form's value only changes once the new one has finished.
+    const replaced = useRef<{ forId: string; items: FileItemState[] } | null>(null);
+    const restoreReplaced = (itemId: string) => {
+        if (replaced.current?.forId !== itemId) return false;
+        const previous = replaced.current.items;
+        replaced.current = null;
+        setItems(previous);
+        return true;
+    };
 
     // Start upload for a file item
     const startUpload = useCallback(
@@ -259,6 +316,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                 return;
             }
 
+            if (!item.file) return;
             const { promise, cancel } = uploadFileThroughApi(
                 item.file,
                 field.uploadPurpose ?? "custom",
@@ -273,6 +331,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
 
             promise
                 .then((uploadResult) => {
+                    if (replaced.current?.forId === item.id) replaced.current = null;
                     setItems((prev) => {
                         const updated = prev.map((it) =>
                             it.id === item.id
@@ -293,6 +352,11 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                     const message = err instanceof Error ? err.message : "Upload failed";
                     if (message === "Upload cancelled") {
                         // Handled by cancel handler
+                        return;
+                    }
+                    if (restoreReplaced(item.id)) {
+                        if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+                        toast.error(`Failed to upload ${item.originalName}: ${message}. The previous file is kept.`);
                         return;
                     }
                     setItems((prev) =>
@@ -353,12 +417,25 @@ export const FileInput = <T extends FieldValues = FieldValues>({
         let combined = field.multiple
             ? [
                   ...items,
-                  ...newItems.filter((ni) => !items.some((existing) => isSameFile(existing.file, ni.file))),
+                  ...newItems.filter((ni) => !items.some((existing) => existing.file && ni.file && isSameFile(existing.file, ni.file))),
               ]
             : newItems;
 
         if (field.maxFiles) {
             combined = combined.slice(0, field.maxFiles);
+        }
+
+        if (!field.multiple && newItems[0]) {
+            // Keep what's being replaced: the finished file, or what an
+            // unfinished replacement was itself going to put back
+            const finished = items.filter((it) => it.status === "completed");
+            const kept = finished.length > 0 ? finished : (replaced.current?.items ?? []);
+            items.forEach((it) => {
+                if (it.status !== "uploading") return;
+                it.cancelUpload?.();
+                if (it.previewUrl) URL.revokeObjectURL(it.previewUrl);
+            });
+            replaced.current = kept.length > 0 ? { forId: newItems[0].id, items: kept } : null;
         }
 
         setItems(combined);
@@ -378,6 +455,11 @@ export const FileInput = <T extends FieldValues = FieldValues>({
             URL.revokeObjectURL(item.previewUrl);
         }
 
+        if (restoreReplaced(item.id)) {
+            toast.info(`Stopped upload for ${item.originalName}. The previous file is kept.`);
+            return;
+        }
+
         setItems((prev) => {
             const updated = prev.filter((it) => it.id !== item.id);
             needsSync.current = true;
@@ -394,7 +476,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
             URL.revokeObjectURL(item.previewUrl);
         }
 
-        const fileKey = getFileKey(item.file);
+        const fileKey = getItemKey(item);
         if (fileErrors[fileKey]) {
             setFileErrors((prev) => {
                 const next = { ...prev };
@@ -508,9 +590,9 @@ export const FileInput = <T extends FieldValues = FieldValues>({
             {items.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                     {items.map((item) => {
-                        const fileKey = getFileKey(item.file);
+                        const fileKey = getItemKey(item);
                         const fileErr = fileErrors[fileKey] || item.error;
-                        const isImage = isImageFile(item.file);
+                        const isImage = item.file ? isImageFile(item.file) : item.uploaded?.resourceType === "image";
                         const displayImage = item.uploaded?.url || item.previewUrl;
 
                         return (
@@ -550,7 +632,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                                     <div className="flex flex-col items-center justify-center h-24 bg-mist-100 text-mist-600 relative">
                                         <FileText className="size-8" />
                                         <span className="text-[10px] uppercase font-mono font-bold mt-1 text-mist-500">
-                                            {item.file.name.split(".").pop() || "file"}
+                                            {(item.file?.name ?? item.originalName).split(".").pop() || "file"}
                                         </span>
                                         {/* Overlay during upload */}
                                         {item.status === "uploading" && (
@@ -580,7 +662,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                                     </div>
 
                                     <p className="text-[11px] text-mist-500 truncate" title={`Original: ${item.originalName}`}>
-                                        {(item.size / 1024 / 1024).toFixed(2)} MB • {item.originalName}
+                                        {item.file ? `${(item.size / 1024 / 1024).toFixed(2)} MB • ${item.originalName}` : "Saved"}
                                     </p>
 
                                     {/* Real-time Progress Bar */}
