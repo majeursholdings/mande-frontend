@@ -21,6 +21,8 @@ import { ACCELERATOR_LOAN_LABEL, ACCELERATOR_PROGRAM_NAME } from "@/constant/acc
 import { JOB_BONUS_PERCENT, JOB_PAYMENT_SCHEDULE } from "@/constant/jobWorkflow";
 import { MANUFACTURER_MACHINE_BOOKINGS_URL } from "@/constant/manufacturer";
 import {
+    ACCELERATOR_SECTION_ID,
+    ACCELERATOR_URL,
     ARTISAN_LOGIN_URL,
     COMMUNITY_URL,
     CONTACT_URL,
@@ -33,6 +35,7 @@ import { SUPPORT_HOURS } from "@/constant/support";
 import { getMachineAccess, getWebsiteMachines, getWebsitePlans } from "@/lib/services/websiteService";
 import AcceleratorPanel from "../common/acceleratorPanel";
 import CtaBand from "../common/ctaBand";
+import HoverCard, { HoverCardIcon } from "../common/hoverCard";
 import { FACTORY_WORK } from "../common/factoryWork";
 import PageHero from "../common/pageHero";
 import SectionHeading from "../common/sectionHeading";
@@ -44,29 +47,39 @@ import BookMachineTimeButton from "./bookMachineTimeButton";
 const MACHINE_ACCESS_ID = "machine-access";
 /** Machines previewed in the machine access section; the rest are on /machines. */
 const PREVIEW_MACHINES = 3;
-const ACCELERATOR_ID = "accelerator";
 
 /** Logging in from the website lands on the app's booking page, where the plan discount applies. */
 const MACHINE_DISCOUNT_LOGIN_URL = `${ARTISAN_LOGIN_URL}?next=${encodeURIComponent(MANUFACTURER_MACHINE_BOOKINGS_URL)}`;
 
-const SERVICES: { icon: LucideIcon; title: string; description: string; link: { label: string; href: string } }[] = [
+type Service = {
+    icon: LucideIcon;
+    title: string;
+    description: string;
+    link: { label: string; href: string };
+    /** A photo for the card, from /public (e.g. "/images/services/wallet.jpg"). Until one is set, the icon shows on a tinted panel. */
+    image?: { src: string; alt: string };
+};
+
+const SERVICES: Service[] = [
     {
         icon: Factory,
         title: "Factory machines, open to all",
         description: "Book time on the country's top furniture machines at our Lagos factory. Anyone can book. Members pay less.",
         link: { label: "See our machines", href: MACHINES_URL },
+        image: { src: "/images/carpenter_working.png", alt: "A furniture maker working on a machine" },
     },
     {
         icon: BriefcaseBusiness,
         title: "Paid furniture jobs",
         description: `Real projects with drawings, a budget and a deadline. You're paid in ${JOB_PAYMENT_SCHEDULE.length} parts as each stage is approved, plus a ${JOB_BONUS_PERCENT}% bonus for finishing on time.`,
         link: { label: "Browse open jobs", href: OPEN_JOBS_URL },
+        image: { src: "/images/image1.png", alt: "A finished leather sofa outside a workshop" },
     },
     {
         icon: Banknote,
         title: `Loans of up to ${ACCELERATOR_LOAN_LABEL}`,
         description: `Borrow through the ${ACCELERATOR_PROGRAM_NAME} to invest in your workshop and take on bigger work.`,
-        link: { label: "About the accelerator", href: `#${ACCELERATOR_ID}` },
+        link: { label: "About the accelerator", href: ACCELERATOR_URL },
     },
     {
         icon: WalletMinimal,
@@ -136,24 +149,10 @@ export default function ServicesPage() {
                     <SectionHeading as="h2">What MANDE gives you.</SectionHeading>
                 </div>
                 <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-                    {SERVICES.map(({ icon: Icon, title, description, link }) => (
-                        <li
-                            key={title}
-                            className="flex flex-col gap-4 rounded-[10px] border border-border bg-white p-6 transition-colors duration-300 hover:border-primary-300 lg:p-8"
-                        >
-                            <span className="flex size-11 items-center justify-center rounded-full bg-primary-100 text-primary-900">
-                                <Icon className="size-5" strokeWidth={1.75} aria-hidden />
-                            </span>
-                            <h3 className="text-xl font-medium">{title}</h3>
-                            <p className="flex-1 text-base font-light text-mist-700">{description}</p>
-                            <Link
-                                href={link.href}
-                                className="group inline-flex w-fit items-center gap-1.5 text-sm font-medium text-primary-800 hover:text-primary-950"
-                            >
-                                {link.label}
-                                <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" aria-hidden />
-                            </Link>
-                        </li>
+                    {SERVICES.map((service) => (
+                        <HoverCard as="li" key={service.title} className="rounded-[10px]">
+                            <ServiceCard service={service} />
+                        </HoverCard>
                     ))}
                 </ul>
             </SectionWrapper>
@@ -213,7 +212,7 @@ export default function ServicesPage() {
                     <span className="text-lg font-medium">Funding</span>
                     <SectionHeading as="h2">Money to grow, not just work to do.</SectionHeading>
                 </div>
-                <AcceleratorPanel id={ACCELERATOR_ID} />
+                <AcceleratorPanel id={ACCELERATOR_SECTION_ID} />
             </SectionWrapper>
 
             <CtaBand
@@ -222,6 +221,62 @@ export default function ServicesPage() {
                 secondaryLink={{ label: "Contact us", href: CONTACT_URL }}
             />
         </>
+    );
+}
+
+/**
+ * A service as a card: its photo on top (or its icon on a tinted panel until
+ * one is added), then what it is and the way to it. The whole card is the
+ * link; the photo zooms in a little on hover, and the HoverCard around it
+ * lifts it.
+ */
+function ServiceCard({ service }: { service: Service }) {
+    const { icon: Icon, title, description, link, image } = service;
+    return (
+        <Link
+            href={link.href}
+            className="group flex h-full flex-col overflow-hidden rounded-[10px] border border-border bg-white transition-colors duration-300 hover:border-primary-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-800"
+        >
+            <div className="relative aspect-16/10 w-full overflow-hidden bg-primary-50">
+                {image ? (
+                    <Image
+                        src={image.src}
+                        alt={image.alt}
+                        fill
+                        sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+                        className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
+                    />
+                ) : (
+                    <div
+                        aria-hidden
+                        className="relative flex h-full w-full items-center justify-center overflow-hidden bg-linear-to-br from-primary-50 to-primary-100"
+                    >
+                        <div className="absolute inset-0 bg-[radial-gradient(var(--color-primary-200)_1px,transparent_1px)] bg-size-[18px_18px]" />
+                        <Icon
+                            className="absolute -right-6 -bottom-8 size-44 text-primary-200 transition-transform duration-500 group-hover:scale-105"
+                            strokeWidth={1}
+                        />
+                        <HoverCardIcon className="relative flex size-20 items-center justify-center rounded-full bg-white text-primary-800 shadow-sm">
+                            <Icon className="size-9" strokeWidth={1.5} />
+                        </HoverCardIcon>
+                    </div>
+                )}
+                {/* The icon stays on every card, as a small badge over the photo's corner */}
+                {image && (
+                    <HoverCardIcon className="absolute top-4 left-4 flex size-10 items-center justify-center rounded-full bg-white/90 text-primary-900 shadow-xs backdrop-blur-sm">
+                        <Icon className="size-5" strokeWidth={1.75} aria-hidden />
+                    </HoverCardIcon>
+                )}
+            </div>
+            <div className="flex flex-1 flex-col gap-3 p-6 lg:p-7">
+                <h3 className="text-xl font-medium">{title}</h3>
+                <p className="flex-1 text-base font-light text-mist-700">{description}</p>
+                <span className="inline-flex w-fit items-center gap-1.5 pt-1 text-sm font-medium text-primary-800 group-hover:text-primary-950">
+                    {link.label}
+                    <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" aria-hidden />
+                </span>
+            </div>
+        </Link>
     );
 }
 

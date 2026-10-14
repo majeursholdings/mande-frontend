@@ -8,6 +8,7 @@ import { NOT_INCLUDED } from "@/constant/plans";
 import { getWebsitePlans, type WebsitePlan } from "@/lib/services/websiteService";
 import SectionHeading from "../common/sectionHeading";
 import SectionWrapper from "../common/sectionWrapper";
+import HoverCard from "../common/hoverCard";
 import { WEBSITE_ON_DARK_BUTTON } from "../common/buttonStyles";
 
 /** Where "See plans" links land — the offer bar's, for one. */
@@ -97,8 +98,10 @@ async function PlanCards() {
     return (
         <ul className="grid w-full grid-cols-1 gap-5 md:grid-cols-3 lg:gap-6">
             {plans.map((plan) => (
-                <li
+                <HoverCard
+                    as="li"
                     key={plan.id}
+                    lineClassName="bg-primary-400"
                     className="flex flex-col justify-between gap-8 rounded-[10px] border border-white/10 bg-white/5 p-6 transition-colors duration-300 hover:border-primary-600/50 lg:p-8"
                 >
                     <div className="flex flex-col gap-6 md:gap-8">
@@ -156,7 +159,7 @@ async function PlanCards() {
                     <Link href={`${ARTISAN_SIGNUP_URL}?plan=${plan.id}`} className={cn(WEBSITE_ON_DARK_BUTTON, "w-full py-2.5")}>
                         {buttonTextFor(plan)}
                     </Link>
-                </li>
+                </HoverCard>
             ))}
         </ul>
     );

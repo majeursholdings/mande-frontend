@@ -4,7 +4,15 @@ export const ABOUT_URL = "/about-mande";
 export const SERVICES_URL = "/mande-services";
 /** The factory's machine catalogue; each machine has its own page under it. */
 export const MACHINES_URL = "/machines";
+/** The section id of the MANDE Accelerator Program's panel on the Services page. */
+export const ACCELERATOR_SECTION_ID = "accelerator";
+/** The MANDE Accelerator Program's own page: its loans and who can apply. */
+export const ACCELERATOR_URL = "/accelerator-program";
 export const COMMUNITY_URL = "/community";
+/** The shop's name, as shown on the website. */
+export const SHOP_NAME = "MANDE Furniture shop";
+/** The shop, a separate site where anyone can buy everyday furniture (stools, armchairs, beds). */
+export const SHOP_URL = "https://shop.mande.com.ng";
 export const CONTACT_URL = "/contact-mande";
 export const FAQ_URL = "/faq";
 export const LEGALS_URL = "/legals";
@@ -34,9 +42,13 @@ type Mainmenu = {
     href?: string;
     /** A line under the label, in the header's dropdown. */
     description?: string;
+    /** Another site (the shop): opens in a new tab, marked with an arrow. */
+    external?: boolean;
     subMenu?: Mainmenu[];
 }
 
+// Most important first: the work, what MANDE offers, then who we are and
+// where to get help
 export const mainmenu:Mainmenu[] = [
     {
         label: "Home",
@@ -48,19 +60,32 @@ export const mainmenu:Mainmenu[] = [
     },
     {
         label: "Services",
-        href: SERVICES_URL,
+        subMenu: [
+            {
+                label: "All services",
+                href: SERVICES_URL,
+                description: "Jobs, machines and funding in one place",
+            },
+            {
+                label: "Machines",
+                href: MACHINES_URL,
+                description: "Book time at our Lagos factory",
+            },
+            {
+                label: "Accelerator loans",
+                href: ACCELERATOR_URL,
+                description: "Loans for makers who rank high",
+            },
+            {
+                label: "Community",
+                href: COMMUNITY_URL,
+                description: "Job alerts and tips from other makers",
+            },
+        ],
     },
     {
-        label: "Machines",
-        href: MACHINES_URL,
-    },
-    {
-        label: "Community",
-        href: COMMUNITY_URL,
-    },
-    {
-        label: "Blog",
-        href: BLOG_URL,
+        label: "About",
+        href: ABOUT_URL,
     },
     {
         label: "Help Center",
@@ -83,61 +108,58 @@ export const mainmenu:Mainmenu[] = [
         ],
     },
     {
-        label: "About",
-        href: ABOUT_URL,
-    },
-]
-
-export const footerMenu: Mainmenu[] = [
-    {
-        label: "About",
-        href: ABOUT_URL,
-    },
-    {
-        label: "Services",
-        href: SERVICES_URL,
-    },
-    {
-        label: "Machines",
-        href: MACHINES_URL,
-    },
-    {
-        label: "Community",
-        href: COMMUNITY_URL,
-    },
-    {
-        label: "Contact",
-        href: CONTACT_URL,
-    },
-    {
         label: "Blog",
         href: BLOG_URL,
     },
+]
+
+/** The footer's link columns, each under a heading. The legal pages sit in the bottom bar (footerLegalMenu). */
+export const footerMenu: { title: string; links: Mainmenu[] }[] = [
     {
-        label: "FAQs",
-        href: FAQ_URL,
+        title: "For makers",
+        links: [
+            { label: "Open jobs", href: OPEN_JOBS_URL },
+            { label: "Machines", href: MACHINES_URL },
+            { label: "Accelerator loans", href: ACCELERATOR_URL },
+            { label: "Community", href: COMMUNITY_URL },
+            { label: "My machine bookings", href: MACHINE_BOOKING_MY_BOOKINGS_URL },
+        ],
     },
     {
-        label: "Knowledge base",
-        href: KNOWLEDGE_BASE_URL,
+        title: "MANDE",
+        links: [
+            { label: "About", href: ABOUT_URL },
+            { label: "Services", href: SERVICES_URL },
+            { label: SHOP_NAME, href: SHOP_URL, external: true },
+            { label: "Blog", href: BLOG_URL },
+        ],
     },
     {
-        label: "My bookings",
-        href: MACHINE_BOOKING_MY_BOOKINGS_URL,
-    },
-    {
-        label: "Terms",
-        href: TERMS_URL,
-    },
-    {
-        label: "Privacy",
-        href: PRIVACY_POLICY_URL,
-    },
-    {
-        label: "Legals",
-        href: LEGALS_URL,
+        title: "Help",
+        links: [
+            { label: "Contact us", href: CONTACT_URL },
+            { label: "FAQs", href: FAQ_URL },
+            { label: "Knowledge base", href: KNOWLEDGE_BASE_URL },
+        ],
     },
 ];
+
+export const footerLegalMenu: Mainmenu[] = [
+    { label: "Terms", href: TERMS_URL },
+    { label: "Privacy", href: PRIVACY_POLICY_URL },
+    { label: "Legals", href: LEGALS_URL },
+];
+
+/**
+ * Whether a menu link points at the page you're on: the page itself or one
+ * under it ("/machines/abc" for Machines). A link to a section of a page
+ * (with a "#") is never marked, so the page's own link carries it.
+ */
+export function isMenuHrefActive(href: string | undefined, pathname: string): boolean {
+    if (!href || href.includes("#")) return false;
+    if (href === "/") return pathname === "/";
+    return pathname === href || pathname.startsWith(`${href}/`);
+}
 
 /** A help article's page. */
 export const getKnowledgeBaseArticleUrl = (slug: string) => `${KNOWLEDGE_BASE_URL}/${slug}`;

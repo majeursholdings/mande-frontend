@@ -104,6 +104,8 @@ export const MANUFACTURER_REVIEWS_URL = "/manufacturer/reviews";
 export const MANUFACTURER_MACHINE_BOOKINGS_URL = "/manufacturer/machine-bookings";
 export const MANUFACTURER_PROFILE_URL = "/manufacturer/profile";
 // Reached from the profile page
+/** The maker's points and rank. */
+export const MANUFACTURER_POINTS_URL = "/manufacturer/profile/points";
 export const MANUFACTURER_SETTINGS_URL = "/manufacturer/profile/settings";
 /** Opens Settings on the Plan tab — where "Upgrade" links go. */
 export const MANUFACTURER_PLAN_SETTINGS_URL = `${MANUFACTURER_SETTINGS_URL}?tab=plan`;

@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { Banknote } from "lucide-react";
 import { ACCELERATOR_LOAN_LABEL, ACCELERATOR_PROGRAM_NAME } from "@/constant/accelerator";
-import { ARTISAN_SIGNUP_URL, CONTACT_URL } from "@/constant/navigation";
+import { ACCELERATOR_URL, ARTISAN_SIGNUP_URL } from "@/constant/navigation";
 import { WEBSITE_ON_DARK_BUTTON, WEBSITE_ON_DARK_OUTLINE_BUTTON } from "./buttonStyles";
 
 /**
  * The MANDE Accelerator Program, in a dark green panel: the most a maker can
- * borrow, what it's for, and a way to ask about it. Shown on the homepage
+ * borrow, what it's for, who can apply and the way to its own page. Shown on the homepage
  * and the Services page.
  */
 export default function AcceleratorPanel({ id }: { id?: string }) {
@@ -35,12 +35,12 @@ export default function AcceleratorPanel({ id }: { id?: string }) {
                             take on bigger work.
                         </p>
                         <p className="text-sm font-light text-mist-400">
-                            Ask our team who can apply, how much you can borrow and how repayment works.
+                            Makers who rank high on MANDE can apply. Doing great work on your jobs is what moves you up.
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
-                        <Link href={CONTACT_URL} className={WEBSITE_ON_DARK_BUTTON}>
-                            Ask about the accelerator
+                        <Link href={ACCELERATOR_URL} className={WEBSITE_ON_DARK_BUTTON}>
+                            How the accelerator works
                         </Link>
                         <Link href={ARTISAN_SIGNUP_URL} className={WEBSITE_ON_DARK_OUTLINE_BUTTON}>
                             Join MANDE

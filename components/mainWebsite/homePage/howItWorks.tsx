@@ -3,6 +3,7 @@ import { Blocks, Hammer, Package, Paintbrush, PencilRuler, Truck, Wallet, type L
 import { JOB_PAYMENT_SCHEDULE, JOB_PRODUCTION_STEPS, type ProductionStepKey } from "@/constant/jobWorkflow";
 import SectionHeading from "../common/sectionHeading";
 import SectionWrapper from "../common/sectionWrapper";
+import HoverCard, { HoverCardIcon } from "../common/hoverCard";
 
 const percentAt = (milestone: (typeof JOB_PAYMENT_SCHEDULE)[number]["milestone"]) =>
     JOB_PAYMENT_SCHEDULE.find((payment) => payment.milestone === milestone)?.percent ?? 0;
@@ -67,7 +68,7 @@ export default function HowItWorks() {
                 {JOB_PRODUCTION_STEPS.map((step, index) => {
                     const stage = STAGES[step.key];
                     return (
-                        <li key={step.key} className="flex flex-col overflow-hidden rounded-[10px] bg-white">
+                        <HoverCard as="li" key={step.key} className="flex flex-col overflow-hidden rounded-[10px] bg-white">
                             <StageImage stage={stage} label={step.label} number={index + 1} />
                             <div className="flex flex-1 flex-col gap-3 p-6">
                                 <h3 className="text-xl font-medium">{step.label}</h3>
@@ -77,7 +78,7 @@ export default function HowItWorks() {
                                     {stage.pay}
                                 </p>
                             </div>
-                        </li>
+                        </HoverCard>
                     );
                 })}
             </ol>
@@ -103,9 +104,9 @@ function StageImage({ stage, label, number }: { stage: Stage; label: string; num
                     aria-hidden
                     className="flex h-full w-full items-center justify-center bg-[radial-gradient(var(--color-mist-300)_1px,transparent_1px)] bg-size-[16px_16px]"
                 >
-                    <span className="flex size-16 items-center justify-center rounded-full bg-white text-primary-800 shadow-xs">
+                    <HoverCardIcon className="flex size-16 items-center justify-center rounded-full bg-white text-primary-800 shadow-xs">
                         <Icon className="size-7" strokeWidth={1.5} />
-                    </span>
+                    </HoverCardIcon>
                 </div>
             )}
             <span className="absolute top-4 left-4 rounded-md bg-white/90 px-2 py-1 font-mono text-sm font-semibold text-primary-800 backdrop-blur-sm">

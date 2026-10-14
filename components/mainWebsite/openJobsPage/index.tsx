@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { BadgeCheck, ClipboardList, UserRoundPlus, type LucideIcon } from "lucide-react";
 import { FAQ_URL } from "@/constant/navigation";
 import CtaBand from "../common/ctaBand";
+import HoverCard, { HoverCardIcon } from "../common/hoverCard";
 import PageHero from "../common/pageHero";
 import SectionHeading from "../common/sectionHeading";
 import SectionWrapper from "../common/sectionWrapper";
@@ -54,18 +55,18 @@ export default function OpenJobsPage() {
                 </SectionHeading>
                 <ol className="grid grid-cols-1 gap-5 md:grid-cols-3 lg:gap-8">
                     {APPLY_STEPS.map(({ icon: Icon, title, description }, index) => (
-                        <li key={title} className="flex flex-col gap-4 rounded-[10px] bg-white p-6 lg:p-8">
+                        <HoverCard as="li" key={title} className="flex flex-col gap-4 rounded-[10px] bg-white p-6 lg:p-8">
                             <div className="flex items-center justify-between">
-                                <span className="flex size-11 items-center justify-center rounded-full bg-primary-100 text-primary-900">
+                                <HoverCardIcon className="flex size-11 items-center justify-center rounded-full bg-primary-100 text-primary-900">
                                     <Icon className="size-5" strokeWidth={1.75} aria-hidden />
-                                </span>
+                                </HoverCardIcon>
                                 <span className="font-mono text-sm font-semibold text-primary-700">
                                     {String(index + 1).padStart(2, "0")}
                                 </span>
                             </div>
                             <h3 className="text-xl font-medium">{title}</h3>
                             <p className="text-base font-light text-mist-700">{description}</p>
-                        </li>
+                        </HoverCard>
                     ))}
                 </ol>
             </SectionWrapper>

@@ -1,4 +1,5 @@
 import {
+    Banknote,
     BookOpen,
     BriefcaseBusiness,
     CircleHelp,
@@ -6,6 +7,7 @@ import {
     Factory,
     House,
     Info,
+    LayoutGrid,
     LifeBuoy,
     MessageSquareText,
     Newspaper,
@@ -14,6 +16,7 @@ import {
 } from "lucide-react";
 import {
     ABOUT_URL,
+    ACCELERATOR_URL,
     BLOG_URL,
     COMMUNITY_URL,
     CONTACT_URL,
@@ -26,18 +29,20 @@ import {
 
 // The website menu's icons, by where each item goes (the menu data in
 // constant/navigation.ts stays import-free — next.config.ts reads it). A
-// group, like Help Center, is keyed by its label.
+// group, like Services or Help Center, is keyed by its label.
 const ICONS: Record<string, LucideIcon> = {
     "/": House,
     [OPEN_JOBS_URL]: BriefcaseBusiness,
-    [SERVICES_URL]: Factory,
+    [SERVICES_URL]: LayoutGrid,
     [MACHINES_URL]: Cog,
+    [ACCELERATOR_URL]: Banknote,
     [COMMUNITY_URL]: UsersRound,
     [BLOG_URL]: Newspaper,
     [ABOUT_URL]: Info,
     [CONTACT_URL]: MessageSquareText,
     [FAQ_URL]: CircleHelp,
     [KNOWLEDGE_BASE_URL]: BookOpen,
+    Services: Factory,
     "Help Center": LifeBuoy,
 };
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import HoverCard from "../common/hoverCard";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMachineUrl } from "@/constant/navigation";
@@ -22,7 +23,7 @@ export default function MachineCard({ machine, unit }: { machine: WebsiteMachine
     const extraFunctions = machine.functions.length - CARD_FUNCTIONS;
 
     return (
-        <article className="group flex h-full flex-col overflow-hidden rounded-[10px] border border-border bg-white transition-colors duration-300 hover:border-primary-300">
+        <HoverCard as="article" className="group flex h-full flex-col overflow-hidden rounded-[10px] border border-border bg-white transition-colors duration-300 hover:border-primary-300">
             <Link href={href} tabIndex={-1} aria-hidden>
                 <MachinePhoto
                     machine={machine}
@@ -67,7 +68,7 @@ export default function MachineCard({ machine, unit }: { machine: WebsiteMachine
                     <p className="-mt-2 text-xs font-light text-mist-600">Not offered by the {unit} right now.</p>
                 )}
             </div>
-        </article>
+        </HoverCard>
     );
 }
 

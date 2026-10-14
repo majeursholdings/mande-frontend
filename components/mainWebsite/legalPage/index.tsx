@@ -1,4 +1,5 @@
 import Link from "next/link";
+import HoverCard, { HoverCardIcon } from "../common/hoverCard";
 import { ArrowRight, FileText } from "lucide-react";
 import { formatOrdinalDate } from "@/lib/date";
 import type { LegalDocumentSummary } from "@/lib/cms/legal";
@@ -33,14 +34,14 @@ export default function LegalIndexPage({
                 ) : (
                     <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:gap-6">
                         {documents.map((document) => (
-                            <li key={document.slug}>
+                            <HoverCard as="li" key={document.slug} className="rounded-[10px]">
                                 <Link
                                     href={getLegalDocumentUrl(document.slug)}
                                     className="group flex h-full flex-col gap-4 rounded-[10px] border border-border bg-white p-6 transition-colors duration-300 hover:border-primary-300 lg:p-8"
                                 >
-                                    <span className="flex size-11 items-center justify-center rounded-full bg-primary-100 text-primary-900">
+                                    <HoverCardIcon className="flex size-11 items-center justify-center rounded-full bg-primary-100 text-primary-900">
                                         <FileText className="size-5" strokeWidth={1.75} aria-hidden />
-                                    </span>
+                                    </HoverCardIcon>
                                     <span className="flex flex-1 flex-col gap-2">
                                         <span className="text-xl font-medium">{document.title}</span>
                                         <span className="text-base font-light text-mist-700">{document.summary}</span>
@@ -53,7 +54,7 @@ export default function LegalIndexPage({
                                         />
                                     </span>
                                 </Link>
-                            </li>
+                            </HoverCard>
                         ))}
                     </ul>
                 )}

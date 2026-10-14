@@ -3,6 +3,7 @@ import { ArrowRight, ArrowUpRight, UsersRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { CommunityChannel, CommunityPlatform } from "@/constant/community";
 import { CONTACT_URL } from "@/constant/navigation";
+import HoverCard from "./hoverCard";
 import { PLATFORMS } from "@/components/manufacturerPlatform/communityPage/platforms";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -37,48 +38,50 @@ export function ChannelLinkCard({ channel, compact = false }: { channel: Communi
     const cta = channelCta(channel);
 
     return (
-        <a
-            href={channel.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`${cta}: MANDE on ${name}${handle ? ` (${handle})` : ""}, opens in a new tab`}
-            className={cn(
-                "group flex h-full flex-col rounded-[10px] border border-border bg-white transition-colors duration-300 hover:border-primary-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-800",
-                compact ? "gap-4 p-5" : "gap-5 p-6 lg:p-8",
-            )}
-        >
-            <div className="flex items-start gap-4">
-                <span
-                    className={cn(
-                        "flex shrink-0 items-center justify-center rounded-full text-white",
-                        compact ? "size-11" : "size-12",
-                        badgeClass,
-                    )}
-                >
-                    <Icon className={compact ? "size-5" : "size-6"} />
-                </span>
-                <div className="flex min-w-0 flex-1 flex-col">
-                    <p className="text-lg font-medium text-mist-950">{name}</p>
-                    {handle && <p className="truncate text-sm font-light text-mist-600">{handle}</p>}
+        <HoverCard className="h-full rounded-[10px]">
+            <a
+                href={channel.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${cta}: MANDE on ${name}${handle ? ` (${handle})` : ""}, opens in a new tab`}
+                className={cn(
+                    "group flex h-full flex-col rounded-[10px] border border-border bg-white transition-colors duration-300 hover:border-primary-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-800",
+                    compact ? "gap-4 p-5" : "gap-5 p-6 lg:p-8",
+                )}
+            >
+                <div className="flex items-start gap-4">
+                    <span
+                        className={cn(
+                            "flex shrink-0 items-center justify-center rounded-full text-white",
+                            compact ? "size-11" : "size-12",
+                            badgeClass,
+                        )}
+                    >
+                        <Icon className={compact ? "size-5" : "size-6"} />
+                    </span>
+                    <div className="flex min-w-0 flex-1 flex-col">
+                        <p className="text-lg font-medium text-mist-950">{name}</p>
+                        {handle && <p className="truncate text-sm font-light text-mist-600">{handle}</p>}
+                    </div>
+                    <ArrowUpRight
+                        className="size-5 shrink-0 text-mist-500 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary-800"
+                        aria-hidden
+                    />
                 </div>
-                <ArrowUpRight
-                    className="size-5 shrink-0 text-mist-500 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary-800"
-                    aria-hidden
-                />
-            </div>
 
-            {description && (
-                <p className={cn("text-base font-light text-mist-700", compact && "line-clamp-2")}>{description}</p>
-            )}
+                {description && (
+                    <p className={cn("text-base font-light text-mist-700", compact && "line-clamp-2")}>{description}</p>
+                )}
 
-            <div className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-4">
-                <span className="min-w-0 truncate text-sm font-light text-mist-600">{audience}</span>
-                <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-primary-800 group-hover:text-primary-950">
-                    {cta}
-                    <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" aria-hidden />
-                </span>
-            </div>
-        </a>
+                <div className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-4">
+                    <span className="min-w-0 truncate text-sm font-light text-mist-600">{audience}</span>
+                    <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-primary-800 group-hover:text-primary-950">
+                        {cta}
+                        <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" aria-hidden />
+                    </span>
+                </div>
+            </a>
+        </HoverCard>
     );
 }
 

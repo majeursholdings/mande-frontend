@@ -4,7 +4,7 @@ import { getWebsiteMachines, getWebsiteOpenJobs } from "@/lib/services/websiteSe
 import { getBlogSlugs } from "@/lib/cms/blog";
 import { getKnowledgeBaseSlugs } from "@/lib/cms/knowledgeBase";
 import { getLegalDocuments } from "@/lib/cms/legal";
-import { BLOG_URL, KNOWLEDGE_BASE_URL, LEGALS_URL, MACHINES_URL, getBlogPostUrl, getMachineUrl, getKnowledgeBaseArticleUrl, getLegalDocumentUrl } from "@/constant/navigation";
+import { ACCELERATOR_URL, BLOG_URL, KNOWLEDGE_BASE_URL, LEGALS_URL, MACHINES_URL, getBlogPostUrl, getMachineUrl, getKnowledgeBaseArticleUrl, getLegalDocumentUrl } from "@/constant/navigation";
 
 /** The public website's pages. */
 const PUBLIC_PATHS = [
@@ -12,6 +12,7 @@ const PUBLIC_PATHS = [
     "/about-mande",
     "/mande-services",
     MACHINES_URL,
+    ACCELERATOR_URL,
     "/open-jobs",
     "/community",
     "/faq",
