@@ -20,31 +20,37 @@ type Stage = {
 const STAGES: Record<ProductionStepKey, Stage> = {
     design: {
         icon: PencilRuler,
+        image: `/images/webpage/Furniture_technical_drawings_on_…_20261014184542.webp`,
         description: "You and your project lead agree the drawings and the bill of materials before any wood is cut.",
         pay: `${percentAt("accepted")}% paid when you accept the job`,
     },
     materials: {
         icon: Package,
+        image: `/images/webpage/Furniture_maker_checking_wood_ma…_20261014185450.webp`,
         description: "Timber and fittings are bought from the money set aside for the job, by you or by MANDE, decided job by job.",
         pay: "Covered by the job's materials budget",
     },
     frame: {
         icon: Hammer,
+        image: `/images/webpage/Craftsperson_photographing_wood_…_20261014185809.webp`,
         description: "Build the carcass and photograph the joints before it's closed, so the structure can be checked.",
         pay: `${percentAt("frame")}% when it's approved`,
     },
     assembly: {
         icon: Blocks,
+        image: `/images/webpage/Craftspeople_building_wooden_sid…_20261014190244.webp`,
         description: "The parts come together and are checked against the Frame photos and the drawing.",
         pay: `${percentAt("assembly")}% when it's approved`,
     },
     finishing: {
         icon: Paintbrush,
+        image: `/images/webpage/Furniture_maker_staining_wood_si…_20261014190519.webp`,
         description: "Sanding, staining and lacquer. Shoot in daylight so the colour reads true.",
         pay: `${percentAt("finishing")}% when it's approved`,
     },
     delivery: {
         icon: Truck,
+        image: `/images/webpage/Workers_delivering_wooden_sideboard_20261014191250.webp`,
         description: "The piece is delivered and the customer signs it off at their address.",
         pay: `${percentAt("delivery")}% at delivery, ${percentAt("signed-off")}% at sign-off`,
     },

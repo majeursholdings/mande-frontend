@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Factory } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,14 +18,14 @@ const PREVIEW_MACHINES = 3;
 
 /**
  * How MANDE helps a workshop grow past its own walls: machine time at the
- * Lagos factory (each plan's member discount and a preview of the machines),
- * and loans through the MANDE Accelerator Program.
+ * Lagos factory (a factory photo with each plan's member discount over it, and
+ * a preview of the machines), and loans through the MANDE Accelerator Program.
  */
 export default function FactorySection() {
     return (
         <SectionWrapper className="bg-mist-200" containerClassName="flex flex-col gap-12 md:gap-16">
             <div className="flex flex-col gap-10">
-                <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-end lg:gap-16">
+                <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-center lg:gap-16">
                     <div className="flex flex-col gap-4">
                         <span className="flex items-center gap-2 text-lg font-medium">
                             <Factory className="size-5 text-primary-800" strokeWidth={1.75} aria-hidden />
@@ -38,9 +39,20 @@ export default function FactorySection() {
                         </p>
                     </div>
 
-                    <Suspense fallback={<MachineDiscountsSkeleton />}>
-                        <MachineDiscounts />
-                    </Suspense>
+                    <div className="relative aspect-4/3 w-full overflow-hidden rounded-[10px] bg-mist-100">
+                        <Image
+                            src="/images/webpage/Furniture_maker_operates_CNC_router.webp"
+                            alt="A furniture maker at work on a machine at the MANDE factory"
+                            fill
+                            sizes="(min-width: 1024px) 40vw, 100vw"
+                            className="object-cover object-center"
+                        />
+                        <div className="absolute inset-x-3 bottom-3 md:inset-x-4 md:bottom-4">
+                            <Suspense fallback={<MachineDiscountsSkeleton />}>
+                                <MachineDiscounts />
+                            </Suspense>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="flex flex-col gap-6">
@@ -114,7 +126,7 @@ async function MachineDiscounts() {
     if (discounts.length === 0) return null;
 
     return (
-        <div className="flex flex-col gap-3 rounded-[10px] bg-white p-5 md:p-6">
+        <div className="flex flex-col gap-3 rounded-[10px] bg-white/95 p-5 shadow-sm backdrop-blur-sm md:p-6">
             <p className="text-sm font-medium text-mist-700">Member discount on machine time</p>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-2">
                 {discounts.map((plan) => (
@@ -130,7 +142,7 @@ async function MachineDiscounts() {
 
 function MachineDiscountsSkeleton() {
     return (
-        <div className="flex flex-col gap-3 rounded-[10px] bg-white p-5 md:p-6">
+        <div className="flex flex-col gap-3 rounded-[10px] bg-white/95 p-5 shadow-sm backdrop-blur-sm md:p-6">
             <p className="text-sm font-medium text-mist-700">Member discount on machine time</p>
             <div aria-hidden className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-2">
                 {[1, 2].map((i) => (
