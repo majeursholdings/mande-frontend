@@ -137,7 +137,7 @@ export default function AboutPage() {
     );
 }
 
-/** Why MANDE exists: the story beside a workshop photo, then what held makers back and what MANDE does about it. */
+/** Why MANDE exists: the story beside an animation of the gaps MANDE fills, then what held makers back and what MANDE does about it. */
 function StorySection() {
     return (
         <SectionWrapper containerClassName="flex flex-col gap-12 md:gap-16">
@@ -159,12 +159,10 @@ function StorySection() {
                     </p>
                 </div>
                 <div className="flex-1">
-                    <Image
-                        src="/images/carpenter_working.png"
-                        alt="A furniture maker at work in a workshop"
-                        width={1000}
-                        height={667}
-                        className="aspect-1000/667 w-full rounded-[10px] object-cover object-center"
+                    <VideoPlayer
+                        src="/videos/mande-filling-the-gaps.mp4"
+                        poster="/videos/mande-filling-the-gaps-poster.webp"
+                        className="aspect-3/2 w-full"
                     />
                 </div>
             </div>

@@ -86,8 +86,8 @@ export default function CommunityPage({ data }: CommunityPageProps = {}) {
             <SectionWrapper containerClassName="flex flex-col gap-8 md:flex-row md:items-center md:gap-12">
                 <div className="flex-1">
                     <Image
-                        src="/images/image1.png"
-                        alt="Makers working together in a workshop"
+                        src="/images/webpage/makers_learning_together_factory.webp"
+                        alt="Furniture makers gathered round a CNC router in a factory as an experienced maker shows them a technique on a cut panel"
                         width={1000}
                         height={667}
                         className="aspect-1000/667 w-full rounded-[10px] object-cover object-center"

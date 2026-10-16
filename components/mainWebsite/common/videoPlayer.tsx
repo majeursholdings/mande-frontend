@@ -192,6 +192,12 @@ export default function VideoPlayer({ src, poster, className }: VideoPlayerProps
             node.addEventListener("canplay", onCanPlay);
             node.addEventListener("volumechange", onVolumeChange);
 
+            // A fast or cached video can finish loading before hydration attaches
+            // these listeners, so catch up on the events it already fired
+            if (node.readyState >= HTMLMediaElement.HAVE_METADATA) onLoadedMetadata();
+            if (node.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) onCanPlay();
+            onProgress();
+
             return () => {
                 node.removeEventListener("loadedmetadata", onLoadedMetadata);
                 node.removeEventListener("timeupdate", onTimeUpdate);

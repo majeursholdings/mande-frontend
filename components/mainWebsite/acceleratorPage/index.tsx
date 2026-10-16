@@ -137,8 +137,8 @@ function IntroSection() {
             </div>
             <div className="relative flex flex-1 flex-col justify-end overflow-hidden rounded-[10px] bg-primary-950">
                 <Image
-                    src="/images/carpenter_working.png"
-                    alt=""
+                    src="/images/webpage/accelerator_workshop_growth.webp"
+                    alt="accelerator workshop growth"
                     width={1000}
                     height={667}
                     className="aspect-1000/667 w-full object-cover object-center opacity-40"
