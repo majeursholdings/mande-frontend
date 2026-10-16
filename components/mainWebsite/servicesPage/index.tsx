@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -38,11 +38,15 @@ import CtaBand from "../common/ctaBand";
 import HoverCard, { HoverCardIcon } from "../common/hoverCard";
 import { FACTORY_WORK } from "../common/factoryWork";
 import PageHero from "../common/pageHero";
+import Reveal from "../common/reveal";
 import SectionHeading from "../common/sectionHeading";
 import SectionWrapper from "../common/sectionWrapper";
 import { WEBSITE_ON_DARK_BUTTON, WEBSITE_OUTLINE_BUTTON, WEBSITE_PRIMARY_BUTTON } from "../common/buttonStyles";
 import MachineCard, { MachineGridSkeleton } from "../machinesPage/machineCard";
 import BookMachineTimeButton from "./bookMachineTimeButton";
+import CommunityPhotoOverlay from "./communityPhotoOverlay";
+import JobsPhotoOverlay from "./jobsPhotoOverlay";
+import WalletPhotoOverlay from "./walletPhotoOverlay";
 
 const MACHINE_ACCESS_ID = "machine-access";
 /** Machines previewed in the machine access section; the rest are on /machines. */
@@ -58,6 +62,8 @@ type Service = {
     link: { label: string; href: string };
     /** A photo for the card, from /public (e.g. "/images/services/wallet.jpg"). Until one is set, the icon shows on a tinted panel. */
     image?: { src: string; alt: string };
+    /** Illustration laid over the photo, e.g. the app's own UI. */
+    overlay?: ReactNode;
 };
 
 const SERVICES: Service[] = [
@@ -66,38 +72,54 @@ const SERVICES: Service[] = [
         title: "Factory machines, open to all",
         description: "Book time on the country's top furniture machines at our Lagos factory. Anyone can book. Members pay less.",
         link: { label: "See our machines", href: MACHINES_URL },
-        image: { src: "/images/carpenter_working.png", alt: "A furniture maker working on a machine" },
+        image: { src: "/images/webpage/machines.webp", alt: "A furniture maker working on a machine" },
     },
     {
         icon: BriefcaseBusiness,
         title: "Paid furniture jobs",
         description: `Real projects with drawings, a budget and a deadline. You're paid in ${JOB_PAYMENT_SCHEDULE.length} parts as each stage is approved, plus a ${JOB_BONUS_PERCENT}% bonus for finishing on time.`,
         link: { label: "Browse open jobs", href: OPEN_JOBS_URL },
-        image: { src: "/images/image1.png", alt: "A finished leather sofa outside a workshop" },
+        image: {
+            src: "/images/webpage/Furniture_maker_pointing_at_drawing_20261015195528.webp",
+            alt: "A furniture maker pointing at a job's drawings on a workbench, beside a sideboard being built",
+        },
+        overlay: <JobsPhotoOverlay />,
     },
     {
         icon: Banknote,
         title: `Loans of up to ${ACCELERATOR_LOAN_LABEL}`,
         description: `Borrow through the ${ACCELERATOR_PROGRAM_NAME} to invest in your workshop and take on bigger work.`,
         link: { label: "About the accelerator", href: ACCELERATOR_URL },
+        image: { src: "/images/webpage/Workshop_owner_beside_woodworkin…_20261015200449.webp", alt: "A man in his furniture workshop with his new purchased machines for his furniture business growth" },
     },
     {
         icon: WalletMinimal,
         title: "Your MANDE wallet",
         description: "Payments land in your wallet as soon as they're earned. Withdraw to your bank account any time.",
         link: { label: "How payments work", href: `${FAQ_URL}#payments` },
+        image: {
+            src: "/images/webpage/mande_wallet_payment.webp",
+            alt: "A furniture maker in a workshop checking their phone as a job payment lands in their MANDE wallet",
+        },
+        overlay: <WalletPhotoOverlay />,
     },
     {
         icon: UserRoundCheck,
         title: "A dedicated officer",
         description: "One person at MANDE who knows your workshop and your jobs. Included on the Workshop and Studio plans.",
         link: { label: "Talk to us", href: CONTACT_URL },
+        image: { src: "/images/webpage/Men_discussing_wooden_joinery_wo…_20261015203650.webp", alt: "A furniture maker in his workshop with his dedicated officer" },
     },
     {
         icon: UsersRound,
         title: "Community and support",
         description: `Job alerts and tips from other makers on WhatsApp, and a support team on hand ${SUPPORT_HOURS}.`,
         link: { label: "Join the community", href: COMMUNITY_URL },
+        image: {
+            src: "/images/webpage/mande_furniture_makers_community.webp",
+            alt: "Furniture makers in a workshop gathered round a phone, smiling",
+        },
+        overlay: <CommunityPhotoOverlay />,
     },
 ];
 
@@ -149,10 +171,12 @@ export default function ServicesPage() {
                     <SectionHeading as="h2">What MANDE gives you.</SectionHeading>
                 </div>
                 <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-                    {SERVICES.map((service) => (
-                        <HoverCard as="li" key={service.title} className="rounded-[10px]">
-                            <ServiceCard service={service} />
-                        </HoverCard>
+                    {SERVICES.map((service, index) => (
+                        <Reveal as="li" key={service.title} index={index}>
+                            <HoverCard className="h-full rounded-[10px]">
+                                <ServiceCard service={service} />
+                            </HoverCard>
+                        </Reveal>
                     ))}
                 </ul>
             </SectionWrapper>
@@ -231,7 +255,7 @@ export default function ServicesPage() {
  * lifts it.
  */
 function ServiceCard({ service }: { service: Service }) {
-    const { icon: Icon, title, description, link, image } = service;
+    const { icon: Icon, title, description, link, image, overlay } = service;
     return (
         <Link
             href={link.href}
@@ -261,6 +285,7 @@ function ServiceCard({ service }: { service: Service }) {
                         </HoverCardIcon>
                     </div>
                 )}
+                {image && overlay}
                 {/* The icon stays on every card, as a small badge over the photo's corner */}
                 {image && (
                     <HoverCardIcon className="absolute top-4 left-4 flex size-10 items-center justify-center rounded-full bg-white/90 text-primary-900 shadow-xs backdrop-blur-sm">
