@@ -38,7 +38,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import { formatPrice, fromKobo } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ARTISAN_LOGIN_URL } from "@/constant/navigation";
+import { ARTISAN_LOGIN_URL, PRIVACY_POLICY_URL, getLegalDocumentUrl } from "@/constant/navigation";
 import {
     EMPTY_MANUFACTURER_PROFILE,
     MANUFACTURER_MACHINE_BOOKINGS_URL,
@@ -68,6 +68,7 @@ type MachineBookingFormValues = {
     bookingDate: string;
     bookingStartTime: string;
     bookingDetails: string;
+    bookingMarketingOptIn: boolean;
 };
 
 const DEFAULT_VALUES: MachineBookingFormValues = {
@@ -81,6 +82,7 @@ const DEFAULT_VALUES: MachineBookingFormValues = {
     bookingDate: "",
     bookingStartTime: "",
     bookingDetails: "",
+    bookingMarketingOptIn: false,
 };
 
 const ROW_PAIRS: [string, string][] = [
@@ -387,6 +389,11 @@ export default function MachineBookingForm({
                     maxLength: { value: MAX_DETAILS_LENGTH, message: `Keep it to ${MAX_DETAILS_LENGTH} characters` },
                 },
             },
+            {
+                name: "bookingMarketingOptIn",
+                type: "checkbox",
+                label: "Email me news and offers from MANDE. You can unsubscribe at any time.",
+            },
         ];
     }, [pricing, now, startTimes, durationValue]);
 
@@ -419,6 +426,7 @@ export default function MachineBookingForm({
                 duration: Number(values.bookingDuration),
                 idCard: { publicId: card.publicId, uploadKey, name: card.originalName },
                 ...(coupon ? { couponCode: coupon.coupon.code } : {}),
+                marketingOptIn: values.bookingMarketingOptIn,
                 returnPath,
             });
             clearFormUploadedFiles("bookingIdCard");
@@ -586,13 +594,26 @@ export default function MachineBookingForm({
                     );
                 }}
                 renderFooter={({ isLoading, canSubmit }) => (
-                    <FormSubmitButton
-                        label="Continue to payment"
-                        loadingLabel="Opening checkout..."
-                        isLoading={isLoading}
-                        disabled={!canSubmit || selectedMachines.length === 0}
-                        className="w-full"
-                    />
+                    <div className="flex flex-col gap-3">
+                        <FormSubmitButton
+                            label="Continue to payment"
+                            loadingLabel="Opening checkout..."
+                            isLoading={isLoading}
+                            disabled={!canSubmit || selectedMachines.length === 0}
+                            className="w-full"
+                        />
+                        <p className="text-center text-xs font-text text-mist-500">
+                            By booking, you agree to our{" "}
+                            <Link href={getLegalDocumentUrl("machine-booking-policy")} target="_blank" rel="noreferrer" className="font-medium text-mist-700 underline underline-offset-2 hover:text-mist-950">
+                                Machine booking policy
+                            </Link>{" "}
+                            and{" "}
+                            <Link href={PRIVACY_POLICY_URL} target="_blank" rel="noreferrer" className="font-medium text-mist-700 underline underline-offset-2 hover:text-mist-950">
+                                Privacy policy
+                            </Link>
+                            .
+                        </p>
+                    </div>
                 )}
             />
         </div>

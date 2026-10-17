@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { SITE_URL } from "@/lib/site";
 import { SITE_NAME } from "@/lib/seo";
 import { QueryProvider } from "@/components/providers/queryProvider";
+import { ConsentProvider } from "@/components/consent/consentProvider";
 
 export const metadata: Metadata = {
   // Lets pages give relative canonical and Open Graph addresses
@@ -30,8 +31,10 @@ export default function RootLayout({
     >
       <body className={cn("min-h-full flex flex-col font-sans", inter.className)}>
         <QueryProvider>
-          {children}
-          <Toaster position="top-right" richColors />
+          <ConsentProvider>
+            {children}
+            <Toaster position="top-right" richColors />
+          </ConsentProvider>
         </QueryProvider>
       </body>
     </html>

@@ -92,6 +92,11 @@ export default function UserDetailsStep({
                     value === true || "You must agree to the Terms and Privacy Policy",
             },
         },
+        {
+            name: "marketingOptIn",
+            type: "checkbox",
+            label: "Email me news, tips for makers and offers from MANDE. You can unsubscribe at any time.",
+        },
     ];
 
     return (

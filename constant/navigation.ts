@@ -20,6 +20,8 @@ export const KNOWLEDGE_BASE_URL = "/knowledge-base";
 export const BLOG_URL = "/blog";
 export const TERMS_URL = "/terms-and-conditions";
 export const PRIVACY_POLICY_URL = "/privacy-policy";
+/** Lives under /legals like the other policies; the consent banner and the footer link to it. */
+export const COOKIE_POLICY_URL = "/legals/cookie-policy";
 /** A guest's machine bookings, looked up by email and a code. */
 export const MACHINE_BOOKING_MY_BOOKINGS_URL = "/machine-booking/my-bookings";
 /** One machine booking, from the private link in a booking email (?token=). */
@@ -147,6 +149,7 @@ export const footerMenu: { title: string; links: Mainmenu[] }[] = [
 export const footerLegalMenu: Mainmenu[] = [
     { label: "Terms", href: TERMS_URL },
     { label: "Privacy", href: PRIVACY_POLICY_URL },
+    { label: "Cookies", href: COOKIE_POLICY_URL },
     { label: "Legals", href: LEGALS_URL },
 ];
 

@@ -6,7 +6,7 @@ import { getLegalDocuments } from "@/lib/cms/legal";
 export const metadata: Metadata = pageMetadata({
     title: "Legal information | MANDE",
     description:
-        "MANDE's terms and conditions, privacy policy, payment policy and subscription policy.",
+        "MANDE's terms and conditions, privacy and cookie policies, and our policies on jobs and quality, payments, subscriptions, machine bookings and community conduct.",
     path: "/legals",
 });
 

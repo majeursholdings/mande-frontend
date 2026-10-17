@@ -11,6 +11,8 @@ export interface ContactMessagePayload {
   topic: string;
   message: string;
   agreeToPrivacyPolicy: true;
+  /** Their optional yes to marketing emails. */
+  marketingOptIn?: boolean;
 }
 
 /** A message from the contact form, as super admins see it. */

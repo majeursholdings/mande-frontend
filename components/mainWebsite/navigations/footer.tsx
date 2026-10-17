@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight, Mail } from "lucide-react";
 import { footerLegalMenu, footerMenu } from "@/constant/navigation";
 import { CONTACT_DETAILS } from "@/constant/website";
+import { CookieSettingsButton } from "@/components/consent/consentProvider";
 import Logo from "./logo";
 
 const FOOTER_LINK_CLASS =
@@ -79,6 +80,10 @@ export default function Footer() {
                                     </Link>
                                 </li>
                             ))}
+                            <CookieSettingsButton
+                                asListItem
+                                className="text-xs text-mist-400 transition-colors duration-200 hover:text-white"
+                            />
                         </ul>
                     </nav>
                 </div>

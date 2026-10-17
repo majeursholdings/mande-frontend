@@ -35,6 +35,7 @@ import { authService } from "@/lib/services/authService";
 import { saveCompanyDetails, saveCompanySpecifications } from "./registrationRequests";
 import { subscriptionService, type SubscriptionPayment } from "@/lib/services/subscriptionService";
 import { getCouponErrorMessage } from "@/components/manufacturerPlatform/form/couponField";
+import { trackEvent } from "@/lib/consent";
 
 const hasValue = (value: unknown): boolean => {
     if (typeof value === "boolean") return value === true;
@@ -209,6 +210,8 @@ function RegistrationWizard({
             try {
                 const payment = await confirmPlanPayment(reference);
                 if (payment?.status === "succeeded") {
+                    const { plan, billingCycle } = methods.getValues();
+                    trackEvent({ event: "plan_purchase", transaction_id: reference, plan, billing_cycle: billingCycle });
                     savePaidPlan(methods, reference);
                     setPaymentReference(reference);
                     setCurrentStep(3);
@@ -236,14 +239,18 @@ function RegistrationWizard({
     const handleCreateAccount = () =>
         runStep(
             async () => {
-                const { firstName, lastName, email, phone, password } = methods.getValues();
+                const { firstName, lastName, email, phone, password, marketingOptIn } = methods.getValues();
                 await authService.registerManufacturer({
                     firstName: firstName.trim(),
                     lastName: lastName.trim(),
                     email: email.trim(),
                     phone: phone.trim(),
                     password,
+                    // Step 1 only continues once the box is ticked
+                    acceptedTerms: true,
+                    marketingOptIn,
                 });
+                trackEvent({ event: "sign_up" });
             },
             1,
             "Couldn't create your account. Please try again.",

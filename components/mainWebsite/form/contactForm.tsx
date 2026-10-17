@@ -10,6 +10,7 @@ import type { FormFieldConfig } from "@/components/form/types";
 import { isPhoneNumber, validators } from "@/components/form/form.validators";
 import { cn } from "@/lib/utils";
 import { contactService } from "@/lib/services/contactService";
+import { trackEvent } from "@/lib/consent";
 import { MandeApiError } from "@/lib/types/api";
 import { PRIVACY_POLICY_URL } from "@/constant/navigation";
 import { CONTACT_TOPIC_OPTIONS } from "@/constant/website";
@@ -23,6 +24,7 @@ type ContactFormValues = {
     topic: string;
     message: string;
     agreeToPrivacyPolicy: boolean;
+    marketingOptIn: boolean;
 };
 
 const DEFAULT_VALUES: ContactFormValues = {
@@ -33,6 +35,7 @@ const DEFAULT_VALUES: ContactFormValues = {
     topic: "",
     message: "",
     agreeToPrivacyPolicy: false,
+    marketingOptIn: false,
 };
 
 /** The fields the API can name in a validation error, to show it on the field. */
@@ -127,6 +130,11 @@ const FIELDS: FormFieldConfig[] = [
             validate: (value: boolean) => value === true || "Agree to the Privacy Policy to send your message",
         },
     },
+    {
+        name: "marketingOptIn",
+        type: "checkbox",
+        label: <span className="font-light">Email me news and offers from MANDE. You can unsubscribe at any time.</span>,
+    },
 ];
 
 /** A message to the MANDE team from the website — who's asking, what about, and what they need. */
@@ -146,7 +154,9 @@ export default function ContactForm() {
                 topic: values.topic,
                 message: values.message.trim(),
                 agreeToPrivacyPolicy: true,
+                marketingOptIn: values.marketingOptIn,
             });
+            trackEvent({ event: "generate_lead", topic: values.topic });
             methods.reset(DEFAULT_VALUES);
             toast.success("Thanks, your message is on its way. We'll reply by email.");
         } catch (error) {
