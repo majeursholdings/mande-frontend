@@ -430,10 +430,10 @@ function MemberSavings() {
             </div>
             <div className="flex-1">
                 <Image
-                    src="/images/image1.png"
-                    alt="A finished leather sofa being photographed outside a workshop"
-                    width={900}
-                    height={900}
+                    src="/images/member_machine_booking.jpg"
+                    alt="A furniture maker cutting a board on a panel saw in a shared workshop"
+                    width={1200}
+                    height={896}
                     className="aspect-4/3 w-full rounded-[10px] object-cover object-center"
                 />
             </div>
