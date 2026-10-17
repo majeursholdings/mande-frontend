@@ -23,8 +23,9 @@ The code is in `lib/consent.ts` (choices, Consent Mode, events) and `components/
 1. Create a web container in Google Tag Manager.
 2. Set `NEXT_PUBLIC_GTM_ID=GTM-XXXXXXX` in the website's environment and redeploy.
 
-   Without it, there's no banner, no "Cookie settings" link and no Tag Manager.
-3. Publish the **Cookie policy** and the updated **Privacy policy** in Sanity at the same time. The banner and the footer link to them.
+   Without it, there's no banner, no "Cookie settings" link and no Tag Manager. It's only read in production builds, so `next dev` never loads Tag Manager. To try it locally, run `next build && next start` with the ID set.
+4. Check it's working with Tag Manager's **Preview** (Tag Assistant): open the site, accept cookies, and the container connects. The "Test your website" check in the install dialog always says the tag wasn't detected, because Tag Manager only loads after a visitor accepts cookies.
+5. Publish the **Cookie policy** and the updated **Privacy policy** in Sanity at the same time. The banner and the footer link to them.
 
 ## Setting up the container
 
