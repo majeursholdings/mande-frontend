@@ -10,7 +10,7 @@ import type { FormFieldConfig } from "@/components/form/types";
 import { isPhoneNumber, validators } from "@/components/form/form.validators";
 import { cn } from "@/lib/utils";
 import { contactService } from "@/lib/services/contactService";
-import { trackEvent } from "@/lib/consent";
+import { trackEvent } from "@/lib/analytics";
 import { MandeApiError } from "@/lib/types/api";
 import { PRIVACY_POLICY_URL } from "@/constant/navigation";
 import { CONTACT_TOPIC_OPTIONS } from "@/constant/website";
@@ -156,10 +156,12 @@ export default function ContactForm() {
                 agreeToPrivacyPolicy: true,
                 marketingOptIn: values.marketingOptIn,
             });
-            trackEvent({ event: "generate_lead", topic: values.topic });
+            trackEvent({ event: "form_submit", form_name: "contact" });
+            trackEvent({ event: "generate_lead", form_name: "contact", topic: values.topic });
             methods.reset(DEFAULT_VALUES);
             toast.success("Thanks, your message is on its way. We'll reply by email.");
         } catch (error) {
+            trackEvent({ event: "form_error", form_name: "contact" });
             if (error instanceof MandeApiError && error.status === 429) {
                 toast.error("You've sent a few messages already. Please try again in an hour, or email us.");
                 return;
@@ -186,6 +188,7 @@ export default function ContactForm() {
             ]}
             onSubmit={handleSubmit}
             isLoading={isLoading}
+            trackingName="contact"
             renderFooter={({ isLoading, canSubmit }) => (
                 <button
                     type="submit"

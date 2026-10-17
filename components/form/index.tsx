@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, use, Suspense, useMemo } from "react";
+import { useState, use, Suspense, useMemo, useRef } from "react";
 import {
     useForm,
     Controller,
@@ -56,6 +56,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { DEFAULT_CURRENCY } from "@/constant/global";
 
+import { trackEvent } from "@/lib/analytics";
 import { FormFieldConfig, MainFormProps, SelectOption } from "./types";
 import { FileInput, cleanupFormFieldUploads } from "./fileInput";
 
@@ -74,6 +75,7 @@ export default function MainForm<T extends FieldValues = FieldValues>({
     renderFooter,
     fieldGapClassName,
     hideRequiredMarks = false,
+    trackingName,
 }: MainFormProps<T>) {
     // Hooks must run unconditionally — when a shared `methods` instance is
     // passed in (e.g. steps of a wizard), this internal one is simply unused.
@@ -117,6 +119,9 @@ export default function MainForm<T extends FieldValues = FieldValues>({
 
     const renderedPairs = new Set<string>();
 
+    // form_start goes out once per form, on the first field they focus
+    const formStarted = useRef(false);
+
     const handleFormSubmit = async (values: T) => {
         try {
             await onSubmit(values);
@@ -133,6 +138,11 @@ export default function MainForm<T extends FieldValues = FieldValues>({
     return (
         <FormProvider {...formMethods}>
         <form
+            onFocus={() => {
+                if (!trackingName || formStarted.current) return;
+                formStarted.current = true;
+                trackEvent({ event: "form_start", form_name: trackingName });
+            }}
             onSubmit={handleSubmit(handleFormSubmit)}
             className={cn("flex flex-col gap-5", className)}
             noValidate

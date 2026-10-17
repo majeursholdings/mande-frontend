@@ -13,6 +13,7 @@ import { getErrorMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { FormSubmitButton } from "./formButtons";
 import { supportService } from "@/lib/services/supportService";
+import { trackEvent } from "@/lib/analytics";
 
 type SupportFeedbackFormValues = {
     category: ManufacturerFeedback["category"] | "";
@@ -95,8 +96,10 @@ export default function SupportFeedbackForm() {
             clearFormUploadedFiles("screenshot");
             methods.reset(SUPPORT_FEEDBACK_DEFAULT_VALUES);
             setFormKey((key) => key + 1);
+            trackEvent({ event: "form_submit", form_name: "support_feedback" });
             toast.success("Thanks, we've received your feedback");
         } catch (err) {
+            trackEvent({ event: "form_error", form_name: "support_feedback" });
             await cleanupFormFieldUploads("screenshot");
             toast.error(getErrorMessage(err, "Couldn't send your feedback. Please try again."));
         } finally {
@@ -111,6 +114,7 @@ export default function SupportFeedbackForm() {
             fields={FIELDS}
             onSubmit={handleSubmit}
             isLoading={isLoading}
+            trackingName="support_feedback"
             renderFooter={({ isLoading, canSubmit }) => (
                 <div className="flex justify-end">
                     <FormSubmitButton
