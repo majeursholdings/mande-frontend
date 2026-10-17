@@ -22,7 +22,7 @@ export default function MachinesPage({ category }: { category?: string }) {
         <>
             <PageHero
                 eyebrow="Machines"
-                title="Our machines."
+                title="Our furniture machines."
                 description="The top furniture machines at our Lagos factory, open to every maker. Pick the ones you need and book time. Members save on every booking."
             >
                 <BookMachineTimeButton className={cn(WEBSITE_PRIMARY_BUTTON, "cursor-pointer")} />
@@ -104,7 +104,7 @@ async function Machines({ category }: { category?: string }) {
                 </p>
                 {category && (
                     <Link href={MACHINES_URL} className="text-sm font-medium text-primary-800 underline underline-offset-4 hover:text-primary-950">
-                        See all machines
+                        See all furniture machines
                     </Link>
                 )}
             </div>

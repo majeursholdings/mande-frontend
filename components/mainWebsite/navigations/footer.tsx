@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight, Mail } from "lucide-react";
 import { footerLegalMenu, footerMenu } from "@/constant/navigation";
 import { CONTACT_DETAILS } from "@/constant/website";
+import { CookieSettingsButton } from "@/components/consent/consentProvider";
 import Logo from "./logo";
 
 const FOOTER_LINK_CLASS =
@@ -21,7 +22,7 @@ export default function Footer() {
                             <Logo />
                         </Link>
                         <p className="max-w-90 text-sm font-light text-mist-300">
-                            The platform for furniture makers: paid jobs, top machines, loans to grow and a community
+                            The platform for furniture makers: paid jobs, top furniture machines, loans to grow and a community
                             behind you.
                         </p>
                         <div className="flex flex-col gap-1 text-sm font-light text-mist-300">
@@ -79,6 +80,10 @@ export default function Footer() {
                                     </Link>
                                 </li>
                             ))}
+                            <CookieSettingsButton
+                                asListItem
+                                className="text-xs text-mist-400 transition-colors duration-200 hover:text-white"
+                            />
                         </ul>
                     </nav>
                 </div>

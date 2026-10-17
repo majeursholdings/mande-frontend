@@ -57,7 +57,7 @@ export default function FactorySection() {
 
                 <div className="flex flex-col gap-6">
                     <div className="flex flex-col gap-1.5">
-                        <h3 className="text-2xl tracking-tight md:text-3xl">Our machines</h3>
+                        <h3 className="text-2xl tracking-tight md:text-3xl">Our furniture machines</h3>
                         <p className="max-w-120 text-base font-light text-mist-700">
                             See what each machine does and what it costs, then book the ones you need.
                         </p>
@@ -70,7 +70,7 @@ export default function FactorySection() {
                 <div className="flex flex-wrap items-center gap-3">
                     <BookMachineTimeButton className={cn(WEBSITE_PRIMARY_BUTTON, "cursor-pointer")} />
                     <Link href={MACHINES_URL} className={WEBSITE_OUTLINE_BUTTON}>
-                        See all machines
+                        See all furniture machines
                     </Link>
                 </div>
             </div>

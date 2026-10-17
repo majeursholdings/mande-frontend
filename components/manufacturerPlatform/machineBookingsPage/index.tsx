@@ -99,7 +99,7 @@ export default function ManufacturerMachineBookingsPage() {
         <div className="flex flex-col gap-6">
             <PageHeader
                 title="Machine time"
-                description="Book time on the machines at the MANDE factory in Lagos. You pay when you book, then we confirm your slot by email."
+                description="Book time on the furniture machines at the MANDE factory in Lagos. You pay when you book, then we confirm your slot by email."
             />
 
             <section className="flex flex-col gap-5 rounded-xl border border-border bg-white p-5 lg:p-6">

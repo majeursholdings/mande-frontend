@@ -31,7 +31,7 @@ export default async function OpenGraphImage() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
                     <div style={{ fontSize: 72, fontWeight: 700, lineHeight: 1.1 }}>Grow your furniture business.</div>
                     <div style={{ fontSize: 34, color: "#aae7c2", lineHeight: 1.3 }}>
-                        Real furniture jobs, paid as each stage is approved, and the country&apos;s top machines at our Lagos factory.
+                        Real furniture jobs, paid as each stage is approved, and the country&apos;s top furniture machines at our Lagos factory.
                     </div>
                 </div>
             </div>

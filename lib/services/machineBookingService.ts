@@ -206,6 +206,8 @@ export type CreateMachineBookingPayload = {
     idCard: { publicId: string; uploadKey: string; name?: string };
     /** A coupon (best one only against the plan discount; the server decides). */
     couponCode?: string;
+    /** The booker's optional yes to marketing emails. */
+    marketingOptIn?: boolean;
     /** A relative app path; the payment partner comes back to it with ?reference=. */
     returnPath?: string;
 };

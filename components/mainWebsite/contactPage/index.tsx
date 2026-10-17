@@ -52,7 +52,7 @@ export default function ContactPage({ whatsappUrl }: { whatsappUrl: string | nul
                                 <BookMachineTimeButton className={cn(WEBSITE_PRIMARY_BUTTON, "cursor-pointer text-sm")} />
                                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
                                     <Link href={MACHINES_URL} className={CARD_LINK}>
-                                        See our machines
+                                        See our furniture machines
                                     </Link>
                                     <Link href={MACHINE_BOOKING_MY_BOOKINGS_URL} className={CARD_LINK}>
                                         See your bookings
@@ -61,7 +61,7 @@ export default function ContactPage({ whatsappUrl }: { whatsappUrl: string | nul
                             </>
                         }
                     >
-                        The machines at our Lagos factory are open to every maker, and members save on every booking.
+                        The furniture machines at our Lagos factory are open to every maker, and members save on every booking.
                     </ContactCard>
                     <ContactCard icon={Headset} title="Already a MANDE maker?">
                         Log in and open <span className="font-medium">Profile › Talk to support</span> to send our team a message about

@@ -17,6 +17,8 @@ export type RegistrationFormValues = AddressFormValues & {
     phone: string;
     password: string;
     agreeToTerms: boolean;
+    /** Their optional yes to marketing emails. */
+    marketingOptIn: boolean;
     // Step 2 — verify email
     otp: string;
     // Step 3 — plan and payment
@@ -45,6 +47,7 @@ export const REGISTRATION_DEFAULT_VALUES: RegistrationFormValues = {
     phone: "",
     password: "",
     agreeToTerms: false,
+    marketingOptIn: false,
     otp: "",
     plan: "",
     billingCycle: "monthly",

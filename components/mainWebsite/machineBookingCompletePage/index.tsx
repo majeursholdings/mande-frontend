@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { trackEvent } from "@/lib/consent";
 import { getErrorMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { machineBookingService } from "@/lib/services/machineBookingService";
@@ -18,7 +19,14 @@ import { BackLinks, BookingSummary, PAID_STATUSES, ResultCard, ResultSkeleton, R
 export default function MachineBookingCompletePage({ reference }: { reference: string | null }) {
     const query = useQuery({
         queryKey: [...queryKeys.machineBookings.all, "confirm", reference],
-        queryFn: () => machineBookingService.confirmPayment(reference as string),
+        queryFn: async () => {
+            const booking = await machineBookingService.confirmPayment(reference as string);
+            // A paid booking is a conversion for the ad and analytics tools (only if the visitor allowed them)
+            if (PAID_STATUSES.includes(booking.status)) {
+                trackEvent({ event: "machine_booking_purchase", transaction_id: booking.code, value: booking.amountKobo / 100, currency: "NGN" });
+            }
+            return booking;
+        },
         enabled: !!reference,
         retry: false,
         staleTime: Infinity,

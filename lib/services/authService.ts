@@ -43,6 +43,10 @@ export interface ManufacturerRegisterPayload {
   firstName: string;
   lastName: string;
   phone: string;
+  /** The "I agree to the Terms and Privacy Policy" box; the API records when. */
+  acceptedTerms: true;
+  /** Their optional yes to marketing emails. */
+  marketingOptIn?: boolean;
 }
 
 export interface StaffRegisterPayload {

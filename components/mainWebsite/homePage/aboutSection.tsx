@@ -30,7 +30,7 @@ const PILLARS: { icon: LucideIcon; title: string; description: string }[] = [
     {
         icon: Factory,
         title: "Room to grow",
-        description: `Machine time at our Lagos factory, and loans of up to ${ACCELERATOR_LOAN_LABEL} through the ${ACCELERATOR_PROGRAM_NAME}.`,
+        description: `Time on top furniture machines at our Lagos factory, and loans of up to ${ACCELERATOR_LOAN_LABEL} through the ${ACCELERATOR_PROGRAM_NAME}.`,
     },
 ];
 

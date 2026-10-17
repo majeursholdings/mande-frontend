@@ -4,7 +4,7 @@ import { MACHINES_URL } from "@/constant/navigation";
 import MachinesPage from "@/components/mainWebsite/machinesPage";
 
 export const metadata: Metadata = pageMetadata({
-    title: "Our machines | MANDE",
+    title: "Furniture machines in Lagos | MANDE",
     description:
         "The top furniture machines at the MANDE factory in Lagos, open to every maker. See what each one does and its price, then book time. Members save on every booking.",
     path: MACHINES_URL,
