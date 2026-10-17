@@ -9,8 +9,11 @@
 // the two in step when a tool or cookie is added.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** The Tag Manager container ("GTM-XXXXXXX"). Without one, there's nothing to ask about and no banner shows. */
-export const GTM_ID = process.env.NEXT_PUBLIC_GTM_ID ?? "";
+/**
+ * The Tag Manager container ("GTM-XXXXXXX"). Without one, there's nothing to ask about and no banner shows.
+ * Production builds only, so `next dev` is never tracked even with the ID in .env.local.
+ */
+export const GTM_ID = process.env.NODE_ENV === "production" ? (process.env.NEXT_PUBLIC_GTM_ID ?? "") : "";
 
 /** Remembers the visitor's choices; listed in the Cookie policy as "Cookie choices". */
 const CONSENT_COOKIE = "mande_consent";
