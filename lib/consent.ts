@@ -175,22 +175,3 @@ export function tagManagerInitScript(choices: ConsentChoices): string {
   d.head.appendChild(script);
 })(window, document, ${json(GTM_ID)}, ${json(defaults)}, ${json(toGoogleConsent(choices))});`;
 }
-
-/** The events Tag Manager turns into analytics and ad conversions (see docs/analytics-and-consent.md). */
-export type TrackedEvent =
-    | { event: "sign_up" }
-    | { event: "plan_purchase"; transaction_id: string; plan: string; billing_cycle: string }
-    | { event: "machine_booking_purchase"; transaction_id: string; value: number; currency: "NGN" }
-    | { event: "generate_lead"; topic: string };
-
-/**
- * Records an event for Tag Manager, only once the visitor has allowed
- * analytics or advertising. Nothing personal goes in: no names, emails or
- * phone numbers.
- */
-export function trackEvent(event: TrackedEvent) {
-    if (typeof window === "undefined" || !GTM_ID || !allowsAnything(getConsentSnapshot())) return;
-    // If Tag Manager hasn't started yet, its init script puts this after Consent Mode's defaults
-    window.dataLayer = window.dataLayer ?? [];
-    window.dataLayer.push(event);
-}

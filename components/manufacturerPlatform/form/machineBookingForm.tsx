@@ -37,6 +37,7 @@ import { MandeApiError } from "@/lib/types/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { formatPrice, fromKobo } from "@/lib/currency";
 import { cn } from "@/lib/utils";
+import { trackEvent, trackMachineBookingCheckout } from "@/lib/analytics";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ARTISAN_LOGIN_URL, PRIVACY_POLICY_URL, getLegalDocumentUrl } from "@/constant/navigation";
 import {
@@ -414,7 +415,7 @@ export default function MachineBookingForm({
                 toast.error("Pick at least one machine, then try again.");
                 return;
             }
-            const { checkoutUrl } = await machineBookingService.createBooking({
+            const { booking, checkoutUrl } = await machineBookingService.createBooking({
                 fullName: values.bookingFullName.trim(),
                 email: values.bookingEmail.trim(),
                 phone: values.bookingPhone.trim(),
@@ -430,9 +431,12 @@ export default function MachineBookingForm({
                 returnPath,
             });
             clearFormUploadedFiles("bookingIdCard");
+            trackEvent({ event: "form_submit", form_name: "machine_booking" });
+            trackMachineBookingCheckout(booking);
             redirecting = true;
             window.location.assign(checkoutUrl);
         } catch (err) {
+            trackEvent({ event: "form_error", form_name: "machine_booking" });
             const couponMessage = getCouponErrorMessage(err);
             const machinesMessage = getMachineIdsError(err);
             if (couponMessage) {
@@ -559,6 +563,7 @@ export default function MachineBookingForm({
                 rowPairs={ROW_PAIRS}
                 onSubmit={handleSubmit}
                 isLoading={isLoading}
+                trackingName="machine_booking"
                 footerSlot={(values) => {
                     const duration = Number(values.bookingDuration) || 0;
                     return (
