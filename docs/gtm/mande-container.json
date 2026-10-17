@@ -1,0 +1,2323 @@
+{
+  "exportFormatVersion": 2,
+  "exportTime": "2026-10-17 14:12:18",
+  "containerVersion": {
+    "accountId": "6383142552",
+    "containerId": "267442273",
+    "path": "accounts/6383142552/containers/267442273/versions/0",
+    "containerVersionId": "0",
+    "container": {
+      "accountId": "6383142552",
+      "containerId": "267442273",
+      "name": "mande.com.ng",
+      "publicId": "GTM-5SSZSVQ9",
+      "usageContext": [
+        "WEB"
+      ]
+    },
+    "tag": [
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "1",
+        "name": "GA4 - Google tag",
+        "type": "googtag",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "tagId",
+            "value": "{{CONST - GA4 Measurement ID}}"
+          }
+        ],
+        "firingTriggerId": [
+          "2147479573"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "analytics_storage"
+              }
+            ]
+          }
+        },
+        "notes": "Page views, including Next.js page changes (GA4 enhanced measurement: page changes based on browser history events)."
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "2",
+        "name": "GA4 - sign_up",
+        "type": "gaawe",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "eventName",
+            "value": "sign_up"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "measurementIdOverride",
+            "value": "{{CONST - GA4 Measurement ID}}"
+          },
+          {
+            "type": "LIST",
+            "key": "eventSettingsTable",
+            "list": [
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "method"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "{{DLV - method}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "user_type"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "{{DLV - user_type}}"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "firingTriggerId": [
+          "1"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "analytics_storage"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "3",
+        "name": "GA4 - begin_checkout",
+        "type": "gaawe",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "eventName",
+            "value": "begin_checkout"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "measurementIdOverride",
+            "value": "{{CONST - GA4 Measurement ID}}"
+          },
+          {
+            "type": "LIST",
+            "key": "eventSettingsTable",
+            "list": [
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "checkout_type"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "{{DLV - checkout_type}}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "sendEcommerceData",
+            "value": "true"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "getEcommerceDataFrom",
+            "value": "dataLayer"
+          }
+        ],
+        "firingTriggerId": [
+          "2"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "analytics_storage"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "4",
+        "name": "GA4 - purchase",
+        "type": "gaawe",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "eventName",
+            "value": "purchase"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "measurementIdOverride",
+            "value": "{{CONST - GA4 Measurement ID}}"
+          },
+          {
+            "type": "LIST",
+            "key": "eventSettingsTable",
+            "list": [
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "purchase_type"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "{{DLV - purchase_type}}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "sendEcommerceData",
+            "value": "true"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "getEcommerceDataFrom",
+            "value": "dataLayer"
+          }
+        ],
+        "firingTriggerId": [
+          "3"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "analytics_storage"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "5",
+        "name": "GA4 - generate_lead",
+        "type": "gaawe",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "eventName",
+            "value": "generate_lead"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "measurementIdOverride",
+            "value": "{{CONST - GA4 Measurement ID}}"
+          },
+          {
+            "type": "LIST",
+            "key": "eventSettingsTable",
+            "list": [
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "form_name"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "{{DLV - form_name}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "topic"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "{{DLV - topic}}"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "firingTriggerId": [
+          "4"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "analytics_storage"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "6",
+        "name": "GA4 - form events",
+        "type": "gaawe",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "eventName",
+            "value": "{{Event}}"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "measurementIdOverride",
+            "value": "{{CONST - GA4 Measurement ID}}"
+          },
+          {
+            "type": "LIST",
+            "key": "eventSettingsTable",
+            "list": [
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "form_name"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "{{DLV - form_name}}"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "firingTriggerId": [
+          "7"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "analytics_storage"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "7",
+        "name": "GA4 - video events",
+        "type": "gaawe",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "eventName",
+            "value": "{{Event}}"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "measurementIdOverride",
+            "value": "{{CONST - GA4 Measurement ID}}"
+          },
+          {
+            "type": "LIST",
+            "key": "eventSettingsTable",
+            "list": [
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "video_title"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "{{DLV - video_title}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "video_url"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "{{DLV - video_url}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "video_percent"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "{{DLV - video_percent}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "video_duration"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "{{DLV - video_duration}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "video_provider"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "{{DLV - video_provider}}"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "firingTriggerId": [
+          "8"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "analytics_storage"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "8",
+        "name": "GA4 - cta_click",
+        "type": "gaawe",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "eventName",
+            "value": "cta_click"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "measurementIdOverride",
+            "value": "{{CONST - GA4 Measurement ID}}"
+          },
+          {
+            "type": "LIST",
+            "key": "eventSettingsTable",
+            "list": [
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "cta_text"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "{{DLV - cta_text}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "link_url"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "{{DLV - link_url}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "cta_location"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "{{DLV - cta_location}}"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "firingTriggerId": [
+          "5"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "analytics_storage"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "9",
+        "name": "GA4 - contact_click",
+        "type": "gaawe",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "eventName",
+            "value": "contact_click"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "measurementIdOverride",
+            "value": "{{CONST - GA4 Measurement ID}}"
+          },
+          {
+            "type": "LIST",
+            "key": "eventSettingsTable",
+            "list": [
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "contact_method"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "{{DLV - contact_method}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameter",
+                    "value": "cta_location"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "parameterValue",
+                    "value": "{{DLV - cta_location}}"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "firingTriggerId": [
+          "6"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "analytics_storage"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "10",
+        "name": "Google Ads - Conversion Linker",
+        "type": "gclidw",
+        "parameter": [
+          {
+            "type": "BOOLEAN",
+            "key": "enableCrossDomain",
+            "value": "false"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "enableUrlPassthrough",
+            "value": "false"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "enableCookieOverrides",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "2147479553"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "11",
+        "name": "Google Ads - Remarketing",
+        "type": "sp",
+        "parameter": [
+          {
+            "type": "BOOLEAN",
+            "key": "enableConversionLinker",
+            "value": "true"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "conversionCookiePrefix",
+            "value": "_gcl"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "enableDynamicRemarketing",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "conversionId",
+            "value": "{{CONST - Google Ads ID}}"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "customParamsFormat",
+            "value": "NONE"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "rdp",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "2147479553"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_user_data"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_personalization"
+              }
+            ]
+          }
+        },
+        "paused": true,
+        "notes": "Set CONST - Google Ads ID (the number only, without AW-), then unpause."
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "12",
+        "name": "Google Ads - Purchase conversion",
+        "type": "awct",
+        "parameter": [
+          {
+            "type": "BOOLEAN",
+            "key": "enableNewCustomerReporting",
+            "value": "false"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "enableConversionLinker",
+            "value": "true"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "enableProductReporting",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "conversionCookiePrefix",
+            "value": "_gcl"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "enableShippingData",
+            "value": "false"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "rdp",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "conversionId",
+            "value": "{{CONST - Google Ads ID}}"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "conversionLabel",
+            "value": "{{CONST - Google Ads Purchase Label}}"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "conversionValue",
+            "value": "{{DLV - ecommerce.value}}"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "currencyCode",
+            "value": "NGN"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "orderId",
+            "value": "{{DLV - ecommerce.transaction_id}}"
+          }
+        ],
+        "firingTriggerId": [
+          "3"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_user_data"
+              }
+            ]
+          }
+        },
+        "paused": true,
+        "notes": "Set CONST - Google Ads ID (number only) and the conversion label, then unpause."
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "13",
+        "name": "Google Ads - Sign-up conversion",
+        "type": "awct",
+        "parameter": [
+          {
+            "type": "BOOLEAN",
+            "key": "enableNewCustomerReporting",
+            "value": "false"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "enableConversionLinker",
+            "value": "true"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "enableProductReporting",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "conversionCookiePrefix",
+            "value": "_gcl"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "enableShippingData",
+            "value": "false"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "rdp",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "conversionId",
+            "value": "{{CONST - Google Ads ID}}"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "conversionLabel",
+            "value": "{{CONST - Google Ads Sign-up Label}}"
+          }
+        ],
+        "firingTriggerId": [
+          "1"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_user_data"
+              }
+            ]
+          }
+        },
+        "paused": true,
+        "notes": "Set CONST - Google Ads ID (number only) and the conversion label, then unpause."
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "14",
+        "name": "Meta - Pixel base",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>\n!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?\nn.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;\nn.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;\nt.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,\ndocument,'script','https://connect.facebook.net/en_US/fbevents.js');\nfbq('init', '{{CONST - Meta Pixel ID}}');\nfbq('track', 'PageView');\n</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "2147479553"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_user_data"
+              }
+            ]
+          }
+        },
+        "paused": true,
+        "notes": "Set CONST - Meta Pixel ID, then unpause every Meta tag."
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "15",
+        "name": "Meta - PageView (page change)",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>if (window.fbq) fbq('track', 'PageView');</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "9"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_user_data"
+              }
+            ]
+          }
+        },
+        "paused": true,
+        "notes": "Set CONST - Meta Pixel ID, then unpause every Meta tag."
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "16",
+        "name": "Meta - CompleteRegistration",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>if (window.fbq) fbq('track', 'CompleteRegistration');</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "1"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_user_data"
+              }
+            ]
+          }
+        },
+        "paused": true,
+        "notes": "Set CONST - Meta Pixel ID, then unpause every Meta tag."
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "17",
+        "name": "Meta - InitiateCheckout",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>if (window.fbq) fbq('track', 'InitiateCheckout', {currency: 'NGN', content_category: {{DLV - checkout_type}}});</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "2"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_user_data"
+              }
+            ]
+          }
+        },
+        "paused": true,
+        "notes": "Set CONST - Meta Pixel ID, then unpause every Meta tag."
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "18",
+        "name": "Meta - Purchase",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>if (window.fbq) fbq('track', 'Purchase', {value: {{DLV - ecommerce.value}}, currency: 'NGN', content_category: {{DLV - purchase_type}}}, {eventID: {{DLV - ecommerce.transaction_id}}});</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "3"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_user_data"
+              }
+            ]
+          }
+        },
+        "paused": true,
+        "notes": "Set CONST - Meta Pixel ID, then unpause every Meta tag."
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "19",
+        "name": "Meta - Lead",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>if (window.fbq) fbq('track', 'Lead', {content_category: {{DLV - topic}}});</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "4"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_user_data"
+              }
+            ]
+          }
+        },
+        "paused": true,
+        "notes": "Set CONST - Meta Pixel ID, then unpause every Meta tag."
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "20",
+        "name": "Meta - Contact",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>if (window.fbq) fbq('track', 'Contact');</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "6"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_user_data"
+              }
+            ]
+          }
+        },
+        "paused": true,
+        "notes": "Set CONST - Meta Pixel ID, then unpause every Meta tag."
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "21",
+        "name": "TikTok - Pixel base",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>\n!function (w, d, t) {\n  w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=[\"page\",\"track\",\"identify\",\"instances\",\"debug\",\"on\",\"off\",\"once\",\"ready\",\"alias\",\"group\",\"enableCookie\",\"disableCookie\",\"holdConsent\",\"revokeConsent\",\"grantConsent\"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r=\"https://analytics.tiktok.com/i18n/pixel/events.js\";ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};var o=d.createElement(\"script\");o.type=\"text/javascript\",o.async=!0,o.src=r+\"?sdkid=\"+e+\"&lib=\"+t;var a=d.getElementsByTagName(\"script\")[0];a.parentNode.insertBefore(o,a)};\n  ttq.load('{{CONST - TikTok Pixel ID}}');\n  ttq.page();\n}(window, document, 'ttq');\n</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "2147479553"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_user_data"
+              }
+            ]
+          }
+        },
+        "paused": true,
+        "notes": "Set CONST - TikTok Pixel ID, then unpause every TikTok tag."
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "22",
+        "name": "TikTok - Page (page change)",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>if (window.ttq) ttq.page();</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "9"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_user_data"
+              }
+            ]
+          }
+        },
+        "paused": true,
+        "notes": "Set CONST - TikTok Pixel ID, then unpause every TikTok tag."
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "23",
+        "name": "TikTok - CompleteRegistration",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>if (window.ttq) ttq.track('CompleteRegistration');</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "1"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_user_data"
+              }
+            ]
+          }
+        },
+        "paused": true,
+        "notes": "Set CONST - TikTok Pixel ID, then unpause every TikTok tag."
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "24",
+        "name": "TikTok - InitiateCheckout",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>if (window.ttq) ttq.track('InitiateCheckout', {currency: 'NGN', content_type: 'product', content_category: {{DLV - checkout_type}}});</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "2"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_user_data"
+              }
+            ]
+          }
+        },
+        "paused": true,
+        "notes": "Set CONST - TikTok Pixel ID, then unpause every TikTok tag."
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "25",
+        "name": "TikTok - CompletePayment",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>if (window.ttq) ttq.track('CompletePayment', {value: {{DLV - ecommerce.value}}, currency: 'NGN', content_type: 'product', content_category: {{DLV - purchase_type}}}, {event_id: {{DLV - ecommerce.transaction_id}}});</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "3"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_user_data"
+              }
+            ]
+          }
+        },
+        "paused": true,
+        "notes": "Set CONST - TikTok Pixel ID, then unpause every TikTok tag."
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "26",
+        "name": "TikTok - SubmitForm",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>if (window.ttq) ttq.track('SubmitForm');</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "4"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_user_data"
+              }
+            ]
+          }
+        },
+        "paused": true,
+        "notes": "Set CONST - TikTok Pixel ID, then unpause every TikTok tag."
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "tagId": "27",
+        "name": "TikTok - Contact",
+        "type": "html",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "html",
+            "value": "<script>if (window.ttq) ttq.track('Contact');</script>"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "supportDocumentWrite",
+            "value": "false"
+          }
+        ],
+        "firingTriggerId": [
+          "6"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NEEDED",
+          "consentType": {
+            "type": "LIST",
+            "list": [
+              {
+                "type": "TEMPLATE",
+                "value": "ad_storage"
+              },
+              {
+                "type": "TEMPLATE",
+                "value": "ad_user_data"
+              }
+            ]
+          }
+        },
+        "paused": true,
+        "notes": "Set CONST - TikTok Pixel ID, then unpause every TikTok tag."
+      }
+    ],
+    "trigger": [
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "triggerId": "1",
+        "name": "CE - sign_up",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "EQUALS",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "sign_up"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "triggerId": "2",
+        "name": "CE - begin_checkout",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "EQUALS",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "begin_checkout"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "triggerId": "3",
+        "name": "CE - purchase",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "EQUALS",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "purchase"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "triggerId": "4",
+        "name": "CE - generate_lead",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "EQUALS",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "generate_lead"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "triggerId": "5",
+        "name": "CE - cta_click",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "EQUALS",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "cta_click"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "triggerId": "6",
+        "name": "CE - contact_click",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "EQUALS",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "contact_click"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "triggerId": "7",
+        "name": "CE - form events",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "MATCH_REGEX",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "^form_(start|submit|error)$"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "triggerId": "8",
+        "name": "CE - video events",
+        "type": "CUSTOM_EVENT",
+        "customEventFilter": [
+          {
+            "type": "MATCH_REGEX",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "^video_(start|progress|complete)$"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "triggerId": "9",
+        "name": "History change (page navigation)",
+        "type": "HISTORY_CHANGE"
+      }
+    ],
+    "variable": [
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "1",
+        "name": "CONST - GA4 Measurement ID",
+        "type": "c",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "value",
+            "value": "G-L27BPQGCN2"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "2",
+        "name": "CONST - Meta Pixel ID",
+        "type": "c",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "value",
+            "value": "000000000000000"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "3",
+        "name": "CONST - TikTok Pixel ID",
+        "type": "c",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "value",
+            "value": "XXXXXXXXXXXXXXXXXXXX"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "4",
+        "name": "CONST - Google Ads ID",
+        "type": "c",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "value",
+            "value": "000000000"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "5",
+        "name": "CONST - Google Ads Purchase Label",
+        "type": "c",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "value",
+            "value": "XXXXXXXXXXXXXXXXXXX"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "6",
+        "name": "CONST - Google Ads Sign-up Label",
+        "type": "c",
+        "parameter": [
+          {
+            "type": "TEMPLATE",
+            "key": "value",
+            "value": "XXXXXXXXXXXXXXXXXXX"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "7",
+        "name": "DLV - ecommerce.value",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "ecommerce.value"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "8",
+        "name": "DLV - ecommerce.currency",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "ecommerce.currency"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "9",
+        "name": "DLV - ecommerce.transaction_id",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "ecommerce.transaction_id"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "10",
+        "name": "DLV - purchase_type",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "purchase_type"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "11",
+        "name": "DLV - checkout_type",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "checkout_type"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "12",
+        "name": "DLV - method",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "method"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "13",
+        "name": "DLV - user_type",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "user_type"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "14",
+        "name": "DLV - form_name",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "form_name"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "15",
+        "name": "DLV - topic",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "topic"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "16",
+        "name": "DLV - video_title",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "video_title"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "17",
+        "name": "DLV - video_url",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "video_url"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "18",
+        "name": "DLV - video_percent",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "video_percent"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "19",
+        "name": "DLV - video_duration",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "video_duration"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "20",
+        "name": "DLV - video_provider",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "video_provider"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "21",
+        "name": "DLV - cta_text",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "cta_text"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "22",
+        "name": "DLV - link_url",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "link_url"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "23",
+        "name": "DLV - cta_location",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "cta_location"
+          }
+        ]
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "variableId": "24",
+        "name": "DLV - contact_method",
+        "type": "v",
+        "parameter": [
+          {
+            "type": "INTEGER",
+            "key": "dataLayerVersion",
+            "value": "2"
+          },
+          {
+            "type": "BOOLEAN",
+            "key": "setDefaultValue",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "name",
+            "value": "contact_method"
+          }
+        ]
+      }
+    ],
+    "builtInVariable": [
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "type": "PAGE_URL",
+        "name": "Page URL"
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "type": "PAGE_HOSTNAME",
+        "name": "Page Hostname"
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "type": "PAGE_PATH",
+        "name": "Page Path"
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "type": "REFERRER",
+        "name": "Referrer"
+      },
+      {
+        "accountId": "6383142552",
+        "containerId": "267442273",
+        "type": "EVENT",
+        "name": "Event"
+      }
+    ]
+  }
+}

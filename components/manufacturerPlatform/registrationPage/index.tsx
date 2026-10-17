@@ -35,7 +35,7 @@ import { authService } from "@/lib/services/authService";
 import { saveCompanyDetails, saveCompanySpecifications } from "./registrationRequests";
 import { subscriptionService, type SubscriptionPayment } from "@/lib/services/subscriptionService";
 import { getCouponErrorMessage } from "@/components/manufacturerPlatform/form/couponField";
-import { trackEvent } from "@/lib/consent";
+import { trackEvent, trackPlanCheckout, trackPlanPurchase } from "@/lib/analytics";
 
 const hasValue = (value: unknown): boolean => {
     if (typeof value === "boolean") return value === true;
@@ -210,8 +210,7 @@ function RegistrationWizard({
             try {
                 const payment = await confirmPlanPayment(reference);
                 if (payment?.status === "succeeded") {
-                    const { plan, billingCycle } = methods.getValues();
-                    trackEvent({ event: "plan_purchase", transaction_id: reference, plan, billing_cycle: billingCycle });
+                    trackPlanPurchase(payment);
                     savePaidPlan(methods, reference);
                     setPaymentReference(reference);
                     setCurrentStep(3);
@@ -250,7 +249,8 @@ function RegistrationWizard({
                     acceptedTerms: true,
                     marketingOptIn,
                 });
-                trackEvent({ event: "sign_up" });
+                trackEvent({ event: "sign_up", method: "email", user_type: "manufacturer" });
+                trackEvent({ event: "form_submit", form_name: "manufacturer_sign_up" });
             },
             1,
             "Couldn't create your account. Please try again.",
@@ -290,6 +290,7 @@ function RegistrationWizard({
             if (!checkoutUrl.startsWith("https://")) {
                 throw new Error("Payments aren't available right now. Please try again later.");
             }
+            trackPlanCheckout(values.plan, values.billingCycle);
             // Stays loading while the browser leaves for the checkout
             window.location.assign(checkoutUrl);
         } catch (err) {

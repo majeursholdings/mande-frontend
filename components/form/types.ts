@@ -1,6 +1,7 @@
 import { HTMLAttributes, ReactNode } from "react";
 import { FieldValues, RegisterOptions, UseFormReturn } from "react-hook-form";
 import type { UploadPurpose, UploadResult } from "@/lib/services/mediaService";
+import type { TrackedFormName } from "@/lib/analytics";
 
 export type FieldType =
     | "text"
@@ -111,4 +112,8 @@ export type MainFormProps<T extends FieldValues = FieldValues> = {
     /** Leave the red asterisk off required fields' labels — e.g. a login form, where every field is required.
      * @default false */
     hideRequiredMarks?: boolean;
+    /** Sends form_start to analytics the first time someone focuses a field
+     * (with consent). Submissions are tracked by the form's own handler, which
+     * knows whether it worked. */
+    trackingName?: TrackedFormName;
 };

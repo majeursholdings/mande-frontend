@@ -13,11 +13,14 @@ import {
     VolumeX,
 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
+import { VIDEO_PROGRESS_MILESTONES, trackVideo, videoTitleFromSrc } from "@/lib/analytics";
 
 type VideoPlayerProps = {
     src: string;
     poster?: string;
     className?: string;
+    /** The name analytics reports for it. Defaults to the file's name. */
+    title?: string;
 };
 
 const SKIP_SECONDS = 10;
@@ -30,11 +33,15 @@ function formatTime(seconds: number) {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
-export default function VideoPlayer({ src, poster, className }: VideoPlayerProps) {
+export default function VideoPlayer({ src, poster, className, title }: VideoPlayerProps) {
+    const videoTitle = title ?? videoTitleFromSrc(src);
     const containerRef = useRef<HTMLDivElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
     const hideControlsTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
     const scrubbingRef = useRef(false);
+    // What analytics has heard about this viewing: the start, then each milestone once
+    const trackedStart = useRef(false);
+    const trackedMilestones = useRef(new Set<number>());
 
     const [hasStarted, setHasStarted] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -158,13 +165,27 @@ export default function VideoPlayer({ src, poster, className }: VideoPlayerProps
                     node.currentTime = 0.01;
                 }
             };
-            const onTimeUpdate = () => setCurrentTime(node.currentTime);
+            const onTimeUpdate = () => {
+                setCurrentTime(node.currentTime);
+                if (!trackedStart.current || !Number.isFinite(node.duration) || node.duration <= 0) return;
+                const percent = (node.currentTime / node.duration) * 100;
+                for (const milestone of VIDEO_PROGRESS_MILESTONES) {
+                    if (percent >= milestone && !trackedMilestones.current.has(milestone)) {
+                        trackedMilestones.current.add(milestone);
+                        trackVideo("video_progress", node, videoTitle, milestone);
+                    }
+                }
+            };
             const onProgress = () => {
                 if (node.buffered.length > 0) {
                     setBuffered(node.buffered.end(node.buffered.length - 1));
                 }
             };
             const onPlay = () => {
+                if (!trackedStart.current) {
+                    trackedStart.current = true;
+                    trackVideo("video_start", node, videoTitle, 0);
+                }
                 setIsPlaying(true);
                 setHasStarted(true);
                 scheduleHideControls();
@@ -177,6 +198,10 @@ export default function VideoPlayer({ src, poster, className }: VideoPlayerProps
             const onEnded = () => {
                 setIsPlaying(false);
                 setShowControls(true);
+                trackVideo("video_complete", node, videoTitle, 100);
+                // Watching again counts as a new viewing
+                trackedStart.current = false;
+                trackedMilestones.current.clear();
             };
             const onWaiting = () => setIsLoading(true);
             const onCanPlay = () => setIsLoading(false);
@@ -210,7 +235,7 @@ export default function VideoPlayer({ src, poster, className }: VideoPlayerProps
                 node.removeEventListener("volumechange", onVolumeChange);
             };
         },
-        [poster, scheduleHideControls, clearHideTimeout]
+        [poster, videoTitle, scheduleHideControls, clearHideTimeout]
     );
 
     const setContainerRef = useCallback(
@@ -239,6 +264,8 @@ export default function VideoPlayer({ src, poster, className }: VideoPlayerProps
             ref={setContainerRef}
             tabIndex={0}
             onKeyDown={onKeyDown}
+            // Its controls are covered by the video events, not counted as button clicks
+            data-track="off"
             onMouseMove={revealControls}
             onMouseLeave={() => {
                 if (isPlaying) setShowControls(false);

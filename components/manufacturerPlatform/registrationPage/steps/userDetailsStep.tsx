@@ -118,6 +118,7 @@ export default function UserDetailsStep({
                 rowPairs={[["firstName", "lastName"]]}
                 onSubmit={onContinue}
                 isLoading={isLoading}
+                trackingName="manufacturer_sign_up"
                 renderFooter={({ isLoading, canSubmit }) => (
                     <StepFooter
                         isLoading={isLoading}

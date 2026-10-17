@@ -15,6 +15,7 @@ export default function TestimonialSection() {
             </div>
             <VideoPlayer
                 src="https://www.mande.com.ng/media/hands-that-build.mp4"
+                title="Hands that build"
                 className="aspect-video w-full max-w-3xl"
             />
         </SectionWrapper>

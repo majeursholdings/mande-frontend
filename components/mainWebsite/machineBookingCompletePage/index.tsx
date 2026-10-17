@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { trackEvent } from "@/lib/consent";
+import { trackMachineBookingPurchase } from "@/lib/analytics";
 import { getErrorMessage } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import { machineBookingService } from "@/lib/services/machineBookingService";
@@ -23,7 +23,7 @@ export default function MachineBookingCompletePage({ reference }: { reference: s
             const booking = await machineBookingService.confirmPayment(reference as string);
             // A paid booking is a conversion for the ad and analytics tools (only if the visitor allowed them)
             if (PAID_STATUSES.includes(booking.status)) {
-                trackEvent({ event: "machine_booking_purchase", transaction_id: booking.code, value: booking.amountKobo / 100, currency: "NGN" });
+                trackMachineBookingPurchase(booking);
             }
             return booking;
         },
