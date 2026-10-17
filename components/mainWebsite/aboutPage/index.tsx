@@ -160,7 +160,7 @@ function StorySection() {
                 </div>
                 <div className="flex-1">
                     <VideoPlayer
-                        src="/videos/mande-filling-the-gaps.mp4"
+                        src="https://res.cloudinary.com/zihare24/video/upload/v1792240320/mande-film-web-3x2.mp4"
                         poster="/videos/mande-filling-the-gaps-poster.webp"
                         className="aspect-3/2 w-full"
                     />
