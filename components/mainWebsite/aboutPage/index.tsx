@@ -161,6 +161,7 @@ function StorySection() {
                 <div className="flex-1">
                     <VideoPlayer
                         src="https://res.cloudinary.com/zihare24/video/upload/v1792240320/mande-film-web-3x2.mp4"
+                        title="Filling the gaps"
                         poster="/videos/mande-filling-the-gaps-poster.webp"
                         className="aspect-3/2 w-full"
                     />
@@ -533,6 +534,7 @@ function MakersSection() {
                 </div>
                 <VideoPlayer
                     src="https://www.mande.com.ng/media/hands-that-build.mp4"
+                    title="Hands that build"
                     className="aspect-video w-full max-w-3xl"
                 />
             </div>

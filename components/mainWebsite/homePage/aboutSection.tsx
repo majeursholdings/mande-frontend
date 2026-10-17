@@ -67,6 +67,7 @@ export default function AboutSection() {
                 <div className="flex-1">
                     <VideoPlayer
                         src="https://res.cloudinary.com/zihare24/video/upload/v1791997939/MANDE-for-makers-v2.mp4"
+                        title="MANDE for makers"
                         poster="https://res.cloudinary.com/zihare24/image/upload/v1791998673/MANDE-thumbnail-1920x1080.jpg"
                         className="aspect-video w-full"
                     />
