@@ -20,7 +20,11 @@ import {
     updateConsent,
     type ConsentChoices,
 } from "@/lib/consent";
+import { installClickTracking } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
+
+// Button and link clicks, listened for once per page load (no effect needed); nothing goes out without consent
+if (typeof window !== "undefined") installClickTracking();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Asks visitors which cookies they allow, and loads Google Tag Manager only
@@ -80,7 +84,7 @@ export function ConsentProvider({ children }: { children: ReactNode }) {
 /** The first-visit question, along the bottom of the page. Accept and reject look the same, on purpose. */
 function ConsentBanner({ onAcceptAll, onRejectAll, onChoose }: { onAcceptAll: () => void; onRejectAll: () => void; onChoose: () => void }) {
     return (
-        <section aria-label="Cookie choices" className="fixed inset-x-0 bottom-0 z-50 p-3 md:p-5">
+        <section aria-label="Cookie choices" data-track="off" className="fixed inset-x-0 bottom-0 z-50 p-3 md:p-5">
             <div className="mx-auto flex max-w-5xl flex-col gap-4 rounded-xl border border-border bg-white p-5 font-text shadow-xl md:flex-row md:items-center md:gap-8 md:p-6">
                 <div className="flex flex-1 flex-col gap-1.5">
                     <h2 className="text-base font-medium text-mist-950">Cookies on MANDE</h2>
@@ -141,7 +145,7 @@ function CookieSettingsDialog({
 }) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-lg gap-5">
+            <DialogContent className="max-w-lg gap-5" data-track="off">
                 {/* Mounted afresh each time the dialog opens, so its switches start from what's saved */}
                 <CookieSettingsForm saved={saved} onSave={onSave} />
             </DialogContent>
