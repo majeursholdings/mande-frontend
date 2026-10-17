@@ -111,10 +111,9 @@ export default function WithdrawForm({
                                 Transfers may take a few minutes and vary by bank
                             </p>
                         </div>
-                        <Notice tone="warning">
-                            Bank charges and our processing partner&apos;s fee will be added to
-                            this withdrawal. How much depends on the processing partner and your
-                            bank.
+                        <Notice>
+                            MANDE doesn&apos;t charge a fee to withdraw. We cover our payment
+                            partner&apos;s transfer fee.
                         </Notice>
                     </div>
                 }
