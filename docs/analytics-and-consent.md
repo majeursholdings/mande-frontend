@@ -36,7 +36,7 @@ The whole container is in [`docs/gtm/mande-container.json`](gtm/mande-container.
 
    | Variable | Where to find it |
    | --- | --- |
-   | `CONST - GA4 Measurement ID` | GA4 › Admin › Data streams › the web stream (`G-…`) |
+   | `CONST - GA4 Measurement ID` | Already set to `G-L27BPQGCN2` (GA4 › Admin › Data streams › the web stream) |
    | `CONST - Meta Pixel ID` | Meta Events Manager › Data sources › the pixel |
    | `CONST - TikTok Pixel ID` | TikTok Ads Manager › Assets › Events › Web events |
    | `CONST - Google Ads ID` | Google Ads › Goals › Conversions › a conversion's tag setup (`AW-123456789`: enter only the number) |
