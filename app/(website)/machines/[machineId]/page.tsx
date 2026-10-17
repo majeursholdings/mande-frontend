@@ -17,9 +17,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const { machine } = detail;
     const description =
         machine.description ||
-        `${machine.name}${machine.model ? ` (${machine.model})` : ""} at the MANDE factory in Lagos. Open to every maker: see its prices and book time.`;
+        `${machine.name}${machine.model ? ` (${machine.model})` : ""}, a furniture machine at the MANDE factory in Lagos. Open to every maker: see its prices and book time.`;
     return pageMetadata({
-        title: `${machine.name} | MANDE machines`,
+        title: `${machine.name} | MANDE furniture machines`,
         description: summarize(description),
         path: getMachineUrl(machine.id),
     });

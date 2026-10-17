@@ -42,7 +42,7 @@ export default function PricingSection() {
                 <SectionHeading as="h2">A plan for every size of workshop.</SectionHeading>
                 <p className="text-base font-light text-mist-300">
                     Every plan gets you real jobs and staged payments. Bigger plans let you run more jobs at once, and
-                    add discounted machine time at our Lagos factory and a dedicated officer.{" "}
+                    add discounted time on furniture machines at our Lagos factory and a dedicated officer.{" "}
                     <Suspense fallback={<Skeleton inline className="h-4 w-64 max-w-full" />}>
                         <PricingOfferLine />
                     </Suspense>

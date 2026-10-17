@@ -19,7 +19,7 @@ export default function HomeHeroSection() {
                     </h1>
                     <p className="max-w-160 text-base font-light md:text-lg">
                         Find real furniture jobs, get paid as each stage is approved, and build on the country&apos;s top
-                        machines at our Lagos factory.
+                        furniture machines at our Lagos factory.
                     </p>
                     <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
                         <Link href={ARTISAN_SIGNUP_URL} className={WEBSITE_PRIMARY_BUTTON}>

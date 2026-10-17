@@ -60,7 +60,7 @@ const FIRST_PAYMENT = JOB_PAYMENT_SCHEDULE[0];
 const PROBLEMS: { problem: string; answer: string }[] = [
     { problem: "Finding steady work", answer: "Real jobs with drawings, a budget and a deadline" },
     { problem: "Chasing payment", answer: "Paid in stages as each part of the work is approved" },
-    { problem: "Machines and money", answer: `Factory machine time and loans of up to ${ACCELERATOR_LOAN_LABEL}` },
+    { problem: "Machines and money", answer: `Time on top furniture machines and loans of up to ${ACCELERATOR_LOAN_LABEL}` },
 ];
 
 // How MANDE works, on the dark band under the mission
@@ -83,14 +83,14 @@ const PRINCIPLES: { icon: LucideIcon; title: string; description: string }[] = [
     {
         icon: DoorOpen,
         title: "Open to every maker",
-        description: "Our factory machines can be booked by anyone. Members simply pay less.",
+        description: "Our furniture machines can be booked by anyone. Members simply pay less.",
     },
 ];
 
 const FOR_MAKERS = [
     "Paid furniture jobs from brands and businesses",
     `Payment in ${JOB_PAYMENT_SCHEDULE.length} parts, plus a ${JOB_BONUS_PERCENT}% on-time bonus`,
-    "Discounted time on the factory machines",
+    "Discounted time on our furniture machines",
     `Access to loans through the ${ACCELERATOR_PROGRAM_NAME}`,
 ];
 
@@ -115,7 +115,7 @@ export default function AboutPage() {
             <PageHero
                 eyebrow="About MANDE"
                 title="Built for the people who build furniture."
-                description="MANDE gives furniture makers and woodworkers everything they need to grow: real paid jobs, time on top machines at our Lagos factory, funding for their workshop and a community of makers behind them."
+                description="MANDE gives furniture makers and woodworkers everything they need to grow: real paid jobs, time on top furniture machines at our Lagos factory, funding for their workshop and a community of makers behind them."
             >
                 <Link href={ARTISAN_SIGNUP_URL} className={WEBSITE_PRIMARY_BUTTON}>
                     Create your profile
@@ -310,7 +310,7 @@ function OfferSection() {
 
                 <HoverCard as="li" className={CARD_CLASS}>
                     <CardIcon icon={Factory} />
-                    <h3 className="text-xl font-medium">Factory machines</h3>
+                    <h3 className="text-xl font-medium">Furniture machines</h3>
                     <p className="text-base font-light text-mist-700">
                         Book time on the country&apos;s top furniture machines at our Lagos factory. Anyone can book.
                         Members pay less.
@@ -326,7 +326,7 @@ function OfferSection() {
                             </li>
                         ))}
                     </ul>
-                    <CardLink href={MACHINES_URL}>See our machines</CardLink>
+                    <CardLink href={MACHINES_URL}>See our furniture machines</CardLink>
                 </HoverCard>
 
                 <HoverCard as="li" className={CARD_CLASS}>

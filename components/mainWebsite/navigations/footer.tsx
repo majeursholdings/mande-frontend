@@ -21,7 +21,7 @@ export default function Footer() {
                             <Logo />
                         </Link>
                         <p className="max-w-90 text-sm font-light text-mist-300">
-                            The platform for furniture makers: paid jobs, top machines, loans to grow and a community
+                            The platform for furniture makers: paid jobs, top furniture machines, loans to grow and a community
                             behind you.
                         </p>
                         <div className="flex flex-col gap-1 text-sm font-light text-mist-300">

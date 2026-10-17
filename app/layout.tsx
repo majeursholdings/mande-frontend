@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "MANDE | Grow your furniture business",
   description:
-    "Find real furniture jobs, get paid as each stage is approved, and build on the country's top machines at our Lagos factory.",
+    "Find real furniture jobs, get paid as each stage is approved, and build on the country's top furniture machines at our Lagos factory.",
   applicationName: SITE_NAME,
   openGraph: { siteName: SITE_NAME, locale: "en_NG", type: "website" },
   twitter: { card: "summary_large_image" },

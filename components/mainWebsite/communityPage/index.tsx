@@ -101,7 +101,7 @@ export default function CommunityPage({ data }: CommunityPageProps = {}) {
                         trade techniques, share jobs and see how others finish their pieces.
                     </p>
                     <Link href={MACHINES_URL} className={WEBSITE_PRIMARY_BUTTON}>
-                        See our machines
+                        See our furniture machines
                     </Link>
                 </div>
             </SectionWrapper>

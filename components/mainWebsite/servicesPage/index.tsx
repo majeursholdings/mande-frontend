@@ -69,9 +69,9 @@ type Service = {
 const SERVICES: Service[] = [
     {
         icon: Factory,
-        title: "Factory machines, open to all",
+        title: "Furniture machines, open to all",
         description: "Book time on the country's top furniture machines at our Lagos factory. Anyone can book. Members pay less.",
-        link: { label: "See our machines", href: MACHINES_URL },
+        link: { label: "See our furniture machines", href: MACHINES_URL },
         image: { src: "/images/webpage/machines.webp", alt: "A furniture maker working on a machine" },
     },
     {
@@ -155,7 +155,7 @@ export default function ServicesPage() {
             <PageHero
                 eyebrow="Services"
                 title="Jobs, machines and funding for furniture makers."
-                description="Paid furniture work, time on top machines at our Lagos factory, and loans to grow your workshop. Here's what MANDE gives you."
+                description="Paid furniture work, time on top furniture machines at our Lagos factory, and loans to grow your workshop. Here's what MANDE gives you."
             >
                 <Link href={`#${MACHINE_ACCESS_ID}`} className={WEBSITE_PRIMARY_BUTTON}>
                     Book machine time
@@ -311,7 +311,7 @@ function MachinesPreview() {
         <div className="flex flex-col gap-8">
             <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between md:gap-12">
                 <div className="flex flex-col gap-2">
-                    <h3 className="text-2xl tracking-tight md:text-3xl">Our machines</h3>
+                    <h3 className="text-2xl tracking-tight md:text-3xl">Our furniture machines</h3>
                     <p className="max-w-120 text-base font-light text-mist-700">
                         See what each machine does and what it costs, then book the ones you need.
                     </p>
@@ -320,7 +320,7 @@ function MachinesPreview() {
                     href={MACHINES_URL}
                     className="group inline-flex w-fit shrink-0 items-center gap-1.5 text-base font-medium text-primary-800 hover:text-primary-950"
                 >
-                    See all machines
+                    See all furniture machines
                     <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-1" aria-hidden />
                 </Link>
             </div>
@@ -409,7 +409,7 @@ function MemberSavings() {
                         What members save
                     </SectionHeading>
                     <p className="max-w-130 text-base font-light text-mist-200">
-                        Anyone can book the factory machines at the standard rate. Members on a plan with a machine
+                        Anyone can book the furniture machines at the standard rate. Members on a plan with a machine
                         discount get money off every booking. Log in before you book and it comes off the price
                         automatically.
                     </p>
