@@ -189,13 +189,18 @@ function CalendarDayButton({
 }: React.ComponentProps<typeof DayButton> & { locale?: Partial<Locale> }) {
   const defaultClassNames = getDefaultClassNames()
 
-  const ref = React.useRef<HTMLButtonElement>(null)
-  React.useEffect(() => {
-    if (modifiers.focused) ref.current?.focus()
-  }, [modifiers.focused])
+  // Moves keyboard focus to the day the picker marks as focused (arrow keys).
+  // A new callback each time `focused` changes, so React calls it again then
+  const ref = React.useCallback(
+    (node: HTMLButtonElement | null) => {
+      if (modifiers.focused) node?.focus()
+    },
+    [modifiers.focused]
+  )
 
   return (
     <Button
+      ref={ref}
       variant="ghost"
       size="icon"
       data-day={day.date.toLocaleDateString(locale?.code)}

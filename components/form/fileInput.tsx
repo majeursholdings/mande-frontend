@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import {
     useFormContext,
@@ -276,33 +276,42 @@ export const FileInput = <T extends FieldValues = FieldValues>({
         }
     }, [field.name, field.multiple, setValueFn]);
 
-    // The form's value follows the files after they change, never while React
-    // is working out the new list (that would update the form mid-render, and
-    // a state updater can run twice): an update only marks it as needed
-    const needsSync = useRef(false);
-    useEffect(() => {
-        if (!needsSync.current) return;
-        needsSync.current = false;
-        syncFormValue(items);
-    }, [items, syncFormValue]);
+    // Every change to the files goes through updateItems, from an event
+    // handler or an upload callback, never during render. It works the new
+    // list out once from the latest one (itemsRef, so uploads finishing
+    // together don't overwrite each other), and with `sync` puts the finished
+    // uploads in the form's value straight away.
+    const itemsRef = useRef(items);
+    const updateItems = useCallback(
+        (next: FileItemState[] | ((current: FileItemState[]) => FileItemState[]), sync = false) => {
+            const updated = typeof next === "function" ? next(itemsRef.current) : next;
+            itemsRef.current = updated;
+            setItems(updated);
+            if (sync) syncFormValue(updated);
+        },
+        [syncFormValue],
+    );
 
     // A single-file field keeps the file it had (e.g. a saved photo) while a
     // new one uploads, and puts it back if that upload is stopped or fails.
     // The form's value only changes once the new one has finished.
     const replaced = useRef<{ forId: string; items: FileItemState[] } | null>(null);
-    const restoreReplaced = (itemId: string) => {
-        if (replaced.current?.forId !== itemId) return false;
-        const previous = replaced.current.items;
-        replaced.current = null;
-        setItems(previous);
-        return true;
-    };
+    const restoreReplaced = useCallback(
+        (itemId: string) => {
+            if (replaced.current?.forId !== itemId) return false;
+            const previous = replaced.current.items;
+            replaced.current = null;
+            updateItems(previous);
+            return true;
+        },
+        [updateItems],
+    );
 
     // Start upload for a file item
     const startUpload = useCallback(
         (item: FileItemState) => {
             const onProgress = (percent: number) => {
-                setItems((prev) =>
+                updateItems((prev) =>
                     prev.map((it) => (it.id === item.id ? { ...it, progress: percent } : it))
                 );
             };
@@ -310,7 +319,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
             if (!field.uploadPurpose && !field.upload) {
                 // A developer error: the API won't sign an upload without knowing what it's for
                 console.error(`File field "${field.name}" has no uploadPurpose`);
-                setItems((prev) =>
+                updateItems((prev) =>
                     prev.map((it) => (it.id === item.id ? { ...it, status: "error" as const, error: "Uploads aren't set up for this field" } : it))
                 );
                 return;
@@ -325,27 +334,27 @@ export const FileInput = <T extends FieldValues = FieldValues>({
             );
 
             // Store cancel function on item
-            setItems((prev) =>
+            updateItems((prev) =>
                 prev.map((it) => (it.id === item.id ? { ...it, cancelUpload: cancel } : it))
             );
 
             promise
                 .then((uploadResult) => {
                     if (replaced.current?.forId === item.id) replaced.current = null;
-                    setItems((prev) => {
-                        const updated = prev.map((it) =>
-                            it.id === item.id
-                                ? {
-                                      ...it,
-                                      status: "completed" as const,
-                                      progress: 100,
-                                      uploaded: uploadResult,
-                                  }
-                                : it
-                        );
-                        needsSync.current = true;
-                        return updated;
-                    });
+                    updateItems(
+                        (current) =>
+                            current.map((it) =>
+                                it.id === item.id
+                                    ? {
+                                          ...it,
+                                          status: "completed" as const,
+                                          progress: 100,
+                                          uploaded: uploadResult,
+                                      }
+                                    : it
+                            ),
+                        true,
+                    );
                     toast.success(`Uploaded ${item.originalName}`);
                 })
                 .catch((err) => {
@@ -359,7 +368,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                         toast.error(`Failed to upload ${item.originalName}: ${message}. The previous file is kept.`);
                         return;
                     }
-                    setItems((prev) =>
+                    updateItems((prev) =>
                         prev.map((it) =>
                             it.id === item.id
                                 ? { ...it, status: "error" as const, error: message }
@@ -369,7 +378,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                     toast.error(`Failed to upload ${item.originalName}: ${message}`);
                 });
         },
-        [field.name, field.uploadPurpose, field.upload]
+        [field.name, field.uploadPurpose, field.upload, updateItems, restoreReplaced]
     );
 
     // Handle file selection (drag & drop or click)
@@ -414,10 +423,11 @@ export const FileInput = <T extends FieldValues = FieldValues>({
             };
         });
 
+        const current = itemsRef.current;
         let combined = field.multiple
             ? [
-                  ...items,
-                  ...newItems.filter((ni) => !items.some((existing) => existing.file && ni.file && isSameFile(existing.file, ni.file))),
+                  ...current,
+                  ...newItems.filter((ni) => !current.some((existing) => existing.file && ni.file && isSameFile(existing.file, ni.file))),
               ]
             : newItems;
 
@@ -428,9 +438,9 @@ export const FileInput = <T extends FieldValues = FieldValues>({
         if (!field.multiple && newItems[0]) {
             // Keep what's being replaced: the finished file, or what an
             // unfinished replacement was itself going to put back
-            const finished = items.filter((it) => it.status === "completed");
+            const finished = current.filter((it) => it.status === "completed");
             const kept = finished.length > 0 ? finished : (replaced.current?.items ?? []);
-            items.forEach((it) => {
+            current.forEach((it) => {
                 if (it.status !== "uploading") return;
                 it.cancelUpload?.();
                 if (it.previewUrl) URL.revokeObjectURL(it.previewUrl);
@@ -438,7 +448,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
             replaced.current = kept.length > 0 ? { forId: newItems[0].id, items: kept } : null;
         }
 
-        setItems(combined);
+        updateItems(combined);
 
         // Immediately trigger uploads for each newly added valid file
         newItems.forEach((item) => {
@@ -460,11 +470,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
             return;
         }
 
-        setItems((prev) => {
-            const updated = prev.filter((it) => it.id !== item.id);
-            needsSync.current = true;
-            return updated;
-        });
+        updateItems((current) => current.filter((it) => it.id !== item.id), true);
 
         toast.info(`Stopped upload for ${item.originalName}`);
     };
@@ -485,11 +491,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
             });
         }
 
-        setItems((prev) => {
-            const updated = prev.filter((it) => it.id !== item.id);
-            needsSync.current = true;
-            return updated;
-        });
+        updateItems((current) => current.filter((it) => it.id !== item.id), true);
     };
 
     const hasFileErrors = Object.keys(fileErrors).length > 0;
