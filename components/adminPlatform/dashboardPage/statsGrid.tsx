@@ -2,97 +2,83 @@
 
 import { Banknote, HandCoins, Hammer, Percent, UserRoundCheck, type LucideIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { cn } from "@/lib/utils";
+import OverviewCard, { OverviewCardGrid, type OverviewCardProps } from "@/components/common/overviewCard";
+import { useStaffPlatform } from "@/components/adminPlatform/dashboardLayout/staffPlatformContext";
+import { SUPER_ADMIN_REVENUE_URL } from "@/constant/superAdmin";
 import { queryKeys } from "@/lib/queryKeys";
 import { reportsService } from "@/lib/services/reportsService";
-import { StatCard, StatCardRow } from "../statCard";
 import {
     ADMIN_DASHBOARD_STAT_IDS,
     DASHBOARD_STAT_LABELS,
     toDashboardStats,
     type DashboardStatId,
 } from "./dashboardStats";
-import { ReportError, StatCardSkeleton } from "./reportStates";
+import { ReportError } from "./reportStates";
 
-// Money gets the design's red circle; each figure keeps its colour on every dashboard
-const STAT_ICONS: Record<DashboardStatId, { icon: LucideIcon; className: string }> = {
-    manufacturers: { icon: Hammer, className: "bg-indigo-500" },
-    payouts: { icon: HandCoins, className: "bg-error-500" },
-    "subscription-revenue": { icon: Banknote, className: "bg-error-500" },
-    "success-rate": { icon: Percent, className: "bg-primary-600" },
-    "active-accounts": { icon: UserRoundCheck, className: "bg-warning-500" },
+const STAT_ICONS: Record<DashboardStatId, LucideIcon> = {
+    manufacturers: Hammer,
+    payouts: HandCoins,
+    "subscription-revenue": Banknote,
+    "success-rate": Percent,
+    "active-accounts": UserRoundCheck,
 };
+
+/** "+12%" (green), "−3%" (red), "0%" (grey) or "New" (nothing a month ago to compare with): the change since last month. */
+function changeSinceLastMonth(changePercent: number | null): NonNullable<OverviewCardProps["detail"]> {
+    if (changePercent === null) return { label: "Since last month", value: "New", tone: "green" };
+    const change = Math.sign(changePercent);
+    return {
+        label: "Since last month",
+        value: `${change < 0 ? "−" : "+"}${Math.abs(changePercent)}%`,
+        tone: change > 0 ? "green" : change < 0 ? "red" : "gray",
+    };
+}
 
 /**
  * The headline numbers (the admin's, unless `statIds` says otherwise), from
- * /reports/dashboard: a swipeable row on phones, two columns on tablets,
- * four from xl.
+ * /reports/dashboard, in the overview card design: each with its change since
+ * last month, and "See in details" to the page behind it.
  */
 export default function StatsGrid({ statIds = ADMIN_DASHBOARD_STAT_IDS }: { statIds?: DashboardStatId[] }) {
+    const platform = useStaffPlatform();
     const { data, isPending, isError } = useQuery({
         queryKey: queryKeys.reports.dashboard(),
         queryFn: () => reportsService.getDashboard(),
         staleTime: 30_000,
     });
 
+    // Where each figure comes from, on this platform (revenue is the super admin's)
+    const detailsHref: Record<DashboardStatId, string | undefined> = {
+        manufacturers: platform.manufacturersUrl,
+        payouts: platform.transactionsUrl,
+        "subscription-revenue": platform.key === "super-admin" ? SUPER_ADMIN_REVENUE_URL : undefined,
+        "success-rate": platform.jobsUrl,
+        "active-accounts": platform.manufacturersUrl,
+    };
+
     if (isError) return <ReportError message="Couldn't load the dashboard's numbers. Please refresh to try again." />;
 
-    if (isPending) {
-        return (
-            <StatCardRow>
-                {statIds.map((id) => (
-                    <StatCardSkeleton
-                        key={id}
-                        label={DASHBOARD_STAT_LABELS[id]}
-                        icon={STAT_ICONS[id].icon}
-                        iconClassName={STAT_ICONS[id].className}
-                    />
-                ))}
-            </StatCardRow>
-        );
-    }
-
-    const stats = toDashboardStats(data.stats, statIds);
+    const stats = data ? toDashboardStats(data.stats, statIds) : null;
+    const columns = statIds.length >= 4 ? 4 : statIds.length === 3 ? 3 : 2;
 
     return (
-        <StatCardRow>
-            {stats.map((stat) => {
-                const { icon, className } = STAT_ICONS[stat.id];
+        <OverviewCardGrid columns={columns}>
+            {statIds.map((id) => {
+                const stat = stats?.find((candidate) => candidate.id === id);
                 return (
-                    <StatCard
-                        key={stat.id}
-                        label={stat.label}
-                        value={stat.value}
-                        fullValue={stat.fullValue}
-                        valueSuffix={stat.valueSuffix}
-                        icon={icon}
-                        iconClassName={className}
-                        footer={<ChangeSinceLastMonth changePercent={stat.changePercent} />}
+                    <OverviewCard
+                        key={id}
+                        icon={STAT_ICONS[id]}
+                        label={stat?.label ?? DASHBOARD_STAT_LABELS[id]}
+                        // "32 / 40", as the design writes a ratio
+                        value={stat ? `${stat.value}${stat.valueSuffix ? ` ${stat.valueSuffix.replace(/^\//, "/ ")}` : ""}` : ""}
+                        fullValue={stat?.fullValue}
+                        detail={changeSinceLastMonth(stat?.changePercent ?? null)}
+                        href={detailsHref[id]}
+                        loading={isPending}
                     />
                 );
             })}
-        </StatCardRow>
-    );
-}
-
-function ChangeSinceLastMonth({ changePercent }: { changePercent: number | null }) {
-    // Nothing a month ago to compare with reads as new, like a rise
-    const change = changePercent === null ? 1 : Math.sign(changePercent);
-
-    return (
-        <>
-            <span
-                className={cn(
-                    "rounded px-1.5 py-0.5 font-semibold",
-                    change > 0 && "bg-primary-50 text-primary-700",
-                    change < 0 && "bg-error-50 text-error-600",
-                    // No change reads neutral, as in the empty dashboard design
-                    change === 0 && "bg-mist-100 text-mist-700",
-                )}
-            >
-                {changePercent === null ? "New" : `${change < 0 ? "−" : "+"}${Math.abs(changePercent)}%`}
-            </span>
-            since last month
-        </>
+        </OverviewCardGrid>
     );
 }

@@ -1,7 +1,7 @@
 import { api } from "@/lib/api";
 import type { PricingPlan } from "@/constant/plans";
 import type { SuperAdminInviteRecord, SuperAdminRecord, TwoFactorMethod } from "@/constant/platformRecords";
-import type { ApiKey, PlatformSettings, SuperAdminRole } from "@/constant/superAdmin";
+import type { ApiKey, PlatformSettings, ShopSettings, SuperAdminRole } from "@/constant/superAdmin";
 import type { ApiKeyDraft } from "@/components/superAdminPlatform/form/apiKeyForm";
 import type { PlanChanges } from "@/components/superAdminPlatform/settingsContext";
 
@@ -39,6 +39,7 @@ export interface BackendPlanView {
   currentMonthlyPriceKobo: number;
   currentAnnualPriceKobo: number;
   maxConcurrentJobs: number | null;
+  shop?: { canSell: boolean; maxProducts: number | null };
   features: Array<{ label: string; value: string }>;
 }
 
@@ -146,6 +147,14 @@ export const superAdminService = {
     return data.settings;
   },
 
+  /** The shop's rules: all of them at once, with the reauth token (they set MANDE's charge on sales). */
+  async updateShopSettings(settings: ShopSettings, reauthToken: string): Promise<PlatformSettings> {
+    const { data } = await api.put<{ settings: PlatformSettings }>("/settings/platform/shop", settings, {
+      headers: { "X-Reauth-Token": reauthToken },
+    });
+    return data.settings;
+  },
+
   // ── Plans & Pricing ─────────────────────────────────────────────────
 
   async getPlans(): Promise<{ plans: PricingPlan[]; discountPercent: number }> {
@@ -158,6 +167,7 @@ export const superAdminService = {
       monthlyPrice: Math.round(p.monthlyPriceKobo / 100),
       annualPrice: Math.round(p.annualPriceKobo / 100),
       maxConcurrentJobs: p.maxConcurrentJobs,
+      shop: p.shop ?? { canSell: false, maxProducts: null },
       features: p.features,
     }));
     return { plans, discountPercent: data.discountPercent };
@@ -169,6 +179,7 @@ export const superAdminService = {
       monthlyPriceKobo: Math.round(changes.monthlyPrice * 100),
       annualPriceKobo: Math.round(changes.annualPrice * 100),
       maxConcurrentJobs: changes.maxConcurrentJobs,
+      ...(changes.shop && { shop: changes.shop }),
       features: changes.features,
     });
   },

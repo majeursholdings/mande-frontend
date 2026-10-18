@@ -23,12 +23,13 @@ export const SUPER_ADMIN_DASHBOARD_STAT_IDS: DashboardStatId[] = [
     "active-accounts",
 ];
 
+/** Short, as the overview card design keeps a label to one line. */
 export const DASHBOARD_STAT_LABELS: Record<DashboardStatId, string> = {
-    manufacturers: "Total Number of Manufacturers",
-    payouts: "Total Manufacturer Payouts",
-    "subscription-revenue": "Total Subscription Revenue",
-    "success-rate": "Production Success Rate",
-    "active-accounts": "Active Manufacturer Accounts",
+    manufacturers: "Manufacturers",
+    payouts: "Paid to manufacturers",
+    "subscription-revenue": "Subscription revenue",
+    "success-rate": "Success rate",
+    "active-accounts": "Active accounts",
 };
 
 export type AdminDashboardStat = {

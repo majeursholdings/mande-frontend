@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
@@ -15,7 +15,7 @@ import type { PlanChanges } from "../settingsContext";
 const CONCURRENT_JOBS_LABEL = "Concurrent jobs";
 const UNLIMITED = "Unlimited";
 
-type PlanFormValues = Record<string, string>;
+type PlanFormValues = Record<string, string | boolean>;
 
 const featureField = (index: number) => `feature-${index}`;
 
@@ -42,9 +42,13 @@ export default function PlanForm({
             monthlyPrice: String(plan.monthlyPrice),
             annualPrice: String(plan.annualPrice),
             concurrentJobs: plan.maxConcurrentJobs === null ? "" : String(plan.maxConcurrentJobs),
+            canSell: plan.shop?.canSell ?? false,
+            maxProducts: plan.shop?.maxProducts == null ? "" : String(plan.shop.maxProducts),
             ...Object.fromEntries(plan.features.map((feature, index) => [featureField(index), feature.value])),
         },
     });
+
+    const canSell = useWatch({ control: methods.control, name: "canSell" }) === true;
 
     const fields: FormFieldConfig[] = [
         {
@@ -74,7 +78,7 @@ export default function PlanForm({
             placeholder: "₦0",
             validation: {
                 required: "Yearly price is required",
-                validate: (value: string, values: PlanFormValues) => {
+                validate: (value: string, values: Record<string, unknown>) => {
                     if (Number(value) > MAX_AMOUNT) return `The price can be at most ${MAX_AMOUNT_LABEL}`;
                     return Number(value) <= Number(values.monthlyPrice) * 12 || "Make it no more than 12 months of the monthly price";
                 },
@@ -103,23 +107,46 @@ export default function PlanForm({
                       validation: { required: `Say what ${feature.label.toLowerCase()} the plan has` },
                   },
         ),
+        {
+            name: "canSell",
+            type: "checkbox",
+            label: "Can sell on MANDE Shop (once verified, with a payout account)",
+        },
+        ...(canSell
+            ? [
+                  {
+                      name: "maxProducts",
+                      type: "number",
+                      label: "Most products",
+                      placeholder: UNLIMITED,
+                      description: "Drafts, listed and paused products count. Leave it blank for no limit. Lowering it pauses the oldest listed products.",
+                      min: 1,
+                      validation: {
+                          validate: (value: string) =>
+                              value === "" || (Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 10_000) || "Enter a whole number from 1 to 10,000",
+                      },
+                  } satisfies FormFieldConfig,
+              ]
+            : []),
     ];
 
     const handleSubmit = async (values: PlanFormValues) => {
         setIsLoading(true);
         try {
             const maxConcurrentJobs = values.concurrentJobs ? Number(values.concurrentJobs) : null;
+            const sells = values.canSell === true;
             await onSave({
-                targetAudience: values.targetAudience.trim(),
+                targetAudience: String(values.targetAudience).trim(),
                 monthlyPrice: Number(values.monthlyPrice),
                 annualPrice: Number(values.annualPrice),
                 maxConcurrentJobs,
+                shop: { canSell: sells, maxProducts: sells && values.maxProducts ? Number(values.maxProducts) : null },
                 features: plan.features.map((feature, index) => ({
                     label: feature.label,
                     value:
                         feature.label === CONCURRENT_JOBS_LABEL
                             ? (maxConcurrentJobs === null ? UNLIMITED : String(maxConcurrentJobs))
-                            : values[featureField(index)].trim(),
+                            : String(values[featureField(index)]).trim(),
                 })),
             });
         } catch {

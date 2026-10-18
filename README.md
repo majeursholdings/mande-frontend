@@ -31,10 +31,10 @@ npm run dev
 
 Then open:
 
-- Website: http://localhost:3000
-- Manufacturer: http://localhost:3000/manufacturer/login
-- Admin: http://localhost:3000/admin/login
-- Super admin: http://localhost:3000/super-admin/login
+- Website: http://localhost:3010
+- Manufacturer: http://localhost:3010/manufacturer/login
+- Admin: http://localhost:3010/admin/login
+- Super admin: http://localhost:3010/super-admin/login
 
 ### Environment variables
 
@@ -43,7 +43,7 @@ Next.js reads `.env.local`. A `.env.example` (and an identical `.env.local.examp
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
 NEXT_PUBLIC_SOCKET_URL=http://localhost:4000
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://localhost:3010
 # Sanity CMS (public, read-only dataset)
 NEXT_PUBLIC_SANITY_PROJECT_ID=your-sanity-project-id
 NEXT_PUBLIC_SANITY_DATASET=production
@@ -53,9 +53,10 @@ NEXT_PUBLIC_SANITY_DATASET=production
 | --- | --- | --- | --- | --- |
 | `NEXT_PUBLIC_API_URL` | Base URL of the REST API | No (yes in production) | `http://localhost:4000/api/v1` | `lib/api.ts` |
 | `NEXT_PUBLIC_SOCKET_URL` | Socket.IO server (the API origin, no path) | No (yes in production) | `http://localhost:4000` | `lib/socket.ts` |
-| `NEXT_PUBLIC_APP_URL` | Public site URL, used for the sitemap, robots, SEO and absolute links | No (yes in production) | `http://localhost:3000` | `lib/site.ts` |
+| `NEXT_PUBLIC_APP_URL` | Public site URL, used for the sitemap, robots, SEO and absolute links | No (yes in production) | `http://localhost:3010` | `lib/site.ts` |
 | `NEXT_PUBLIC_SANITY_PROJECT_ID` | Sanity project to read content from | No | `iprkoda4` | `lib/cms/client.ts` |
 | `NEXT_PUBLIC_SANITY_DATASET` | Sanity dataset | No | `production` | `lib/cms/client.ts` |
+| `DEV_ORIGINS` | Extra hostnames the dev server answers besides `localhost`, comma-separated (e.g. local names from `../local-proxy`). Only for your own machine | No | none | `next.config.ts` |
 | `NEXT_DIST_DIR` | Build output folder. Only the browser tests set it (`.next-e2e`) | No | `.next` | `next.config.ts` |
 
 `NEXT_PUBLIC_*` values are inlined into the browser bundle at build time, so never put secrets in them, and rebuild after changing them.
@@ -78,9 +79,9 @@ The seed prints the full list when it finishes.
 
 | Command | What it does |
 | --- | --- |
-| `npm run dev` | Starts the dev server on http://localhost:3000 |
+| `npm run dev` | Starts the dev server on http://localhost:3010 (the port is fixed, so it never clashes with `mande-shop` on 3020) |
 | `npm run build` | Production build (`next build`) |
-| `npm run start` | Serves the production build (run `build` first) |
+| `npm run start` | Serves the production build (run `build` first) on port 3000, or `PORT` if set |
 | `npm run lint` | Runs ESLint over the project |
 | `npm run test:e2e` | Runs the Playwright browser tests in `e2e/` |
 

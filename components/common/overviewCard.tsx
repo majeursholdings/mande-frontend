@@ -100,14 +100,15 @@ export default function OverviewCard({
     );
 }
 
-/** A row of overview cards: one column on phones, two on tablets, up to four. */
-export function OverviewCardGrid({ children, columns = 4 }: { children: ReactNode; columns?: 2 | 3 | 4 }) {
+/** A row of overview cards: one column on phones, two on tablets, up to four (five: three on laptops, five on wide screens). */
+export function OverviewCardGrid({ children, columns = 4 }: { children: ReactNode; columns?: 2 | 3 | 4 | 5 }) {
     return (
         <div
             className={cn(
                 "grid grid-cols-1 gap-4 sm:grid-cols-2",
                 columns === 3 && "xl:grid-cols-3",
                 columns === 4 && "xl:grid-cols-4",
+                columns === 5 && "lg:grid-cols-3 2xl:grid-cols-5",
             )}
         >
             {children}

@@ -2,8 +2,7 @@ import { CreditCard, HandCoins, Landmark, WalletMinimal, type LucideIcon } from 
 import { formatCompactPrice, formatPrice, fromKobo } from "@/lib/currency";
 import type { TransactionSummary } from "@/constant/manufacturer";
 import type { TransactionSummary as ApiTransactionSummary } from "@/lib/services/reportsService";
-import { StatCard, StatCardRow } from "../statCard";
-import { StatCardSkeleton } from "../dashboardPage/reportStates";
+import OverviewCard, { OverviewCardGrid, type OverviewCardProps } from "@/components/common/overviewCard";
 
 /** /reports/transactions/summary's totals (kobo), as the cards' (naira). */
 export function fromApiTransactionSummary(summary: ApiTransactionSummary): TransactionSummary {
@@ -17,15 +16,12 @@ export function fromApiTransactionSummary(summary: ApiTransactionSummary): Trans
     };
 }
 
-const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
-
 type SummaryCard = {
     key: string;
     label: string;
     amount: number;
     icon: LucideIcon;
-    iconClassName: string;
-    footer: string;
+    detail: NonNullable<OverviewCardProps["detail"]>;
 };
 
 /**
@@ -51,64 +47,52 @@ export default function TransactionSummaryCards({
         balance: 0,
         counts: { payment: 0, withdrawal: 0, subscription: 0, charge: 0 },
     };
+    const money = (amount: number) => (isPlatform ? formatCompactPrice(amount) : formatPrice(amount));
     const cards: SummaryCard[] = [
         {
             key: "earned",
             label: isPlatform ? "Paid to manufacturers" : "Total earned",
             amount: summary.earned,
             icon: HandCoins,
-            iconClassName: "bg-primary-600",
-            footer: `From ${plural(summary.counts.payment, "job payment", "job payments")}`,
+            detail: { label: "Job payments", value: summary.counts.payment.toLocaleString(), tone: "green" },
         },
         {
             key: "withdrawn",
             label: "Withdrawn",
             amount: summary.withdrawn,
             icon: Landmark,
-            iconClassName: "bg-indigo-500",
-            footer: `In ${plural(summary.counts.withdrawal, "withdrawal", "withdrawals")}`,
+            detail: { label: "Withdrawals", value: summary.counts.withdrawal.toLocaleString(), tone: "blue" },
         },
         {
             key: "subscriptions",
             label: isPlatform ? "Paid for subscriptions" : "Spent on subscriptions",
             amount: summary.subscriptions,
             icon: CreditCard,
-            iconClassName: "bg-warning-500",
-            footer: `Over ${plural(summary.counts.subscription, "plan payment", "plan payments")}`,
+            detail: { label: "Plan payments", value: summary.counts.subscription.toLocaleString(), tone: "amber" },
         },
         {
             key: "balance",
             label: isPlatform ? "Held in wallets" : "Balance",
             amount: summary.balance,
             icon: WalletMinimal,
-            iconClassName: "bg-secondary-600",
             // Charges for rejected work come out of it too
-            footer:
-                summary.charges > 0
-                    ? `After ${formatPrice(summary.charges)} in rejection charges`
-                    : isPlatform
-                      ? "Waiting to be withdrawn"
-                      : "In their wallet now",
+            detail: { label: "Rejection charges taken", value: money(summary.charges), tone: summary.charges > 0 ? "red" : "gray" },
         },
     ];
 
     return (
-        <StatCardRow columns={isPlatform ? 4 : 2}>
-            {cards.map((card) =>
-                !loadedSummary ? (
-                    <StatCardSkeleton key={card.key} label={card.label} icon={card.icon} iconClassName={card.iconClassName} />
-                ) : (
-                    <StatCard
-                        key={card.key}
-                        label={card.label}
-                        value={isPlatform ? formatCompactPrice(card.amount) : formatPrice(card.amount)}
-                        fullValue={isPlatform ? formatPrice(card.amount) : undefined}
-                        icon={card.icon}
-                        iconClassName={card.iconClassName}
-                        footer={card.footer}
-                    />
-                ),
-            )}
-        </StatCardRow>
+        <OverviewCardGrid columns={isPlatform ? 4 : 2}>
+            {cards.map((card) => (
+                <OverviewCard
+                    key={card.key}
+                    icon={card.icon}
+                    label={card.label}
+                    value={money(card.amount)}
+                    fullValue={isPlatform ? formatPrice(card.amount) : undefined}
+                    detail={card.detail}
+                    loading={!loadedSummary}
+                />
+            ))}
+        </OverviewCardGrid>
     );
 }

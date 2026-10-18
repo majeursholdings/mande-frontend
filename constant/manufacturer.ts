@@ -36,9 +36,11 @@ import {
 import {
     Factory,
     LayoutGrid,
+    ListTodo,
     ListChecks,
     ReceiptText,
     Star,
+    Store,
     UserRound,
     type LucideIcon,
 } from "lucide-react";
@@ -103,6 +105,14 @@ export const MANUFACTURER_TRANSACTIONS_URL = "/manufacturer/transactions";
 export const MANUFACTURER_REVIEWS_URL = "/manufacturer/reviews";
 /** Booking time on the factory machines, and their bookings. */
 export const MANUFACTURER_MACHINE_BOOKINGS_URL = "/manufacturer/machine-bookings";
+/** Their store on MANDE Shop: the overview, then a page each for products, orders, delivery zones and payouts. */
+export const MANUFACTURER_SHOP_URL = "/manufacturer/shop";
+export const MANUFACTURER_SHOP_PRODUCTS_URL = `${MANUFACTURER_SHOP_URL}/products`;
+export const MANUFACTURER_SHOP_ORDERS_URL = `${MANUFACTURER_SHOP_URL}/orders`;
+export const MANUFACTURER_SHOP_ZONES_URL = `${MANUFACTURER_SHOP_URL}/delivery-zones`;
+export const MANUFACTURER_SHOP_PAYOUTS_URL = `${MANUFACTURER_SHOP_URL}/payouts`;
+/** What's waiting on them: jobs, shop and account. */
+export const MANUFACTURER_ACTIONS_URL = "/manufacturer/actions";
 export const MANUFACTURER_PROFILE_URL = "/manufacturer/profile";
 // Reached from the profile page
 /** The maker's points and rank. */
@@ -121,16 +131,22 @@ export type ManufacturerNavItem = {
     label: string;
     href: string;
     icon: LucideIcon;
+    /** Shows how many things are waiting on them (see useMyActions). */
+    countsActions?: boolean;
+    /** Left out of the phone's bottom bar, which is full: it's in the top bar instead. */
+    notInBottomBar?: boolean;
 };
 
 // Timeline and Files are left out of the menu for now — their "coming soon"
 // routes still exist.
 export const MANUFACTURER_NAV_ITEMS: ManufacturerNavItem[] = [
     { label: "Dashboard", href: MANUFACTURER_DASHBOARD_URL, icon: LayoutGrid },
+    { label: "Actions", href: MANUFACTURER_ACTIONS_URL, icon: ListTodo, countsActions: true, notInBottomBar: true },
     { label: "Jobs", href: MANUFACTURER_JOBS_URL, icon: ListChecks },
     { label: "Transactions", href: MANUFACTURER_TRANSACTIONS_URL, icon: ReceiptText },
     { label: "Reviews", href: MANUFACTURER_REVIEWS_URL, icon: Star },
     { label: "Machine time", href: MANUFACTURER_MACHINE_BOOKINGS_URL, icon: Factory },
+    { label: "Shop", href: MANUFACTURER_SHOP_URL, icon: Store },
     { label: "Profile", href: MANUFACTURER_PROFILE_URL, icon: UserRound },
 ];
 

@@ -11,7 +11,7 @@ import {
     type SuperAdminInviteRecord,
     type SuperAdminRecord,
 } from "@/constant/platformRecords";
-import { type ApiKey, type PlatformSettings, type SuperAdminRole } from "@/constant/superAdmin";
+import { type ApiKey, type PlatformSettings, type ShopSettings, type SuperAdminRole } from "@/constant/superAdmin";
 import type { ApiKeyDraft } from "./form/apiKeyForm";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -23,7 +23,7 @@ import type { ApiKeyDraft } from "./form/apiKeyForm";
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** What Edit plan changes. */
-export type PlanChanges = Pick<PricingPlan, "targetAudience" | "monthlyPrice" | "annualPrice" | "features" | "maxConcurrentJobs">;
+export type PlanChanges = Pick<PricingPlan, "targetAudience" | "monthlyPrice" | "annualPrice" | "features" | "maxConcurrentJobs" | "shop">;
 
 type SuperAdminSettingsValue = {
     superAdmins: SuperAdminRecord[];
@@ -46,6 +46,8 @@ type SuperAdminSettingsValue = {
     updatePlatformSettings: (changes: Partial<PlatformSettings>, reauthToken?: string) => Promise<void>;
     /** Sets what machine time costs (the unit, rate in kobo and longest booking). */
     updateMachineBookingSettings: (settings: UpdateMachineBookingSettingsPayload) => Promise<void>;
+    /** The shop's rules, all at once (they need the reauth token). */
+    updateShopSettings: (settings: ShopSettings, reauthToken: string) => Promise<void>;
 
     apiKeys: ApiKey[];
     /**
@@ -181,6 +183,11 @@ export function SuperAdminSettingsProvider({ children }: { children: ReactNode }
                     queryClient.invalidateQueries({ queryKey: queryKeys.settings.platform() }),
                     queryClient.invalidateQueries({ queryKey: queryKeys.machineBookings.pricing() }),
                 ]);
+            },
+
+            updateShopSettings: async (settings, reauthToken) => {
+                await superAdminService.updateShopSettings(settings, reauthToken);
+                await queryClient.invalidateQueries({ queryKey: queryKeys.settings.platform() });
             },
 
             apiKeys,

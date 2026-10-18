@@ -43,19 +43,29 @@ const TRIGGER_CLASS = {
 export default function ResponsiveTabs<T extends string>({
     tabs,
     defaultValue,
+    value: controlledValue,
+    onValueChange,
     label,
     variant = "underline",
     className,
 }: {
     tabs: ResponsiveTab<T>[];
     defaultValue: T;
+    /** The open tab, when the parent picks it (e.g. a link that opens another tab). Pass with onValueChange. */
+    value?: T;
+    onValueChange?: (value: T) => void;
     /** Names the sections for screen readers — the tab row and the dropdown. */
     label: string;
     /** "underline" for a page's sections, "segmented" for sections inside a panel. */
     variant?: keyof typeof LIST_CLASS;
     className?: string;
 }) {
-    const [value, setValue] = useState<T>(defaultValue);
+    const [uncontrolledValue, setUncontrolledValue] = useState<T>(defaultValue);
+    const value = controlledValue ?? uncontrolledValue;
+    const setValue = (next: T) => {
+        if (controlledValue === undefined) setUncontrolledValue(next);
+        onValueChange?.(next);
+    };
     const items = tabs.map((tab) => ({ value: tab.value, label: tab.label }));
 
     return (
