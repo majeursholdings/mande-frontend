@@ -3,8 +3,9 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, Search } from "lucide-react";
-import { MANUFACTURER_DASHBOARD_URL, getManufacturerFullName, getSubpageBackLink } from "@/constant/manufacturer";
+import { ArrowLeft, ListTodo, Search } from "lucide-react";
+import { MANUFACTURER_ACTIONS_URL, MANUFACTURER_DASHBOARD_URL, getManufacturerFullName, getSubpageBackLink } from "@/constant/manufacturer";
+import { useMyActions } from "../actionsPage";
 import LogoLink from "@/components/ui/logoLink";
 import { useManufacturerProfile } from "./manufacturerProfileContext";
 import { useNotifications } from "./notificationsContext";
@@ -26,6 +27,8 @@ export default function MobileTopbar() {
     const { hasUnread } = useNotifications();
     const { profile, isLoading: isProfileLoading, isError: isProfileError } = useManufacturerProfile();
     const backLink = getSubpageBackLink(usePathname());
+    // Actions aren't in the full bottom bar, so they're up here, with a dot while anything's waiting
+    const actionCount = useMyActions().data?.counts.total ?? 0;
 
     if (backLink) {
         return (
@@ -55,6 +58,18 @@ export default function MobileTopbar() {
                     >
                         <Search className="size-5 text-mist-700" strokeWidth={1.75} />
                     </button>
+                    <Link
+                        href={MANUFACTURER_ACTIONS_URL}
+                        aria-label={actionCount > 0 ? `Actions, ${actionCount} waiting` : "Actions"}
+                        className="relative"
+                    >
+                        <ListTodo className="size-5 text-mist-700" strokeWidth={1.75} />
+                        {actionCount > 0 && (
+                            <span className="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-secondary-700 px-1 text-[10px] font-semibold text-white tabular-nums">
+                                {actionCount > 99 ? "99+" : actionCount}
+                            </span>
+                        )}
+                    </Link>
                     <button
                         type="button"
                         onClick={() => setOverlay("notifications")}

@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Banknote, Factory, Gift, Scale, TrendingUp, type LucideIcon } from "lucide-react";
@@ -18,8 +17,8 @@ import { formatOrdinalDate } from "@/lib/date";
 import { queryKeys } from "@/lib/queryKeys";
 import { reportsService } from "@/lib/services/reportsService";
 import AdminPageHeader from "@/components/adminPlatform/pageHeader";
-import { StatCard } from "@/components/adminPlatform/statCard";
-import { ReportError, StatCardSkeleton } from "@/components/adminPlatform/dashboardPage/reportStates";
+import OverviewCard, { OverviewCardGrid, type OverviewCardProps } from "@/components/common/overviewCard";
+import { ReportError } from "@/components/adminPlatform/dashboardPage/reportStates";
 import { useStaffPlatform } from "@/components/adminPlatform/dashboardLayout/staffPlatformContext";
 import {
     REVENUE_ENTRY_TYPES,
@@ -82,49 +81,49 @@ export default function SuperAdminRevenuePage() {
         rowsPerPage: 15,
     });
 
-    const cards: { key: string; label: string; amount: number; icon: LucideIcon; iconClassName: string; footer: string }[] = [
+    const cards: { key: string; label: string; amount: number; icon: LucideIcon; detail: OverviewCardProps["detail"] }[] = [
         {
             key: "subscriptions",
             label: "From subscriptions",
             amount: summary.subscription.total,
             icon: Banknote,
-            iconClassName: "bg-error-500",
-            footer: `Over ${plural(summary.subscription.count, "plan payment")}`,
+            detail: { label: "Plan payments", value: summary.subscription.count.toLocaleString(), tone: "blue" },
         },
         {
             key: "charges",
             label: "From rejection charges",
             amount: summary.charge.total,
             icon: Scale,
-            iconClassName: "bg-indigo-500",
-            footer: `For ${plural(summary.charge.count, "rejection")}`,
+            detail: { label: "Rejections", value: summary.charge.count.toLocaleString(), tone: "red" },
         },
         {
             key: "machine-bookings",
             label: "From machine bookings",
             amount: summary.machineBooking.total,
             icon: Factory,
-            iconClassName: "bg-sky-600",
-            footer:
+            detail:
                 summary.machineBooking.refundedCount > 0
-                    ? `Over ${plural(summary.machineBooking.count, "booking")}, after ${plural(summary.machineBooking.refundedCount, "refund")}`
-                    : `Over ${plural(summary.machineBooking.count, "paid booking")}`,
+                    ? { label: `Paid bookings, ${plural(summary.machineBooking.refundedCount, "refund")}`, value: summary.machineBooking.count.toLocaleString(), tone: "amber" }
+                    : { label: "Paid bookings", value: summary.machineBooking.count.toLocaleString(), tone: "green" },
         },
         {
             key: "bonuses",
             label: "Paid in bonuses",
             amount: summary.bonus.total,
             icon: Gift,
-            iconClassName: "bg-warning-500",
-            footer: `To ${plural(summary.bonus.count, "job", "jobs")} delivered on time`,
+            detail: { label: "Jobs delivered on time", value: summary.bonus.count.toLocaleString(), tone: "amber" },
         },
         {
             key: "net",
             label: "Net revenue",
             amount: summary.net,
             icon: TrendingUp,
-            iconClassName: "bg-primary-600",
-            footer: "What came in, less bonuses and refunds",
+            // What came in, less what went out (bonuses and refunds)
+            detail: {
+                label: "Paid out in bonuses and refunds",
+                value: formatCompactPrice(summary.bonus.total + summary.machineBooking.refunded),
+                tone: "gray",
+            },
         },
     ];
 
@@ -192,28 +191,19 @@ export default function SuperAdminRevenuePage() {
             {summaryQuery.isError ? (
                 <ReportError message="Couldn't load the revenue totals. Please refresh to try again." />
             ) : (
-                <RevenueCardRow>
-                    {cards.map((card) =>
-                        summaryQuery.isPending ? (
-                            <StatCardSkeleton
-                                key={card.key}
-                                label={card.label}
-                                icon={card.icon}
-                                iconClassName={card.iconClassName}
-                            />
-                        ) : (
-                            <StatCard
-                                key={card.key}
-                                label={card.label}
-                                value={formatCompactPrice(card.amount)}
-                                fullValue={formatPrice(card.amount)}
-                                icon={card.icon}
-                                iconClassName={card.iconClassName}
-                                footer={card.footer}
-                            />
-                        ),
-                    )}
-                </RevenueCardRow>
+                <OverviewCardGrid columns={5}>
+                    {cards.map((card) => (
+                        <OverviewCard
+                            key={card.key}
+                            icon={card.icon}
+                            label={card.label}
+                            value={formatCompactPrice(card.amount)}
+                            fullValue={formatPrice(card.amount)}
+                            detail={card.detail}
+                            loading={summaryQuery.isPending}
+                        />
+                    ))}
+                </OverviewCardGrid>
             )}
 
             <DataTable
@@ -242,19 +232,6 @@ export default function SuperAdminRevenuePage() {
                     />
                 }
             />
-        </div>
-    );
-}
-
-/**
- * The five totals: a row that scrolls sideways on phones, two across on
- * tablets, three on laptops and all five on wide screens (StatCardRow stops at
- * four, which would leave the fifth alone on its own row).
- */
-function RevenueCardRow({ children }: { children: ReactNode }) {
-    return (
-        <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-3 2xl:grid-cols-5">
-            {children}
         </div>
     );
 }

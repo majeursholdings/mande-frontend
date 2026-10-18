@@ -4,6 +4,9 @@ import { LEGALS_URL, PRIVACY_POLICY_URL, TERMS_URL } from "./constant/navigation
 
 export default function nextConfig(phase: string): NextConfig {
   return {
+    // Extra hostnames the dev server answers besides localhost, e.g. local
+    // names from a proxy. Set only in your own .env.local
+    allowedDevOrigins: (process.env.DEV_ORIGINS ?? "").split(",").map((host) => host.trim()).filter(Boolean),
     // The browser tests run their own dev server beside yours, so it builds
     // into its own folder (see playwright.config.ts)
     distDir: process.env.NEXT_DIST_DIR || ".next",

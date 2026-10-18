@@ -30,6 +30,8 @@ import {
 import {
     CalendarClock,
     Cog,
+    ListTodo,
+    Store,
     LayoutGrid,
     ListChecks,
     ReceiptText,
@@ -91,6 +93,10 @@ export const ADMIN_MANUFACTURERS_URL = "/admin/manufacturers";
 export const ADMIN_TRANSACTIONS_URL = "/admin/transactions";
 export const ADMIN_MACHINE_BOOKINGS_URL = "/admin/machine-bookings";
 export const ADMIN_MACHINES_URL = "/admin/machines";
+/** MANDE's own stock on MANDE Shop, and its delivery zones. */
+export const ADMIN_SHOP_URL = "/admin/shop";
+/** What's waiting on them: reviews due, requests, jobs at risk and MANDE's orders. */
+export const ADMIN_ACTIONS_URL = "/admin/actions";
 export const ADMIN_PROFILE_URL = "/admin/profile";
 export const ADMIN_SETTINGS_URL = "/admin/profile/settings";
 export const ADMIN_SECURITY_URL = "/admin/profile/security";
@@ -112,6 +118,7 @@ export type AdminNavItem = {
 
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     { label: "Dashboard", href: ADMIN_DASHBOARD_URL, icon: LayoutGrid, inBottomBar: true },
+    { label: "Actions", href: ADMIN_ACTIONS_URL, icon: ListTodo, countsPendingActions: true },
     { label: "Jobs", href: ADMIN_JOBS_URL, icon: ListChecks, inBottomBar: true },
     {
         label: "Manufacturers",
@@ -123,6 +130,7 @@ export const ADMIN_NAV_ITEMS: AdminNavItem[] = [
     { label: "Transactions", href: ADMIN_TRANSACTIONS_URL, icon: ReceiptText, inBottomBar: true },
     { label: "Machine bookings", href: ADMIN_MACHINE_BOOKINGS_URL, icon: CalendarClock },
     { label: "Machines", href: ADMIN_MACHINES_URL, icon: Cog },
+    { label: "Shop", href: ADMIN_SHOP_URL, icon: Store },
     { label: "Profile", href: ADMIN_PROFILE_URL, icon: UserRound },
 ];
 

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { Ellipsis } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { useSuperAdminActions } from "@/components/superAdminPlatform/actions/pendingActions";
+import { useStaffActionsCount } from "./useStaffActionsCount";
 import NavLinks from "./navLinks";
 import { isStaffNavItemActive, useStaffPlatform } from "./staffPlatformContext";
 
@@ -26,7 +26,7 @@ export default function MobileBottomNav() {
     const bottomBarItems = platform.navItems.filter((item) => item.inBottomBar);
     // Something waiting under Menu (e.g. the super admin's Actions) puts a dot on it
     const hasWaitingInMenu =
-        useSuperAdminActions().length > 0 && platform.navItems.some((item) => !item.inBottomBar && item.countsPendingActions);
+        useStaffActionsCount() > 0 && platform.navItems.some((item) => !item.inBottomBar && item.countsPendingActions);
     const isOnDrawerOnlyPage = platform.navItems.some(
         (item) => !item.inBottomBar && isStaffNavItemActive(platform, item, pathname),
     );

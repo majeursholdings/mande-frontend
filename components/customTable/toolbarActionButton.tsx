@@ -12,6 +12,8 @@ export interface ToolbarActionButtonProps {
     onClick?: () => void;
     href?: string;
     icon?: ReactNode;
+    /** Greyed out and not clickable (a button only), e.g. until something else is set up. */
+    disabled?: boolean;
 }
 
 export function ToolbarActionButton({
@@ -19,9 +21,10 @@ export function ToolbarActionButton({
     onClick,
     href,
     icon,
+    disabled = false,
 }: ToolbarActionButtonProps) {
     const className =
-        "inline-flex items-center gap-2 px-4 py-2 rounded-button bg-secondary-700 hover:bg-secondary-800 text-white text-sm font-medium font-text transition-colors cursor-pointer whitespace-nowrap";
+        "inline-flex items-center gap-2 px-4 py-2 rounded-button bg-secondary-700 hover:bg-secondary-800 text-white text-sm font-medium font-text transition-colors cursor-pointer whitespace-nowrap disabled:cursor-not-allowed disabled:bg-mist-200 disabled:text-mist-500";
     const content = (
         <>
             {icon ?? <Plus className="size-4" />}
@@ -38,7 +41,7 @@ export function ToolbarActionButton({
     }
 
     return (
-        <button onClick={onClick} className={className}>
+        <button type="button" onClick={onClick} disabled={disabled} className={className}>
             {content}
         </button>
     );

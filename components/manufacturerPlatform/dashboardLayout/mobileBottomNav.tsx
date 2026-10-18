@@ -10,7 +10,7 @@ export default function MobileBottomNav() {
 
     return (
         <nav className="lg:hidden fixed inset-x-0 bottom-0 z-40 flex items-stretch justify-between border-t border-border bg-white px-1 pb-[env(safe-area-inset-bottom)]">
-            {MANUFACTURER_NAV_ITEMS.map((item) => {
+            {MANUFACTURER_NAV_ITEMS.filter((item) => !item.notInBottomBar).map((item) => {
                 const isActive =
                     item.href === MANUFACTURER_DASHBOARD_URL
                         ? pathname === item.href

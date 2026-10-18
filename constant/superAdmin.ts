@@ -2,6 +2,7 @@ import {
     CalendarClock,
     ChartLine,
     Cog,
+    Store,
     Coins,
     LayoutGrid,
     ListChecks,
@@ -45,6 +46,8 @@ export const SUPER_ADMIN_TRANSACTIONS_URL = "/super-admin/transactions";
 export const SUPER_ADMIN_MACHINE_BOOKINGS_URL = "/super-admin/machine-bookings";
 /** The machine catalogue makers book time on. */
 export const SUPER_ADMIN_MACHINES_URL = "/super-admin/machines";
+/** MANDE Shop: MANDE's own stock, every product, and the sellers. */
+export const SUPER_ADMIN_SHOP_URL = "/super-admin/shop";
 /** Coupon codes for machine bookings, subscriptions or both. */
 export const SUPER_ADMIN_COUPONS_URL = "/super-admin/coupons";
 /** The platform's own money: plan payments and rejection charges in, bonuses out. */
@@ -79,6 +82,7 @@ export const SUPER_ADMIN_NAV_ITEMS: AdminNavItem[] = [
     { label: "Transactions", href: SUPER_ADMIN_TRANSACTIONS_URL, icon: ReceiptText, inBottomBar: true },
     { label: "Machine bookings", href: SUPER_ADMIN_MACHINE_BOOKINGS_URL, icon: CalendarClock },
     { label: "Machines", href: SUPER_ADMIN_MACHINES_URL, icon: Cog },
+    { label: "Shop", href: SUPER_ADMIN_SHOP_URL, icon: Store },
     { label: "Coupons", href: SUPER_ADMIN_COUPONS_URL, icon: TicketPercent },
     { label: "Revenue", href: SUPER_ADMIN_REVENUE_URL, icon: Coins },
     { label: "Reporting", href: SUPER_ADMIN_REPORTING_URL, icon: ChartLine },
@@ -216,6 +220,28 @@ export type PlatformSettings = {
     communityChannels?: import("@/constant/community").CommunityChannel[];
     /** Machine booking: the unit, the longest booking, machines per booking and the schedule (prices live on the machines). */
     machineBooking?: import("@/lib/services/machineBookingService").MachineBookingSettings;
+    /** The shop's rules (Settings › Shop). */
+    shop?: ShopSettings;
+};
+
+/** The shop's rules: the selling switch, MANDE's charge on each sale, who pays Paystack's fee, and the day limits. */
+export type ShopSettings = {
+    /** Off takes every manufacturer's products off the shop (MANDE stock stays). */
+    manufacturerSellingEnabled: boolean;
+    /** A whole percent of the item price (up to 50), or a flat amount in kobo per order, item line or unit. */
+    platformCharge: { type: "percentage" | "flat"; value: number; flatBasis: "order" | "line" | "unit" };
+    /** "mande": MANDE's share pays Paystack's fee; "proportional": everyone in the payment pays their share of it. */
+    paystackFeeBearer: "mande" | "proportional";
+    /** A shipped order counts as delivered after this many days, if the customer doesn't say so first. */
+    deliveryConfirmDays: number;
+    /** How long after delivery a customer can report a problem. */
+    problemReportDays: number;
+    /** How long after delivery a customer can review. */
+    reviewWindowDays: number;
+    /** How long a seller has to pay back a refund before their products are paused. */
+    debtGraceDays: number;
+    /** Flags a seller to staff when their rating falls below this, once they have this many reviews. */
+    lowRatingAlert: { belowRating: number; minReviews: number };
 };
 
 export type CandidateJobReview = {

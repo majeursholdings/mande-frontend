@@ -12,7 +12,9 @@ export type UploadPurpose =
   | "job-image"
   | "job-attachment"
   | "review-attachment"
-  | "machine-image";
+  | "machine-image"
+  /** A product's photo on the shop: manufacturers and staff (MANDE stock). */
+  | "shop-product-image";
 
 export interface SignatureResponse {
   uploadUrl: string;

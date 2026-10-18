@@ -22,6 +22,12 @@ export type PricingPlan = {
      * Matches the "Concurrent jobs" feature.
      */
     maxConcurrentJobs: number | null;
+    /**
+     * Selling on MANDE Shop: whether the plan can, and how many products
+     * (drafts, listed and paused) it may have, null for no limit. Only the
+     * super admin's Settings reads it.
+     */
+    shop?: { canSell: boolean; maxProducts: number | null };
 };
 
 export type BillingCycle = "monthly" | "annual";

@@ -17,17 +17,21 @@ export function FormSubmitButton({
     loadingLabel = label,
     isLoading,
     disabled,
+    onClick,
     className,
 }: {
     label: string;
     loadingLabel?: string;
     isLoading: boolean;
     disabled: boolean;
+    /** Runs before the form submits, e.g. to note which of two submit buttons was used. */
+    onClick?: () => void;
     className?: string;
 }) {
     return (
         <Button
             type="submit"
+            onClick={onClick}
             disabled={isLoading || disabled}
             className={cn(
                 PRIMARY_BUTTON_CLASS,

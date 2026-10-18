@@ -131,6 +131,30 @@ export const queryKeys = {
     categories: () => [...queryKeys.machines.all, "categories"] as const,
   },
 
+  // The shop: a manufacturer's own store (/my-shop) and staff running it (/shop-admin)
+  shop: {
+    all: ["shop"] as const,
+    myShop: () => [...queryKeys.shop.all, "my-shop"] as const,
+    mySummary: (period: string) => [...queryKeys.shop.all, "my-shop", "summary", period] as const,
+    myOrders: (filters?: Record<string, unknown>) => [...queryKeys.shop.all, "my-shop", "orders", filters] as const,
+    mandeSummary: (period: string) => [...queryKeys.shop.all, "mande", "summary", period] as const,
+    mandeOrders: (filters?: Record<string, unknown>) => [...queryKeys.shop.all, "mande", "orders", filters] as const,
+    myProducts: (filters?: Record<string, unknown>) => [...queryKeys.shop.all, "my-shop", "products", filters] as const,
+    payoutBanks: () => [...queryKeys.shop.all, "payout-banks"] as const,
+    mande: () => [...queryKeys.shop.all, "mande"] as const,
+    mandeProducts: (filters?: Record<string, unknown>) => [...queryKeys.shop.all, "mande", "products", filters] as const,
+    allProducts: (filters?: Record<string, unknown>) => [...queryKeys.shop.all, "all-products", filters] as const,
+    sellers: (filters?: Record<string, unknown>) => [...queryKeys.shop.all, "sellers", filters] as const,
+    seller: (id: string) => [...queryKeys.shop.all, "seller", id] as const,
+  },
+
+  // What's waiting on the signed-in person (the Actions pages and the menu's count)
+  actions: {
+    all: ["actions"] as const,
+    mine: () => [...queryKeys.actions.all, "mine"] as const,
+    lead: () => [...queryKeys.actions.all, "lead"] as const,
+  },
+
   // Coupons (super admins create them; anyone can check one)
   coupons: {
     all: ["coupons"] as const,

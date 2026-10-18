@@ -100,6 +100,16 @@ export default function PlansTab() {
                         </dl>
 
                         <dl className="flex flex-col">
+                            <div className="flex items-center justify-between gap-4 border-b border-border py-2 text-sm font-text">
+                                <dt className="text-mist-500">Sells on MANDE Shop</dt>
+                                <dd className={cn("text-right", plan.shop?.canSell ? "font-medium text-mist-950" : "text-mist-400")}>
+                                    {!plan.shop?.canSell
+                                        ? NOT_INCLUDED
+                                        : plan.shop.maxProducts === null
+                                          ? "Unlimited products"
+                                          : `Up to ${plan.shop.maxProducts} products`}
+                                </dd>
+                            </div>
                             {plan.features.map((feature) => (
                                 <div
                                     key={feature.label}

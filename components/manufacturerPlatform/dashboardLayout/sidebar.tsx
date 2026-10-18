@@ -10,12 +10,14 @@ import SharedSidebar, {
 } from "@/components/ui/dashboardSidebar";
 import { MANUFACTURER_NAV_ITEMS, MANUFACTURER_DASHBOARD_URL } from "@/constant/manufacturer";
 import SidebarRank from "@/components/common/points/sidebarRank";
+import { useMyActions } from "../actionsPage";
 import { useLogout } from "./logoutContext";
 
 /** The manufacturer's desktop nav, in the shared sidebar layout — from lg up. */
 export default function DashboardSidebar() {
     const pathname = usePathname();
     const { requestLogout } = useLogout();
+    const actionCount = useMyActions().data?.counts.total ?? 0;
 
     return (
         <SharedSidebar>
@@ -29,6 +31,7 @@ export default function DashboardSidebar() {
                     icon: item.icon,
                     isActive:
                         item.href === MANUFACTURER_DASHBOARD_URL ? pathname === item.href : pathname.startsWith(item.href),
+                    badge: item.countsActions ? actionCount : undefined,
                 }))}
                 logout={
                     <button
