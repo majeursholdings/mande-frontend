@@ -113,6 +113,18 @@ export type ShopOrderPart = {
     deliveredAt: string | null;
 };
 
+/** Every row matching a table's filters, for saving as a file (up to 5,000: `truncated` when there were more). */
+export type ExportBatch = { total: number; truncated: boolean };
+
+/** What the API made of a CSV file of products: checked only (dry run), or saved when `applied`. */
+export type ProductImportReport = {
+    applied: boolean;
+    /** Problems with the whole file: its headings, the plan's limit, selling being blocked. */
+    fileErrors: string[];
+    summary: { rows: number; create: number; update: number; unchanged: number; withErrors: number };
+    rows: { line: number; action: "create" | "update" | "unchanged"; productId: string | null; title: string; errors: Record<string, string[]> }[];
+};
+
 export type SalesPeriod = "week" | "month";
 
 /** The shop overview. Sales are the seller's share, not counting cancelled or refunded orders. */
@@ -144,6 +156,27 @@ function sellerShopApi(base: string, productsBase = `${base}/products`) {
 
         async listOrders(query: { page?: number; limit?: number; status?: OrderPartStatus } = {}): Promise<ShopPageInfo & { orders: ShopOrderPart[] }> {
             const { data } = await api.get<ShopPageInfo & { orders: ShopOrderPart[] }>(`${base}/orders`, { params: query });
+            return data;
+        },
+
+        async exportOrders(query: { status?: OrderPartStatus } = {}): Promise<ExportBatch & { orders: ShopOrderPart[] }> {
+            const { data } = await api.get<ExportBatch & { orders: ShopOrderPart[] }>(`${base}/orders/export`, { params: query });
+            return data;
+        },
+
+        async exportProducts(query: { status?: ProductStatus; q?: string } = {}): Promise<ExportBatch & { products: SellerProduct[]; deliveryZones: { id: string; name: string }[] }> {
+            const { data } = await api.get<ExportBatch & { products: SellerProduct[]; deliveryZones: { id: string; name: string }[] }>(`${productsBase}/export`, { params: query });
+            return data;
+        },
+
+        /** Sends a CSV file of products: checked only unless `dryRun` is false, then saved (all or nothing) when nothing has a problem. */
+        async importProducts(csv: string, dryRun: boolean): Promise<ProductImportReport> {
+            const { data } = await api.post<ProductImportReport>(`${productsBase}/import`, csv, {
+                params: { dryRun },
+                headers: { "Content-Type": "text/csv" },
+                // Sent as it is, never turned into JSON
+                transformRequest: [(body: string) => body],
+            });
             return data;
         },
 
@@ -233,6 +266,11 @@ export type ShopSellerDetail = SellerOverview & {
 export const shopAdminService = {
     async listProducts(query: ProductListQuery & { sellerKind?: "manufacturer" | "mande" } = {}): Promise<ShopPageInfo & { products: ShopAdminProduct[] }> {
         const { data } = await api.get<ShopPageInfo & { products: ShopAdminProduct[] }>("/shop-admin/products", { params: query });
+        return data;
+    },
+
+    async exportProducts(query: { status?: ProductStatus; q?: string; sellerKind?: "manufacturer" | "mande" } = {}): Promise<ExportBatch & { products: ShopAdminProduct[] }> {
+        const { data } = await api.get<ExportBatch & { products: ShopAdminProduct[] }>("/shop-admin/products/export", { params: query });
         return data;
     },
 

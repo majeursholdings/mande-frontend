@@ -35,6 +35,7 @@ import {
     DEFAULT_MAX_FILE_SIZE_MB,
     DOCUMENT_ACCEPT,
     IMAGE_ACCEPT,
+    isCsvFile,
     isImageFile,
     getFileKindError,
 } from "./fileRules";
@@ -209,7 +210,13 @@ export const FileInput = <T extends FieldValues = FieldValues>({
 
         const kindError = getFileKindError(file, field.type === "image" ? "image" : "file");
         // A "file" field set to take images too lets a photo through
-        if (kindError && !(field.type === "file" && field.acceptImages && isImageFile(file))) return kindError;
+        if (
+            kindError &&
+            !(field.type === "file" && field.acceptImages && isImageFile(file)) &&
+            !(field.type === "file" && field.acceptCsv && isCsvFile(file))
+        ) {
+            return field.acceptCsv ? "Only CSV files can be added" : kindError;
+        }
 
         const acceptStr = field.accept;
         if (acceptStr) {
@@ -355,7 +362,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                             ),
                         true,
                     );
-                    toast.success(`Uploaded ${item.originalName}`);
+                    if (!field.silentUpload) toast.success(`Uploaded ${item.originalName}`);
                 })
                 .catch((err) => {
                     const message = err instanceof Error ? err.message : "Upload failed";
@@ -378,7 +385,7 @@ export const FileInput = <T extends FieldValues = FieldValues>({
                     toast.error(`Failed to upload ${item.originalName}: ${message}`);
                 });
         },
-        [field.name, field.uploadPurpose, field.upload, updateItems, restoreReplaced]
+        [field.name, field.uploadPurpose, field.upload, field.silentUpload, updateItems, restoreReplaced]
     );
 
     // Handle file selection (drag & drop or click)
@@ -392,15 +399,14 @@ export const FileInput = <T extends FieldValues = FieldValues>({
             const err = validateFile(file);
             const key = getFileKey(file);
             if (err) {
-                newErrors[key] = err;
+                newErrors[key] = `${file.name}: ${err}`;
             } else {
                 validNewFiles.push(file);
             }
         });
 
-        if (Object.keys(newErrors).length > 0) {
-            setFileErrors((prev) => ({ ...prev, ...newErrors }));
-        }
+        // Refused files never join the list, so each pick replaces the last pick's refusals
+        setFileErrors(newErrors);
 
         if (validNewFiles.length === 0) return;
 
@@ -495,9 +501,8 @@ export const FileInput = <T extends FieldValues = FieldValues>({
     };
 
     const hasFileErrors = Object.keys(fileErrors).length > 0;
-    const activeError = hasFileErrors
-        ? "Some uploaded files have errors. Please remove the highlighted files below."
-        : error;
+    // Which files were refused, and why
+    const activeError = hasFileErrors ? `${Object.values(fileErrors).join(". ")}.` : error;
 
     return (
         <div className="flex flex-col gap-3">

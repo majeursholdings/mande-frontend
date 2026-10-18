@@ -5,9 +5,9 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ImageOff, Loader2 } from "lucide-react";
+import { ImageOff, Loader2, Upload } from "lucide-react";
 import dayjs from "dayjs";
-import { DataTable, StatusBadge, TableToolbar, ToolbarActionButton, type ColumnDef } from "@/components/customTable";
+import { DataTable, ExportMenu, StatusBadge, TableToolbar, ToolbarActionButton, exportRows, type ColumnDef, type ExportFormat } from "@/components/customTable";
 import ProductForm from "@/components/manufacturerPlatform/form/productForm";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -23,6 +23,8 @@ import { SHOP_URL } from "@/constant/navigation";
 import { getErrorMessage } from "@/lib/api";
 import { formatPrice, fromKobo } from "@/lib/currency";
 import type { SellerOverview, SellerProduct, SellerShopApi } from "@/lib/services/shopService";
+import ProductImportDialog from "./productImportDialog";
+import { exportFilename, productExportColumns } from "./shopTransfer";
 
 const PAGE_SIZE = 10;
 
@@ -66,7 +68,8 @@ const COLUMNS: ColumnDef<SellerProduct>[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 // ProductsTab: a seller's products, a page at a time from the API (search,
 // status filter and page in the URL), with adding, editing, listing,
-// pausing, moving back to drafts and deleting a never-listed draft. Used for
+// pausing, moving back to drafts and deleting a never-listed draft, and
+// exporting every matching product or importing a CSV file of them. Used for
 // a manufacturer's store and for MANDE's own stock: `api` and `queryKey` say
 // which. A product MANDE took down opens its reason instead of the form.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,6 +81,7 @@ export default function ProductsTab({
     overview,
     onManageZones,
     onChanged,
+    exportName = "products",
 }: {
     tableId: string;
     api: SellerShopApi;
@@ -87,6 +91,8 @@ export default function ProductsTab({
     onManageZones: () => void;
     /** After any change: refresh the overview (standing, product count). */
     onChanged: () => Promise<unknown>;
+    /** The start of an export's file name, e.g. "mande-stock-products". */
+    exportName?: string;
 }) {
     const queryClient = useQueryClient();
     const searchParams = useSearchParams();
@@ -95,6 +101,7 @@ export default function ProductsTab({
     const [viewingRemoved, setViewingRemoved] = useState<SellerProduct | null>(null);
     const [deleting, setDeleting] = useState<SellerProduct | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
+    const [isImporting, setIsImporting] = useState(false);
 
     const page = Math.max(1, Number(searchParams.get(`${tableId}_page`) ?? 1) || 1);
     const q = (searchParams.get(`${tableId}_search`) ?? "").trim();
@@ -153,6 +160,21 @@ export default function ProductsTab({
         }
     };
 
+    // Every product matching the search and status, not just this page
+    const exportProducts = async (format: ExportFormat) => {
+        const data = await api.exportProducts({ q: q || undefined, status });
+        if (data.products.length === 0) {
+            toast.info("There are no products to export.");
+            return;
+        }
+        await exportRows(data.products, productExportColumns(data.deliveryZones), {
+            format,
+            filename: exportFilename(exportName),
+            title: status ? `Products (${PRODUCT_STATUS_LABELS[status]})` : "Products",
+        });
+        if (data.truncated) toast.info(`Exported the newest ${data.products.length.toLocaleString("en-NG")} of ${data.total.toLocaleString("en-NG")}. Filter the table to export the rest.`);
+    };
+
     const busy = (product: SellerProduct) => (busyId === product.id ? "Saving..." : null);
 
     return (
@@ -204,14 +226,28 @@ export default function ProductsTab({
                         search={{ placeholder: "Search your products" }}
                         filters={[{ title: "All statuses", paramKey: "status", items: PRODUCT_STATUS_FILTER_ITEMS }]}
                         actions={
-                            <span title={cannotCreateReason ?? undefined}>
-                                <ToolbarActionButton label="New product" onClick={() => setIsCreating(true)} disabled={!standing || !!cannotCreateReason} />
-                            </span>
+                            <>
+                                <ExportMenu onExport={exportProducts} />
+                                <button
+                                    type="button"
+                                    onClick={() => setIsImporting(true)}
+                                    disabled={!overview}
+                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-button border border-gray-300 bg-white text-sm font-medium font-text text-mist-950 cursor-pointer whitespace-nowrap transition-colors hover:bg-mist-50 disabled:cursor-not-allowed disabled:text-mist-500"
+                                >
+                                    <Upload className="size-4" aria-hidden />
+                                    Import
+                                </button>
+                                <span title={cannotCreateReason ?? undefined}>
+                                    <ToolbarActionButton label="New product" onClick={() => setIsCreating(true)} disabled={!standing || !!cannotCreateReason} />
+                                </span>
+                            </>
                         }
                     />
                 }
             />
             {cannotCreateReason && <p className="mt-3 text-xs font-text text-mist-500">{cannotCreateReason}</p>}
+
+            <ProductImportDialog open={isImporting} onOpenChange={setIsImporting} api={api} zones={zones} onImported={refresh} />
 
             <Dialog open={isCreating} onOpenChange={(open) => !open && setIsCreating(false)}>
                 <DialogContent className="max-w-160">

@@ -90,6 +90,7 @@ export function StaffShopProductsPage() {
         <ProductsTab
             tableId="mande-products"
             api={mandeStockService}
+            exportName="mande-stock-products"
             queryKey={(filters) => queryKeys.shop.mandeProducts(filters)}
             overview={overview}
             onManageZones={() => router.push(`${base}/delivery-zones`)}
@@ -105,7 +106,7 @@ export function StaffShopProductsPage() {
 }
 
 export function StaffShopOrdersPage() {
-    return <OrdersPanel tableId="mande-orders" api={mandeStockService} queryKey={(filters) => queryKeys.shop.mandeOrders(filters)} payoutLabel="Paid to MANDE" />;
+    return <OrdersPanel tableId="mande-orders" api={mandeStockService} queryKey={(filters) => queryKeys.shop.mandeOrders(filters)} payoutLabel="Paid to MANDE" exportName="mande-stock-orders" />;
 }
 
 export function StaffShopZonesPage() {

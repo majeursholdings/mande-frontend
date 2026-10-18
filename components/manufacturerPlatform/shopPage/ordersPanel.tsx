@@ -6,12 +6,14 @@ import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { ImageOff } from "lucide-react";
-import { DataTable, StatusBadge, TableToolbar, type ColumnDef } from "@/components/customTable";
+import { toast } from "sonner";
+import { DataTable, ExportMenu, StatusBadge, TableToolbar, exportRows, type ColumnDef, type ExportFormat } from "@/components/customTable";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { ORDER_PART_STATUS_FILTER_ITEMS, ORDER_PART_STATUS_LABELS, ORDER_PART_STATUS_TONES, type OrderPartStatus } from "@/constant/shop";
 import { formatPrice, fromKobo } from "@/lib/currency";
 import type { SellerShopApi, ShopOrderPart } from "@/lib/services/shopService";
+import { exportFilename, orderExportColumns } from "./shopTransfer";
 
 const PAGE_SIZE = 10;
 const naira = (kobo: number) => formatPrice(fromKobo(kobo));
@@ -20,7 +22,7 @@ const itemCount = (order: ShopOrderPart) => order.lines.reduce((sum, line) => su
 // ─────────────────────────────────────────────────────────────────────────────
 // OrdersPanel: a seller's part of each paid order, a page at a time (status
 // filter and page in the URL). Opening one shows what was bought, where it
-// goes and the money. Read-only for now: moving an order along (processing,
+// goes and the money. Export saves every order matching the filter. Read-only for now: moving an order along (processing,
 // shipped, delivered) and cancelling come with fulfilment (phase 3).
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -29,12 +31,15 @@ export default function OrdersPanel({
     api,
     queryKey,
     payoutLabel = "Paid to you",
+    exportName = "orders",
 }: {
     tableId: string;
     api: SellerShopApi;
     queryKey: (filters: Record<string, unknown>) => readonly unknown[];
     /** The order's last line: what the seller is paid, e.g. "Paid to MANDE" for MANDE stock. */
     payoutLabel?: string;
+    /** The start of an export's file name, e.g. "mande-stock-orders". */
+    exportName?: string;
 }) {
     const searchParams = useSearchParams();
     const [open, setOpen] = useState<ShopOrderPart | null>(null);
@@ -48,6 +53,20 @@ export default function OrdersPanel({
         staleTime: 30_000,
         placeholderData: (previous) => previous,
     });
+
+    const exportOrders = async (format: ExportFormat) => {
+        const data = await api.exportOrders({ status });
+        if (data.orders.length === 0) {
+            toast.info("There are no orders to export.");
+            return;
+        }
+        await exportRows(data.orders, orderExportColumns(payoutLabel), {
+            format,
+            filename: exportFilename(exportName),
+            title: status ? `Orders (${ORDER_PART_STATUS_LABELS[status]})` : "Orders",
+        });
+        if (data.truncated) toast.info(`Exported the newest ${data.orders.length.toLocaleString("en-NG")} of ${data.total.toLocaleString("en-NG")}. Filter the table to export the rest.`);
+    };
 
     const columns: ColumnDef<ShopOrderPart>[] = [
         {
@@ -103,7 +122,12 @@ export default function OrdersPanel({
                 emptyMessage={status ? "No orders in that status." : "No orders yet. They show here once customers buy your products."}
                 onRowClick={setOpen}
                 rowActions={[{ label: "View order", onSelect: setOpen }]}
-                toolbar={<TableToolbar filters={[{ title: "All statuses", paramKey: "status", items: ORDER_PART_STATUS_FILTER_ITEMS }]} />}
+                toolbar={
+                    <TableToolbar
+                        filters={[{ title: "All statuses", paramKey: "status", items: ORDER_PART_STATUS_FILTER_ITEMS }]}
+                        actions={<ExportMenu onExport={exportOrders} />}
+                    />
+                }
             />
 
             <Dialog open={!!open} onOpenChange={(next) => !next && setOpen(null)}>

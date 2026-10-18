@@ -7,7 +7,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ImageOff, Loader2 } from "lucide-react";
 import dayjs from "dayjs";
-import { DataTable, StatusBadge, TableToolbar, type ColumnDef } from "@/components/customTable";
+import { DataTable, ExportMenu, StatusBadge, TableToolbar, exportRows, type ColumnDef, type ExportFormat } from "@/components/customTable";
+import { ADMIN_PRODUCT_EXPORT_COLUMNS, exportFilename } from "@/components/manufacturerPlatform/shopPage/shopTransfer";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { PRODUCT_STATUS_FILTER_ITEMS, PRODUCT_STATUS_LABELS, PRODUCT_STATUS_TONES, describeShopCategory, type ProductStatus } from "@/constant/shop";
@@ -95,6 +96,21 @@ export default function AllProductsTab() {
     // A change shows in this list, MANDE stock's, and the sellers' product counts
     const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.shop.all });
 
+    // Every product matching the search and filters, not just this page
+    const exportProducts = async (format: ExportFormat) => {
+        const data = await shopAdminService.exportProducts({ q: q || undefined, status, sellerKind });
+        if (data.products.length === 0) {
+            toast.info("There are no products to export.");
+            return;
+        }
+        await exportRows(data.products, ADMIN_PRODUCT_EXPORT_COLUMNS, {
+            format,
+            filename: exportFilename("shop-products"),
+            title: status ? `Shop products (${PRODUCT_STATUS_LABELS[status]})` : "Shop products",
+        });
+        if (data.truncated) toast.info(`Exported the newest ${data.products.length.toLocaleString("en-NG")} of ${data.total.toLocaleString("en-NG")}. Filter the table to export the rest.`);
+    };
+
     const restore = async (product: ShopAdminProduct) => {
         setIsRestoring(true);
         try {
@@ -135,6 +151,7 @@ export default function AllProductsTab() {
                             { title: "All statuses", paramKey: "status", items: PRODUCT_STATUS_FILTER_ITEMS },
                             { title: "All sellers", paramKey: "seller", items: SELLER_KIND_ITEMS },
                         ]}
+                        actions={<ExportMenu onExport={exportProducts} />}
                     />
                 }
             />

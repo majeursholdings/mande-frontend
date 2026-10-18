@@ -29,6 +29,11 @@ export const DOCUMENT_ACCEPT = `.pdf, .doc, .docx, ${DOCUMENT_TYPES.join(", ")}`
 export const API_PHOTO_ACCEPT = ".jpg, .jpeg, .png, .webp, image/jpeg, image/png, image/webp";
 export const API_DOCUMENT_ACCEPT = ".pdf, application/pdf";
 
+/** The picker filter for a CSV file (a "file" field with `acceptCsv`). */
+export const CSV_ACCEPT = ".csv, text/csv";
+
+export const isCsvFile = (file: File) => /\.csv$/i.test(file.name) && ["", "text/csv", "application/csv", "application/vnd.ms-excel", "text/plain"].includes(file.type);
+
 export const isImageFile = (file: File) => file.type.startsWith("image/") || IMAGE_EXTENSIONS.test(file.name);
 
 export const isDocumentFile = (file: File) =>

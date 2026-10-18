@@ -81,6 +81,10 @@ export type FormFieldConfig = {
     upload?: (file: File, onProgress: (percent: number) => void, signal: AbortSignal) => Promise<UploadResult>;
     /** For a "file" field: take images as well as documents (e.g. an ID card as a photo or a PDF). */
     acceptImages?: boolean;
+    /** For a "file" field: take a CSV file (with `accept: CSV_ACCEPT`), e.g. one read in the browser by `upload` for an import. */
+    acceptCsv?: boolean;
+    /** No "Uploaded" message when a file finishes, for a file `upload` only reads rather than sends anywhere. */
+    silentUpload?: boolean;
 };
 
 export type MainFormProps<T extends FieldValues = FieldValues> = {

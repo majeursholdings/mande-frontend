@@ -6,9 +6,10 @@ export function fromKobo(amountKobo: number): number {
     return amountKobo / 100;
 }
 
-/** 450000 → "₦450,000" */
+/** 450000 → "₦450,000", 42000.5 → "₦42,000.50": kobo only when there are some, then always two places. */
 export function formatPrice(amount: number): string {
-    return `${DEFAULT_CURRENCY}${amount.toLocaleString("en-NG")}`;
+    const fractionDigits = Number.isInteger(amount) ? 0 : 2;
+    return `${DEFAULT_CURRENCY}${amount.toLocaleString("en-NG", { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits })}`;
 }
 
 /** 1800000 → "₦1.8M", 500000 → "₦500k" — for tight spots where the exact amount isn't needed. */

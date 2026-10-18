@@ -29,6 +29,12 @@ export { useTableRows } from "./useTableRows";
 export type { ExportCSVOptions } from "./exportToCsv";
 export { exportToCSV } from "./exportToCsv";
 
+export type { ExportCell, ExportColumn, ExportFormat, ExportOptions } from "./exportRows";
+export { EXPORT_FORMATS, downloadCsv, exportRows, toCsv } from "./exportRows";
+
+export type { ExportMenuProps } from "./exportMenu";
+export { ExportMenu } from "./exportMenu";
+
 export type { SearchInputProps } from "./searchInput";
 export { SearchInput } from "./searchInput";
 
