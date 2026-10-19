@@ -56,6 +56,8 @@ NEXT_PUBLIC_SANITY_DATASET=production
 | `NEXT_PUBLIC_APP_URL` | Public site URL, used for the sitemap, robots, SEO and absolute links | No (yes in production) | `http://localhost:3010` | `lib/site.ts` |
 | `NEXT_PUBLIC_SANITY_PROJECT_ID` | Sanity project to read content from | No | `iprkoda4` | `lib/cms/client.ts` |
 | `NEXT_PUBLIC_SANITY_DATASET` | Sanity dataset | No | `production` | `lib/cms/client.ts` |
+| `NEXT_PUBLIC_SENTRY_DSN` | Where errors and traces go (the `mande-frontend` Sentry project). Public. Empty: Sentry is off | No | none | `lib/sentry.ts` |
+| `SENTRY_AUTH_TOKEN` | Build only, never public: a Sentry org auth token that uploads source maps on `npm run build`, so production errors show the real code. Without it the upload is skipped | No (yes for production builds) | none | `next.config.ts` |
 | `DEV_ORIGINS` | Extra hostnames the dev server answers besides `localhost`, comma-separated (e.g. local names from `../local-proxy`). Only for your own machine | No | none | `next.config.ts` |
 | `NEXT_DIST_DIR` | Build output folder. Only the browser tests set it (`.next-e2e`) | No | `.next` | `next.config.ts` |
 

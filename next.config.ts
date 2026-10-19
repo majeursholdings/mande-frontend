@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs/config";
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 import { LEGALS_URL, PRIVACY_POLICY_URL, TERMS_URL } from "./constant/navigation";
 
-export default function nextConfig(phase: string): NextConfig {
+function nextConfig(phase: string): NextConfig {
   return {
     // Extra hostnames the dev server answers besides localhost, e.g. local
     // names from a proxy. Set only in your own .env.local
@@ -71,3 +72,15 @@ export default function nextConfig(phase: string): NextConfig {
     },
   };
 }
+
+export default withSentryConfig(nextConfig, {
+  org: "majeurs-holdings",
+  project: "mande-frontend",
+  // Uploads source maps on production builds so errors show the real code.
+  // Without the token (a local build) the upload is skipped.
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  widenClientFileUpload: true,
+  // Browser events go through this app first, so ad blockers don't drop them
+  tunnelRoute: "/monitoring",
+  silent: !process.env.CI,
+});

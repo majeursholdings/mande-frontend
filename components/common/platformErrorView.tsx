@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ChevronDown, ChevronRight, Copy, Check, RefreshCw, Home, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import { reportBoundaryError } from "@/lib/sentry";
 
 export interface PlatformErrorViewProps {
   error: Error & { digest?: string };
@@ -20,6 +21,7 @@ export function PlatformErrorView({
   homeHref = "/",
   homeLabel = "Return home",
 }: PlatformErrorViewProps) {
+  reportBoundaryError(error);
   const [showDetails, setShowDetails] = useState(false);
   const [copied, setCopied] = useState(false);
 
