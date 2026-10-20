@@ -14,6 +14,7 @@ import {
     MANUFACTURER_SHOP_URL,
     MANUFACTURER_SHOP_ZONES_URL,
 } from "@/constant/manufacturer";
+import { useShopLiveUpdates } from "@/hooks/useShopLiveUpdates";
 import { queryKeys } from "@/lib/queryKeys";
 import { myShopService } from "@/lib/services/shopService";
 import PageHeader from "../pageHeader";
@@ -55,6 +56,8 @@ function useMyShop() {
 }
 
 export function ManufacturerShopLayout({ children }: { children: ReactNode }) {
+    // New orders, cancellations, returns and payouts show without a reload
+    useShopLiveUpdates();
     const { query, overview } = useMyShop();
     return (
         <div className="flex flex-col gap-6">

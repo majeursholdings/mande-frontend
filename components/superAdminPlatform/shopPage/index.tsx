@@ -12,6 +12,7 @@ import ShopSubNav from "@/components/manufacturerPlatform/shopPage/shopSubNav";
 import ZonesTab from "@/components/manufacturerPlatform/shopPage/zonesTab";
 import { ADMIN_SHOP_URL } from "@/constant/admin";
 import { SUPER_ADMIN_SHOP_URL } from "@/constant/superAdmin";
+import { useShopLiveUpdates } from "@/hooks/useShopLiveUpdates";
 import { queryKeys } from "@/lib/queryKeys";
 import { allReturnsService, mandeStockService } from "@/lib/services/shopService";
 import AllProductsTab from "./allProductsTab";
@@ -48,6 +49,8 @@ function useMandeShop() {
 }
 
 export function StaffShopLayout({ children }: { children: ReactNode }) {
+    // MANDE stock's new orders, cancellations and returns show without a reload
+    useShopLiveUpdates();
     const { isSuperAdmin, base } = useShopBase();
     const links = [
         { href: base, label: "Overview", exact: true },
