@@ -5,7 +5,7 @@ import { PRIVACY_POLICY_URL, TERMS_URL } from "@/constant/navigation";
 import { UseFormReturn } from "react-hook-form";
 import MainForm from "@/components/form";
 import { FormFieldConfig } from "@/components/form/types";
-import { isPhoneNumber, validators } from "@/components/form/form.validators";
+import { NIGERIAN_PHONE_MESSAGE, isPhoneNumber, validators } from "@/components/form/form.validators";
 import StepFooter from "../stepFooter";
 import StepHeader from "../stepHeader";
 import { RegistrationFormValues } from "../types";
@@ -55,7 +55,7 @@ export default function UserDetailsStep({
             validation: {
                 required: "Phone number is required",
                 validate: (value: string) =>
-                    isPhoneNumber(value) || "Enter a valid phone number, e.g. +234 801 234 5678",
+                    isPhoneNumber(value) || NIGERIAN_PHONE_MESSAGE,
             },
         },
         {

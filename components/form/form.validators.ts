@@ -2,13 +2,30 @@ import { RegisterOptions } from "react-hook-form";
 import { DEFAULT_MAX_FILE_SIZE_MB } from "./fileRules";
 
 /**
- * A phone number once spaces and dashes are stripped: digits with an optional
- * leading "+" — covers "0801 234 5678" as well as "+234 801 234 5678".
+ * A Nigerian phone number however it's typed ("0801 234 5678", "+234 801 234
+ * 5678", "234 801...", "+234 0801..."), as "+2348012345678", or null when it
+ * isn't one. Mirrors mande-backend/src/utils/phone.ts, which stores every
+ * number this way.
  */
-export const PHONE_NUMBER_PATTERN = /^\+?\d{10,15}$/;
+export function normalizeNigerianPhone(input: string): string | null {
+    const digits = input.trim().replace(/[\s().-]/g, "");
+    if (!/^\+?\d+$/.test(digits)) return null;
+    const bare = digits.replace(/^\+/, "");
+    let national: string | null = null;
+    if (/^2340?\d{10}$/.test(bare) && (bare.length === 13 || bare.length === 14)) national = bare.slice(-10);
+    else if (/^0\d{10}$/.test(bare)) national = bare.slice(1);
+    else if (/^[1-9]\d{9}$/.test(bare) && !digits.startsWith("+")) national = bare;
+    return national && /^[1-9]\d{9}$/.test(national) ? `+234${national}` : null;
+}
 
-/** Whether `value` is a phone number, spaces and dashes allowed (see PHONE_NUMBER_PATTERN). */
-export const isPhoneNumber = (value: string) => PHONE_NUMBER_PATTERN.test(value.replace(/[\s-]/g, ""));
+export const NIGERIAN_PHONE_MESSAGE = "Enter a Nigerian phone number, e.g. 0801 234 5678 or +234 801 234 5678";
+export const PHONE_PLACEHOLDER = "0801 234 5678";
+
+/** Whether `value` is a Nigerian phone number, typed any of the usual ways. */
+export const isPhoneNumber = (value: string) => normalizeNigerianPhone(value) !== null;
+
+/** Any phone number, for forms that take numbers from abroad (the website's contact form): digits with an optional leading "+". */
+export const isInternationalPhoneNumber = (value: string) => /^\+?\d{7,15}$/.test(value.replace(/[\s()-]/g, ""));
 
 export const validators = {
     required: (label = "This field"): RegisterOptions => ({
@@ -60,19 +77,8 @@ export const validators = {
 
     phone: (): RegisterOptions => ({
         required: "Phone number is required",
-        pattern: {
-            value: /^\+?[1-9]\d{0,2}[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}$/,
-            message:
-                "Enter a valid phone number (e.g. +1 555-123-4567 or +44 7911 123456)",
-        },
-        minLength: {
-            value: 7,
-            message: "Phone number is too short",
-        },
-        maxLength: {
-            value: 20,
-            message: "Phone number is too long",
-        },
+        maxLength: { value: 20, message: "Phone number is too long" },
+        validate: (value: string) => isPhoneNumber(value) || NIGERIAN_PHONE_MESSAGE,
     }),
 
     name: (label = "Name"): RegisterOptions => ({

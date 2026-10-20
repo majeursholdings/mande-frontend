@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { CircleAlert } from "lucide-react";
-import { MANUFACTURER_PLAN_SETTINGS_URL, MANUFACTURER_PROFILE_URL, MANUFACTURER_SUPPORT_URL } from "@/constant/manufacturer";
+import { MANUFACTURER_PLAN_SETTINGS_URL, MANUFACTURER_PROFILE_URL, MANUFACTURER_SUPPORT_URL, MANUFACTURER_TRANSACTIONS_URL } from "@/constant/manufacturer";
 import { SELLING_BLOCKER_MESSAGES, type SellingBlocker } from "@/constant/shop";
 import type { SellerOverview } from "@/lib/services/shopService";
 
 const LINK_CLASS = "font-medium text-secondary-700 hover:underline";
 
 /** What fixes each blocker: a page to go to, or the Payouts tab. */
-function Fix({ blocker, onConnectPayout }: { blocker: SellingBlocker; onConnectPayout: () => void }) {
+function Fix({ blocker }: { blocker: SellingBlocker }) {
     switch (blocker) {
         case "not_verified":
             return (
@@ -36,9 +36,9 @@ function Fix({ blocker, onConnectPayout }: { blocker: SellingBlocker; onConnectP
             );
         case "no_payout_account":
             return (
-                <button type="button" onClick={onConnectPayout} className={`${LINK_CLASS} cursor-pointer`}>
-                    Connect a bank account
-                </button>
+                <Link href={MANUFACTURER_TRANSACTIONS_URL} className={LINK_CLASS}>
+                    Add a bank account to your wallet
+                </Link>
             );
         default:
             return null;
@@ -50,7 +50,7 @@ function Fix({ blocker, onConnectPayout }: { blocker: SellingBlocker; onConnectP
  * and how many products their plan allows. Nothing when they can sell and
  * have no limit to show.
  */
-export default function StandingBanner({ overview, onConnectPayout }: { overview: SellerOverview; onConnectPayout: () => void }) {
+export default function StandingBanner({ overview }: { overview: SellerOverview }) {
     const { standing, seller } = overview;
     const usage =
         standing.maxProducts !== null ? `${standing.productCount} of ${standing.maxProducts} products on your plan` : null;
@@ -73,7 +73,7 @@ export default function StandingBanner({ overview, onConnectPayout }: { overview
                                 {SELLING_BLOCKER_MESSAGES[blocker]}
                                 {blocker === "access_revoked" && seller.shopAccess.reason ? ` Reason: ${seller.shopAccess.reason}` : ""}
                             </span>
-                            <Fix blocker={blocker} onConnectPayout={onConnectPayout} />
+                            <Fix blocker={blocker} />
                         </li>
                     ))}
                 </ul>

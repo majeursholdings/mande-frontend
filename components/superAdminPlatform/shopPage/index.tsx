@@ -13,8 +13,12 @@ import ZonesTab from "@/components/manufacturerPlatform/shopPage/zonesTab";
 import { ADMIN_SHOP_URL } from "@/constant/admin";
 import { SUPER_ADMIN_SHOP_URL } from "@/constant/superAdmin";
 import { queryKeys } from "@/lib/queryKeys";
-import { mandeStockService } from "@/lib/services/shopService";
+import { allReturnsService, mandeStockService } from "@/lib/services/shopService";
 import AllProductsTab from "./allProductsTab";
+import ReturnsPanel from "@/components/manufacturerPlatform/shopPage/returnsPanel";
+import ReviewsPanel from "@/components/manufacturerPlatform/shopPage/reviewsPanel";
+import AllReviewsTab from "./allReviewsTab";
+import ReportsTab from "./reportsTab";
 import SellersTab from "./sellersTab";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -22,7 +26,9 @@ import SellersTab from "./sellersTab";
 // platforms. Admins and super admins run MANDE's own stock: its overview,
 // products (the same table and form a manufacturer uses, on MANDE's seller
 // record), orders and delivery zones. Super admins also see every product
-// (taking one down or restoring it) and the sellers (their shop access).
+// (taking one down or restoring it), the sellers (their shop access),
+// every return (to step in on any seller's) and customers' reports of
+// products.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Where this platform's shop pages are: /admin/shop or /super-admin/shop. */
@@ -47,11 +53,18 @@ export function StaffShopLayout({ children }: { children: ReactNode }) {
         { href: base, label: "Overview", exact: true },
         { href: `${base}/products`, label: "MANDE stock" },
         { href: `${base}/orders`, label: "Orders" },
+        // Admins look after returns of MANDE stock; super admins can also step in on any seller's
+        { href: isSuperAdmin ? `${base}/mande-returns` : `${base}/returns`, label: isSuperAdmin ? "MANDE returns" : "Returns" },
+        // Admins reply to reviews of MANDE stock; super admins also look after every review
+        { href: isSuperAdmin ? `${base}/mande-reviews` : `${base}/reviews`, label: isSuperAdmin ? "MANDE reviews" : "Reviews" },
         { href: `${base}/delivery-zones`, label: "Delivery zones" },
         ...(isSuperAdmin
             ? [
                   { href: `${base}/all-products`, label: "All products" },
                   { href: `${base}/sellers`, label: "Sellers" },
+                  { href: `${base}/returns`, label: "All returns" },
+                  { href: `${base}/reviews`, label: "All reviews" },
+                  { href: `${base}/reports`, label: "Reports" },
               ]
             : []),
     ];
@@ -109,6 +122,18 @@ export function StaffShopOrdersPage() {
     return <OrdersPanel tableId="mande-orders" api={mandeStockService} queryKey={(filters) => queryKeys.shop.mandeOrders(filters)} payoutLabel="Paid to MANDE" exportName="mande-stock-orders" />;
 }
 
+export function StaffShopReviewsPage() {
+    return <ReviewsPanel tableId="mande-reviews" api={mandeStockService} queryKey={(filters) => queryKeys.shop.mandeReviews(filters)} />;
+}
+
+export function StaffShopReturnsPage() {
+    return <ReturnsPanel tableId="mande-returns" api={mandeStockService} queryKey={(filters) => queryKeys.shop.mandeReturns(filters)} />;
+}
+
+export function StaffAllReturnsPage() {
+    return <ReturnsPanel tableId="all-returns" api={allReturnsService} queryKey={(filters) => queryKeys.shop.allReturns(filters)} showSeller />;
+}
+
 export function StaffShopZonesPage() {
     const { query, overview, refresh, queryClient } = useMandeShop();
     return (
@@ -121,4 +146,4 @@ export function StaffShopZonesPage() {
     );
 }
 
-export { AllProductsTab as StaffAllProductsPage, SellersTab as StaffSellersPage };
+export { AllProductsTab as StaffAllProductsPage, AllReviewsTab as StaffAllReviewsPage, ReportsTab as StaffReportsPage, SellersTab as StaffSellersPage };

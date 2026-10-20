@@ -8,6 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
     MANUFACTURER_SHOP_ORDERS_URL,
     MANUFACTURER_SHOP_PAYOUTS_URL,
+    MANUFACTURER_SHOP_RETURNS_URL,
+    MANUFACTURER_SHOP_REVIEWS_URL,
     MANUFACTURER_SHOP_PRODUCTS_URL,
     MANUFACTURER_SHOP_URL,
     MANUFACTURER_SHOP_ZONES_URL,
@@ -18,6 +20,8 @@ import PageHeader from "../pageHeader";
 import OrdersPanel from "./ordersPanel";
 import PayoutsTab from "./payoutsTab";
 import ProductsTab from "./productsTab";
+import ReturnsPanel from "./returnsPanel";
+import ReviewsPanel from "./reviewsPanel";
 import ShopOverview from "./shopOverview";
 import ShopSubNav from "./shopSubNav";
 import StandingBanner from "./standingBanner";
@@ -36,6 +40,8 @@ const SHOP_LINKS = [
     { href: MANUFACTURER_SHOP_URL, label: "Overview", exact: true },
     { href: MANUFACTURER_SHOP_PRODUCTS_URL, label: "Products" },
     { href: MANUFACTURER_SHOP_ORDERS_URL, label: "Orders" },
+    { href: MANUFACTURER_SHOP_RETURNS_URL, label: "Returns" },
+    { href: MANUFACTURER_SHOP_REVIEWS_URL, label: "Reviews" },
     { href: MANUFACTURER_SHOP_ZONES_URL, label: "Delivery zones" },
     { href: MANUFACTURER_SHOP_PAYOUTS_URL, label: "Payouts" },
 ];
@@ -49,20 +55,19 @@ function useMyShop() {
 }
 
 export function ManufacturerShopLayout({ children }: { children: ReactNode }) {
-    const router = useRouter();
     const { query, overview } = useMyShop();
     return (
         <div className="flex flex-col gap-6">
             <PageHeader
                 title="Shop"
-                description="Sell your furniture on MANDE Shop. Customers pay through Paystack, and the money from each sale goes straight to your bank."
+                description="Sell your furniture on MANDE Shop. Customers pay MANDE securely, and your share of each sale reaches your MANDE wallet 24 hours after delivery."
             />
             {query.isPending ? (
                 <Skeleton className="h-20 w-full rounded-xl" />
             ) : query.isError ? (
                 <LoadError>We couldn&apos;t load your shop. Please refresh the page.</LoadError>
             ) : (
-                overview && <StandingBanner overview={overview} onConnectPayout={() => router.push(MANUFACTURER_SHOP_PAYOUTS_URL)} />
+                overview && <StandingBanner overview={overview} />
             )}
             <ShopSubNav links={SHOP_LINKS} label="Shop pages" />
             {children}
@@ -100,6 +105,21 @@ export function ManufacturerShopOrdersPage() {
     return <OrdersPanel tableId="shop-orders" api={myShopService} queryKey={(filters) => queryKeys.shop.myOrders(filters)} />;
 }
 
+export function ManufacturerShopReviewsPage() {
+    return (
+        <ReviewsPanel
+            tableId="shop-reviews"
+            api={myShopService}
+            queryKey={(filters) => queryKeys.shop.myReviews(filters)}
+            onReport={(id, reason) => myShopService.reportReview(id, reason)}
+        />
+    );
+}
+
+export function ManufacturerShopReturnsPage() {
+    return <ReturnsPanel tableId="shop-returns" api={myShopService} queryKey={(filters) => queryKeys.shop.myReturns(filters)} />;
+}
+
 export function ManufacturerShopZonesPage() {
     const { query, overview, refresh, queryClient } = useMyShop();
     return (
@@ -114,13 +134,6 @@ export function ManufacturerShopZonesPage() {
 }
 
 export function ManufacturerShopPayoutsPage() {
-    const { query, overview, refresh } = useMyShop();
-    return (
-        <PayoutsTab
-            payout={overview?.seller.payout}
-            accessRevoked={overview?.seller.shopAccess.status === "revoked"}
-            isLoading={query.isPending}
-            onChanged={refresh}
-        />
-    );
+    const { query, overview } = useMyShop();
+    return <PayoutsTab payout={overview?.seller.payout} isLoading={query.isPending} />;
 }

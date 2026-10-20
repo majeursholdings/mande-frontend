@@ -1,7 +1,7 @@
 import { api } from "@/lib/api";
 import type { PricingPlan } from "@/constant/plans";
 import type { SuperAdminInviteRecord, SuperAdminRecord, TwoFactorMethod } from "@/constant/platformRecords";
-import type { ApiKey, PlatformSettings, ShopSettings, SuperAdminRole } from "@/constant/superAdmin";
+import type { ApiKey, PlatformSettings, ShopSettings, SuperAdminRole, WithdrawalFeeSettings } from "@/constant/superAdmin";
 import type { ApiKeyDraft } from "@/components/superAdminPlatform/form/apiKeyForm";
 import type { PlanChanges } from "@/components/superAdminPlatform/settingsContext";
 
@@ -150,6 +150,14 @@ export const superAdminService = {
   /** The shop's rules: all of them at once, with the reauth token (they set MANDE's charge on sales). */
   async updateShopSettings(settings: ShopSettings, reauthToken: string): Promise<PlatformSettings> {
     const { data } = await api.put<{ settings: PlatformSettings }>("/settings/platform/shop", settings, {
+      headers: { "X-Reauth-Token": reauthToken },
+    });
+    return data.settings;
+  },
+
+  /** The withdrawal fee and when it starts, with the reauth token (it moves money). Every manufacturer is told. */
+  async updateWithdrawalFee(fee: WithdrawalFeeSettings, reauthToken: string): Promise<PlatformSettings> {
+    const { data } = await api.put<{ settings: PlatformSettings }>("/settings/platform/withdrawal-fee", fee, {
       headers: { "X-Reauth-Token": reauthToken },
     });
     return data.settings;

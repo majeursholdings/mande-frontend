@@ -148,6 +148,7 @@ export default function WalletActions() {
                                 balance={balance}
                                 bankAccount={bankAccount}
                                 defaultAmount={withdrawalAmount}
+                                withdrawalFee={wallet.withdrawalFee}
                                 onContinue={(amount) => {
                                     setWithdrawalAmount(amount);
                                     setDialog("confirm-withdrawal");

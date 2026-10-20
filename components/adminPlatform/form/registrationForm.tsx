@@ -6,7 +6,7 @@ import { ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
-import { isPhoneNumber, validators } from "@/components/form/form.validators";
+import { NIGERIAN_PHONE_MESSAGE, isPhoneNumber, validators } from "@/components/form/form.validators";
 import { ADMIN_EMAIL_DOMAIN, ADMIN_POSITION_OPTIONS } from "@/constant/admin";
 import { authService } from "@/lib/services/authService";
 import { MandeApiError } from "@/lib/types/api";
@@ -90,7 +90,7 @@ export default function AdminRegistrationForm({
             validation: {
                 required: "Phone number is required",
                 validate: (value: string) =>
-                    isPhoneNumber(value) || "Enter a valid phone number, e.g. +234 801 234 5678",
+                    isPhoneNumber(value) || NIGERIAN_PHONE_MESSAGE,
             },
         },
         {

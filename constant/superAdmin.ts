@@ -188,6 +188,7 @@ export const SUPER_ADMIN_NOTIFICATION_TYPES: { value: AdminNotificationType; lab
         description: "An admin asks for a manufacturer's account to be closed",
     },
     { value: "machine-bookings", label: "Machine bookings", description: "When a machine booking is paid" },
+    { value: "product-reports", label: "Product reports", description: "A shop customer reports a product" },
 ];
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
@@ -222,7 +223,16 @@ export type PlatformSettings = {
     machineBooking?: import("@/lib/services/machineBookingService").MachineBookingSettings;
     /** The shop's rules (Settings › Shop). */
     shop?: ShopSettings;
+    /** What manufacturers pay to withdraw (Settings › Platform › Withdrawal fee). */
+    withdrawalFee?: WithdrawalFeeSettings;
 };
+
+/**
+ * The bank transfer fee on wallet withdrawals: the fee of the first tier a
+ * withdrawal fits ("up to" inclusive, the last tier null for no limit), from
+ * `startsAt` (null: not charged, MANDE pays it). Kobo.
+ */
+export type WithdrawalFeeSettings = { startsAt: string | null; tiers: { upToKobo: number | null; feeKobo: number }[] };
 
 /** The shop's rules: the selling switch, MANDE's charge on each sale, who pays Paystack's fee, and the day limits. */
 export type ShopSettings = {
@@ -230,8 +240,6 @@ export type ShopSettings = {
     manufacturerSellingEnabled: boolean;
     /** A whole percent of the item price (up to 50), or a flat amount in kobo per order, item line or unit. */
     platformCharge: { type: "percentage" | "flat"; value: number; flatBasis: "order" | "line" | "unit" };
-    /** "mande": MANDE's share pays Paystack's fee; "proportional": everyone in the payment pays their share of it. */
-    paystackFeeBearer: "mande" | "proportional";
     /** A shipped order counts as delivered after this many days, if the customer doesn't say so first. */
     deliveryConfirmDays: number;
     /** How long after delivery a customer can report a problem. */
@@ -240,6 +248,12 @@ export type ShopSettings = {
     reviewWindowDays: number;
     /** How long a seller has to pay back a refund before their products are paused. */
     debtGraceDays: number;
+    /** Returns: days after delivery to ask; days to send it back once approved; and the grace after that before an approved return lapses. */
+    returnWindowDays: number;
+    returnSendBackDays: number;
+    returnGraceDays: number;
+    /** A manufacturer's share goes to their wallet this many hours after delivery. */
+    payoutDelayHours: number;
     /** Flags a seller to staff when their rating falls below this, once they have this many reviews. */
     lowRatingAlert: { belowRating: number; minReviews: number };
 };

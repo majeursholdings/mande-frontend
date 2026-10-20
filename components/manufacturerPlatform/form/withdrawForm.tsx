@@ -1,11 +1,12 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { Info, Landmark } from "lucide-react";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
 import { formatBalance, formatPrice } from "@/lib/currency";
+import { withdrawalFeeFor, type WithdrawalFee } from "@/components/manufacturerPlatform/dashboardLayout/manufacturerWalletContext";
 import type { ManufacturerBankAccount } from "@/constant/manufacturer";
 import {
     WalletTile,
@@ -26,19 +27,23 @@ type WithdrawFormValues = {
 // ─────────────────────────────────────────────────────────────────────────────
 // WithdrawForm — step one of a withdrawal: how much, to which account.
 // Submitting doesn't move any money; it hands the amount on to the password
-// confirmation step (ConfirmWithdrawalForm).
+// confirmation step (ConfirmWithdrawalForm). Once the transfer fee has
+// started (SHOP_IMPLEMENTATION.md 3.5), it shows the fee and what reaches
+// the bank, before they confirm.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function WithdrawForm({
     balance,
     bankAccount,
     defaultAmount,
+    withdrawalFee,
     onContinue,
 }: {
     balance: number;
     bankAccount: ManufacturerBankAccount;
     /** Refills the amount when coming back from the confirmation step. */
     defaultAmount?: number | null;
+    withdrawalFee?: WithdrawalFee | null;
     onContinue: (amount: number) => void;
 }) {
     // Validates as you type, so "Insufficient balance" shows straight away
@@ -47,6 +52,9 @@ export default function WithdrawForm({
         defaultValues: { amount: defaultAmount ? String(defaultAmount) : "" },
     });
     const { isValid } = methods.formState;
+    const amount = Number(useWatch({ control: methods.control, name: "amount" }) || 0);
+    const feeKobo = withdrawalFeeFor(Math.round(amount * 100), withdrawalFee);
+    const feeStarts = withdrawalFee?.startsAt && new Date(withdrawalFee.startsAt) > new Date() ? new Date(withdrawalFee.startsAt) : null;
 
     const fields: FormFieldConfig[] = [
         {
@@ -67,6 +75,9 @@ export default function WithdrawForm({
                         `The largest single withdrawal is ${formatPrice(MAX_WITHDRAWAL)}`,
                     withinBalance: (value: string) =>
                         Number(value) <= balance || "Insufficient balance",
+                    moreThanFee: (value: string) =>
+                        Number(value) * 100 > withdrawalFeeFor(Number(value) * 100, withdrawalFee) ||
+                        "Withdraw more than the transfer fee",
                 },
             },
         },
@@ -111,10 +122,34 @@ export default function WithdrawForm({
                                 Transfers may take a few minutes and vary by bank
                             </p>
                         </div>
-                        <Notice>
-                            MANDE doesn&apos;t charge a fee to withdraw. We cover our payment
-                            partner&apos;s transfer fee.
-                        </Notice>
+                        {feeKobo > 0 && amount > 0 ? (
+                            <dl className="flex flex-col gap-1.5 rounded-xl bg-mist-50 px-4 py-3 text-sm font-text">
+                                <div className="flex justify-between">
+                                    <dt className="text-mist-600">You withdraw</dt>
+                                    <dd className="text-mist-950">{formatPrice(amount)}</dd>
+                                </div>
+                                <div className="flex justify-between">
+                                    <dt className="text-mist-600">Bank transfer fee</dt>
+                                    <dd className="text-mist-950">-{formatPrice(feeKobo / 100)}</dd>
+                                </div>
+                                <div className="flex justify-between border-t border-border pt-1.5 font-medium">
+                                    <dt className="text-mist-950">Reaches your bank</dt>
+                                    <dd className="text-mist-950">{formatPrice(amount - feeKobo / 100)}</dd>
+                                </div>
+                            </dl>
+                        ) : feeStarts ? (
+                            <Notice>
+                                From {feeStarts.toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" })}, our payment
+                                partner&apos;s transfer fee is taken from each withdrawal. It&apos;s free until then.
+                            </Notice>
+                        ) : feeKobo === 0 && !withdrawalFee?.startsAt ? (
+                            <Notice>
+                                MANDE doesn&apos;t charge a fee to withdraw. We cover our payment
+                                partner&apos;s transfer fee.
+                            </Notice>
+                        ) : (
+                            <Notice>Our payment partner&apos;s transfer fee is taken from the amount you withdraw. You&apos;ll see it here.</Notice>
+                        )}
                     </div>
                 }
                 renderFooter={({ isLoading, canSubmit }) => (

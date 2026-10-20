@@ -41,7 +41,7 @@ const COLUMNS: ColumnDef<ShopSellerRow>[] = [
             <StatusBadge label={seller.shopAccess.status === "allowed" ? "Allowed" : "Revoked"} tone={seller.shopAccess.status === "allowed" ? "green" : "red"} variant="pill" />
         ),
     },
-    { key: "payout", header: "Payout account", cell: (seller) => (seller.payoutConnected ? "Connected" : <span className="text-mist-400">Not yet</span>) },
+    { key: "payout", header: "Wallet bank account", cell: (seller) => (seller.payoutConnected ? "Added" : <span className="text-mist-400">Not yet</span>) },
     { key: "products", header: "Products", cell: (seller) => <span className="whitespace-nowrap">{seller.products.listed} listed of {seller.products.total}</span> },
     {
         key: "rating",
@@ -157,7 +157,7 @@ export default function SellersTab() {
                                 <p className="text-xs font-text text-mist-500">
                                     {detail.standing.productCount} products
                                     {detail.standing.maxProducts !== null ? ` of ${detail.standing.maxProducts} on their plan` : ""}.
-                                    {detail.seller.payout ? ` Paid to ${detail.seller.payout.bankName} ending ${detail.seller.payout.accountNumberLast4}.` : " No payout account yet."}
+                                    {detail.seller.payout ? ` Withdraws to ${detail.seller.payout.bankName} ending ${detail.seller.payout.accountNumberLast4}.` : " No bank account on their wallet yet."}
                                 </p>
                             </section>
 

@@ -196,6 +196,44 @@ export const ORDER_PART_STATUS_FILTER_ITEMS = (Object.keys(ORDER_PART_STATUS_LAB
     label: ORDER_PART_STATUS_LABELS[status],
 }));
 
+// ─── Returns (mirrors RETURN_STATUSES and RETURN_REASONS in mande-backend/src/constants/shop.ts) ───
+
+export type ReturnStatus = "requested" | "approved" | "sent" | "refunded" | "rejected" | "cancelled" | "lapsed";
+export type ReturnReason = "changed_mind" | "faulty" | "damaged" | "wrong_item" | "not_as_described";
+
+export const RETURN_STATUS_LABELS: Record<ReturnStatus, string> = {
+    requested: "Waiting for you",
+    approved: "Approved",
+    sent: "On its way back",
+    refunded: "Refunded",
+    rejected: "Not accepted",
+    cancelled: "Withdrawn",
+    lapsed: "Lapsed",
+};
+
+export const RETURN_STATUS_TONES: Record<ReturnStatus, StatusTone> = {
+    requested: "amber",
+    approved: "blue",
+    sent: "indigo",
+    refunded: "green",
+    rejected: "red",
+    cancelled: "gray",
+    lapsed: "gray",
+};
+
+export const RETURN_STATUS_FILTER_ITEMS = [
+    { value: "open", label: "Open" },
+    ...(Object.keys(RETURN_STATUS_LABELS) as ReturnStatus[]).map((status) => ({ value: status, label: RETURN_STATUS_LABELS[status] })),
+];
+
+export const RETURN_REASON_LABELS: Record<ReturnReason, string> = {
+    changed_mind: "Changed their mind",
+    faulty: "Faulty",
+    damaged: "Arrived damaged",
+    wrong_item: "Wrong item sent",
+    not_as_described: "Not as described",
+};
+
 /** Why a manufacturer can't sell right now (the API's standing.blockers). */
 export type SellingBlocker =
     | "not_verified"
@@ -213,5 +251,5 @@ export const SELLING_BLOCKER_MESSAGES: Record<SellingBlocker, string> = {
     plan_cannot_sell: "Your plan doesn't include selling on the shop.",
     selling_off: "Selling on the shop is paused for everyone for now.",
     access_revoked: "Your shop access is paused.",
-    no_payout_account: "Connect the bank account your sales are paid to, so you can list products.",
+    no_payout_account: "Add a bank account to your wallet, so you can list products: your sales go to your wallet and you withdraw them there.",
 };

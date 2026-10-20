@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
-import { isPhoneNumber, validators } from "@/components/form/form.validators";
+import { NIGERIAN_PHONE_MESSAGE, isPhoneNumber, validators } from "@/components/form/form.validators";
 import { manufacturerService } from "@/lib/services/manufacturerService";
 import { mapApiProfileToManufacturerProfile } from "@/lib/mappers/profileMappers";
 import { getErrorMessage } from "@/lib/api";
@@ -66,7 +66,7 @@ const FIELDS: FormFieldConfig[] = [
         validation: {
             required: "Phone number is required",
             validate: (value: string) =>
-                isPhoneNumber(value) || "Enter a valid phone number, e.g. +234 801 234 5678",
+                isPhoneNumber(value) || NIGERIAN_PHONE_MESSAGE,
         },
     },
     {

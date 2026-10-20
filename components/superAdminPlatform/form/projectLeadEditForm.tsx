@@ -5,7 +5,7 @@ import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
-import { isPhoneNumber } from "@/components/form/form.validators";
+import { NIGERIAN_PHONE_MESSAGE, isPhoneNumber } from "@/components/form/form.validators";
 import { Button } from "@/components/ui/button";
 import { FormSubmitButton } from "@/components/adminPlatform/form/formButtons";
 import { ADMIN_POSITION_OPTIONS } from "@/constant/admin";
@@ -67,7 +67,7 @@ export default function ProjectLeadEditForm({
                     // A lead who never gave a number can be left without one
                     if (!phone) return !current.phone || "Phone number is required";
                     if (phone.length > PHONE_MAX_LENGTH) return `Keep it under ${PHONE_MAX_LENGTH} characters`;
-                    return isPhoneNumber(phone) || "Enter a valid phone number, e.g. +234 801 234 5678";
+                    return isPhoneNumber(phone) || NIGERIAN_PHONE_MESSAGE;
                 },
             },
         },

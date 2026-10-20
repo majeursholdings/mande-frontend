@@ -54,7 +54,9 @@ const ICONS: Record<SuperAdminAction["kind"], { icon: LucideIcon; className: str
     payments: { icon: CreditCard, className: "bg-error-50 text-error-600", label: "Payments" },
 };
 
-const topicLabel = (topic: string) => CONTACT_TOPIC_OPTIONS.find((option) => option.value === topic)?.label ?? "Something else";
+/** A message's topic: the website form's options, or "shop" for a shop customer's message from their account. */
+const topicLabel = (topic: string) =>
+    topic === "shop" ? "A MANDE Shop customer" : (CONTACT_TOPIC_OPTIONS.find((option) => option.value === topic)?.label ?? "Something else");
 
 const providerLabel = (provider: string | null) => API_PROVIDERS.find((option) => option.value === provider)?.label ?? "A platform";
 

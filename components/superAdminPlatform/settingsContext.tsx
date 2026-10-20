@@ -11,7 +11,7 @@ import {
     type SuperAdminInviteRecord,
     type SuperAdminRecord,
 } from "@/constant/platformRecords";
-import { type ApiKey, type PlatformSettings, type ShopSettings, type SuperAdminRole } from "@/constant/superAdmin";
+import { type ApiKey, type PlatformSettings, type ShopSettings, type WithdrawalFeeSettings, type SuperAdminRole } from "@/constant/superAdmin";
 import type { ApiKeyDraft } from "./form/apiKeyForm";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -48,6 +48,8 @@ type SuperAdminSettingsValue = {
     updateMachineBookingSettings: (settings: UpdateMachineBookingSettingsPayload) => Promise<void>;
     /** The shop's rules, all at once (they need the reauth token). */
     updateShopSettings: (settings: ShopSettings, reauthToken: string) => Promise<void>;
+    /** The withdrawal fee and when it starts (needs the reauth token). */
+    updateWithdrawalFee: (fee: WithdrawalFeeSettings, reauthToken: string) => Promise<void>;
 
     apiKeys: ApiKey[];
     /**
@@ -187,6 +189,10 @@ export function SuperAdminSettingsProvider({ children }: { children: ReactNode }
 
             updateShopSettings: async (settings, reauthToken) => {
                 await superAdminService.updateShopSettings(settings, reauthToken);
+                await queryClient.invalidateQueries({ queryKey: queryKeys.settings.platform() });
+            },
+            updateWithdrawalFee: async (fee, reauthToken) => {
+                await superAdminService.updateWithdrawalFee(fee, reauthToken);
                 await queryClient.invalidateQueries({ queryKey: queryKeys.settings.platform() });
             },
 

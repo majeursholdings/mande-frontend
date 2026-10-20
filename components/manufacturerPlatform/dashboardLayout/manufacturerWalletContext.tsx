@@ -35,6 +35,21 @@ interface ApiWalletData {
         currency: string;
     } | null;
     pendingWithdrawal?: { amountKobo: number; reference: string; createdAt: string } | null;
+    withdrawalFee?: WithdrawalFee;
+}
+
+/**
+ * The transfer fee on a withdrawal (SHOP_IMPLEMENTATION.md 3.5): the fee of
+ * the first tier the amount fits ("up to" inclusive, null for no limit), from
+ * `startsAt` (null: not charged). Kobo. Mirrors withdrawalFeeFor in
+ * mande-backend's constants/payments.ts.
+ */
+export type WithdrawalFee = { startsAt: string | null; tiers: { upToKobo: number | null; feeKobo: number }[] };
+
+/** The fee on withdrawing `amountKobo` now. */
+export function withdrawalFeeFor(amountKobo: number, fee: WithdrawalFee | null | undefined, now = new Date()): number {
+    if (!fee?.startsAt || new Date(fee.startsAt) > now) return 0;
+    return fee.tiers.find((tier) => tier.upToKobo === null || amountKobo <= tier.upToKobo)?.feeKobo ?? 0;
 }
 
 /** A wallet transaction, with which way the money went and how a withdrawal stands. */
@@ -53,12 +68,13 @@ export type ManufacturerWalletWithLedger = ManufacturerWallet & {
     /** Money owed (rejection charges the balance didn't cover), in naira. */
     owed: number;
     pendingWithdrawal: PendingWithdrawal | null;
+    withdrawalFee: WithdrawalFee | null;
 };
 
 /** The ledger's types, as the app's transaction types. A reversal puts money back, like a payment. */
 function toTransactionType(type: string): ManufacturerTransaction["type"] {
     if (type === "withdrawal" || type === "subscription") return type;
-    if (type === "rejection_charge") return "charge";
+    if (type === "rejection_charge" || type === "shop_refund" || type === "withdrawal_fee") return "charge";
     return "payment";
 }
 
@@ -158,6 +174,7 @@ export function ManufacturerWalletProvider({ children }: { children: ReactNode }
             pendingWithdrawal: pending
                 ? { amount: pending.amountKobo / 100, reference: pending.reference, createdAt: pending.createdAt }
                 : null,
+            withdrawalFee: serverWallet?.withdrawalFee ?? null,
         };
     }, [serverWallet, serverTransactions]);
 

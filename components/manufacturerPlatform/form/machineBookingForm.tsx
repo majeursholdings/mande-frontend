@@ -10,7 +10,7 @@ import { BadgePercent, LogIn } from "lucide-react";
 import MainForm from "@/components/form";
 import type { FormFieldConfig, SelectOption } from "@/components/form/types";
 import { clearFormUploadedFiles } from "@/components/form/fileInput";
-import { isPhoneNumber, validators } from "@/components/form/form.validators";
+import { NIGERIAN_PHONE_MESSAGE, isPhoneNumber, validators } from "@/components/form/form.validators";
 import type { CloudinaryUploadResult } from "@/lib/services/cloudinaryService";
 import {
     MACHINE_BOOKING_RETURN_PATH,
@@ -315,7 +315,7 @@ export default function MachineBookingForm({
                 autoComplete: "tel",
                 validation: {
                     required: "Phone number is required",
-                    validate: (value: string) => isPhoneNumber(value) || "Enter a valid phone number",
+                    validate: (value: string) => isPhoneNumber(value) || NIGERIAN_PHONE_MESSAGE,
                 },
             },
             {

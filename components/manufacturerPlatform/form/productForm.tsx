@@ -42,6 +42,8 @@ type ProductValues = {
     availability: "stock" | "made-to-order";
     stock: string;
     leadTimeDays: string;
+    /** Taken back for a change of mind (stocked products only; made to order never is). */
+    returnable: boolean;
     pickup: boolean;
     pickupAddress: string;
     // Per delivery zone: feeOn_<id>, fee_<id>, extra_<id>, eta_<id>
@@ -62,6 +64,7 @@ function toValues(product: SellerProduct | undefined, zones: DeliveryZone[], def
         availability: product && product.stock === null ? "made-to-order" : "stock",
         stock: product?.stock != null ? String(product.stock) : "",
         leadTimeDays: product?.leadTimeDays != null ? String(product.leadTimeDays) : "",
+        returnable: product?.returnable ?? true,
         pickup: product?.delivery.pickup.available ?? false,
         // The seller's own address until they say otherwise
         pickupAddress: product?.delivery.pickup.address || defaultPickupAddress,
@@ -87,6 +90,7 @@ function toPayload(values: ProductValues, zones: DeliveryZone[]): ProductPayload
         priceKobo: koboOf(values.price),
         stock: madeToOrder ? null : Number(values.stock),
         leadTimeDays: madeToOrder ? Number(values.leadTimeDays) : null,
+        returnable: values.returnable,
         delivery: {
             fees: zones
                 .filter((zone) => values[`feeOn_${zone.id}`] === true)
@@ -221,6 +225,20 @@ function DeliverySection({ zones, onManageZones, hasDefaultPickup }: { zones: De
                           description: "It shows as sold out at 0.",
                           validation: { validate: wholeNumber(0, SHOP_LIMITS.maxStock, "a number") },
                       })}
+                {availability === "made-to-order" ? (
+                    <p className={HINT_CLASS}>Made-to-order products are only returned if there&apos;s a problem with them (faulty, damaged, wrong or not as described).</p>
+                ) : (
+                    field({
+                        name: "returnable",
+                        type: "checkbox",
+                        label: (
+                            <span className="flex flex-col">
+                                <span className="font-medium text-mist-950">Take it back if the customer changes their mind</span>
+                                <span className={HINT_CLASS}>Within 7 days of delivery, unused, refunded as store credit. Problems are always returnable.</span>
+                            </span>
+                        ),
+                    })
+                )}
             </div>
 
             <div className="flex flex-col gap-3">

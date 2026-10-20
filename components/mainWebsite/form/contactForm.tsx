@@ -7,7 +7,7 @@ import { Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
-import { isPhoneNumber, validators } from "@/components/form/form.validators";
+import { isInternationalPhoneNumber, validators } from "@/components/form/form.validators";
 import { cn } from "@/lib/utils";
 import { contactService } from "@/lib/services/contactService";
 import { trackEvent } from "@/lib/analytics";
@@ -84,7 +84,7 @@ const FIELDS: FormFieldConfig[] = [
         autoComplete: "tel",
         validation: {
             validate: (value: string) =>
-                !value.trim() || isPhoneNumber(value) || "Enter a valid phone number, e.g. +234 801 234 5678",
+                !value.trim() || isInternationalPhoneNumber(value) || "Enter a valid phone number, e.g. +234 801 234 5678",
         },
     },
     {

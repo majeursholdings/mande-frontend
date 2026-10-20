@@ -21,11 +21,14 @@ type ShopSettingsValues = {
     /** Naira, digits only (the amount field), when the charge is flat. */
     chargeAmount: string;
     flatBasis: "order" | "line" | "unit";
-    feeBearer: "mande" | "proportional";
     deliveryConfirmDays: string;
     problemReportDays: string;
     reviewWindowDays: string;
     debtGraceDays: string;
+    returnWindowDays: string;
+    returnSendBackDays: string;
+    returnGraceDays: string;
+    payoutDelayHours: string;
     lowRatingBelow: string;
     lowRatingMinReviews: string;
 };
@@ -44,11 +47,14 @@ function toValues(settings: ShopSettings): ShopSettingsValues {
         chargePercent: flat ? "" : String(settings.platformCharge.value),
         chargeAmount: flat ? String(Math.round(settings.platformCharge.value / 100)) : "",
         flatBasis: settings.platformCharge.flatBasis,
-        feeBearer: settings.paystackFeeBearer,
         deliveryConfirmDays: String(settings.deliveryConfirmDays),
         problemReportDays: String(settings.problemReportDays),
         reviewWindowDays: String(settings.reviewWindowDays),
         debtGraceDays: String(settings.debtGraceDays),
+        returnWindowDays: String(settings.returnWindowDays ?? 7),
+        returnSendBackDays: String(settings.returnSendBackDays ?? 7),
+        returnGraceDays: String(settings.returnGraceDays ?? 7),
+        payoutDelayHours: String(settings.payoutDelayHours ?? 24),
         lowRatingBelow: String(settings.lowRatingAlert.belowRating),
         lowRatingMinReviews: String(settings.lowRatingAlert.minReviews),
     };
@@ -63,11 +69,14 @@ function toSettings(values: ShopSettingsValues): ShopSettings {
             value: flat ? Math.round(Number(values.chargeAmount) * 100) : Number(values.chargePercent),
             flatBasis: values.flatBasis,
         },
-        paystackFeeBearer: values.feeBearer,
         deliveryConfirmDays: Number(values.deliveryConfirmDays),
         problemReportDays: Number(values.problemReportDays),
         reviewWindowDays: Number(values.reviewWindowDays),
         debtGraceDays: Number(values.debtGraceDays),
+        returnWindowDays: Number(values.returnWindowDays),
+        returnSendBackDays: Number(values.returnSendBackDays),
+        returnGraceDays: Number(values.returnGraceDays),
+        payoutDelayHours: Number(values.payoutDelayHours),
         lowRatingAlert: { belowRating: Number(values.lowRatingBelow), minReviews: Number(values.lowRatingMinReviews) },
     };
 }
@@ -113,6 +122,34 @@ const DAY_FIELDS: FormFieldConfig[] = [
         validation: { required: "Enter a number of days", validate: wholeNumber(1, 90) },
     },
     {
+        name: "returnWindowDays",
+        type: "number",
+        label: "Returns (days)",
+        description: "How long after delivery a customer can ask to return something. The returns policy says 7.",
+        validation: { required: "Enter a number of days", validate: wholeNumber(1, 60) },
+    },
+    {
+        name: "returnSendBackDays",
+        type: "number",
+        label: "Send it back within (days)",
+        description: "Once a return is approved, how long the customer has to send it.",
+        validation: { required: "Enter a number of days", validate: wholeNumber(1, 60) },
+    },
+    {
+        name: "returnGraceDays",
+        type: "number",
+        label: "Grace before a return lapses (days)",
+        description: "Extra days after that before an approved return that wasn't sent closes.",
+        validation: { required: "Enter a number of days", validate: wholeNumber(0, 60) },
+    },
+    {
+        name: "payoutDelayHours",
+        type: "number",
+        label: "Seller's share paid after (hours)",
+        description: "How long after delivery a manufacturer's share goes to their wallet.",
+        validation: { required: "Enter a number of hours", validate: wholeNumber(1, 720) },
+    },
+    {
         name: "lowRatingBelow",
         type: "number",
         label: "Low rating: below",
@@ -136,6 +173,8 @@ const DAY_FIELDS: FormFieldConfig[] = [
 const ROW_PAIRS: [string, string][] = [
     ["deliveryConfirmDays", "problemReportDays"],
     ["reviewWindowDays", "debtGraceDays"],
+    ["returnWindowDays", "returnSendBackDays"],
+    ["returnGraceDays", "payoutDelayHours"],
     ["lowRatingBelow", "lowRatingMinReviews"],
 ];
 
@@ -205,15 +244,6 @@ export default function ShopSettingsForm({
                       validation: { required: "Enter a percent", validate: wholeNumber(0, 50) },
                   },
               ] satisfies FormFieldConfig[])),
-        {
-            name: "feeBearer",
-            type: "radio",
-            label: "Who pays Paystack's fee",
-            options: [
-                { value: "mande", label: "MANDE, from its charge" },
-                { value: "proportional", label: "Everyone in the payment, in proportion to their share" },
-            ],
-        },
         ...DAY_FIELDS,
     ];
 
@@ -284,7 +314,7 @@ function ChargeExample({ control }: { control: Control<ShopSettingsValues> }) {
             For example, on {EXAMPLE.units} units at {formatPrice(EXAMPLE.unitPrice)} (one line, {formatPrice(subtotal)}), MANDE keeps{" "}
             <span className="font-medium text-mist-950">{formatPrice(charge)}</span> and the seller gets{" "}
             <span className="font-medium text-mist-950">{formatPrice(subtotal - charge)}</span>, plus delivery
-            {values.feeBearer === "mande" ? ". Paystack's fee comes out of MANDE's part." : ", each less their part of Paystack's fee."}
+            {", in their wallet a day after delivery. Paystack's fee on the payment is MANDE's."}
         </p>
     );
 }

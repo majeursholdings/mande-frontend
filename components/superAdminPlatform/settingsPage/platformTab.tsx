@@ -8,6 +8,7 @@ import JobPaymentsForm, { JobPaymentsFormSkeleton } from "../form/jobPaymentsFor
 import JobRulesForm, { JobRulesFormSkeleton } from "../form/jobRulesForm";
 import PointAllocationForm, { PointAllocationFormSkeleton } from "../form/pointAllocationForm";
 import MachineBookingSettingsForm, { MachineBookingSettingsFormSkeleton } from "../form/machineBookingSettingsForm";
+import WithdrawalFeeForm, { WithdrawalFeeFormSkeleton } from "../form/withdrawalFeeForm";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoadError } from "@/components/adminPlatform/emptyState";
 import { useSuperAdminSettings } from "../settingsContext";
@@ -23,6 +24,7 @@ import { useSuperAdminSettings } from "../settingsContext";
 export const PLATFORM_SECTIONS = [
     { value: "job-payments", label: "Job payments" },
     { value: "job-rules", label: "Job rules" },
+    { value: "withdrawal-fee", label: "Withdrawal fee" },
     { value: "points", label: "Point allocations" },
     { value: "machine-booking", label: "Machine booking" },
     { value: "sign-ups", label: "Manufacturer sign-ups" },
@@ -31,7 +33,7 @@ export const PLATFORM_SECTIONS = [
 export type PlatformSection = (typeof PLATFORM_SECTIONS)[number]["value"];
 
 export default function PlatformTab({ section }: { section: PlatformSection }) {
-    const { platformSettings, updatePlatformSettings, updateMachineBookingSettings, sectionStatus } = useSuperAdminSettings();
+    const { platformSettings, updatePlatformSettings, updateMachineBookingSettings, updateWithdrawalFee, sectionStatus } = useSuperAdminSettings();
     const { isLoading } = sectionStatus.platformSettings;
 
     if (!platformSettings && !isLoading) {
@@ -61,6 +63,16 @@ export default function PlatformTab({ section }: { section: PlatformSection }) {
                     ) : (
                         <JobRulesFormSkeleton />
                     )}
+                </SettingsSection>
+            </div>
+
+            <div hidden={section !== "withdrawal-fee"}>
+                <SettingsSection
+                    headingLevel="h3"
+                    title="Withdrawal fee"
+                    description="The bank transfer fee manufacturers pay on each wallet withdrawal, job and shop money alike. It's taken from the amount they withdraw, and shown before they confirm."
+                >
+                    {platformSettings ? <WithdrawalFeeForm fee={platformSettings.withdrawalFee} onSave={updateWithdrawalFee} /> : <WithdrawalFeeFormSkeleton />}
                 </SettingsSection>
             </div>
 

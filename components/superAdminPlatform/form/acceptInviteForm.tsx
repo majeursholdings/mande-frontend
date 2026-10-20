@@ -6,7 +6,7 @@ import { ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import MainForm from "@/components/form";
 import type { FormFieldConfig } from "@/components/form/types";
-import { isPhoneNumber, validators } from "@/components/form/form.validators";
+import { NIGERIAN_PHONE_MESSAGE, isPhoneNumber, validators } from "@/components/form/form.validators";
 import { FormSubmitButton } from "@/components/adminPlatform/form/formButtons";
 import { AUTH_FORM_FIELD_GAP } from "@/components/adminPlatform/form/styles";
 import { authService, type PublicUser } from "@/lib/services/authService";
@@ -50,7 +50,7 @@ export default function AcceptInviteForm({
             autoComplete: "tel",
             validation: {
                 required: "Phone number is required",
-                validate: (value: string) => isPhoneNumber(value) || "Enter a valid phone number, e.g. +234 801 234 5678",
+                validate: (value: string) => isPhoneNumber(value) || NIGERIAN_PHONE_MESSAGE,
             },
         },
         {

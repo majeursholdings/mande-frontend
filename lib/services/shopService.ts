@@ -1,5 +1,5 @@
 import { api } from "@/lib/api";
-import type { NigerianState, OrderPartStatus, ProductStatus, SellingBlocker } from "@/constant/shop";
+import type { NigerianState, OrderPartStatus, ProductStatus, ReturnReason, ReturnStatus, SellingBlocker } from "@/constant/shop";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The shop, as manufacturers and staff run it from this app (the customers'
@@ -13,13 +13,40 @@ export type ShopPageInfo = { page: number; limit: number; total: number; totalPa
 
 export type DeliveryZone = { id: string; name: string; states: NigerianState[] };
 
+/** Where a manufacturer's shop money is withdrawn to: the bank account on their wallet. */
 export type PayoutAccount = {
     bankName: string;
     accountNumberLast4: string;
     /** The bank's name for the account. */
     accountName: string;
-    mode: "test" | "live";
-    connectedAt: string;
+};
+
+/** A seller's share of one order (SHOP_IMPLEMENTATION.md 3.3): held until a day after delivery, then released to their wallet. */
+export type PayoutStatus = "held" | "released" | "reversed";
+
+export type SellerPayout = {
+    orderId: string;
+    orderCode: string;
+    paidAt: string | null;
+    partStatus: OrderPartStatus;
+    deliveredAt: string | null;
+    itemsSubtotalKobo: number;
+    deliveryFeeKobo: number;
+    platformChargeKobo: number;
+    sellerShareKobo: number;
+    status: PayoutStatus;
+    /** When it goes to their wallet (set once it's delivered). */
+    releaseAt: string | null;
+    releasedAt: string | null;
+    releasedKobo: number;
+    /** Their part of refunds: taken off before release, or back from the wallet after. */
+    refundedKobo: number;
+    clawedBackKobo: number;
+};
+
+export type SellerPayoutsPage = ShopPageInfo & {
+    totals: { heldKobo: number; releasedKobo: number; clawedBackKobo: number };
+    payouts: SellerPayout[];
 };
 
 export type ShopSeller = {
@@ -66,6 +93,8 @@ export type SellerProduct = {
     /** Null when it's made to order. */
     stock: number | null;
     leadTimeDays: number | null;
+    /** Taken back for a change of mind. */
+    returnable: boolean;
     delivery: ProductDelivery;
     status: ProductStatus;
     /** Why MANDE took it down, when it's removed. */
@@ -85,6 +114,7 @@ export type ProductPayload = {
     priceKobo: number;
     stock: number | null;
     leadTimeDays: number | null;
+    returnable: boolean;
     delivery: ProductDelivery;
 };
 
@@ -101,6 +131,8 @@ export type ShopOrderPart = {
     code: string;
     paidAt: string | null;
     customer: { name: string; phone: string; street: string; city: string; state: string };
+    /** What the customer wrote at checkout for the sellers (delivery directions, a gate code...). */
+    note: string | null;
     lines: { id: string; productId: string; title: string; imageUrl: string | null; unitPriceKobo: number; quantity: number; deliveryFeeKobo: number; pickup: boolean }[];
     itemsSubtotalKobo: number;
     deliveryFeeKobo: number;
@@ -108,10 +140,15 @@ export type ShopOrderPart = {
     /** What the seller is paid: items and delivery, less MANDE's charge. */
     sellerShareKobo: number;
     status: OrderPartStatus;
+    /** What the seller can do next (the API's rules): the order's buttons. */
+    nextMoves: OrderPartMove[];
     trackingNote: string | null;
     shippedAt: string | null;
     deliveredAt: string | null;
 };
+
+/** Where a seller can move their part of an order. */
+export type OrderPartMove = "processing" | "shipped" | "delivered" | "cancelled";
 
 /** Every row matching a table's filters, for saving as a file (up to 5,000: `truncated` when there were more). */
 export type ExportBatch = { total: number; truncated: boolean };
@@ -141,9 +178,92 @@ export type SellerSummary = {
     attention: { id: string; title: string; status: ProductStatus; reason: string }[];
 };
 
+/** A review as sellers and staff see it (GET .../reviews). The reviewer shows by first name and last initial. */
+export type ShopReviewRow = {
+    id: string;
+    kind: "product" | "seller";
+    rating: number;
+    body: string;
+    images: { url: string }[];
+    author: string;
+    product: { slug: string; title: string } | null;
+    seller: { slug: string; name: string } | null;
+    orderCode: string | null;
+    status: "published" | "hidden";
+    hiddenReason: string | null;
+    reply: { body: string; at: string } | null;
+    sellerReport: { reason: string; at: string; status: "open" | "closed" } | null;
+    createdAt: string;
+    editedAt: string | null;
+};
+
+/** A customer's return as sellers and staff see it (GET .../returns). */
+export type ShopReturnRow = {
+    id: string;
+    code: string;
+    orderCode: string;
+    status: ReturnStatus;
+    reason: ReturnReason;
+    details: string;
+    /** Private photos, through short-lived signed links. */
+    photos: { url: string }[];
+    refundMethod: "credit" | "card";
+    /** What it refunds: the items, plus their delivery for a problem. */
+    amountKobo: number;
+    lines: { lineId: string; title: string; image: { url: string; alt?: string } | null; unitPriceKobo: number; quantity: number; deliveryRefundKobo: number }[];
+    instructions: string | null;
+    rejectReason: string | null;
+    sentNote: string | null;
+    sendBackBy: string | null;
+    createdAt: string;
+    approvedAt: string | null;
+    sentAt: string | null;
+    refundedAt: string | null;
+    history: { status: ReturnStatus; at: string; byName: string }[];
+    seller: { slug: string; name: string; kind: "manufacturer" | "mande" };
+    customer: { name: string; phone: string };
+    canApprove: boolean;
+    canReject: boolean;
+    canRefund: boolean;
+};
+
+export type ReturnsQuery = { page?: number; limit?: number; status?: ReturnStatus | "open" };
+
+/** Looking after returns: a seller's own at /my-shop, MANDE stock's at /shop-admin/mande, or (super admins) every one at /shop-admin. */
+function returnsApi(base: string) {
+    return {
+        /** `waiting` counts those needing the seller (requested, or sent back). */
+        async listReturns(query: ReturnsQuery = {}): Promise<ShopPageInfo & { returns: ShopReturnRow[]; waiting: number }> {
+            const { data } = await api.get<ShopPageInfo & { returns: ShopReturnRow[]; waiting: number }>(`${base}/returns`, { params: query });
+            return data;
+        },
+        /** Yes, with where and how to send it back. */
+        async approveReturn(code: string, instructions: string): Promise<ShopReturnRow> {
+            const { data } = await api.post<{ return: ShopReturnRow }>(`${base}/returns/${encodeURIComponent(code)}/approve`, { instructions });
+            return data.return;
+        },
+        /** No, with why (before it's sent, or once it's back and not as agreed). */
+        async rejectReturn(code: string, reason: string): Promise<ShopReturnRow> {
+            const { data } = await api.post<{ return: ShopReturnRow }>(`${base}/returns/${encodeURIComponent(code)}/reject`, { reason });
+            return data.return;
+        },
+        /** It's back and as agreed: refunds the customer, and puts it back in stock when `restock`. */
+        async refundReturn(code: string, restock: boolean): Promise<ShopReturnRow> {
+            const { data } = await api.post<{ return: ShopReturnRow }>(`${base}/returns/${encodeURIComponent(code)}/refund`, { restock });
+            return data.return;
+        },
+    };
+}
+
+export type ReturnsApi = ReturnType<typeof returnsApi>;
+
+/** Every return on the shop, for super admins to step in on. */
+export const allReturnsService = returnsApi("/shop-admin");
+
 /** The calls a seller makes on their own store: a manufacturer at /my-shop, staff for MANDE stock at /shop-admin/mande. */
 function sellerShopApi(base: string, productsBase = `${base}/products`) {
     return {
+        ...returnsApi(base),
         async getOverview(): Promise<SellerOverview> {
             const { data } = await api.get<SellerOverview>(base);
             return data;
@@ -157,6 +277,24 @@ function sellerShopApi(base: string, productsBase = `${base}/products`) {
         async listOrders(query: { page?: number; limit?: number; status?: OrderPartStatus } = {}): Promise<ShopPageInfo & { orders: ShopOrderPart[] }> {
             const { data } = await api.get<ShopPageInfo & { orders: ShopOrderPart[] }>(`${base}/orders`, { params: query });
             return data;
+        },
+
+        /** Reviews of them and their products, newest first. */
+        async listReviews(query: { page?: number; limit?: number; kind?: "product" | "seller"; stars?: number } = {}): Promise<ShopPageInfo & { reviews: ShopReviewRow[] }> {
+            const { data } = await api.get<ShopPageInfo & { reviews: ShopReviewRow[] }>(`${base}/reviews`, { params: query });
+            return data;
+        },
+
+        /** Their one reply to a review, shown under it on the shop. Sending it again changes it. */
+        async replyToReview(id: string, body: string): Promise<ShopReviewRow> {
+            const { data } = await api.put<{ review: ShopReviewRow }>(`${base}/reviews/${encodeURIComponent(id)}/reply`, { body });
+            return data.review;
+        },
+
+        /** Moves their part of an order on: being prepared, shipped (with an optional note), delivered, or cancelled (with a reason; the customer is refunded). */
+        async moveOrder(orderId: string, body: { status: OrderPartMove; trackingNote?: string; reason?: string }): Promise<ShopOrderPart> {
+            const { data } = await api.post<{ order: ShopOrderPart }>(`${base}/orders/${encodeURIComponent(orderId)}/status`, body);
+            return data.order;
         },
 
         async exportOrders(query: { status?: OrderPartStatus } = {}): Promise<ExportBatch & { orders: ShopOrderPart[] }> {
@@ -217,20 +355,15 @@ export type SellerShopApi = ReturnType<typeof sellerShopApi>;
 export const myShopService = {
     ...sellerShopApi("/my-shop"),
 
-    /** Paystack's banks (the codes a payout account takes). */
-    async listBanks(): Promise<{ code: string; name: string }[]> {
-        const { data } = await api.get<{ banks: { code: string; name: string }[] }>("/my-shop/banks");
-        return data.banks;
+    /** Asks MANDE to look at a review (it stays up until they decide). Once per review. */
+    async reportReview(id: string, reason: string): Promise<ShopReviewRow> {
+        const { data } = await api.post<{ review: ShopReviewRow }>(`/my-shop/reviews/${encodeURIComponent(id)}/report`, { reason });
+        return data.review;
     },
 
-    async lookupPayoutAccount(bankCode: string, accountNumber: string): Promise<{ accountName: string }> {
-        const { data } = await api.post<{ accountName: string }>("/my-shop/payout-account/lookup", { bankCode, accountNumber });
-        return data;
-    },
-
-    /** Connects or changes it: needs the reauth token from a fresh password and code. */
-    async connectPayoutAccount(payload: { bankCode: string; accountNumber: string }, reauthToken: string): Promise<SellerOverview> {
-        const { data } = await api.put<SellerOverview>("/my-shop/payout-account", payload, { headers: { "X-Reauth-Token": reauthToken } });
+    /** Their shop money: each order's share and where it is, and the totals. */
+    async listPayouts(query: { page?: number; limit?: number; status?: PayoutStatus } = {}): Promise<SellerPayoutsPage> {
+        const { data } = await api.get<SellerPayoutsPage>("/my-shop/payouts", { params: query });
         return data;
     },
 };
@@ -263,7 +396,51 @@ export type ShopSellerDetail = SellerOverview & {
     };
 };
 
+/** A customer's report of a product (GET /shop-admin/reports). The customer isn't named. */
+export type ProductReportRow = {
+    id: string;
+    product: { id: string; slug: string; title: string; status: ProductStatus } | null;
+    reason: "counterfeit" | "misleading" | "prohibited" | "scam" | "offensive" | "other";
+    reasonLabel: string;
+    details: string;
+    status: "open" | "resolved" | "dismissed";
+    reportedAt: string;
+    resolvedAt: string | null;
+    resolvedByName: string | null;
+    resolutionNote: string | null;
+};
+
 export const shopAdminService = {
+    /** Every review on the shop, reported ones waiting for a decision first. */
+    async listAllReviews(query: { page?: number; limit?: number; status?: "published" | "hidden"; reported?: boolean } = {}): Promise<ShopPageInfo & { reviews: ShopReviewRow[] }> {
+        const { data } = await api.get<ShopPageInfo & { reviews: ShopReviewRow[] }>("/shop-admin/reviews", { params: { ...query, reported: query.reported ? "true" : undefined } });
+        return data;
+    },
+
+    /** Hides it, with a reason its author sees; the product's or seller's rating no longer counts it. */
+    async hideReview(id: string, reason: string): Promise<void> {
+        await api.post(`/shop-admin/reviews/${encodeURIComponent(id)}/hide`, { reason });
+    },
+
+    async restoreReview(id: string): Promise<void> {
+        await api.post(`/shop-admin/reviews/${encodeURIComponent(id)}/restore`);
+    },
+
+    /** Keeps a reported review showing, closing the seller's report. */
+    async keepReview(id: string): Promise<void> {
+        await api.post(`/shop-admin/reviews/${encodeURIComponent(id)}/keep`);
+    },
+
+    async listReports(query: { page?: number; limit?: number; status?: ProductReportRow["status"] } = {}): Promise<ShopPageInfo & { reports: ProductReportRow[] }> {
+        const { data } = await api.get<ShopPageInfo & { reports: ProductReportRow[] }>("/shop-admin/reports", { params: query });
+        return data;
+    },
+
+    /** Closes a report: "resolved" (acted on) or "dismissed" (nothing wrong), with a note. */
+    async closeReport(id: string, outcome: "resolved" | "dismissed", note: string): Promise<void> {
+        await api.post(`/shop-admin/reports/${encodeURIComponent(id)}/close`, { outcome, note });
+    },
+
     async listProducts(query: ProductListQuery & { sellerKind?: "manufacturer" | "mande" } = {}): Promise<ShopPageInfo & { products: ShopAdminProduct[] }> {
         const { data } = await api.get<ShopPageInfo & { products: ShopAdminProduct[] }>("/shop-admin/products", { params: query });
         return data;
