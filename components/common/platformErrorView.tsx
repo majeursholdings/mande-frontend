@@ -79,7 +79,7 @@ export function PlatformErrorView({
                   <span className="font-mono text-xs text-mist-500">Digest: {error.digest}</span>
                 )}
               </div>
-              <p className="mt-2 font-mono text-sm font-medium text-error-950 break-words whitespace-pre-wrap">
+              <p className="mt-2 font-mono text-sm font-medium text-error-950 wrap-break-word whitespace-pre-wrap">
                 {error.message || "An unexpected error occurred."}
               </p>
             </div>
