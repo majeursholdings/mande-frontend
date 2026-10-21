@@ -12,6 +12,7 @@ import {
 import { useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
 import AdminPageHeader from "../pageHeader";
 import { MACHINE_BOOKING_COLUMNS, MACHINE_BOOKING_STATUS_ITEMS } from "./machineBookingParts";
+import SuperAdminBookingsOverview from "./superAdminBookingsOverview";
 
 const TABLE_ID = "machineBookings";
 const PAGE_SIZE = 20;
@@ -21,13 +22,13 @@ const PAGE_SIZE = 20;
 // time on the factory machines, newest first, searched (code, name, email or
 // phone) and filtered by status on the API. The API pages by date, so the
 // table shows what has loaded and "Show older bookings" loads the next page.
-// Each row opens the booking.
+// Each row opens the booking. A super admin also sees the bookings' numbers.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function MachineBookingsPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { getMachineBookingUrl } = useStaffPlatform();
+    const { getMachineBookingUrl, key: platformKey } = useStaffPlatform();
 
     // The toolbar keeps its search and filter in the URL, under the table's id
     const q = (searchParams.get(`${TABLE_ID}_search`) ?? "").trim();
@@ -59,6 +60,8 @@ export default function MachineBookingsPage() {
                 title="Machine bookings"
                 description="Time booked on the factory machines. Confirm a paid booking's slot, mark it completed once the work is done, or cancel it."
             />
+
+            {platformKey === "super-admin" && <SuperAdminBookingsOverview />}
 
             <div className="flex flex-col">
                 <DataTable

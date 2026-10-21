@@ -1,21 +1,39 @@
 import { fromKobo } from "@/lib/currency";
-import type { RevenueEntry as ApiRevenueEntry, RevenueSummary as ApiRevenueSummary } from "@/lib/services/reportsService";
+import type {
+    RevenueArea,
+    RevenueEntry as ApiRevenueEntry,
+    RevenueSummary as ApiRevenueSummary,
+} from "@/lib/services/reportsService";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The platform's own money, for the super admin's Revenue page, from the
-// API's /reports/revenue: what comes in (manufacturers' plan payments, the
-// charges for rejected work, and paid machine bookings) and what goes back
-// out (the on-time bonuses Mande pays, and machine booking refunds). Job installments aren't here: they're the manufacturers' pay (see
-// Transactions). Shaped here for the page, in naira.
+// API's /reports/revenue, in four areas:
+//  - jobs: charges for rejected work in; installments and on-time bonuses
+//    paid to manufacturers out (what clients pay for jobs isn't recorded)
+//  - the shop: MANDE stock sold and the platform charge on manufacturers'
+//    sales in; MANDE's part of refunds out
+//  - machine bookings: paid bookings in; refunds out
+//  - subscriptions: manufacturers' plan payments in
+// Shaped here for the page, in naira.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type RevenueEntryType = "subscription" | "charge" | "bonus" | "machine-booking";
+export type RevenueEntryType = ApiRevenueEntry["type"];
 
 export const REVENUE_ENTRY_TYPES: { value: RevenueEntryType; label: string }[] = [
-    { value: "subscription", label: "Subscription" },
-    { value: "charge", label: "Rejection charge" },
+    { value: "installment", label: "Installment" },
     { value: "bonus", label: "On-time bonus" },
+    { value: "charge", label: "Rejection charge" },
+    { value: "shop-sale", label: "Shop sale" },
+    { value: "shop-charge", label: "Shop platform charge" },
     { value: "machine-booking", label: "Machine booking" },
+    { value: "subscription", label: "Subscription" },
+];
+
+export const REVENUE_AREAS: { value: RevenueArea; label: string }[] = [
+    { value: "jobs", label: "Jobs" },
+    { value: "shop", label: "Shop" },
+    { value: "bookings", label: "Machine bookings" },
+    { value: "subscriptions", label: "Subscriptions" },
 ];
 
 export const getRevenueTypeLabel = (type: RevenueEntryType) =>
@@ -24,14 +42,15 @@ export const getRevenueTypeLabel = (type: RevenueEntryType) =>
 export type RevenueEntry = {
     id: string;
     type: RevenueEntryType;
-    /** Money in to Mande, or out (bonuses, machine booking refunds). */
+    area: RevenueArea;
+    /** Money in to Mande, or out (installments, bonuses and refunds). */
     direction: "in" | "out";
-    /** Null for a guest's machine booking: there's no manufacturer page to open. */
+    /** Null for a guest's machine booking or a shop customer: there's no manufacturer page to open. */
     manufacturerId: string | null;
     manufacturerName: string;
     companyName: string;
     avatarUrl: string | null;
-    /** The plan paid for, the job, or the machine booking. */
+    /** The plan paid for, the job, the machine booking or the shop order. */
     description: string;
     /** e.g. "Paid by card", "Collected". */
     detail: string;
@@ -45,6 +64,7 @@ export function toRevenueEntry(entry: ApiRevenueEntry): RevenueEntry {
     return {
         id: entry.id,
         type: entry.type,
+        area: entry.area,
         direction: entry.direction,
         manufacturerId: entry.manufacturerId,
         manufacturerName: entry.manufacturerName,
@@ -57,30 +77,48 @@ export function toRevenueEntry(entry: ApiRevenueEntry): RevenueEntry {
     };
 }
 
-type RevenueTotal = { total: number; count: number };
+/** An area's money in, out and what's left, in naira. */
+export type AreaTotals = { in: number; out: number; net: number };
 
 export type RevenueSummary = {
-    subscription: RevenueTotal;
-    charge: RevenueTotal;
-    bonus: RevenueTotal;
-    /** Paid bookings less refunds (total, count), and what was refunded. */
-    machineBooking: RevenueTotal & { refunded: number; refundedCount: number };
-    /** What came in, less the bonuses paid (refunded bookings never count as in). */
+    areas: Record<RevenueArea, AreaTotals>;
+    /** Everything that came in, before anything went out. */
+    gross: number;
+    /** Every area's in less its out. */
     net: number;
+    counts: {
+        installments: number;
+        bonuses: number;
+        charges: number;
+        bookings: number;
+        bookingRefunds: number;
+        shopSales: number;
+        shopCharges: number;
+        plans: number;
+    };
 };
+
+const NO_AREA = { inKobo: 0, outKobo: 0, netKobo: 0 };
 
 /** /reports/revenue/summary's totals (kobo), as the cards' (naira). */
 export function toRevenueSummary(summary: ApiRevenueSummary): RevenueSummary {
+    const area = (key: RevenueArea): AreaTotals => {
+        const totals = summary.areas?.[key] ?? NO_AREA;
+        return { in: fromKobo(totals.inKobo), out: fromKobo(totals.outKobo), net: fromKobo(totals.netKobo) };
+    };
     return {
-        subscription: { total: fromKobo(summary.subscription.totalKobo), count: summary.subscription.count },
-        charge: { total: fromKobo(summary.charge.totalKobo), count: summary.charge.count },
-        bonus: { total: fromKobo(summary.bonus.totalKobo), count: summary.bonus.count },
-        machineBooking: {
-            total: fromKobo(summary.machineBooking?.totalKobo ?? 0),
-            count: summary.machineBooking?.count ?? 0,
-            refunded: fromKobo(summary.machineBooking?.refundedKobo ?? 0),
-            refundedCount: summary.machineBooking?.refundedCount ?? 0,
-        },
+        areas: { jobs: area("jobs"), shop: area("shop"), bookings: area("bookings"), subscriptions: area("subscriptions") },
+        gross: fromKobo(summary.grossKobo ?? 0),
         net: fromKobo(summary.netKobo),
+        counts: {
+            installments: summary.installment?.count ?? 0,
+            bonuses: summary.bonus.count,
+            charges: summary.charge.count,
+            bookings: summary.machineBooking?.count ?? 0,
+            bookingRefunds: summary.machineBooking?.refundedCount ?? 0,
+            shopSales: summary.shopSale?.count ?? 0,
+            shopCharges: summary.shopCharge?.count ?? 0,
+            plans: summary.subscription.count,
+        },
     };
 }

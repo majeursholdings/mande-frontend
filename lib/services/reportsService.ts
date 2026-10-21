@@ -42,6 +42,12 @@ export type DashboardStats = {
   payoutsKobo: DashboardStatValue;
   /** The platform's plan revenue: only in a super admin's answer. */
   subscriptionRevenueKobo?: DashboardStatValue;
+  /** The platform's net revenue from every source (as the Revenue page's): super admin only. */
+  revenueKobo?: DashboardStatValue;
+  /** What customers have spent on the shop (paid orders): super admin only. */
+  shopSalesKobo?: DashboardStatValue & { count: number };
+  /** Paid machine bookings, less the ones refunded: super admin only. */
+  machineBookingsKobo?: DashboardStatValue & { count: number };
   /** Value is a whole percent, null before any job finished; change is in percentage points. */
   successRate: { value: number | null; changePercent: number | null };
   activeManufacturers: DashboardStatValue & { total: number };
@@ -117,14 +123,19 @@ export type TransactionSummary = {
 
 export type TransactionSummaryResponse = { summary: TransactionSummary };
 
-export type RevenueType = "subscription" | "charge" | "bonus" | "machine-booking";
+/** "shop-sale": MANDE stock sold on the shop; "shop-charge": MANDE's platform charge on a manufacturer's sale. */
+export type RevenueType = "subscription" | "charge" | "bonus" | "installment" | "machine-booking" | "shop-sale" | "shop-charge";
+
+/** Where MANDE's money comes from and goes: jobs (charges in; installments and bonuses out), the shop, machine bookings and plans. */
+export type RevenueArea = "jobs" | "shop" | "bookings" | "subscriptions";
 
 export type RevenueEntry = Omit<ReportPerson, "manufacturerId"> & {
-  /** Null for a guest's machine booking (manufacturerName is then the name they booked with). */
+  /** Null for a guest's machine booking or a shop customer (manufacturerName is then their name). */
   manufacturerId: string | null;
   id: string;
   type: RevenueType;
-  /** Money in to MANDE, or out (bonuses, machine booking refunds). */
+  area: RevenueArea;
+  /** Money in to MANDE, or out (installments, bonuses, machine booking and shop refunds). */
   direction: "in" | "out";
   description: string;
   detail: string;
@@ -132,7 +143,9 @@ export type RevenueEntry = Omit<ReportPerson, "manufacturerId"> & {
   date: string;
 };
 
-export type RevenueParams = ReportPageParams & { type?: RevenueType };
+export type RevenueParams = ReportPageParams & { type?: RevenueType; area?: RevenueArea };
+
+export type RevenueAreaTotals = { inKobo: number; outKobo: number; netKobo: number };
 
 export type RevenueResponse = { entries: RevenueEntry[]; nextBefore: string | null };
 
@@ -142,6 +155,16 @@ export type RevenueSummary = {
   bonus: { totalKobo: number; count: number };
   /** Paid machine bookings less the ones refunded (totalKobo and count), and the refunds. */
   machineBooking: { totalKobo: number; count: number; refundedKobo: number; refundedCount: number };
+  /** MANDE stock sold on the shop, less refunds (totalKobo), the parts sold (count), and the refunds. */
+  shopSale: { totalKobo: number; count: number; refundedKobo: number };
+  /** MANDE's platform charges on manufacturers' shop sales, less MANDE's part of refunds. */
+  shopCharge: { totalKobo: number; count: number; refundedKobo: number };
+  /** Installments paid to manufacturers on jobs. */
+  installment: { totalKobo: number; count: number };
+  areas: Record<RevenueArea, RevenueAreaTotals>;
+  /** Everything that came in, before anything went out. */
+  grossKobo: number;
+  /** Every area's in less its out. */
   netKobo: number;
 };
 
@@ -149,45 +172,122 @@ export type RevenueSummaryResponse = { summary: RevenueSummary };
 
 // ─── Super admin reports ─────────────────────────────────────────────────────
 
-export type JobsReportPeriod = "all" | "year" | "month" | "week";
+/** The /reports/series charts: what's measured, over which stretch of time. */
+export type SeriesMetric = "revenue" | "jobs" | "shop" | "bookings";
+/** week: 7 days by day; month: 30 days by day; quarter: 13 weeks by week; year: 12 months by month. */
+export type SeriesRange = "week" | "month" | "quarter" | "year";
 
-export type JobsReportResponse = {
-  activity: { status: ReportJobStatus; count: number }[];
-  data: {
-    created: number;
-    valueKobo: number;
-    paidOutKobo: number;
-    completed: number;
-    onTimePercent: number | null;
-    averageDaysToComplete: number | null;
-    stepsSentBack: number;
-    rejections: number;
-    extensionsRequested: number;
-    extensionsApproved: number;
-    faults: number;
+export type SeriesValues = {
+  revenue: {
+    inKobo: number;
+    outKobo: number;
+    netKobo: number;
+    /** Each area's net in the bucket: they add up to netKobo. */
+    jobsNetKobo: number;
+    shopNetKobo: number;
+    bookingsNetKobo: number;
+    subscriptionsKobo: number;
   };
+  /** Paid to manufacturers (installments plus on-time bonuses), rejection charges, and the jobs created and their value. */
+  jobs: {
+    paidOutKobo: number;
+    installmentsKobo: number;
+    bonusesKobo: number;
+    chargesKobo: number;
+    jobValueKobo: number;
+    jobs: number;
+  };
+  shop: { salesKobo: number; orders: number; incomeKobo: number; refundsKobo: number };
+  bookings: { paidKobo: number; bookings: number; refundedKobo: number; discountKobo: number };
 };
 
-export type AdminPosition = "support" | "project-lead" | "inventory-manager";
+/** GET /reports/series: the period's buckets (oldest first, the current one last), their sum, and the same-length period before. */
+export type SeriesResponse<M extends SeriesMetric> = {
+  metric: M;
+  range: SeriesRange;
+  points: (SeriesValues[M] & { start: string; label: string })[];
+  totals: SeriesValues[M];
+  previous: SeriesValues[M];
+};
 
-export type ProjectLeadReportEntry = {
+/** GET /reports/job-reviews: a rating given on a job, of its manufacturer (by the lead) or of its project lead (by a manufacturer). */
+export type JobReviewKind = "manufacturer" | "lead";
+
+export type JobReviewPerson = { id: string; name: string; avatarUrl: string | null };
+
+export type JobReview = {
   id: string;
-  name: string;
-  avatar: ReportMedia | null;
-  position: AdminPosition | null;
-  status: "pending_verification" | "active" | "disabled" | "deactivated";
-  jobsHandled: number;
-  reviews: number;
-  /** Out of 5, to one decimal. Null before their first rating. */
-  averageRating: number | null;
-  points: number;
-  /** A rank tier id, e.g. "associate-lead". */
-  rank: string;
+  kind: JobReviewKind;
+  jobId: string;
+  jobCode: string | null;
+  jobTitle: string;
+  rating: number;
+  comment: string;
+  date: string;
+  /** "held": a manufacturer's rating under the sign-off threshold, waiting for a super admin. */
+  status: "published" | "held";
+  author: JobReviewPerson;
+  subject: JobReviewPerson & { companyName: string | null };
+  /** A super admin's note on a project lead review. */
+  followUp: { note: string; byName: string; at: string } | null;
 };
 
-export type ProjectLeadsParams = { position?: AdminPosition; q?: string };
+type ReviewTotals = {
+  count: number;
+  /** One decimal place; null before any review. */
+  average: number | null;
+  /** How many of each star, 1 to 5. */
+  distribution: [number, number, number, number, number];
+  /** Rated 2 or under. */
+  low: number;
+  thisMonth: number;
+};
 
-export type ProjectLeadsResponse = { projectLeads: ProjectLeadReportEntry[] };
+export type JobReviewSummary = {
+  manufacturer: ReviewTotals & { held: number };
+  lead: ReviewTotals & { followedUp: number };
+};
+
+export type BookingRefundStatus = "refunded" | "failed" | "pending";
+
+/** GET /reports/machine-bookings: one paid machine booking, as a transaction. */
+export type BookingTransaction = Omit<ReportPerson, "manufacturerId"> & {
+  /** The booking's id. */
+  id: string;
+  /** Null for a guest (manufacturerName is then the name they booked with). */
+  manufacturerId: string | null;
+  code: string;
+  fullName: string;
+  email: string;
+  /** What was booked, e.g. "CNC router, Edge bander". */
+  machines: string;
+  subtotalKobo: number;
+  discountKobo: number;
+  couponCode: string | null;
+  amountKobo: number;
+  provider: "paystack" | "flutterwave";
+  providerReference: string | null;
+  status: "pending_payment" | "paid" | "confirmed" | "completed" | "cancelled";
+  refundStatus: BookingRefundStatus | null;
+  paidAt: string;
+  cancelledAt: string | null;
+};
+
+export type BookingTransactionsResponse = { transactions: BookingTransaction[]; nextBefore: string | null };
+
+type CountAndKobo = { count: number; totalKobo: number };
+
+export type BookingTransactionSummary = {
+  paid: CountAndKobo;
+  /** Paid and not refunded: what MANDE kept. */
+  kept: CountAndKobo;
+  refunded: CountAndKobo;
+  refundFailed: CountAndKobo;
+  refundPending: CountAndKobo;
+  discountKobo: number;
+  /** Every booking, by where it is now. */
+  byStatus: Record<BookingTransaction["status"], number>;
+};
 
 export type PendingActions = {
   deletionRequests: {
@@ -370,18 +470,43 @@ export const reportsService = {
     return data;
   },
 
-  async getProjectLeadsPerformance(params: ProjectLeadsParams = {}) {
-    const { data } = await api.get<ProjectLeadsResponse>("/reports/project-leads", { params });
+  async getSeries<M extends SeriesMetric>(metric: M, range: SeriesRange = "year") {
+    const { data } = await api.get<SeriesResponse<M>>("/reports/series", { params: { metric, range } });
     return data;
+  },
+
+  /** Every review of one kind (up to 2,000), newest first. */
+  async getAllJobReviews(kind: JobReviewKind) {
+    return fetchAllPages(async (before) => {
+      const { data } = await api.get<{ reviews: JobReview[]; nextBefore: string | null }>("/reports/job-reviews", {
+        params: { kind, limit: MAX_PAGE_SIZE, before },
+      });
+      return { items: data.reviews, nextBefore: data.nextBefore };
+    }, 4);
+  },
+
+  async getJobReviewSummary() {
+    const { data } = await api.get<{ summary: JobReviewSummary }>("/reports/job-reviews/summary");
+    return data.summary;
+  },
+
+  /** Every paid machine booking (up to 2,000), newest first. */
+  async getAllBookingTransactions() {
+    return fetchAllPages(async (before) => {
+      const { data } = await api.get<BookingTransactionsResponse>("/reports/machine-bookings", {
+        params: { limit: MAX_PAGE_SIZE, before },
+      });
+      return { items: data.transactions, nextBefore: data.nextBefore };
+    }, 4);
+  },
+
+  async getBookingTransactionSummary() {
+    const { data } = await api.get<{ summary: BookingTransactionSummary }>("/reports/machine-bookings/summary");
+    return data.summary;
   },
 
   async getSuperAdminActions() {
     const { data } = await api.get<PendingActionsResponse>("/reports/actions");
-    return data;
-  },
-
-  async getSuperAdminJobsReport(period: JobsReportPeriod = "all") {
-    const { data } = await api.get<JobsReportResponse>("/reports/jobs", { params: { period } });
     return data;
   },
 

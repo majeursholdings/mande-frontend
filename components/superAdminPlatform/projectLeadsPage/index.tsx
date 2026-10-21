@@ -17,6 +17,7 @@ import { ADMIN_POSITION_OPTIONS } from "@/constant/admin";
 import { getOptionLabel } from "@/constant/manufacturer";
 import { useProjectLeads } from "@/components/adminPlatform/dashboardLayout/useProjectLeads";
 import type { ProjectLeadRecord } from "@/constant/platformRecords";
+import SuperAdminProjectLeadsOverview from "./superAdminProjectLeadsOverview";
 
 const TABLE_ID = "super-admin-project-leads";
 
@@ -141,6 +142,8 @@ export default function SuperAdminProjectLeadsPage() {
     return (
         <div className="flex flex-col gap-2">
             <h1 className="text-2xl font-semibold font-text text-mist-950">Project Leads</h1>
+
+            <SuperAdminProjectLeadsOverview />
 
             <DataTable
                 tableId={TABLE_ID}

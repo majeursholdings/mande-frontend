@@ -15,6 +15,7 @@ import { couponService, type Coupon, type CouponStatusFilter } from "@/lib/servi
 import CouponForm from "../form/couponForm";
 import { COUPON_COLUMNS, COUPON_STATUS_ITEMS } from "./couponParts";
 import CouponRedemptionsDialog from "./couponRedemptions";
+import SuperAdminCouponsOverview from "./superAdminCouponsOverview";
 
 const TABLE_ID = "coupons";
 const PAGE_SIZE = 20;
@@ -87,6 +88,8 @@ export default function CouponsPage() {
                 title="Coupons"
                 description="Codes customers enter for money off machine bookings, subscriptions or both. A coupon never adds to a plan discount: the customer gets whichever saves more."
             />
+
+            <SuperAdminCouponsOverview />
 
             <div className="flex flex-col">
                 <DataTable

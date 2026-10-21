@@ -1,10 +1,10 @@
 "use client";
 
-import { Banknote, HandCoins, Hammer, Percent, UserRoundCheck, type LucideIcon } from "lucide-react";
+import { Banknote, CalendarClock, HandCoins, Hammer, Percent, Store, TrendingUp, UserRoundCheck, type LucideIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import OverviewCard, { OverviewCardGrid, type OverviewCardProps } from "@/components/common/overviewCard";
 import { useStaffPlatform } from "@/components/adminPlatform/dashboardLayout/staffPlatformContext";
-import { SUPER_ADMIN_REVENUE_URL } from "@/constant/superAdmin";
+import { SUPER_ADMIN_BOOKING_TRANSACTIONS_URL, SUPER_ADMIN_REVENUE_URL, SUPER_ADMIN_SHOP_URL } from "@/constant/superAdmin";
 import { queryKeys } from "@/lib/queryKeys";
 import { reportsService } from "@/lib/services/reportsService";
 import {
@@ -19,6 +19,9 @@ const STAT_ICONS: Record<DashboardStatId, LucideIcon> = {
     manufacturers: Hammer,
     payouts: HandCoins,
     "subscription-revenue": Banknote,
+    revenue: TrendingUp,
+    "shop-sales": Store,
+    "machine-bookings": CalendarClock,
     "success-rate": Percent,
     "active-accounts": UserRoundCheck,
 };
@@ -48,10 +51,14 @@ export default function StatsGrid({ statIds = ADMIN_DASHBOARD_STAT_IDS }: { stat
     });
 
     // Where each figure comes from, on this platform (revenue is the super admin's)
+    const isSuperAdmin = platform.key === "super-admin";
     const detailsHref: Record<DashboardStatId, string | undefined> = {
         manufacturers: platform.manufacturersUrl,
         payouts: platform.transactionsUrl,
-        "subscription-revenue": platform.key === "super-admin" ? SUPER_ADMIN_REVENUE_URL : undefined,
+        "subscription-revenue": isSuperAdmin ? SUPER_ADMIN_REVENUE_URL : undefined,
+        revenue: isSuperAdmin ? SUPER_ADMIN_REVENUE_URL : undefined,
+        "shop-sales": isSuperAdmin ? `${SUPER_ADMIN_SHOP_URL}/orders` : undefined,
+        "machine-bookings": isSuperAdmin ? SUPER_ADMIN_BOOKING_TRANSACTIONS_URL : undefined,
         "success-rate": platform.jobsUrl,
         "active-accounts": platform.manufacturersUrl,
     };
@@ -59,7 +66,8 @@ export default function StatsGrid({ statIds = ADMIN_DASHBOARD_STAT_IDS }: { stat
     if (isError) return <ReportError message="Couldn't load the dashboard's numbers. Please refresh to try again." />;
 
     const stats = data ? toDashboardStats(data.stats, statIds) : null;
-    const columns = statIds.length >= 4 ? 4 : statIds.length === 3 ? 3 : 2;
+    // Six fill two rows of three
+    const columns = statIds.length === 4 ? 4 : statIds.length % 3 === 0 ? 3 : statIds.length >= 4 ? 4 : 2;
 
     return (
         <OverviewCardGrid columns={columns}>

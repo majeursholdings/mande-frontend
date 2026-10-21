@@ -13,6 +13,8 @@ export type SidebarItem = {
     isActive: boolean;
     /** A count after the label, e.g. what's waiting there. Nothing at 0. */
     badge?: number;
+    /** Sub-pages, always shown indented under it along a guide line. */
+    children?: SidebarItem[];
 };
 
 /**
@@ -64,25 +66,18 @@ export function SidebarContent({
 
                 <nav className="flex flex-col gap-1">
                     {items.map((item) => (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            onClick={onNavigate}
-                            aria-current={item.isActive ? "page" : undefined}
-                            className={cn(
-                                SIDEBAR_ROW_CLASS,
-                                item.isActive ? SIDEBAR_ROW_ACTIVE_CLASS : SIDEBAR_ROW_IDLE_CLASS,
+                        <div key={item.href} className="flex flex-col gap-1">
+                            <SidebarLink item={item} onNavigate={onNavigate} />
+                            {!!item.children?.length && (
+                                <div className="relative flex flex-col gap-1">
+                                    {/* The guide line, down from the parent's icon */}
+                                    <span className="pointer-events-none absolute inset-y-1 left-9.5 z-10 w-px bg-mist-200" aria-hidden />
+                                    {item.children.map((child) => (
+                                        <SidebarLink key={child.href} item={child} onNavigate={onNavigate} nested />
+                                    ))}
+                                </div>
                             )}
-                        >
-                            <item.icon className="size-5 shrink-0" strokeWidth={1.75} />
-                            {item.label}
-                            {!!item.badge && (
-                                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-secondary-600 px-1.5 text-[11px] font-semibold text-white tabular-nums">
-                                    {item.badge}
-                                    <span className="sr-only"> waiting</span>
-                                </span>
-                            )}
-                        </Link>
+                        </div>
                     ))}
                 </nav>
             </div>
@@ -95,6 +90,31 @@ export function SidebarContent({
                 </p>
             </div>
         </div>
+    );
+}
+
+/** One row: a section, or (nested) a sub-page, smaller and indented past the guide line. */
+function SidebarLink({ item, onNavigate, nested = false }: { item: SidebarItem; onNavigate?: () => void; nested?: boolean }) {
+    return (
+        <Link
+            href={item.href}
+            onClick={onNavigate}
+            aria-current={item.isActive ? "page" : undefined}
+            className={cn(
+                SIDEBAR_ROW_CLASS,
+                nested && "py-2 pl-14 text-[13px]",
+                item.isActive ? SIDEBAR_ROW_ACTIVE_CLASS : SIDEBAR_ROW_IDLE_CLASS,
+            )}
+        >
+            <item.icon className={cn("shrink-0", nested ? "size-4" : "size-5")} strokeWidth={1.75} />
+            {item.label}
+            {!!item.badge && (
+                <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-secondary-600 px-1.5 text-[11px] font-semibold text-white tabular-nums">
+                    {item.badge}
+                    <span className="sr-only"> waiting</span>
+                </span>
+            )}
+        </Link>
     );
 }
 

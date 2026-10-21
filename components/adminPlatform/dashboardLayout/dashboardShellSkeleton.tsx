@@ -8,6 +8,7 @@ import SharedSidebar, {
     SIDEBAR_ROW_CLASS,
     SIDEBAR_ROW_IDLE_CLASS,
     SidebarContent,
+    type SidebarItem,
 } from "@/components/ui/dashboardSidebar";
 import LogoLink from "@/components/ui/logoLink";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,7 +19,8 @@ import {
     DESKTOP_USER_CARD_CLASS,
     MOBILE_TOPBAR_CLASS,
 } from "@/components/ui/topbarControls";
-import { isStaffNavItemActive, useStaffPlatform } from "./staffPlatformContext";
+import type { AdminNavItem } from "@/constant/admin";
+import { flattenStaffNavItems, isStaffNavItemActive, useStaffPlatform } from "./staffPlatformContext";
 
 const TAB_CLASS =
     "flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[11px] font-medium font-text transition-colors duration-200";
@@ -32,6 +34,13 @@ const TAB_CLASS =
 export default function DashboardShellSkeleton() {
     const pathname = usePathname();
     const platform = useStaffPlatform();
+    const toSidebarItem = (item: AdminNavItem): SidebarItem => ({
+        label: item.label,
+        href: item.href,
+        icon: item.icon,
+        isActive: isStaffNavItemActive(platform, item, pathname),
+        children: item.children?.map(toSidebarItem),
+    });
 
     return (
         <DashboardFrame
@@ -40,12 +49,7 @@ export default function DashboardShellSkeleton() {
                     <SidebarContent
                         homeHref={platform.dashboardUrl}
                         platformName={platform.name}
-                        items={platform.navItems.map((item) => ({
-                            label: item.label,
-                            href: item.href,
-                            icon: item.icon,
-                            isActive: isStaffNavItemActive(platform, item, pathname),
-                        }))}
+                        items={platform.navItems.map(toSidebarItem)}
                         logout={
                             <button type="button" disabled className={cn(SIDEBAR_ROW_CLASS, SIDEBAR_ROW_IDLE_CLASS)}>
                                 <LogOut className="size-5 shrink-0" strokeWidth={1.75} />
@@ -79,7 +83,7 @@ export default function DashboardShellSkeleton() {
             }
             bottomNav={
                 <nav className="fixed inset-x-0 bottom-0 z-40 flex h-(--mobile-bottom-nav-height) items-stretch border-t border-border bg-white px-1 pb-[env(safe-area-inset-bottom)] lg:hidden">
-                    {platform.navItems
+                    {flattenStaffNavItems(platform.navItems)
                         .filter((item) => item.inBottomBar)
                         .map((item) => (
                             <span

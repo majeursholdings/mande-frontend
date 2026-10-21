@@ -32,6 +32,7 @@ import { usePlans } from "@/hooks/usePlans";
 import { cn } from "@/lib/utils";
 import ClosedManufacturersTable from "./closedManufacturersTable";
 import LeadManufacturersOverview from "./leadManufacturersOverview";
+import SuperAdminManufacturersOverview from "./superAdminManufacturersOverview";
 
 const TABLE_ID = "manufacturers";
 
@@ -93,7 +94,7 @@ const SORT_OPTIONS: SortOptionDef<ManufacturerRow>[] = [
 export default function AdminManufacturersPage() {
     const router = useRouter();
     const { manufacturers, getManufacturer, isLoading, isError } = useAdminManufacturers();
-    const { getManufacturerUrl, permissions, leadId } = useStaffPlatform();
+    const { key: platformKey, getManufacturerUrl, permissions, leadId } = useStaffPlatform();
     const pathname = usePathname();
     const searchParams = useSearchParams();
     // Super admins can also see the accounts they closed, to reopen one
@@ -251,8 +252,9 @@ export default function AdminManufacturersPage() {
                 )}
             </div>
 
-            {/* A project lead's numbers (a super admin's are on Reporting) */}
+            {/* A project lead's numbers, or a super admin's across every manufacturer */}
             {leadId && !showsClosed && <LeadManufacturersOverview />}
+            {platformKey === "super-admin" && !showsClosed && <SuperAdminManufacturersOverview />}
 
             {showsClosed ? (
                 <ClosedManufacturersTable />

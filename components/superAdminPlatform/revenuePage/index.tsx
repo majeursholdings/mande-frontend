@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowDown, ArrowUp, Banknote, Factory, Gift, Scale, TrendingUp, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, Banknote, BriefcaseBusiness, Factory, Landmark, Store, TrendingUp, type LucideIcon } from "lucide-react";
 import {
     DataTable,
     TableToolbar,
@@ -21,6 +21,7 @@ import OverviewCard, { OverviewCardGrid, type OverviewCardProps } from "@/compon
 import { ReportError } from "@/components/adminPlatform/dashboardPage/reportStates";
 import { useStaffPlatform } from "@/components/adminPlatform/dashboardLayout/staffPlatformContext";
 import {
+    REVENUE_AREAS,
     REVENUE_ENTRY_TYPES,
     getRevenueTypeLabel,
     toRevenueEntry,
@@ -39,21 +40,21 @@ const SORT_OPTIONS: SortOptionDef<RevenueEntry>[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SuperAdminRevenuePage: the platform's own money: what's come in from
-// manufacturers' plans, charges for rejected work and paid machine bookings
-// (less refunds), the on-time bonuses paid out of it, and what that leaves
-// (/reports/revenue/summary).
-// Then every entry (/reports/revenue), to search, filter by kind and sort.
+// SuperAdminRevenuePage: the platform's own money, gross (everything in)
+// and net, then by area: jobs (rejection charges in; installments and
+// on-time bonuses out), the shop, machine bookings (each less refunds) and
+// subscriptions (/reports/revenue/summary). Then every entry
+// (/reports/revenue), to search, filter by area or kind, and sort.
 // The API pages by date, so every page is loaded up front (see
 // getAllPlatformRevenue) and the table searches, sorts and pages them here.
 // ─────────────────────────────────────────────────────────────────────────────
 
+const NO_AREA = { in: 0, out: 0, net: 0 };
 const NO_SUMMARY: RevenueSummary = {
-    subscription: { total: 0, count: 0 },
-    charge: { total: 0, count: 0 },
-    bonus: { total: 0, count: 0 },
-    machineBooking: { total: 0, count: 0, refunded: 0, refundedCount: 0 },
+    areas: { jobs: NO_AREA, shop: NO_AREA, bookings: NO_AREA, subscriptions: NO_AREA },
+    gross: 0,
     net: 0,
+    counts: { installments: 0, bonuses: 0, charges: 0, bookings: 0, bookingRefunds: 0, shopSales: 0, shopCharges: 0, plans: 0 },
 };
 
 export default function SuperAdminRevenuePage() {
@@ -76,54 +77,72 @@ export default function SuperAdminRevenuePage() {
         tableId: TABLE_ID,
         data: entries,
         searchFields: ["manufacturerName", "companyName", "description"],
-        filters: [{ paramKey: "type", field: "type" }],
+        filters: [
+            { paramKey: "area", field: "area" },
+            { paramKey: "type", field: "type" },
+        ],
         sortOptions: SORT_OPTIONS,
         rowsPerPage: 15,
     });
 
+    const { areas, counts } = summary;
+    const paidOut = areas.jobs.out + areas.shop.out + areas.bookings.out + areas.subscriptions.out;
+    /** "₦1.2M" from naira, with the minus sign for an area that paid out more than it took. */
+    const money = (amount: number) => `${amount < 0 ? "−" : ""}${formatCompactPrice(Math.abs(amount))}`;
     const cards: { key: string; label: string; amount: number; icon: LucideIcon; detail: OverviewCardProps["detail"] }[] = [
         {
-            key: "subscriptions",
-            label: "From subscriptions",
-            amount: summary.subscription.total,
-            icon: Banknote,
-            detail: { label: "Plan payments", value: summary.subscription.count.toLocaleString(), tone: "blue" },
-        },
-        {
-            key: "charges",
-            label: "From rejection charges",
-            amount: summary.charge.total,
-            icon: Scale,
-            detail: { label: "Rejections", value: summary.charge.count.toLocaleString(), tone: "red" },
-        },
-        {
-            key: "machine-bookings",
-            label: "From machine bookings",
-            amount: summary.machineBooking.total,
-            icon: Factory,
-            detail:
-                summary.machineBooking.refundedCount > 0
-                    ? { label: `Paid bookings, ${plural(summary.machineBooking.refundedCount, "refund")}`, value: summary.machineBooking.count.toLocaleString(), tone: "amber" }
-                    : { label: "Paid bookings", value: summary.machineBooking.count.toLocaleString(), tone: "green" },
-        },
-        {
-            key: "bonuses",
-            label: "Paid in bonuses",
-            amount: summary.bonus.total,
-            icon: Gift,
-            detail: { label: "Jobs delivered on time", value: summary.bonus.count.toLocaleString(), tone: "amber" },
+            key: "gross",
+            label: "Gross revenue",
+            amount: summary.gross,
+            icon: Landmark,
+            // Everything that came in, before anything went back out
+            detail: { label: "Paid out of it", value: money(paidOut), tone: "red" },
         },
         {
             key: "net",
             label: "Net revenue",
             amount: summary.net,
             icon: TrendingUp,
-            // What came in, less what went out (bonuses and refunds)
             detail: {
-                label: "Paid out in bonuses and refunds",
-                value: formatCompactPrice(summary.bonus.total + summary.machineBooking.refunded),
-                tone: "gray",
+                label: "Of gross",
+                value: summary.gross > 0 ? `${Math.round((summary.net / summary.gross) * 100)}%` : "0%",
+                tone: summary.net < 0 ? "red" : "green",
             },
+        },
+        {
+            key: "jobs",
+            label: "Jobs (net)",
+            amount: areas.jobs.net,
+            icon: BriefcaseBusiness,
+            // Charges in; installments and bonuses out
+            detail: { label: `Paid to manufacturers, ${plural(counts.installments + counts.bonuses, "payment")}`, value: money(areas.jobs.out), tone: "red" },
+        },
+        {
+            key: "shop",
+            label: "Shop (net)",
+            amount: areas.shop.net,
+            icon: Store,
+            detail:
+                areas.shop.out > 0
+                    ? { label: "Refunded", value: money(areas.shop.out), tone: "amber" }
+                    : { label: "Sales", value: (counts.shopSales + counts.shopCharges).toLocaleString(), tone: "green" },
+        },
+        {
+            key: "bookings",
+            label: "Machine bookings (net)",
+            amount: areas.bookings.net,
+            icon: Factory,
+            detail:
+                counts.bookingRefunds > 0
+                    ? { label: `Refunded, ${plural(counts.bookingRefunds, "booking")}`, value: money(areas.bookings.out), tone: "amber" }
+                    : { label: "Paid bookings", value: counts.bookings.toLocaleString(), tone: "green" },
+        },
+        {
+            key: "subscriptions",
+            label: "Subscriptions",
+            amount: areas.subscriptions.net,
+            icon: Banknote,
+            detail: { label: "Plan payments", value: counts.plans.toLocaleString(), tone: "blue" },
         },
     ];
 
@@ -185,19 +204,19 @@ export default function SuperAdminRevenuePage() {
         <div className="flex flex-col gap-6">
             <AdminPageHeader
                 title="Revenue"
-                description="What the platform has made: plan payments, charges for rejected work and machine bookings, less the on-time bonuses and refunds it pays."
+                description="What the platform has made from jobs, the shop, machine bookings and subscriptions, and what it has paid out: installments and on-time bonuses to manufacturers, and refunds."
             />
 
             {summaryQuery.isError ? (
                 <ReportError message="Couldn't load the revenue totals. Please refresh to try again." />
             ) : (
-                <OverviewCardGrid columns={5}>
+                <OverviewCardGrid columns={3}>
                     {cards.map((card) => (
                         <OverviewCard
                             key={card.key}
                             icon={card.icon}
                             label={card.label}
-                            value={formatCompactPrice(card.amount)}
+                            value={money(card.amount)}
                             fullValue={formatPrice(card.amount)}
                             detail={card.detail}
                             loading={summaryQuery.isPending}
@@ -215,13 +234,16 @@ export default function SuperAdminRevenuePage() {
                 error={entriesQuery.isError ? "Couldn't load the revenue. Please refresh to try again." : undefined}
                 emptyMessage="No revenue matches your search."
                 onRowClick={(entry) => {
-                    // A guest's machine booking has no manufacturer page
+                    // A guest's machine booking or a shop customer has no manufacturer page
                     if (entry.manufacturerId && entry.companyName) router.push(getManufacturerUrl(entry.manufacturerId));
                 }}
                 toolbar={
                     <TableToolbar
-                        search={{ placeholder: "Search by name, plan, job or booking" }}
-                        filters={[{ title: "Type", paramKey: "type", items: REVENUE_ENTRY_TYPES }]}
+                        search={{ placeholder: "Search by name, plan, job, booking or order" }}
+                        filters={[
+                            { title: "Area", paramKey: "area", items: REVENUE_AREAS },
+                            { title: "Type", paramKey: "type", items: REVENUE_ENTRY_TYPES },
+                        ]}
                         sortBy={{
                             title: "Sort by",
                             items: [

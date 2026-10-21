@@ -11,14 +11,27 @@ import type { DashboardStats, PendingReview } from "@/lib/services/reportsServic
 // ─── Headline stats ──────────────────────────────────────────────────────────
 
 /** Each headline number a staff dashboard can show: the admin's four, and the super admin's. */
-export type DashboardStatId = "manufacturers" | "payouts" | "subscription-revenue" | "success-rate" | "active-accounts";
+export type DashboardStatId =
+    | "manufacturers"
+    | "payouts"
+    | "subscription-revenue"
+    | "revenue"
+    | "shop-sales"
+    | "machine-bookings"
+    | "success-rate"
+    | "active-accounts";
 
 export const ADMIN_DASHBOARD_STAT_IDS: DashboardStatId[] = ["manufacturers", "payouts", "success-rate", "active-accounts"];
 
-/** Money in before money out: what the platform earns, where the admin sees what manufacturers are paid. */
+/**
+ * What the platform earns (from every source), where the admin sees what
+ * manufacturers are paid, then the shop and machine bookings, and the work.
+ */
 export const SUPER_ADMIN_DASHBOARD_STAT_IDS: DashboardStatId[] = [
+    "revenue",
+    "shop-sales",
+    "machine-bookings",
     "manufacturers",
-    "subscription-revenue",
     "success-rate",
     "active-accounts",
 ];
@@ -28,6 +41,9 @@ export const DASHBOARD_STAT_LABELS: Record<DashboardStatId, string> = {
     manufacturers: "Manufacturers",
     payouts: "Paid to manufacturers",
     "subscription-revenue": "Subscription revenue",
+    revenue: "Net revenue",
+    "shop-sales": "Shop sales",
+    "machine-bookings": "Machine bookings",
     "success-rate": "Success rate",
     "active-accounts": "Active accounts",
 };
@@ -65,6 +81,12 @@ export function toDashboardStats(
         "subscription-revenue": {
             ...money(stats.subscriptionRevenueKobo?.value ?? 0),
             changePercent: stats.subscriptionRevenueKobo?.changePercent ?? null,
+        },
+        revenue: { ...money(stats.revenueKobo?.value ?? 0), changePercent: stats.revenueKobo?.changePercent ?? null },
+        "shop-sales": { ...money(stats.shopSalesKobo?.value ?? 0), changePercent: stats.shopSalesKobo?.changePercent ?? null },
+        "machine-bookings": {
+            ...money(stats.machineBookingsKobo?.value ?? 0),
+            changePercent: stats.machineBookingsKobo?.changePercent ?? null,
         },
         "success-rate": {
             // Null until a job has finished: there's no rate yet, not a 0% one

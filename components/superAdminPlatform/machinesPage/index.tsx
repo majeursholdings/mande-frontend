@@ -15,6 +15,7 @@ import { queryKeys } from "@/lib/queryKeys";
 import { machineService, type Machine, type MachineStatusFilter } from "@/lib/services/machineService";
 import MachineForm from "../form/machineForm";
 import { MACHINE_COLUMNS, MACHINE_STATUS_ITEMS } from "./machineParts";
+import SuperAdminMachinesOverview from "./superAdminMachinesOverview";
 
 const TABLE_ID = "machines";
 const PAGE_SIZE = 20;
@@ -98,6 +99,9 @@ export default function MachinesPage() {
                         : "The factory machines makers book time on. Makers pick up to the most machines per booking a super admin sets, and pay each machine's price per hour or per day."
                 }
             />
+
+            {/* Bookings and their money are the super admin's reports */}
+            {platform.key === "super-admin" && <SuperAdminMachinesOverview />}
 
             <div className="flex flex-col">
                 <DataTable

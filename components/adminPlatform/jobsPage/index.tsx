@@ -11,6 +11,7 @@ import JobDetailSheet from "../jobDetailPage/jobDetailSheet";
 import JobsTable from "./jobsTable";
 import JobsToolbar, { type JobsFilters } from "./jobsToolbar";
 import LeadJobsOverview from "./leadJobsOverview";
+import SuperAdminJobsOverview from "./superAdminJobsOverview";
 
 const DEFAULT_FILTERS: JobsFilters = { search: "", assignedToMe: false, leadId: null, view: "all" };
 
@@ -46,7 +47,7 @@ function filterJobs(jobs: AdminJob[], { search, assignedToMe, leadId, view }: Jo
 
 export default function AdminJobsPage({ initialJobId }: { initialJobId?: string }) {
     const { jobs, getJob, isLoading, isError } = useAdminJobs();
-    const { jobsUrl, leadId, permissions } = useStaffPlatform();
+    const { key: platformKey, jobsUrl, leadId, permissions } = useStaffPlatform();
     const [filters, setFilters] = useState<JobsFilters>(DEFAULT_FILTERS);
     const [page, setPage] = useState(1);
     const [openJobId, setOpenJobId] = useState<string | null>(initialJobId ?? null);
@@ -100,8 +101,9 @@ export default function AdminJobsPage({ initialJobId }: { initialJobId?: string 
                 )}
             </div>
 
-            {/* A project lead's own numbers (a super admin's are on Reporting) */}
+            {/* A project lead's own numbers; a super admin's across every job */}
             {leadId && <LeadJobsOverview />}
+            {platformKey === "super-admin" && <SuperAdminJobsOverview />}
 
             <div className="flex flex-col gap-5">
                 <JobsToolbar filters={filters} onChange={changeFilters} showAssignedToMe={!!leadId} />

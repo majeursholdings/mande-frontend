@@ -114,6 +114,8 @@ export type AdminNavItem = {
     inBottomBar?: boolean;
     /** Shows how many actions are waiting for a super admin (see useSuperAdminActions). */
     countsPendingActions?: boolean;
+    /** Sub-pages, listed indented under it in the sidebar and the Menu drawer. */
+    children?: AdminNavItem[];
 };
 
 export const ADMIN_NAV_ITEMS: AdminNavItem[] = [

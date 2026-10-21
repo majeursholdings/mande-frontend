@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useStaffActionsCount } from "./useStaffActionsCount";
 import NavLinks from "./navLinks";
-import { isStaffNavItemActive, useStaffPlatform } from "./staffPlatformContext";
+import { flattenStaffNavItems, isStaffNavItemActive, useStaffPlatform } from "./staffPlatformContext";
 
 const TAB_CLASS =
     "flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[11px] font-medium font-text transition-colors duration-200";
@@ -23,11 +23,13 @@ export default function MobileBottomNav() {
     const pathname = usePathname();
     const platform = useStaffPlatform();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const bottomBarItems = platform.navItems.filter((item) => item.inBottomBar);
+    // Sub-pages too: any item, nested or not, can be in the bottom bar
+    const allItems = flattenStaffNavItems(platform.navItems);
+    const bottomBarItems = allItems.filter((item) => item.inBottomBar);
     // Something waiting under Menu (e.g. the super admin's Actions) puts a dot on it
     const hasWaitingInMenu =
-        useStaffActionsCount() > 0 && platform.navItems.some((item) => !item.inBottomBar && item.countsPendingActions);
-    const isOnDrawerOnlyPage = platform.navItems.some(
+        useStaffActionsCount() > 0 && allItems.some((item) => !item.inBottomBar && item.countsPendingActions);
+    const isOnDrawerOnlyPage = allItems.some(
         (item) => !item.inBottomBar && isStaffNavItemActive(platform, item, pathname),
     );
 

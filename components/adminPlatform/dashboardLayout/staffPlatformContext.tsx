@@ -198,9 +198,27 @@ export function useStaffPlatform() {
     return useContext(StaffPlatformContext);
 }
 
-/** The dashboard is active only on its own page; every other section on its pages below it too. */
+/** Every nav item, with each one's sub-pages after it. */
+export function flattenStaffNavItems(items: AdminNavItem[]): AdminNavItem[] {
+    return items.flatMap((item) => [item, ...flattenStaffNavItems(item.children ?? [])]);
+}
+
+/** Whether `pathname` is the item's page, or (except for the dashboard) a page below it. */
+function navItemMatches(platform: StaffPlatform, item: AdminNavItem, pathname: string): boolean {
+    if (item.href === platform.dashboardUrl) return pathname === item.href;
+    return pathname === item.href || pathname.startsWith(`${item.href}/`);
+}
+
+/**
+ * The dashboard is active only on its own page; every other section on its
+ * pages below it too, unless a more specific item (a longer href, e.g. a
+ * sub-page) matches the page as well: only that one is active.
+ */
 export function isStaffNavItemActive(platform: StaffPlatform, item: AdminNavItem, pathname: string): boolean {
-    return item.href === platform.dashboardUrl ? pathname === item.href : pathname.startsWith(item.href);
+    if (!navItemMatches(platform, item, pathname)) return false;
+    return !flattenStaffNavItems(platform.navItems).some(
+        (other) => other.href.length > item.href.length && navItemMatches(platform, other, pathname),
+    );
 }
 
 /** Whether the signed-in person can act on `job` as its lead would. */

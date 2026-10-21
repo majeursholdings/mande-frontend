@@ -7,7 +7,9 @@ import {
     SIDEBAR_ROW_CLASS,
     SIDEBAR_ROW_IDLE_CLASS,
     SidebarContent,
+    type SidebarItem,
 } from "@/components/ui/dashboardSidebar";
+import type { AdminNavItem } from "@/constant/admin";
 import { useStaffActionsCount } from "./useStaffActionsCount";
 import SidebarRank from "@/components/common/points/sidebarRank";
 import { useLogout } from "./logoutContext";
@@ -22,6 +24,14 @@ export default function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
     const platform = useStaffPlatform();
     const { requestLogout } = useLogout();
     const pendingActionCount = useStaffActionsCount();
+    const toSidebarItem = (item: AdminNavItem): SidebarItem => ({
+        label: item.label,
+        href: item.href,
+        icon: item.icon,
+        isActive: isStaffNavItemActive(platform, item, pathname),
+        badge: item.countsPendingActions ? pendingActionCount : undefined,
+        children: item.children?.map(toSidebarItem),
+    });
 
     return (
         <SidebarContent
@@ -30,13 +40,7 @@ export default function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             // A project lead's present rank (super admins have none)
             standing={platform.leadId ? <SidebarRank role="admin" /> : undefined}
             onNavigate={onNavigate}
-            items={platform.navItems.map((item) => ({
-                label: item.label,
-                href: item.href,
-                icon: item.icon,
-                isActive: isStaffNavItemActive(platform, item, pathname),
-                badge: item.countsPendingActions ? pendingActionCount : undefined,
-            }))}
+            items={platform.navItems.map(toSidebarItem)}
             logout={
                 <button
                     type="button"

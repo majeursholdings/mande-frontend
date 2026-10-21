@@ -1,7 +1,9 @@
 import {
+    Banknote,
     CalendarClock,
     ChartLine,
     Cog,
+    FileChartColumn,
     Store,
     Coins,
     LayoutGrid,
@@ -40,21 +42,25 @@ export { SUPER_ADMIN_DASHBOARD_URL };
 /** What's waiting for a super admin: deletions to confirm, low ratings to review, payment problems. */
 export const SUPER_ADMIN_ACTIONS_URL = "/super-admin/actions";
 export const SUPER_ADMIN_JOBS_URL = "/super-admin/jobs";
+/** The jobs by status and their figures, and the project lead report. */
+/** Reviews of how the jobs and their project leads are going (no money: that's on Reporting). */
+export const SUPER_ADMIN_JOB_REVIEW_URL = "/super-admin/jobs/review";
 export const SUPER_ADMIN_MANUFACTURERS_URL = "/super-admin/manufacturers";
 export const SUPER_ADMIN_PROJECT_LEADS_URL = "/super-admin/project-leads";
 export const SUPER_ADMIN_TRANSACTIONS_URL = "/super-admin/transactions";
 export const SUPER_ADMIN_MACHINE_BOOKINGS_URL = "/super-admin/machine-bookings";
+/** Every payment for a machine booking. */
+export const SUPER_ADMIN_BOOKING_TRANSACTIONS_URL = "/super-admin/machine-bookings/transactions";
 /** The machine catalogue makers book time on. */
 export const SUPER_ADMIN_MACHINES_URL = "/super-admin/machines";
 /** MANDE Shop: MANDE's own stock, every product, and the sellers. */
 export const SUPER_ADMIN_SHOP_URL = "/super-admin/shop";
 /** Coupon codes for machine bookings, subscriptions or both. */
 export const SUPER_ADMIN_COUPONS_URL = "/super-admin/coupons";
-/** The platform's own money: plan payments and rejection charges in, bonuses out. */
+/** The platform's own money by area: jobs, the shop, machine bookings and subscriptions. */
 export const SUPER_ADMIN_REVENUE_URL = "/super-admin/revenue";
 export const SUPER_ADMIN_REPORTING_URL = "/super-admin/reporting";
 export const SUPER_ADMIN_ACTIVITY_LOG_URL = "/super-admin/reporting/activity-log";
-export const SUPER_ADMIN_PROJECT_LEAD_REPORT_URL = "/super-admin/reporting/project-leads";
 export const SUPER_ADMIN_PROFILE_URL = "/super-admin/profile";
 /** Their own details, photo and notifications. */
 export const SUPER_ADMIN_PROFILE_EDIT_URL = "/super-admin/profile/edit";
@@ -70,18 +76,33 @@ export const getSuperAdminMachineBookingUrl = (bookingId: string) =>
 export const SUPER_ADMIN_NAV_ITEMS: AdminNavItem[] = [
     { label: "Dashboard", href: SUPER_ADMIN_DASHBOARD_URL, icon: LayoutGrid, inBottomBar: true },
     { label: "Actions", href: SUPER_ADMIN_ACTIONS_URL, icon: ListTodo, countsPendingActions: true },
-    { label: "Jobs", href: SUPER_ADMIN_JOBS_URL, icon: ListChecks, inBottomBar: true },
     {
-        label: "Manufacturers",
-        shortLabel: "Manufacturer",
-        href: SUPER_ADMIN_MANUFACTURERS_URL,
-        icon: Wrench,
+        label: "Jobs",
+        href: SUPER_ADMIN_JOBS_URL,
+        icon: ListChecks,
         inBottomBar: true,
+        children: [
+            {
+                label: "Manufacturers",
+                shortLabel: "Manufacturer",
+                href: SUPER_ADMIN_MANUFACTURERS_URL,
+                icon: Wrench,
+                inBottomBar: true,
+            },
+            { label: "Transactions", href: SUPER_ADMIN_TRANSACTIONS_URL, icon: ReceiptText, inBottomBar: true },
+            { label: "Job review", href: SUPER_ADMIN_JOB_REVIEW_URL, icon: FileChartColumn },
+        ],
     },
     { label: "Project Leads", href: SUPER_ADMIN_PROJECT_LEADS_URL, icon: ShieldUser },
-    { label: "Transactions", href: SUPER_ADMIN_TRANSACTIONS_URL, icon: ReceiptText, inBottomBar: true },
-    { label: "Machine bookings", href: SUPER_ADMIN_MACHINE_BOOKINGS_URL, icon: CalendarClock },
-    { label: "Machines", href: SUPER_ADMIN_MACHINES_URL, icon: Cog },
+    {
+        label: "Machines",
+        href: SUPER_ADMIN_MACHINES_URL,
+        icon: Cog,
+        children: [
+            { label: "Machine bookings", href: SUPER_ADMIN_MACHINE_BOOKINGS_URL, icon: CalendarClock },
+            { label: "Booking transactions", href: SUPER_ADMIN_BOOKING_TRANSACTIONS_URL, icon: Banknote },
+        ],
+    },
     { label: "Shop", href: SUPER_ADMIN_SHOP_URL, icon: Store },
     { label: "Coupons", href: SUPER_ADMIN_COUPONS_URL, icon: TicketPercent },
     { label: "Revenue", href: SUPER_ADMIN_REVENUE_URL, icon: Coins },

@@ -1,11 +1,7 @@
-import { Suspense } from "react";
-import SuperAdminProjectLeadReportPage from "@/components/superAdminPlatform/projectLeadReportPage";
+import { redirect } from "next/navigation";
+import { SUPER_ADMIN_JOB_REVIEW_URL } from "@/constant/superAdmin";
 
+// The project lead report moved to Jobs › Jobs report
 export default function SuperAdminProjectLeadReportRoute() {
-    // The table keeps its search, filter and page in the URL — read on the client
-    return (
-        <Suspense>
-            <SuperAdminProjectLeadReportPage />
-        </Suspense>
-    );
+    redirect(SUPER_ADMIN_JOB_REVIEW_URL);
 }
