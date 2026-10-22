@@ -48,6 +48,7 @@ import { getJobDeleteBlocker, useAdminJobs } from "../dashboardLayout/adminJobsC
 import { useAdminManufacturers } from "../dashboardLayout/adminManufacturersContext";
 import { useAdminProfile } from "../dashboardLayout/adminProfileContext";
 import { canActOnJob, useStaffPlatform } from "../dashboardLayout/staffPlatformContext";
+import JobShopCard from "./jobShopCard";
 import { JobStatusBadge, PersonLabel } from "../jobsPage/jobPeople";
 import AssignmentHistory from "./assignmentHistory";
 import { AttachmentList, ContactManufacturerDialog, DetailSection, ImagePreviewGrid } from "./detailParts";
@@ -475,6 +476,8 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
                 )}
 
                 <JobPayments job={job} isLead={isLead} onReportFault={() => setDialog("fault")} />
+
+                <JobShopCard jobId={job.id} canAct={isLead} shopBase={platform.key === "super-admin" ? "/super-admin/shop" : "/admin/shop"} />
 
                 {decidedExtensions.length > 0 && <ExtensionHistory requests={decidedExtensions} />}
 

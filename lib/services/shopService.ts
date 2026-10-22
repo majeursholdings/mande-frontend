@@ -135,7 +135,19 @@ export type ShopOrderPart = {
     customer: { name: string; phone: string; street: string; city: string; state: string };
     /** What the customer wrote at checkout for the sellers (delivery directions, a gate code...). */
     note: string | null;
-    lines: { id: string; productId: string; title: string; imageUrl: string | null; unitPriceKobo: number; quantity: number; deliveryFeeKobo: number; pickup: boolean }[];
+    lines: {
+        id: string;
+        productId: string;
+        title: string;
+        imageUrl: string | null;
+        unitPriceKobo: number;
+        quantity: number;
+        deliveryFeeKobo: number;
+        pickup: boolean;
+        status: "active" | "cancelled";
+        /** MANDE stock made through a job (SHOP_IMPLEMENTATION.md 5.2): null when it has none. */
+        job: ShopLineJob | null;
+    }[];
     itemsSubtotalKobo: number;
     deliveryFeeKobo: number;
     platformChargeKobo: number;
@@ -147,6 +159,53 @@ export type ShopOrderPart = {
     trackingNote: string | null;
     shippedAt: string | null;
     deliveredAt: string | null;
+};
+
+/** A MANDE stock line's job, as staff see it on the order. "closed": rejected for the last time, so the line needs a new job or a refund. */
+export type ShopLineJob = { id: string; code: string; status: string; dueDate: string; readyToShip: boolean; closed: boolean };
+
+/** A made-to-order MANDE product's job template (staff only). `payKobo` and `autoCreate` are set by super admins. */
+export type JobTemplate = {
+    brief: string;
+    attachments: ({ url: string | null; name: string | null; kind: "document" | "image"; publicId: string } | null)[];
+    payKobo: number | null;
+    productionDays: number;
+    leadId: string | null;
+    manufacturerIds: string[];
+    autoCreate: boolean;
+    margin: { marginKobo: number; marginPercent: number } | null;
+};
+
+export type JobTemplatePayload = {
+    brief: string;
+    attachments: { publicId: string; name?: string }[];
+    payKobo?: number | null;
+    productionDays: number;
+    leadId: string | null;
+    manufacturerIds: string[];
+    autoCreate?: boolean;
+    /** Saves a margin under the shop's minimum (the API answers 409 LOW_JOB_MARGIN without it). */
+    confirmLowMargin?: boolean;
+};
+
+/** A MANDE product as staff see it: with its job template, and the job it was made from. */
+export type MandeProduct = SellerProduct & { jobTemplate: JobTemplate | null; sourceJob: { id: string; code: string; title: string } | null };
+
+/** The job form for a paid made-to-order line, prefilled from the product's template and the order. */
+export type ShopJobDraft = {
+    title: string;
+    description: string;
+    category: string;
+    quantity: number;
+    amountKobo: number | null;
+    dueDate: string | null;
+    deliveryLocation: { street: string; city: string; state: string; country: string } | null;
+    image: { url: string | null; name: string | null; kind: "document" | "image"; publicId: string } | null;
+    attachments: ({ url: string | null; name: string | null; kind: "document" | "image"; publicId: string } | null)[];
+    projectLeadIds: string[];
+    manufacturerIds: string[];
+    shopLine: { orderId: string; lineId: string; orderCode: string };
+    hasTemplate: boolean;
 };
 
 /** Where a seller can move their part of an order. */
@@ -371,7 +430,31 @@ export const myShopService = {
 };
 
 /** MANDE's own stock, for admins and super admins. */
-export const mandeStockService = sellerShopApi("/shop-admin/mande");
+export const mandeStockService = {
+    ...sellerShopApi("/shop-admin/mande"),
+
+    /** One MANDE product with its job template (staff only). */
+    async getProduct(productId: string): Promise<MandeProduct> {
+        const { data } = await api.get<{ product: MandeProduct }>(`/shop-admin/mande/products/${productId}`);
+        return data.product;
+    },
+
+    async setJobTemplate(productId: string, payload: JobTemplatePayload): Promise<MandeProduct> {
+        const { data } = await api.put<{ product: MandeProduct }>(`/shop-admin/mande/products/${productId}/job-template`, payload);
+        return data.product;
+    },
+
+    async removeJobTemplate(productId: string): Promise<MandeProduct> {
+        const { data } = await api.delete<{ product: MandeProduct }>(`/shop-admin/mande/products/${productId}/job-template`);
+        return data.product;
+    },
+
+    /** The job form for a paid made-to-order line (409 LINE_HAS_JOB when it has one). */
+    async getJobDraft(orderId: string, lineId: string): Promise<ShopJobDraft> {
+        const { data } = await api.get<{ draft: ShopJobDraft }>(`/shop-admin/mande/orders/${orderId}/lines/${lineId}/job-draft`);
+        return data.draft;
+    },
+};
 
 // ─── Super admins: every product, sellers and shop access ────────────────────
 

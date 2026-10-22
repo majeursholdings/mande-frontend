@@ -29,6 +29,8 @@ type ShopSettingsValues = {
     returnSendBackDays: string;
     returnGraceDays: string;
     payoutDelayHours: string;
+    minJobMarginPercent: string;
+    jobLeadBufferDays: string;
     lowRatingBelow: string;
     lowRatingMinReviews: string;
 };
@@ -55,6 +57,8 @@ function toValues(settings: ShopSettings): ShopSettingsValues {
         returnSendBackDays: String(settings.returnSendBackDays ?? 7),
         returnGraceDays: String(settings.returnGraceDays ?? 7),
         payoutDelayHours: String(settings.payoutDelayHours ?? 24),
+        minJobMarginPercent: String(settings.minJobMarginPercent ?? 20),
+        jobLeadBufferDays: String(settings.jobLeadBufferDays ?? 3),
         lowRatingBelow: String(settings.lowRatingAlert.belowRating),
         lowRatingMinReviews: String(settings.lowRatingAlert.minReviews),
     };
@@ -77,6 +81,8 @@ function toSettings(values: ShopSettingsValues): ShopSettings {
         returnSendBackDays: Number(values.returnSendBackDays),
         returnGraceDays: Number(values.returnGraceDays),
         payoutDelayHours: Number(values.payoutDelayHours),
+        minJobMarginPercent: Number(values.minJobMarginPercent),
+        jobLeadBufferDays: Number(values.jobLeadBufferDays),
         lowRatingAlert: { belowRating: Number(values.lowRatingBelow), minReviews: Number(values.lowRatingMinReviews) },
     };
 }
@@ -150,6 +156,20 @@ const DAY_FIELDS: FormFieldConfig[] = [
         validation: { required: "Enter a number of hours", validate: wholeNumber(1, 720) },
     },
     {
+        name: "minJobMarginPercent",
+        type: "number",
+        label: "MANDE stock jobs: minimum margin (%)",
+        description: "Saving a job template that leaves less than this between the price and the manufacturer's pay asks to confirm.",
+        validation: { required: "Enter a percentage", validate: wholeNumber(0, 90) },
+    },
+    {
+        name: "jobLeadBufferDays",
+        type: "number",
+        label: "MANDE stock jobs: lead time buffer (days)",
+        description: "Added to a job template's production days for the lead time customers see.",
+        validation: { required: "Enter a number of days", validate: wholeNumber(0, 60) },
+    },
+    {
         name: "lowRatingBelow",
         type: "number",
         label: "Low rating: below",
@@ -175,6 +195,7 @@ const ROW_PAIRS: [string, string][] = [
     ["reviewWindowDays", "debtGraceDays"],
     ["returnWindowDays", "returnSendBackDays"],
     ["returnGraceDays", "payoutDelayHours"],
+    ["minJobMarginPercent", "jobLeadBufferDays"],
     ["lowRatingBelow", "lowRatingMinReviews"],
 ];
 

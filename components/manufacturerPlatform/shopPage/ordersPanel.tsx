@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -36,6 +36,7 @@ export default function OrdersPanel({
     queryKey,
     payoutLabel = "Paid to you",
     exportName = "orders",
+    renderLine,
 }: {
     tableId: string;
     api: SellerShopApi;
@@ -44,9 +45,14 @@ export default function OrdersPanel({
     payoutLabel?: string;
     /** The start of an export's file name, e.g. "mande-stock-orders". */
     exportName?: string;
+    /** More under a line in the open order (MANDE stock: its job, or "Create job"). `onChanged` reloads the orders. */
+    renderLine?: (order: ShopOrderPart, line: ShopOrderPart["lines"][number], onChanged: () => void) => ReactNode;
 }) {
     const searchParams = useSearchParams();
-    const [open, setOpen] = useState<ShopOrderPart | null>(null);
+    const [picked, setPicked] = useState<ShopOrderPart | null>(null);
+    // ?order=<orderId> (from Actions) opens that order once it's on the page, until it's closed
+    const [linkClosed, setLinkClosed] = useState(false);
+    const linkedOrderId = searchParams.get("order");
     const page = Math.max(1, Number(searchParams.get(`${tableId}_page`) ?? 1) || 1);
     const statusParam = searchParams.get(`${tableId}_status`) ?? "";
     const status = ORDER_PART_STATUS_FILTER_ITEMS.some((item) => item.value === statusParam) ? (statusParam as OrderPartStatus) : undefined;
@@ -57,6 +63,14 @@ export default function OrdersPanel({
         staleTime: 30_000,
         placeholderData: (previous) => previous,
     });
+    const linked = !linkClosed && linkedOrderId ? (query.data?.orders.find((order) => order.orderId === linkedOrderId) ?? null) : null;
+    // The open order, as last loaded (so a job made from it shows straight away)
+    const openId = picked?.id ?? linked?.id;
+    const open = openId ? (query.data?.orders.find((order) => order.id === openId) ?? picked ?? linked) : null;
+    const setOpen = (order: ShopOrderPart | null) => {
+        setPicked(order);
+        if (!order) setLinkClosed(true);
+    };
 
     const exportOrders = async (format: ExportFormat) => {
         const data = await api.exportOrders({ status });
@@ -155,6 +169,7 @@ export default function OrdersPanel({
                                                 {line.quantity} × {naira(line.unitPriceKobo)}
                                                 {line.pickup ? ", picked up" : line.deliveryFeeKobo ? `, delivery ${naira(line.deliveryFeeKobo)}` : ", free delivery"}
                                             </span>
+                                            {renderLine?.(open, line, () => void query.refetch())}
                                         </span>
                                     </li>
                                 ))}

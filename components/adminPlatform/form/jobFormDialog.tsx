@@ -35,6 +35,7 @@ import { useAdminJobs } from "@/components/adminPlatform/dashboardLayout/adminJo
 import { useStaffPlatform } from "@/components/adminPlatform/dashboardLayout/staffPlatformContext";
 import { FormSubmitButton } from "./formButtons";
 import { useProjectLeads } from "@/components/adminPlatform/dashboardLayout/useProjectLeads";
+import type { ShopJobDraft } from "@/lib/services/shopService";
 
 type DetailsValues = {
     title: string;
@@ -90,13 +91,24 @@ const fileCount = (files: FileList | File[] | null | undefined) => (files ? Arra
 // saved").
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** A shop draft's files as the job keeps them: the product's photo and the template's files, kept as stored. */
+const draftFiles = (draft: ShopJobDraft): AdminJobAttachment[] =>
+    [draft.image, ...draft.attachments]
+        .filter((file) => file !== null && !!file.url)
+        .map((file) => ({ name: file!.name ?? "attachment", url: file!.url!, kind: file!.kind, publicId: file!.publicId }));
+
 export default function JobFormDialog({
     job,
+    prefill,
     onClose,
+    onCreated,
 }: {
     /** The job to edit — omit to create one. */
     job?: AdminJob;
+    /** Create only: a paid MANDE stock order line's job, prefilled from its product's template and the order (SHOP_IMPLEMENTATION.md 5.2.2). */
+    prefill?: ShopJobDraft;
     onClose: () => void;
+    onCreated?: (job: AdminJob) => void;
 }) {
     const { createJob, updateJob } = useAdminJobs();
     // Someone who doesn't lead jobs picks the admin who will
@@ -122,31 +134,32 @@ export default function JobFormDialog({
     const [isSaving, setIsSaving] = useState(false);
     const [isDiscardOpen, setIsDiscardOpen] = useState(false);
     // When the name first went in — the job code's date and time
-    const [namedAt, setNamedAt] = useState<Date | null>(null);
+    const [namedAt, setNamedAt] = useState<Date | null>(prefill ? new Date() : null);
     // Edit only: files already on the job, which can be removed
     const [keptAttachments, setKeptAttachments] = useState<AdminJobAttachment[]>(
-        job?.attachments ?? [],
+        job?.attachments ?? (prefill ? draftFiles(prefill) : []),
     );
+    const initialKeptCount = job?.attachments.length ?? (prefill ? draftFiles(prefill).length : 0);
 
     const details = useForm<DetailsValues>({
         mode: "onTouched",
         defaultValues: {
-            title: job?.title ?? "",
-            category: job?.category ?? "",
-            projectLeadId: job?.projectLeadIds[0] ?? "",
-            manufacturerIds: job?.manufacturerIds ?? [],
-            amount: job ? String(job.amount) : "",
+            title: job?.title ?? prefill?.title ?? "",
+            category: job?.category ?? prefill?.category ?? "",
+            projectLeadId: job?.projectLeadIds[0] ?? prefill?.projectLeadIds[0] ?? "",
+            manufacturerIds: job?.manufacturerIds ?? prefill?.manufacturerIds ?? [],
+            amount: job ? String(job.amount) : prefill?.amountKobo ? String(prefill.amountKobo / 100) : "",
         },
     });
     const schedule = useForm<ScheduleValues>({
         mode: "onTouched",
         defaultValues: {
-            dueDate: job?.dueDate ?? "",
-            description: job?.description ?? "",
-            deliveryStreet: job?.deliveryLocation?.street ?? "",
-            deliveryCity: job?.deliveryLocation?.city ?? "",
-            deliveryState: job?.deliveryLocation?.state ?? "",
-            deliveryCountry: job?.deliveryLocation?.country ?? "NG",
+            dueDate: job?.dueDate ?? prefill?.dueDate ?? "",
+            description: job?.description ?? prefill?.description ?? "",
+            deliveryStreet: job?.deliveryLocation?.street ?? prefill?.deliveryLocation?.street ?? "",
+            deliveryCity: job?.deliveryLocation?.city ?? prefill?.deliveryLocation?.city ?? "",
+            deliveryState: job?.deliveryLocation?.state ?? prefill?.deliveryLocation?.state ?? "",
+            deliveryCountry: job?.deliveryLocation?.country ?? prefill?.deliveryLocation?.country ?? "NG",
         },
     });
     const attachments = useForm<AttachmentsValues>({ defaultValues: { documents: null, featuredImage: null, images: null } });
@@ -164,7 +177,7 @@ export default function JobFormDialog({
         details.formState.isDirty ||
         schedule.formState.isDirty ||
         newFileCount > 0 ||
-        keptAttachments.length !== (job?.attachments.length ?? 0);
+        keptAttachments.length !== initialKeptCount;
 
     // Escape, the backdrop, the X — all ask before throwing work away
     const requestClose = () => {
@@ -360,6 +373,7 @@ export default function JobFormDialog({
                     country: scheduleValues.deliveryCountry?.trim() || "NG",
                 } : null,
                 ...(picksLead && detailsValues.projectLeadId ? { projectLeadIds: [detailsValues.projectLeadId] } : {}),
+                ...(prefill ? { shopLine: { orderId: prefill.shopLine.orderId, lineId: prefill.shopLine.lineId } } : {}),
                 attachments: [
                     ...keptAttachments,
                     ...upload(attachments.getValues("documents"), "document"),
@@ -372,7 +386,8 @@ export default function JobFormDialog({
                 await updateJob(job.id, draft);
                 toast.success("Job updated successfully");
             } else {
-                await createJob(draft, generateJobCode(draft.category, namedAt ?? new Date()));
+                const created = await createJob(draft, generateJobCode(draft.category, namedAt ?? new Date()));
+                onCreated?.(created);
                 toast.success(picksLead && leadName ? `Job created and assigned to ${leadName}` : "Job created successfully");
             }
             clearFormUploadedFiles("documents");
@@ -429,7 +444,15 @@ export default function JobFormDialog({
                 }}
             >
                 <DialogContent>
-                    <DialogTitle>{isEditing ? "Edit Job" : "Create a Job"}</DialogTitle>
+                    <DialogTitle>{isEditing ? "Edit Job" : prefill ? `Create the job for ${prefill.shopLine.orderCode}` : "Create a Job"}</DialogTitle>
+                    {prefill && (
+                        <p className="-mt-2 text-sm font-text text-mist-500">
+                            {prefill.quantity} × {prefill.title}.{" "}
+                            {prefill.hasTemplate
+                                ? "Filled in from the product's job template and the order. Change anything before you create it."
+                                : "This product has no job template, so fill in the pay and dates."}
+                        </p>
+                    )}
                     <DialogDescription className="sr-only">
                         Step {step + 1} of {STEP_COUNT}
                     </DialogDescription>

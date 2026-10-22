@@ -1,5 +1,7 @@
 "use client";
 
+import JobTemplateSection from "@/components/adminPlatform/form/jobTemplateForm";
+import MandeLineJob from "./mandeLineJob";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -109,6 +111,7 @@ export function StaffShopProductsPage() {
             tableId="mande-products"
             api={mandeStockService}
             exportName="mande-stock-products"
+            renderEditExtra={(product) => <JobTemplateSection productId={product.id} />}
             queryKey={(filters) => queryKeys.shop.mandeProducts(filters)}
             overview={overview}
             onManageZones={() => router.push(`${base}/delivery-zones`)}
@@ -124,7 +127,16 @@ export function StaffShopProductsPage() {
 }
 
 export function StaffShopOrdersPage() {
-    return <OrdersPanel tableId="mande-orders" api={mandeStockService} queryKey={(filters) => queryKeys.shop.mandeOrders(filters)} payoutLabel="Paid to MANDE" exportName="mande-stock-orders" />;
+    return (
+        <OrdersPanel
+            tableId="mande-orders"
+            api={mandeStockService}
+            queryKey={(filters) => queryKeys.shop.mandeOrders(filters)}
+            payoutLabel="Paid to MANDE"
+            exportName="mande-stock-orders"
+            renderLine={(order, line, onChanged) => <MandeLineJob order={order} line={line} onChanged={onChanged} />}
+        />
+    );
 }
 
 export function StaffShopReviewsPage() {

@@ -49,6 +49,8 @@ export type AdminJobDraft = Pick<
      * doesn't lead jobs) always picks an admin.
      */
     projectLeadIds?: string[];
+    /** A paid MANDE stock order line the job makes (create only). */
+    shopLine?: { orderId: string; lineId: string };
 };
 
 type AdminJobsContextValue = {
@@ -156,7 +158,8 @@ const AdminJobsContext = createContext<AdminJobsContextValue | null>(null);
  * "job-image" purpose and will only claim it as the job's image from there,
  * so a file is the cover by where it was uploaded, not by what it looks like.
  */
-const isCoverUpload = (a: { publicId?: string }) => Boolean(a.publicId?.includes("/job-image/"));
+// A job's own cover, or a shop product's photo prefilled on a job made for its order line
+const isCoverUpload = (a: { publicId?: string }) => Boolean(a.publicId?.includes("/job-image/") || a.publicId?.includes("/shop-product-image/"));
 
 const sameIds = (a: string[], b: string[]) =>
     a.length === b.length && a.every((id) => b.includes(id));
@@ -631,6 +634,7 @@ export function AdminJobsProvider({ children }: { children: ReactNode }) {
                     : {}),
                 ...(cleanProjectLeadIds && cleanProjectLeadIds.length > 0 ? { projectLeadIds: cleanProjectLeadIds } : {}),
                 ...(cleanManufacturerIds && cleanManufacturerIds.length > 0 ? { manufacturerIds: cleanManufacturerIds } : {}),
+                ...(draft.shopLine ? { shopLine: draft.shopLine } : {}),
             };
 
             const response = await jobsService.createJob(payload);

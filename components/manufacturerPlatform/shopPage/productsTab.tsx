@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -82,6 +82,7 @@ export default function ProductsTab({
     onManageZones,
     onChanged,
     exportName = "products",
+    renderEditExtra,
 }: {
     tableId: string;
     api: SellerShopApi;
@@ -93,6 +94,8 @@ export default function ProductsTab({
     onChanged: () => Promise<unknown>;
     /** The start of an export's file name, e.g. "mande-stock-products". */
     exportName?: string;
+    /** More under the edit form (MANDE stock: its job template). */
+    renderEditExtra?: (product: SellerProduct) => ReactNode;
 }) {
     const queryClient = useQueryClient();
     const searchParams = useSearchParams();
@@ -307,6 +310,7 @@ export default function ProductsTab({
                             }}
                         />
                     )}
+                    {editing && renderEditExtra?.(editing)}
                 </DialogContent>
             </Dialog>
 

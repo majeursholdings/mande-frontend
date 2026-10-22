@@ -285,6 +285,9 @@ export type ShopSettings = {
     returnGraceDays: number;
     /** A manufacturer's share goes to their wallet this many hours after delivery. */
     payoutDelayHours: number;
+    /** MANDE stock made through jobs: the lowest margin a job template saves without confirming, and days added to its production days for the lead time. */
+    minJobMarginPercent?: number;
+    jobLeadBufferDays?: number;
     /** Flags a seller to staff when their rating falls below this, once they have this many reviews. */
     lowRatingAlert: { belowRating: number; minReviews: number };
 };

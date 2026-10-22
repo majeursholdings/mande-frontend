@@ -50,7 +50,16 @@ export interface CreateJobPayload {
   attachments?: { publicId: string; name?: string }[];
   projectLeadIds?: string[];
   manufacturerIds?: string[];
+  /** A paid MANDE stock order line this job makes (one active job per line). */
+  shopLine?: { orderId: string; lineId: string };
 }
+
+/** The shop side of a job: the MANDE order it makes, and the products made from it. */
+export type JobShopCard = {
+  shopOrder: { orderId: string; code: string; productTitle: string | null; quantity: number | null; state: string | null; active: boolean } | null;
+  products: { id: string; title: string; slug: string; status: string; madeToOrder: boolean }[];
+  canPutOnShop: boolean;
+};
 
 export interface UpdateJobPayload {
   title?: string;
@@ -209,6 +218,17 @@ export const jobsService = {
   async createJob(payload: CreateJobPayload) {
     const { data } = await api.post("/jobs", payload);
     return data;
+  },
+
+  async getJobShop(jobId: string): Promise<JobShopCard> {
+    const { data } = await api.get<JobShopCard>(`/jobs/${jobId}/shop`);
+    return data;
+  },
+
+  /** A signed-off job as a draft MANDE product: the piece itself (1 in stock), or the design made to order. */
+  async putOnShop(jobId: string, kind: "piece" | "design"): Promise<{ id: string; title: string }> {
+    const { data } = await api.post<{ product: { id: string; title: string } }>(`/jobs/${jobId}/shop-product`, { kind });
+    return data.product;
   },
 
   async updateJob(jobId: string, payload: UpdateJobPayload) {
