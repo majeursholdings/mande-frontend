@@ -42,6 +42,7 @@ asManufacturer.describe("the manufacturer's overview cards", () => {
 
     asManufacturer("shows the wallet's figures as cards on Transactions", async ({ page }) => {
         await page.goto("/manufacturer/transactions");
+        await dismissLeadReview(page);
         for (const label of ["Total made", "Spent on subscriptions", "Current jobs worth"]) {
             await expect(page.getByRole("heading", { name: label, exact: true })).toBeVisible();
         }

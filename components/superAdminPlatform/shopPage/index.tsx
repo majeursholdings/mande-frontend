@@ -19,6 +19,7 @@ import AllProductsTab from "./allProductsTab";
 import ReturnsPanel from "@/components/manufacturerPlatform/shopPage/returnsPanel";
 import ReviewsPanel from "@/components/manufacturerPlatform/shopPage/reviewsPanel";
 import AllReviewsTab from "./allReviewsTab";
+import PaymentsTab from "./paymentsTab";
 import ReportsTab from "./reportsTab";
 import SellersTab from "./sellersTab";
 
@@ -28,8 +29,8 @@ import SellersTab from "./sellersTab";
 // products (the same table and form a manufacturer uses, on MANDE's seller
 // record), orders and delivery zones. Super admins also see every product
 // (taking one down or restoring it), the sellers (their shop access),
-// every return (to step in on any seller's) and customers' reports of
-// products.
+// every return (to step in on any seller's), customers' reports of
+// products, and card refunds that failed and chargebacks.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Where this platform's shop pages are: /admin/shop or /super-admin/shop. */
@@ -66,6 +67,7 @@ export function StaffShopLayout({ children }: { children: ReactNode }) {
                   { href: `${base}/all-products`, label: "All products" },
                   { href: `${base}/sellers`, label: "Sellers" },
                   { href: `${base}/returns`, label: "All returns" },
+                  { href: `${base}/payments`, label: "Refunds and disputes" },
                   { href: `${base}/reviews`, label: "All reviews" },
                   { href: `${base}/reports`, label: "Reports" },
               ]
@@ -135,6 +137,11 @@ export function StaffShopReturnsPage() {
 
 export function StaffAllReturnsPage() {
     return <ReturnsPanel tableId="all-returns" api={allReturnsService} queryKey={(filters) => queryKeys.shop.allReturns(filters)} showSeller />;
+}
+
+/** Card refunds that failed or are on their way, and chargebacks (super admins). */
+export function StaffShopPaymentsPage() {
+    return <PaymentsTab />;
 }
 
 export function StaffShopZonesPage() {

@@ -153,6 +153,8 @@ export const queryKeys = {
     myReturns: (filters?: Record<string, unknown>) => [...queryKeys.shop.all, "my-returns", filters] as const,
     mandeReturns: (filters?: Record<string, unknown>) => [...queryKeys.shop.all, "mande-returns", filters] as const,
     allReturns: (filters?: Record<string, unknown>) => [...queryKeys.shop.all, "all-returns", filters] as const,
+    cardRefunds: (filters?: Record<string, unknown>) => [...queryKeys.shop.all, "card-refunds", filters] as const,
+    disputes: (filters?: Record<string, unknown>) => [...queryKeys.shop.all, "disputes", filters] as const,
     seller: (id: string) => [...queryKeys.shop.all, "seller", id] as const,
   },
 
@@ -176,6 +178,16 @@ export const queryKeys = {
     directory: () => [...queryKeys.superAdmin.all, "directory"] as const,
     invites: () => [...queryKeys.superAdmin.all, "invites"] as const,
     apiKeys: () => [...queryKeys.superAdmin.all, "api-keys"] as const,
+  },
+
+  // Shop customers, on the super admin's Customers page
+  customers: {
+    all: ["customers"] as const,
+    list: (filters?: Record<string, unknown>) => [...queryKeys.customers.all, "list", filters] as const,
+    summary: () => [...queryKeys.customers.all, "summary"] as const,
+    detail: (id: string) => [...queryKeys.customers.all, "detail", id] as const,
+    orders: (id: string, page: number) => [...queryKeys.customers.all, "orders", id, page] as const,
+    credit: (id: string, page: number) => [...queryKeys.customers.all, "credit", id, page] as const,
   },
 
   // Messages from the website's contact form (super admins)

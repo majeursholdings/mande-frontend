@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { Suspense, useSyncExternalStore, type ReactNode } from "react";
 import { redirect, usePathname, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { getDashboardUrlForRole } from "@/hooks/useAuthRedirect";
+import { hasSignedInHint } from "@/lib/api";
 
 let sessionExpiredAt = 0;
 const sessionListeners = new Set<() => void>();
@@ -58,8 +59,25 @@ type SessionGuardProps = {
     children: ReactNode;
 };
 
-/** What shows while the account is checked. */
+function subscribeSignedInHint(onStoreChange: () => void) {
+    window.addEventListener("mande:auth_token_changed", onStoreChange);
+    return () => window.removeEventListener("mande:auth_token_changed", onStoreChange);
+}
+
+/**
+ * What shows while the account is checked: the fallback only when this tab
+ * was signed in, so a visit without a login shows a blank screen, never a
+ * dashboard, before it's sent to log in.
+ */
 function CheckingSession({ fallback }: { fallback?: ReactNode }) {
+    const signedIn = useSyncExternalStore(subscribeSignedInHint, hasSignedInHint, () => false);
+    if (!signedIn) {
+        return (
+            <div className="min-h-dvh bg-white" role="status" aria-live="polite">
+                <span className="sr-only">Checking you&apos;re signed in</span>
+            </div>
+        );
+    }
     if (fallback) return <>{fallback}</>;
     return (
         <div className="flex min-h-dvh items-center justify-center bg-white" role="status" aria-live="polite">
@@ -87,20 +105,16 @@ function SessionGuardInner({ role, loginUrl, fallback, children }: SessionGuardP
     const { data: user, isPending } = useCurrentUser();
     const allowed = !!user && user.role === role && user.status === "active";
 
-    useEffect(() => {
-        if (allowed && sessionExpiredAt > 0) {
-            sessionExpiredAt = 0;
-            notifySessionListeners();
-        }
-    }, [allowed]);
-
     const sessionExpiredTime = useSyncExternalStore(
         subscribeSessionExpired,
         getSessionExpiredSnapshot,
         getServerSessionExpiredSnapshot
     );
 
-    if (sessionExpiredTime > 0 && !allowed && !isPending) {
+    // The API turned the login down (no refresh cookie, or it's ended): off to
+    // log in at once, without waiting for the profile call to fail too. A new
+    // login sets a token, which clears this.
+    if (sessionExpiredTime > 0 && !allowed) {
         redirect(`${loginUrl}?next=${next}`);
     }
 

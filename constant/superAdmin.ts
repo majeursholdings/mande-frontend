@@ -14,6 +14,7 @@ import {
     ShieldUser,
     TicketPercent,
     UserRound,
+    UsersRound,
     Wrench,
 } from "lucide-react";
 import {
@@ -55,6 +56,8 @@ export const SUPER_ADMIN_BOOKING_TRANSACTIONS_URL = "/super-admin/machine-bookin
 export const SUPER_ADMIN_MACHINES_URL = "/super-admin/machines";
 /** MANDE Shop: MANDE's own stock, every product, and the sellers. */
 export const SUPER_ADMIN_SHOP_URL = "/super-admin/shop";
+/** Shop customers: their orders and store credit, and deactivating them. */
+export const SUPER_ADMIN_CUSTOMERS_URL = "/super-admin/customers";
 /** Coupon codes for machine bookings, subscriptions or both. */
 export const SUPER_ADMIN_COUPONS_URL = "/super-admin/coupons";
 /** The platform's own money by area: jobs, the shop, machine bookings and subscriptions. */
@@ -70,6 +73,7 @@ export const SUPER_ADMIN_SETTINGS_URL = "/super-admin/settings";
 
 export const getSuperAdminManufacturerUrl = (manufacturerId: string) =>
     `${SUPER_ADMIN_MANUFACTURERS_URL}/${encodeURIComponent(manufacturerId)}`;
+export const getSuperAdminCustomerUrl = (customerId: string) => `${SUPER_ADMIN_CUSTOMERS_URL}/${encodeURIComponent(customerId)}`;
 export const getSuperAdminMachineBookingUrl = (bookingId: string) =>
     `${SUPER_ADMIN_MACHINE_BOOKINGS_URL}/${encodeURIComponent(bookingId)}`;
 
@@ -103,7 +107,12 @@ export const SUPER_ADMIN_NAV_ITEMS: AdminNavItem[] = [
             { label: "Booking transactions", href: SUPER_ADMIN_BOOKING_TRANSACTIONS_URL, icon: Banknote },
         ],
     },
-    { label: "Shop", href: SUPER_ADMIN_SHOP_URL, icon: Store },
+    {
+        label: "Shop",
+        href: SUPER_ADMIN_SHOP_URL,
+        icon: Store,
+        children: [{ label: "Customers", href: SUPER_ADMIN_CUSTOMERS_URL, icon: UsersRound }],
+    },
     { label: "Coupons", href: SUPER_ADMIN_COUPONS_URL, icon: TicketPercent },
     { label: "Revenue", href: SUPER_ADMIN_REVENUE_URL, icon: Coins },
     { label: "Reporting", href: SUPER_ADMIN_REPORTING_URL, icon: ChartLine },
@@ -210,6 +219,7 @@ export const SUPER_ADMIN_NOTIFICATION_TYPES: { value: AdminNotificationType; lab
     },
     { value: "machine-bookings", label: "Machine bookings", description: "When a machine booking is paid" },
     { value: "product-reports", label: "Product reports", description: "A shop customer reports a product" },
+    { value: "shop-ratings", label: "Low seller ratings", description: "A seller's rating falls below the shop's low rating alert" },
 ];
 
 // ─── Settings ─────────────────────────────────────────────────────────────────

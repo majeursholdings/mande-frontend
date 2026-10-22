@@ -16,6 +16,11 @@ export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost
 
 let currentAccessToken: string | null = null;
 
+// Not the token, just a flag that this tab had a login: the dashboards show
+// their skeleton frame while the session is checked only when it's set, so a
+// signed-out visit goes straight to the log-in page without a dashboard flash
+const SIGNED_IN_HINT_KEY = "mande:signed-in";
+
 /** The access token, if this page has one yet. */
 export function getStoredAccessToken(): string | null {
   return currentAccessToken;
@@ -24,7 +29,22 @@ export function getStoredAccessToken(): string | null {
 export function setStoredAccessToken(token: string | null): void {
   currentAccessToken = token;
   if (typeof window !== "undefined") {
+    try {
+      if (token) window.sessionStorage.setItem(SIGNED_IN_HINT_KEY, "1");
+      else window.sessionStorage.removeItem(SIGNED_IN_HINT_KEY);
+    } catch {
+      // Storage blocked: the check just shows a blank screen
+    }
     window.dispatchEvent(new CustomEvent("mande:auth_token_changed", { detail: { token } }));
+  }
+}
+
+/** Whether this tab was signed in last it knew (a hint only: the API still decides). */
+export function hasSignedInHint(): boolean {
+  try {
+    return window.sessionStorage.getItem(SIGNED_IN_HINT_KEY) === "1";
+  } catch {
+    return false;
   }
 }
 

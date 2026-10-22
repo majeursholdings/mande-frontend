@@ -21,6 +21,8 @@ test.describe("the project lead's dashboard", () => {
         await page.goto("/admin/dashboard");
         await expect(page.getByRole("heading", { name: "Your points", exact: true })).toBeVisible();
         const sidebar = page.getByRole("complementary");
+        // Over the page, not the sidebar: at this height the sidebar's own list scrolls
+        await page.mouse.move(800, 300);
         await page.mouse.wheel(0, 2000);
         await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
         const box = await sidebar.boundingBox();

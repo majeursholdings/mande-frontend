@@ -153,6 +153,7 @@ export type AdminNotificationType =
     | "accounts"
     | "machine-bookings"
     | "product-reports"
+    | "shop-ratings"
     | "points";
 
 export const ADMIN_NOTIFICATION_TYPES: { value: AdminNotificationType; label: string; description: string }[] = [
@@ -263,6 +264,7 @@ export const BLANK_ADMIN_PROFILE: AdminProfile = {
         accounts: channelsOn(["in-app", "email"]),
         "machine-bookings": channelsOn(["in-app", "email"]),
         "product-reports": channelsOn(["in-app", "email"]),
+        "shop-ratings": channelsOn(["in-app", "email"]),
         points: channelsOn(["in-app", "email"]),
     },
 };

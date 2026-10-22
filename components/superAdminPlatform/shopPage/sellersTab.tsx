@@ -23,6 +23,8 @@ const ACCESS_ITEMS = [
     { value: "revoked", label: "Access revoked" },
 ];
 
+const RATING_ITEMS = [{ value: "low", label: "Low rating" }];
+
 const COLUMNS: ColumnDef<ShopSellerRow>[] = [
     {
         key: "name",
@@ -46,7 +48,12 @@ const COLUMNS: ColumnDef<ShopSellerRow>[] = [
     {
         key: "rating",
         header: "Rating",
-        cell: (seller) => (seller.rating.count > 0 ? `${seller.rating.average.toFixed(1)} (${seller.rating.count})` : <span className="text-mist-400">No reviews</span>),
+        cell: (seller) => (
+            <span className="flex items-center gap-2 whitespace-nowrap">
+                {seller.rating.count > 0 ? `${seller.rating.average.toFixed(1)} (${seller.rating.count})` : <span className="text-mist-400">No reviews</span>}
+                {seller.lowRatingFlaggedAt && <StatusBadge label="Low rating" tone="amber" variant="pill" />}
+            </span>
+        ),
     },
     { key: "since", header: "Selling since", cell: (seller) => <span className="whitespace-nowrap">{dayjs(seller.createdAt).format("D MMM YYYY")}</span> },
 ];
@@ -56,7 +63,9 @@ const COLUMNS: ColumnDef<ShopSellerRow>[] = [
 // one shows where they stand (what's stopping them selling), the history of
 // their shop access, and revoking or restoring it with a reason: revoking
 // takes their products off the shop and switches their Paystack payout off
-// until a super admin restores it.
+// until a super admin restores it. A seller whose rating fell below Settings'
+// low rating alert shows a "Low rating" badge; the filter for it is applied
+// by the API.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function SellersTab() {
@@ -69,10 +78,11 @@ export default function SellersTab() {
     const q = (searchParams.get(`${TABLE_ID}_search`) ?? "").trim();
     const accessParam = searchParams.get(`${TABLE_ID}_access`) ?? "";
     const access = accessParam === "allowed" || accessParam === "revoked" ? accessParam : undefined;
+    const rating = searchParams.get(`${TABLE_ID}_rating`) === "low" ? "low" : undefined;
 
     const query = useQuery({
-        queryKey: queryKeys.shop.sellers({ page, q, access: access ?? null }),
-        queryFn: () => shopAdminService.listSellers({ page, limit: PAGE_SIZE, q: q || undefined, access }),
+        queryKey: queryKeys.shop.sellers({ page, q, access: access ?? null, rating: rating ?? null }),
+        queryFn: () => shopAdminService.listSellers({ page, limit: PAGE_SIZE, q: q || undefined, access, rating }),
         staleTime: 30_000,
         placeholderData: (previous) => previous,
     });
@@ -99,13 +109,16 @@ export default function SellersTab() {
                 pagination={query.data ? { total: query.data.total, totalPages: query.data.totalPages, rowsPerPage: PAGE_SIZE } : { total: 0, totalPages: 1, rowsPerPage: PAGE_SIZE }}
                 loading={query.isPending}
                 error={query.isError ? "We couldn't load the sellers. Please refresh the page." : undefined}
-                emptyMessage={q || access ? "No sellers match your search." : "No manufacturers have opened a store yet."}
+                emptyMessage={q || access || rating ? "No sellers match your search." : "No manufacturers have opened a store yet."}
                 onRowClick={(seller) => setOpenId(seller.id)}
                 rowActions={[{ label: "View", onSelect: (seller) => setOpenId(seller.id) }]}
                 toolbar={
                     <TableToolbar
                         search={{ placeholder: "Search store or manufacturer" }}
-                        filters={[{ title: "Any access", paramKey: "access", items: ACCESS_ITEMS }]}
+                        filters={[
+                            { title: "Any access", paramKey: "access", items: ACCESS_ITEMS },
+                            { title: "Any rating", paramKey: "rating", items: RATING_ITEMS },
+                        ]}
                     />
                 }
             />
@@ -153,6 +166,13 @@ export default function SellersTab() {
                                             <li key={blocker}>{SELLING_BLOCKER_MESSAGES[blocker]}</li>
                                         ))}
                                     </ul>
+                                )}
+                                {detail.seller.lowRatingFlaggedAt && (
+                                    <p className="flex flex-wrap items-center gap-2 text-sm font-text text-mist-700">
+                                        <StatusBadge label="Low rating" tone="amber" variant="pill" />
+                                        Flagged on {dayjs(detail.seller.lowRatingFlaggedAt).format("D MMM YYYY")} ({detail.seller.rating.average.toFixed(1)} from{" "}
+                                        {detail.seller.rating.count} reviews). Their products rank lower until it recovers. Nothing is hidden.
+                                    </p>
                                 )}
                                 <p className="text-xs font-text text-mist-500">
                                     {detail.standing.productCount} products

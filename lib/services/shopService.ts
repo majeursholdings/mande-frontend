@@ -58,6 +58,8 @@ export type ShopSeller = {
     payout: PayoutAccount | null;
     deliveryZones: DeliveryZone[];
     rating: { average: number; count: number };
+    /** When the seller was flagged for a low rating, or null. It only lowers their ranking on the shop. */
+    lowRatingFlaggedAt: string | null;
     /** Where a new product's pickup starts: the manufacturer's profile address (empty for MANDE). */
     defaultPickupAddress: string;
 };
@@ -384,6 +386,8 @@ export type ShopSellerRow = {
     shopAccess: { status: "allowed" | "revoked"; reason: string | null };
     payoutConnected: boolean;
     rating: { average: number; count: number };
+    /** When they were flagged for a low rating (below Settings' low rating alert), or null. Shown as the "Low rating" badge. */
+    lowRatingFlaggedAt: string | null;
     products: { listed: number; total: number };
     createdAt: string;
 };
@@ -463,7 +467,10 @@ export const shopAdminService = {
         return data.product;
     },
 
-    async listSellers(query: { page?: number; limit?: number; access?: "allowed" | "revoked"; q?: string } = {}): Promise<ShopPageInfo & { sellers: ShopSellerRow[] }> {
+    /** `rating: "low"`: only sellers flagged for a low rating (filtered by the API). */
+    async listSellers(
+        query: { page?: number; limit?: number; access?: "allowed" | "revoked"; rating?: "low"; q?: string } = {},
+    ): Promise<ShopPageInfo & { sellers: ShopSellerRow[] }> {
         const { data } = await api.get<ShopPageInfo & { sellers: ShopSellerRow[] }>("/shop-admin/sellers", { params: query });
         return data;
     },
@@ -475,6 +482,85 @@ export const shopAdminService = {
 
     async setSellerAccess(sellerId: string, status: "allowed" | "revoked", reason: string): Promise<ShopSellerDetail> {
         const { data } = await api.put<ShopSellerDetail>(`/shop-admin/sellers/${sellerId}/access`, { status, reason });
+        return data;
+    },
+};
+
+// ─── Refunds and disputes (super admins) ──────────────────────────────────────
+
+/** Where a card refund stands: "failed" ones are still owed to the customer until a super admin retries them or gives them as credit ("credited"). */
+export type CardRefundStatus = "pending" | "succeeded" | "failed" | "credited";
+
+export type CardRefundRow = {
+    /** One per card refund (its part and key). */
+    id: string;
+    orderId: string;
+    orderCode: string;
+    customerName: string;
+    provider: "paystack" | "flutterwave" | null;
+    partId: string;
+    sellerKind: "manufacturer" | "mande";
+    /** What it's for ("cancel:<partId>", "return:<returnId>"...): sent back to settle it. */
+    key: string;
+    amountKobo: number;
+    reason: string;
+    status: CardRefundStatus;
+    at: string;
+    refundId: string | null;
+    failureReason: string | null;
+    checkedAt: string | null;
+    attempts: number;
+    settledBy: string | null;
+    settledAt: string | null;
+};
+
+export type ShopDisputeStatus = "open" | "won" | "lost";
+
+export type ShopDisputeRow = {
+    id: string;
+    orderId: string;
+    orderCode: string;
+    customerName: string | null;
+    orderTotalKobo: number | null;
+    provider: "paystack" | "flutterwave";
+    providerDisputeId: string;
+    status: ShopDisputeStatus;
+    providerStatus: string | null;
+    resolution: string | null;
+    /** Closed in a way the API didn't recognise: check it on the payment platform. */
+    needsReview: boolean;
+    category: string | null;
+    reason: string | null;
+    amountKobo: number;
+    /** Of a lost dispute, what was counted against the order like a refund. */
+    appliedKobo: number;
+    dueAt: string | null;
+    resolvedAt: string | null;
+    openedAt: string | null;
+};
+
+export const shopPaymentsService = {
+    /** Card refunds: failed and pending ones by default, failed first. */
+    async listRefunds(query: { page?: number; limit?: number; status?: "failed" | "pending" | "credited" } = {}): Promise<ShopPageInfo & { refunds: CardRefundRow[] }> {
+        const { data } = await api.get<ShopPageInfo & { refunds: CardRefundRow[] }>("/shop-admin/refunds", { params: query });
+        return data;
+    },
+
+    /** Asks the payment platform for a failed card refund again. */
+    async retryRefund(row: Pick<CardRefundRow, "orderId" | "partId" | "key">): Promise<CardRefundRow> {
+        const { data } = await api.post<{ refund: CardRefundRow }>(`/shop-admin/orders/${row.orderId}/parts/${row.partId}/refunds/retry`, { key: row.key });
+        return data.refund;
+    },
+
+    /** Gives a failed card refund to the customer as store credit instead. */
+    async creditRefund(row: Pick<CardRefundRow, "orderId" | "partId" | "key">): Promise<CardRefundRow> {
+        const { data } = await api.post<{ refund: CardRefundRow }>(`/shop-admin/orders/${row.orderId}/parts/${row.partId}/refunds/credit`, { key: row.key });
+        return data.refund;
+    },
+
+    /** Chargebacks, open ones first by the date to answer by. */
+    async listDisputes(query: { page?: number; limit?: number; status?: ShopDisputeStatus } = {}): Promise<ShopPageInfo & { disputes: ShopDisputeRow[] }> {
+        const { data } = await api.get<ShopPageInfo & { disputes: ShopDisputeRow[] }>("/shop-admin/disputes", { params: query });
         return data;
     },
 };
