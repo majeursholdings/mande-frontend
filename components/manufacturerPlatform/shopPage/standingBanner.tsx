@@ -40,6 +40,12 @@ function Fix({ blocker }: { blocker: SellingBlocker }) {
                     Add a bank account to your wallet
                 </Link>
             );
+        case "debt_overdue":
+            return (
+                <Link href={MANUFACTURER_TRANSACTIONS_URL} className={LINK_CLASS}>
+                    Top up your wallet
+                </Link>
+            );
         default:
             return null;
     }

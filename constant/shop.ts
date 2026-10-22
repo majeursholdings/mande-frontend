@@ -242,7 +242,8 @@ export type SellingBlocker =
     | "plan_cannot_sell"
     | "selling_off"
     | "access_revoked"
-    | "no_payout_account";
+    | "no_payout_account"
+    | "debt_overdue";
 
 export const SELLING_BLOCKER_MESSAGES: Record<SellingBlocker, string> = {
     not_verified: "Verify your identity (your NIN) before you sell on the shop.",
@@ -252,4 +253,5 @@ export const SELLING_BLOCKER_MESSAGES: Record<SellingBlocker, string> = {
     selling_off: "Selling on the shop is paused for everyone for now.",
     access_revoked: "Your shop access is paused.",
     no_payout_account: "Add a bank account to your wallet, so you can list products: your sales go to your wallet and you withdraw them there.",
+    debt_overdue: "You've owed money on your wallet for too long, so your products are hidden. They come back once it's paid.",
 };
