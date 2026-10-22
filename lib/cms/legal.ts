@@ -21,16 +21,17 @@ export type LegalDocument = LegalDocumentSummary & {
 
 // The CMS keeps "Last updated" as a calendar date (2026-06-01); midday UTC
 // keeps it the same day in every time zone
+// Shop-only policies (site "shop") belong to shop.mande.com.ng's /legal
 const SUMMARY_FIELDS = `"slug": slug.current, title, summary, "updatedAt": updatedAt + "T12:00:00.000Z"`;
 
 /** Every policy, in the CMS's order. */
 export function getLegalDocuments(): Promise<LegalDocumentSummary[]> {
-    return cmsFetch(`*[_type == "legalDocument" && defined(slug.current)] | order(order asc, title asc) { ${SUMMARY_FIELDS} }`);
+    return cmsFetch(`*[_type == "legalDocument" && defined(slug.current) && site != "shop"] | order(order asc, title asc) { ${SUMMARY_FIELDS} }`);
 }
 
 /** One policy with its text, or null when there's none with that slug. */
 export function getLegalDocument(slug: string): Promise<LegalDocument | null> {
-    return cmsFetch(`*[_type == "legalDocument" && slug.current == $slug][0] { ${SUMMARY_FIELDS}, ${RICH_TEXT_FIELDS} }`, {
+    return cmsFetch(`*[_type == "legalDocument" && slug.current == $slug && site != "shop"][0] { ${SUMMARY_FIELDS}, ${RICH_TEXT_FIELDS} }`, {
         slug,
     });
 }
