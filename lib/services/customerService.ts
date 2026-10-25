@@ -1,6 +1,6 @@
 import { api } from "@/lib/api";
 import type { NigerianState, OrderPartStatus } from "@/constant/shop";
-import type { ShopPageInfo } from "@/lib/services/shopService";
+import type { ShopCoupon, ShopCouponPayload, ShopPageInfo } from "@/lib/services/shopService";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shop customers, for the super admin's Customers page (/customers on the
@@ -90,6 +90,61 @@ export type CustomerCreditEntry = {
 
 const path = (customerId: string) => `/customers/${encodeURIComponent(customerId)}`;
 
+/** The most one referred sale can cost MANDE (SHOP_IMPLEMENTATION.md 5.7), at the lowest salesToReach on a listed MANDE product. */
+export type AffiliateCost = {
+    warnAbovePercent: number;
+    lowestSalesToReach: number | null;
+    product: { id: string; title: string } | null;
+    linkPerSalePercent: number | null;
+    couponPerSalePercent: number | null;
+};
+
+/** A personal coupon's payload: no products or minimum (it covers MANDE stock in the affiliate system). */
+export type PersonalCouponPayload = Omit<ShopCouponPayload, "productIds" | "minSubtotalKobo">;
+
+/** A customer's reward points (affiliate credit), as staff see them. */
+export type CustomerRewardsEntry = {
+    id: string;
+    kind: "earn" | "reverse" | "expire" | "spent" | "refund" | "released" | "adjustment";
+    status: "pending" | "available" | "void";
+    via: "link" | "coupon" | null;
+    amountKobo: number;
+    balanceAfterKobo: number;
+    summary: string;
+    orderCode: string | null;
+    note: string | null;
+    expiresAt: string | null;
+    at: string;
+};
+
+export type CustomerRewards = ShopPageInfo & {
+    status: "active" | "suspended";
+    suspendedReason: string | null;
+    linkCode: string | null;
+    balance: { availableKobo: number; pendingKobo: number };
+    referredOrders: number;
+    entries: CustomerRewardsEntry[];
+};
+
+/** A referrer on the Affiliates page. */
+export type AffiliateRow = {
+    customerId: string;
+    name: string;
+    email: string | null;
+    status: "active" | "suspended";
+    orders: number;
+    viaCoupon: number;
+    salesKobo: number;
+    earnedKobo: number;
+    balance: { availableKobo: number; pendingKobo: number };
+    lastSaleAt: string;
+};
+
+export type AffiliatesPage = ShopPageInfo & {
+    summary: { owedPendingKobo: number; owedAvailableKobo: number; holders: number; referrers: number; liveCoupons: number };
+    affiliates: AffiliateRow[];
+};
+
 export const customerService = {
     async listCustomers(
         query: { page?: number; limit?: number; q?: string; status?: CustomerStatusFilter } = {},
@@ -118,6 +173,42 @@ export const customerService = {
         query: { page?: number; limit?: number } = {},
     ): Promise<ShopPageInfo & { balanceKobo: number; entries: CustomerCreditEntry[] }> {
         const { data } = await api.get(`${path(customerId)}/credit`, { params: query });
+        return data;
+    },
+
+    async listCoupons(customerId: string, query: { page?: number; limit?: number } = {}): Promise<ShopPageInfo & { coupons: ShopCoupon[]; cost: AffiliateCost }> {
+        const { data } = await api.get(`${path(customerId)}/coupons`, { params: query });
+        return data;
+    },
+
+    async createCoupon(customerId: string, payload: PersonalCouponPayload): Promise<{ coupon: ShopCoupon; cost: AffiliateCost & { warn: boolean; totalPercent: number | null } }> {
+        const { data } = await api.post(`${path(customerId)}/coupons`, payload);
+        return data;
+    },
+
+    async updateCoupon(customerId: string, couponId: string, changes: { active: boolean }): Promise<ShopCoupon> {
+        const { data } = await api.patch(`${path(customerId)}/coupons/${couponId}`, changes);
+        return data.coupon;
+    },
+
+    async getRewards(customerId: string, query: { page?: number; limit?: number } = {}): Promise<CustomerRewards> {
+        const { data } = await api.get(`${path(customerId)}/rewards`, { params: query });
+        return data;
+    },
+
+    async setRewardsStatus(customerId: string, status: "active" | "suspended", reason: string): Promise<CustomerRewards> {
+        const { data } = await api.post(`${path(customerId)}/rewards/status`, { status, reason });
+        return data;
+    },
+
+    /** `amountKobo` above 0 adds points, below 0 takes them off. */
+    async adjustRewards(customerId: string, amountKobo: number, note: string, reauthToken: string): Promise<CustomerRewards> {
+        const { data } = await api.post(`${path(customerId)}/rewards/adjust`, { amountKobo, note }, { headers: { "X-Reauth-Token": reauthToken } });
+        return data;
+    },
+
+    async listAffiliates(query: { page?: number; limit?: number; sort?: "sales" | "recent" } = {}): Promise<AffiliatesPage> {
+        const { data } = await api.get("/shop-admin/affiliates", { params: query });
         return data;
     },
 

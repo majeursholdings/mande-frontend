@@ -17,14 +17,17 @@ import { queryKeys } from "@/lib/queryKeys";
 import { customerService } from "@/lib/services/customerService";
 import { CUSTOMER_STATUS } from "../customersPage/customerStatus";
 import CustomerAccountDialog from "./customerAccountDialog";
+import CustomerCoupons from "./customerCoupons";
 import CustomerCredit from "./customerCredit";
 import CustomerOrders from "./customerOrders";
+import CustomerRewards from "./customerRewards";
 
-type CustomerTab = "orders" | "credit" | "addresses";
+type CustomerTab = "orders" | "credit" | "rewards" | "coupons" | "addresses";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // One shop customer, for super admins: who they are, their orders, their
-// store credit statement and saved addresses (all read only), and
+// store credit statement and saved addresses (all read only), their
+// personal coupons (made and switched on or off here), and
 // deactivating or reactivating the account.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -145,6 +148,8 @@ export default function CustomerDetailPage({ customerId }: { customerId: string 
                         tabs={[
                             { value: "orders", label: "Orders", panel: <CustomerOrders customerId={customer.id} /> },
                             { value: "credit", label: "Store credit", panel: <CustomerCredit customerId={customer.id} /> },
+                            { value: "rewards", label: "Rewards", panel: <CustomerRewards customerId={customer.id} customerName={customer.name} /> },
+                            { value: "coupons", label: "Coupons", panel: <CustomerCoupons customerId={customer.id} customerName={customer.name} /> },
                             {
                                 value: "addresses",
                                 label: `Addresses (${customer.addresses.length})`,

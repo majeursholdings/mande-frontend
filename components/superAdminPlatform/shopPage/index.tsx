@@ -1,6 +1,8 @@
 "use client";
 
 import JobTemplateSection from "@/components/adminPlatform/form/jobTemplateForm";
+import ProductAffiliateSection from "@/components/adminPlatform/form/productAffiliateForm";
+export { default as StaffAffiliatesPage } from "../affiliatesPage";
 import MandeLineJob from "./mandeLineJob";
 import CouponsPanel from "@/components/manufacturerPlatform/shopPage/couponsPanel";
 import type { ReactNode } from "react";
@@ -74,6 +76,7 @@ export function StaffShopLayout({ children }: { children: ReactNode }) {
                   { href: `${base}/payments`, label: "Refunds and disputes" },
                   { href: `${base}/reviews`, label: "All reviews" },
                   { href: `${base}/reports`, label: "Reports" },
+                  { href: `${base}/affiliates`, label: "Affiliates" },
               ]
             : []),
     ];
@@ -113,7 +116,12 @@ export function StaffShopProductsPage() {
             tableId="mande-products"
             api={mandeStockService}
             exportName="mande-stock-products"
-            renderEditExtra={(product) => <JobTemplateSection productId={product.id} />}
+            renderEditExtra={(product) => (
+                <>
+                    <ProductAffiliateSection productId={product.id} />
+                    <JobTemplateSection productId={product.id} />
+                </>
+            )}
             queryKey={(filters) => queryKeys.shop.mandeProducts(filters)}
             overview={overview}
             onManageZones={() => router.push(`${base}/delivery-zones`)}

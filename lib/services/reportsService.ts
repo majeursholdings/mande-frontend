@@ -123,8 +123,8 @@ export type TransactionSummary = {
 
 export type TransactionSummaryResponse = { summary: TransactionSummary };
 
-/** "shop-sale": MANDE stock sold on the shop; "shop-charge": MANDE's platform charge on a manufacturer's sale. */
-export type RevenueType = "subscription" | "charge" | "bonus" | "installment" | "machine-booking" | "shop-sale" | "shop-charge";
+/** "shop-sale": MANDE stock sold on the shop; "shop-charge": MANDE's platform charge on a manufacturer's sale; "affiliate": reward points spent on MANDE stock. */
+export type RevenueType = "subscription" | "charge" | "bonus" | "installment" | "machine-booking" | "shop-sale" | "shop-charge" | "affiliate";
 
 /** Where MANDE's money comes from and goes: jobs (charges in; installments and bonuses out), the shop, machine bookings and plans. */
 export type RevenueArea = "jobs" | "shop" | "bookings" | "subscriptions";
@@ -161,6 +161,11 @@ export type RevenueSummary = {
   shopCharge: { totalKobo: number; count: number; refundedKobo: number };
   /** Installments paid to manufacturers on jobs. */
   installment: { totalKobo: number; count: number };
+  /**
+   * Affiliates: reward points spent on paid orders, less any given back (money out: the sale counted, no cash came in),
+   * and personal coupon discounts (already off the sale, so shown, never taken off twice).
+   */
+  affiliate?: { totalKobo: number; count: number; couponDiscountKobo: number };
   areas: Record<RevenueArea, RevenueAreaTotals>;
   /** Everything that came in, before anything went out. */
   grossKobo: number;

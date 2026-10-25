@@ -190,6 +190,9 @@ export const queryKeys = {
     detail: (id: string) => [...queryKeys.customers.all, "detail", id] as const,
     orders: (id: string, page: number) => [...queryKeys.customers.all, "orders", id, page] as const,
     credit: (id: string, page: number) => [...queryKeys.customers.all, "credit", id, page] as const,
+    coupons: (id: string, page: number) => [...queryKeys.customers.all, "coupons", id, page] as const,
+    rewards: (id: string, page: number) => [...queryKeys.customers.all, "rewards", id, page] as const,
+    affiliates: (filters: Record<string, unknown>) => [...queryKeys.customers.all, "affiliates", filters] as const,
   },
 
   // Messages from the website's contact form (super admins)

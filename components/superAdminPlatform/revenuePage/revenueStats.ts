@@ -11,7 +11,7 @@ import type {
 //  - jobs: charges for rejected work in; installments and on-time bonuses
 //    paid to manufacturers out (what clients pay for jobs isn't recorded)
 //  - the shop: MANDE stock sold and the platform charge on manufacturers'
-//    sales in; MANDE's part of refunds out
+//    sales in; MANDE's part of refunds, and reward points spent, out
 //  - machine bookings: paid bookings in; refunds out
 //  - subscriptions: manufacturers' plan payments in
 // Shaped here for the page, in naira.
@@ -25,6 +25,7 @@ export const REVENUE_ENTRY_TYPES: { value: RevenueEntryType; label: string }[] =
     { value: "charge", label: "Rejection charge" },
     { value: "shop-sale", label: "Shop sale" },
     { value: "shop-charge", label: "Shop platform charge" },
+    { value: "affiliate", label: "Reward points spent" },
     { value: "machine-booking", label: "Machine booking" },
     { value: "subscription", label: "Subscription" },
 ];

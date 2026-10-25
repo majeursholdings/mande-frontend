@@ -192,7 +192,14 @@ export type JobTemplatePayload = {
 };
 
 /** A MANDE product as staff see it: with its job template, and the job it was made from. */
-export type MandeProduct = SellerProduct & { jobTemplate: JobTemplate | null; sourceJob: { id: string; code: string; title: string } | null };
+/** A MANDE product in the affiliate system: referrals earn the shop's reward over salesToReach sales. */
+export type ProductAffiliate = { enabled: boolean; salesToReach: number | null };
+
+export type MandeProduct = SellerProduct & {
+    jobTemplate: JobTemplate | null;
+    affiliate: ProductAffiliate;
+    sourceJob: { id: string; code: string; title: string } | null;
+};
 
 /** The job form for a paid made-to-order line, prefilled from the product's template and the order. */
 export type ShopJobDraft = {
@@ -500,6 +507,11 @@ export const mandeStockService = {
 
     async setJobTemplate(productId: string, payload: JobTemplatePayload): Promise<MandeProduct> {
         const { data } = await api.put<{ product: MandeProduct }>(`/shop-admin/mande/products/${productId}/job-template`, payload);
+        return data.product;
+    },
+
+    async setAffiliate(productId: string, payload: ProductAffiliate): Promise<MandeProduct> {
+        const { data } = await api.put<{ product: MandeProduct }>(`/shop-admin/mande/products/${productId}/affiliate`, payload);
         return data.product;
     },
 

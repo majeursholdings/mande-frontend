@@ -19,7 +19,13 @@ import { FormSubmitButton } from "./formButtons";
 // The code, type and amount can't change once it's made (switch it off and
 // make another); the dates and limits are optional. Dates are whole Lagos
 // days: it starts at the start of its first day and ends at the end of its last.
+//
+// Super admins use it for a customer's personal coupon too (5.7): that covers
+// MANDE stock in the affiliate system, so it has no products or minimum, and
+// it shows what one sale through it can cost MANDE as the discount is typed.
 // ─────────────────────────────────────────────────────────────────────────────
+
+export type ShopCouponValues = Values;
 
 type Values = {
     code: string;
@@ -55,18 +61,39 @@ export default function ShopCouponForm({
     products,
     onCreate,
     onCancel,
+    withCoverage = true,
+    warningFor,
+    noteDescription = "For you. Customers don't see it.",
 }: {
     /** Their products, to limit the coupon to some of them. */
     products: { id: string; title: string }[];
     onCreate: (payload: ShopCouponPayload) => Promise<void>;
     onCancel: () => void;
+    /** Off for a personal coupon: no products or minimum spend. */
+    withCoverage?: boolean;
+    /** A warning to show for the discount as it's typed (a personal coupon's cost to MANDE). */
+    warningFor?: (type: Values["type"], value: number) => string | null;
+    noteDescription?: string;
 }) {
     const [isLoading, setIsLoading] = useState(false);
     const methods = useForm<Values>({
         mode: "onTouched",
-        defaultValues: { code: "", type: "percentage", value: "", productIds: [], minSubtotal: "", startsAt: "", expiresAt: "", maxUses: "", maxUsesPerCustomer: "", description: "" },
+        defaultValues: {
+            code: "",
+            type: "percentage",
+            value: "",
+            productIds: [],
+            minSubtotal: "",
+            startsAt: "",
+            expiresAt: "",
+            maxUses: "",
+            maxUsesPerCustomer: "",
+            description: "",
+        },
     });
     const type = useWatch({ control: methods.control, name: "type" });
+    const value = Number(useWatch({ control: methods.control, name: "value" }) || 0);
+    const warning = warningFor?.(type, type === "fixed" ? Math.round(value * 100) : value) ?? null;
 
     const fields: FormFieldConfig[] = [
         {
@@ -113,23 +140,39 @@ export default function ShopCouponForm({
                   placeholder: "10",
                   min: 1,
                   max: MAX_PERCENT,
-                  validation: { required: "Enter a percent", validate: (value: string) => wholeIn(value, 1, MAX_PERCENT) || `Enter a whole number from 1 to ${MAX_PERCENT}` },
+                  validation: {
+                      required: "Enter a percent",
+                      validate: (value: string) => wholeIn(value, 1, MAX_PERCENT) || `Enter a whole number from 1 to ${MAX_PERCENT}`,
+                  },
               },
+        ...((withCoverage
+            ? [
+                  {
+                      name: "productIds",
+                      type: "multiselect",
+                      label: "Products (optional)",
+                      placeholder: "All your products",
+                      options: products.map((product) => ({
+                          label: product.title,
+                          value: product.id,
+                      })),
+                  },
+                  {
+                      name: "minSubtotal",
+                      type: "amount",
+                      label: "Minimum spend (optional)",
+                      placeholder: "No minimum",
+                      description: "On the products it covers.",
+                  },
+              ]
+            : []) satisfies FormFieldConfig[]),
         {
-            name: "productIds",
-            type: "multiselect",
-            label: "Products (optional)",
-            placeholder: "All your products",
-            options: products.map((product) => ({ label: product.title, value: product.id })),
+            name: "startsAt",
+            type: "date",
+            label: "Starts (optional)",
+            placeholder: "Straight away",
+            minDate: new Date(),
         },
-        {
-            name: "minSubtotal",
-            type: "amount",
-            label: "Minimum spend (optional)",
-            placeholder: "No minimum",
-            description: "On the products it covers.",
-        },
-        { name: "startsAt", type: "date", label: "Starts (optional)", placeholder: "Straight away", minDate: new Date() },
         {
             name: "expiresAt",
             type: "date",
@@ -141,16 +184,32 @@ export default function ShopCouponForm({
                     !value || !values.startsAt || new Date(value) >= new Date(String(values.startsAt)) || "The end date can't be before the start date",
             },
         },
-        { name: "maxUses", type: "number", label: "Total uses (optional)", placeholder: "No limit", min: 1, validation: { validate: optionalWhole } },
-        { name: "maxUsesPerCustomer", type: "number", label: "Uses per customer (optional)", placeholder: "No limit", min: 1, validation: { validate: optionalWhole } },
+        {
+            name: "maxUses",
+            type: "number",
+            label: "Total uses (optional)",
+            placeholder: "No limit",
+            min: 1,
+            validation: { validate: optionalWhole },
+        },
+        {
+            name: "maxUsesPerCustomer",
+            type: "number",
+            label: "Uses per customer (optional)",
+            placeholder: "No limit",
+            min: 1,
+            validation: { validate: optionalWhole },
+        },
         {
             name: "description",
             type: "textarea",
             label: "Note (optional)",
             placeholder: "e.g. For our Instagram followers",
             height: 72,
-            description: "For you. Customers don't see it.",
-            validation: { maxLength: { value: 200, message: "Keep it under 200 characters" } },
+            description: noteDescription,
+            validation: {
+                maxLength: { value: 200, message: "Keep it under 200 characters" },
+            },
         },
     ];
 
@@ -172,7 +231,9 @@ export default function ShopCouponForm({
             });
         } catch (error) {
             if (error instanceof MandeApiError && error.code === "COUPON_CODE_TAKEN") {
-                methods.setError("code", { message: "That code is taken. Try another." });
+                methods.setError("code", {
+                    message: "That code is taken. Try another.",
+                });
                 toast.error("That code is taken. Try another.");
             } else {
                 toast.error(getErrorMessage(error, "Couldn't make the coupon. Please try again."));
@@ -195,16 +256,23 @@ export default function ShopCouponForm({
             ]}
             hideRequiredMarks
             renderFooter={({ isLoading: saving, canSubmit }) => (
-                <div className="flex justify-end gap-3">
-                    <Button
-                        type="button"
-                        onClick={onCancel}
-                        disabled={saving}
-                        className="h-11 px-5 bg-mist-100 hover:bg-mist-200 text-mist-950 font-medium font-text rounded-button cursor-pointer"
-                    >
-                        Cancel
-                    </Button>
-                    <FormSubmitButton label="Make coupon" loadingLabel="Making..." isLoading={saving} disabled={!canSubmit} className="w-auto px-5" />
+                <div className="flex flex-col gap-3">
+                    {warning && (
+                        <p role="status" className="rounded-lg border border-warning-200 bg-warning-50 px-3.5 py-3 text-sm font-text text-mist-900">
+                            {warning}
+                        </p>
+                    )}
+                    <div className="flex justify-end gap-3">
+                        <Button
+                            type="button"
+                            onClick={onCancel}
+                            disabled={saving}
+                            className="h-11 px-5 bg-mist-100 hover:bg-mist-200 text-mist-950 font-medium font-text rounded-button cursor-pointer"
+                        >
+                            Cancel
+                        </Button>
+                        <FormSubmitButton label="Make coupon" loadingLabel="Making..." isLoading={saving} disabled={!canSubmit} className="w-auto px-5" />
+                    </div>
                 </div>
             )}
         />

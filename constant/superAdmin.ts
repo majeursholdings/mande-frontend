@@ -290,6 +290,17 @@ export type ShopSettings = {
     jobLeadBufferDays?: number;
     /** Flags a seller to staff when their rating falls below this, once they have this many reviews. */
     lowRatingAlert: { belowRating: number; minReviews: number };
+    /** Affiliates, MANDE stock only: the owner earns rewardPercent of the price over a product's salesToReach sales. */
+    affiliate?: ShopAffiliateSettings;
+};
+
+export type ShopAffiliateSettings = {
+    enabled: boolean;
+    link: { rewardPercent: number; attributionDays: number };
+    coupon: { rewardPercent: number };
+    creditExpiryDays: number;
+    /** Warn when one referred sale would cost MANDE more than this share of the price. */
+    costWarningPercent?: number;
 };
 
 export type CandidateJobReview = {
