@@ -33,6 +33,9 @@ export const API_ENV = {
     // Checkouts, refunds and payouts go to a pretend platform, never Paystack or
     // Flutterwave (the API only allows it for a database named *_e2e, never in production)
     E2E_FAKE_PAYMENTS: "true",
+    // Uploads are faked in the browser, so the API checks only that each is in the uploader's own folder
+    // (never Cloudinary itself). Also only allowed for a database named *_e2e, never in production
+    E2E_FAKE_UPLOADS: "true",
     // No email goes out: the seeded accounts use real-looking addresses
     SMTP_HOST: "",
     SMTP_USER: "",
