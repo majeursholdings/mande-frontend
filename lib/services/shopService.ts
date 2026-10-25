@@ -149,9 +149,12 @@ export type ShopOrderPart = {
         job: ShopLineJob | null;
     }[];
     itemsSubtotalKobo: number;
+    /** Their coupon on this order, and what it took off their items (they pay for it). */
+    coupon: { code: string } | null;
+    discountKobo: number;
     deliveryFeeKobo: number;
     platformChargeKobo: number;
-    /** What the seller is paid: items and delivery, less MANDE's charge. */
+    /** What the seller is paid: items (less any coupon) and delivery, less MANDE's charge. */
     sellerShareKobo: number;
     status: OrderPartStatus;
     /** What the seller can do next (the API's rules): the order's buttons. */
@@ -207,6 +210,46 @@ export type ShopJobDraft = {
     shopLine: { orderId: string; lineId: string; orderCode: string };
     hasTemplate: boolean;
 };
+
+/** A seller's coupon (5.8): they pay for the discount. The type and value are set when it's made. */
+export type ShopCoupon = {
+    id: string;
+    code: string;
+    description: string | null;
+    type: "percentage" | "fixed";
+    /** A whole percent, or kobo off the order's items from this seller. */
+    value: number;
+    /** Empty: all their products. */
+    productIds: string[];
+    minSubtotalKobo: number;
+    startsAt: string | null;
+    expiresAt: string | null;
+    maxUses: number | null;
+    maxUsesPerCustomer: number | null;
+    active: boolean;
+    /** Switched off by the shop: "plan" (over the plan's limit) or "selling" (they can't sell right now). */
+    pausedReason: "plan" | "selling" | null;
+    usedCount: number;
+    /** A customer could use it now. */
+    live: boolean;
+    createdAt: string | null;
+};
+
+export type ShopCouponPayload = {
+    code: string;
+    type: "percentage" | "fixed";
+    value: number;
+    description?: string | null;
+    productIds: string[];
+    minSubtotalKobo: number;
+    startsAt?: string | null;
+    expiresAt?: string | null;
+    maxUses?: number | null;
+    maxUsesPerCustomer?: number | null;
+};
+
+/** Their coupon limit: null for none (MANDE stock). */
+export type CouponStanding = { maxCoupons: number | null; activeCoupons: number; canCreate: boolean };
 
 /** Where a seller can move their part of an order. */
 export type OrderPartMove = "processing" | "shipped" | "delivered" | "cancelled";
@@ -401,6 +444,22 @@ function sellerShopApi(base: string, productsBase = `${base}/products`) {
 
         async deleteProduct(productId: string): Promise<void> {
             await api.delete(`${productsBase}/${productId}`);
+        },
+
+        async listCoupons(query: { page?: number; limit?: number } = {}): Promise<ShopPageInfo & { coupons: ShopCoupon[]; standing: CouponStanding }> {
+            const { data } = await api.get<ShopPageInfo & { coupons: ShopCoupon[]; standing: CouponStanding }>(`${base}/coupons`, { params: query });
+            return data;
+        },
+
+        async createCoupon(payload: ShopCouponPayload): Promise<ShopCoupon> {
+            const { data } = await api.post<{ coupon: ShopCoupon }>(`${base}/coupons`, payload);
+            return data.coupon;
+        },
+
+        /** Anything but the code, type and value; `active` switches it on or off. */
+        async updateCoupon(couponId: string, changes: Partial<Omit<ShopCouponPayload, "code" | "type" | "value">> & { active?: boolean }): Promise<ShopCoupon> {
+            const { data } = await api.patch<{ coupon: ShopCoupon }>(`${base}/coupons/${couponId}`, changes);
+            return data.coupon;
         },
 
         async setDeliveryZones(zones: { id?: string; name: string; states: NigerianState[] }[]): Promise<DeliveryZone[]> {

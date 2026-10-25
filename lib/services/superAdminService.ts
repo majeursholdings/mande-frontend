@@ -39,7 +39,8 @@ export interface BackendPlanView {
   currentMonthlyPriceKobo: number;
   currentAnnualPriceKobo: number;
   maxConcurrentJobs: number | null;
-  shop?: { canSell: boolean; maxProducts: number | null };
+  /** maxCoupons: active seller coupons the plan allows (5.8). */
+  shop?: { canSell: boolean; maxProducts: number | null; maxCoupons?: number };
   features: Array<{ label: string; value: string }>;
 }
 
