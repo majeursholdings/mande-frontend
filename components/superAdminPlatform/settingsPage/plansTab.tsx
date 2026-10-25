@@ -110,6 +110,12 @@ export default function PlansTab() {
                                           : `Up to ${plan.shop.maxProducts} products`}
                                 </dd>
                             </div>
+                            {plan.shop?.canSell && (
+                                <div className="flex items-center justify-between gap-4 border-b border-border py-2 text-sm font-text">
+                                    <dt className="text-mist-500">Active coupons</dt>
+                                    <dd className="text-right font-medium text-mist-950">{plan.shop.maxCoupons ? plan.shop.maxCoupons : NOT_INCLUDED}</dd>
+                                </div>
+                            )}
                             {plan.features.map((feature) => (
                                 <div
                                     key={feature.label}

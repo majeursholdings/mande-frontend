@@ -113,6 +113,7 @@ export const MANUFACTURER_SHOP_ZONES_URL = `${MANUFACTURER_SHOP_URL}/delivery-zo
 export const MANUFACTURER_SHOP_PAYOUTS_URL = `${MANUFACTURER_SHOP_URL}/payouts`;
 export const MANUFACTURER_SHOP_REVIEWS_URL = `${MANUFACTURER_SHOP_URL}/reviews`;
 export const MANUFACTURER_SHOP_RETURNS_URL = `${MANUFACTURER_SHOP_URL}/returns`;
+export const MANUFACTURER_SHOP_COUPONS_URL = `${MANUFACTURER_SHOP_URL}/coupons`;
 /** What's waiting on them: jobs, shop and account. */
 export const MANUFACTURER_ACTIONS_URL = "/manufacturer/actions";
 export const MANUFACTURER_PROFILE_URL = "/manufacturer/profile";

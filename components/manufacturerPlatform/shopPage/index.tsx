@@ -6,6 +6,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import LoadError from "@/components/manufacturerPlatform/loadError";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+    MANUFACTURER_PLAN_SETTINGS_URL,
+    MANUFACTURER_SHOP_COUPONS_URL,
     MANUFACTURER_SHOP_ORDERS_URL,
     MANUFACTURER_SHOP_PAYOUTS_URL,
     MANUFACTURER_SHOP_RETURNS_URL,
@@ -18,6 +20,7 @@ import { useShopLiveUpdates } from "@/hooks/useShopLiveUpdates";
 import { queryKeys } from "@/lib/queryKeys";
 import { myShopService } from "@/lib/services/shopService";
 import PageHeader from "../pageHeader";
+import CouponsPanel from "./couponsPanel";
 import OrdersPanel from "./ordersPanel";
 import PayoutsTab from "./payoutsTab";
 import ProductsTab from "./productsTab";
@@ -43,6 +46,7 @@ const SHOP_LINKS = [
     { href: MANUFACTURER_SHOP_ORDERS_URL, label: "Orders" },
     { href: MANUFACTURER_SHOP_RETURNS_URL, label: "Returns" },
     { href: MANUFACTURER_SHOP_REVIEWS_URL, label: "Reviews" },
+    { href: MANUFACTURER_SHOP_COUPONS_URL, label: "Coupons" },
     { href: MANUFACTURER_SHOP_ZONES_URL, label: "Delivery zones" },
     { href: MANUFACTURER_SHOP_PAYOUTS_URL, label: "Payouts" },
 ];
@@ -117,6 +121,10 @@ export function ManufacturerShopReviewsPage() {
             onReport={(id, reason) => myShopService.reportReview(id, reason)}
         />
     );
+}
+
+export function ManufacturerShopCouponsPage() {
+    return <CouponsPanel tableId="shop-coupons" api={myShopService} queryKey={(filters) => queryKeys.shop.myCoupons(filters)} planHref={MANUFACTURER_PLAN_SETTINGS_URL} />;
 }
 
 export function ManufacturerShopReturnsPage() {

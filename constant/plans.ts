@@ -27,7 +27,7 @@ export type PricingPlan = {
      * (drafts, listed and paused) it may have, null for no limit. Only the
      * super admin's Settings reads it.
      */
-    shop?: { canSell: boolean; maxProducts: number | null };
+    shop?: { canSell: boolean; maxProducts: number | null; maxCoupons?: number };
 };
 
 export type BillingCycle = "monthly" | "annual";

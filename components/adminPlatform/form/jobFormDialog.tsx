@@ -94,8 +94,9 @@ const fileCount = (files: FileList | File[] | null | undefined) => (files ? Arra
 /** A shop draft's files as the job keeps them: the product's photo and the template's files, kept as stored. */
 const draftFiles = (draft: ShopJobDraft): AdminJobAttachment[] =>
     [draft.image, ...draft.attachments]
-        .filter((file) => file !== null && !!file.url)
-        .map((file) => ({ name: file!.name ?? "attachment", url: file!.url!, kind: file!.kind, publicId: file!.publicId }));
+        .filter((file) => file !== null)
+        // Kept by publicId: a link may be missing (no Cloudinary locally), and the API needs only the id
+        .map((file) => ({ name: file!.name ?? "attachment", url: file!.url ?? "", kind: file!.kind, publicId: file!.publicId }));
 
 export default function JobFormDialog({
     job,

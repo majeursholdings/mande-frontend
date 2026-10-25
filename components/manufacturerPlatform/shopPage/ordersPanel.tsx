@@ -188,6 +188,8 @@ export default function OrdersPanel({
                             <dl className="flex flex-col text-sm font-text">
                                 {[
                                     ["Items", naira(open.itemsSubtotalKobo)],
+                                    // The seller's own coupon: they pay for it
+                                    ...(open.coupon && open.discountKobo ? [[`Coupon ${open.coupon.code}`, `-${naira(open.discountKobo)}`]] : []),
                                     ["Delivery", naira(open.deliveryFeeKobo)],
                                     ["Platform charge", open.platformChargeKobo ? `-${naira(open.platformChargeKobo)}` : naira(0)],
                                 ].map(([label, value]) => (

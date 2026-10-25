@@ -44,6 +44,7 @@ export default function PlanForm({
             concurrentJobs: plan.maxConcurrentJobs === null ? "" : String(plan.maxConcurrentJobs),
             canSell: plan.shop?.canSell ?? false,
             maxProducts: plan.shop?.maxProducts == null ? "" : String(plan.shop.maxProducts),
+            maxCoupons: String(plan.shop?.maxCoupons ?? 0),
             ...Object.fromEntries(plan.features.map((feature, index) => [featureField(index), feature.value])),
         },
     });
@@ -126,6 +127,16 @@ export default function PlanForm({
                               value === "" || (Number.isInteger(Number(value)) && Number(value) >= 1 && Number(value) <= 10_000) || "Enter a whole number from 1 to 10,000",
                       },
                   } satisfies FormFieldConfig,
+                  {
+                      name: "maxCoupons",
+                      type: "number",
+                      label: "Active coupons",
+                      description: "How many coupons a seller on this plan can have switched on at once. 0 for none. Lowering it switches the newest off.",
+                      min: 0,
+                      validation: {
+                          validate: (value: string) => (value !== "" && Number.isInteger(Number(value)) && Number(value) >= 0 && Number(value) <= 100) || "Enter a whole number from 0 to 100",
+                      },
+                  } satisfies FormFieldConfig,
               ]
             : []),
     ];
@@ -140,7 +151,7 @@ export default function PlanForm({
                 monthlyPrice: Number(values.monthlyPrice),
                 annualPrice: Number(values.annualPrice),
                 maxConcurrentJobs,
-                shop: { canSell: sells, maxProducts: sells && values.maxProducts ? Number(values.maxProducts) : null },
+                shop: { canSell: sells, maxProducts: sells && values.maxProducts ? Number(values.maxProducts) : null, maxCoupons: values.maxCoupons === "" ? 0 : Number(values.maxCoupons) },
                 features: plan.features.map((feature, index) => ({
                     label: feature.label,
                     value:

@@ -94,6 +94,8 @@ export function orderExportColumns(payoutLabel: string): ExportColumn<ShopOrderP
         { header: "Items", value: (order) => order.lines.map((line) => `${line.quantity} × ${line.title}${line.pickup ? " (pickup)" : ""}`).join("; ") },
         { header: "Quantity", value: itemCount, kind: "number" },
         { header: "Items total (₦)", value: (order) => naira(order.itemsSubtotalKobo), kind: "money" },
+        { header: "Coupon", value: (order) => order.coupon?.code ?? "" },
+        { header: "Discount (₦)", value: (order) => naira(order.discountKobo ?? 0), kind: "money" },
         { header: "Delivery (₦)", value: (order) => naira(order.deliveryFeeKobo), kind: "money" },
         { header: "Platform charge (₦)", value: (order) => naira(order.platformChargeKobo), kind: "money" },
         { header: `${payoutLabel} (₦)`, value: (order) => naira(order.sellerShareKobo), kind: "money" },

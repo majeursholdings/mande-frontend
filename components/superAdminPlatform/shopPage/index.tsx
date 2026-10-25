@@ -2,6 +2,7 @@
 
 import JobTemplateSection from "@/components/adminPlatform/form/jobTemplateForm";
 import MandeLineJob from "./mandeLineJob";
+import CouponsPanel from "@/components/manufacturerPlatform/shopPage/couponsPanel";
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -63,6 +64,7 @@ export function StaffShopLayout({ children }: { children: ReactNode }) {
         { href: isSuperAdmin ? `${base}/mande-returns` : `${base}/returns`, label: isSuperAdmin ? "MANDE returns" : "Returns" },
         // Admins reply to reviews of MANDE stock; super admins also look after every review
         { href: isSuperAdmin ? `${base}/mande-reviews` : `${base}/reviews`, label: isSuperAdmin ? "MANDE reviews" : "Reviews" },
+        { href: `${base}/coupons`, label: isSuperAdmin ? "MANDE coupons" : "Coupons" },
         { href: `${base}/delivery-zones`, label: "Delivery zones" },
         ...(isSuperAdmin
             ? [
@@ -137,6 +139,10 @@ export function StaffShopOrdersPage() {
             renderLine={(order, line, onChanged) => <MandeLineJob order={order} line={line} onChanged={onChanged} />}
         />
     );
+}
+
+export function StaffShopCouponsPage() {
+    return <CouponsPanel tableId="mande-coupons" api={mandeStockService} queryKey={(filters) => queryKeys.shop.mandeCoupons(filters)} />;
 }
 
 export function StaffShopReviewsPage() {
