@@ -41,8 +41,8 @@ const SORT_OPTIONS: SortOptionDef<RevenueEntry>[] = [
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SuperAdminRevenuePage: the platform's own money, gross (everything in)
-// and net, then by area: jobs (rejection charges in; installments and
-// on-time bonuses out), the shop, machine bookings (each less refunds) and
+// and net, then by area: jobs (installments and on-time bonuses out;
+// rejection charges are a penalty, not income), the shop, machine bookings (each less refunds) and
 // subscriptions (/reports/revenue/summary). Then every entry
 // (/reports/revenue), to search, filter by area or kind, and sort.
 // The API pages by date, so every page is loaded up front (see
@@ -54,7 +54,7 @@ const NO_SUMMARY: RevenueSummary = {
     areas: { jobs: NO_AREA, shop: NO_AREA, bookings: NO_AREA, subscriptions: NO_AREA },
     gross: 0,
     net: 0,
-    counts: { installments: 0, bonuses: 0, charges: 0, bookings: 0, bookingRefunds: 0, shopSales: 0, shopCharges: 0, plans: 0 },
+    counts: { installments: 0, bonuses: 0, bookings: 0, bookingRefunds: 0, shopSales: 0, shopCharges: 0, plans: 0 },
 };
 
 export default function SuperAdminRevenuePage() {
@@ -114,7 +114,7 @@ export default function SuperAdminRevenuePage() {
             label: "Jobs (net)",
             amount: areas.jobs.net,
             icon: BriefcaseBusiness,
-            // Charges in; installments and bonuses out
+            // Installments and bonuses out (rejection charges are a penalty, not income)
             detail: { label: `Paid to manufacturers, ${plural(counts.installments + counts.bonuses, "payment")}`, value: money(areas.jobs.out), tone: "red" },
         },
         {

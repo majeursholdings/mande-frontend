@@ -124,7 +124,7 @@ export type TransactionSummary = {
 export type TransactionSummaryResponse = { summary: TransactionSummary };
 
 /** "shop-sale": MANDE stock sold on the shop; "shop-charge": MANDE's platform charge on a manufacturer's sale; "affiliate": reward points spent on MANDE stock. */
-export type RevenueType = "subscription" | "charge" | "bonus" | "installment" | "machine-booking" | "shop-sale" | "shop-charge" | "affiliate";
+export type RevenueType = "subscription" | "bonus" | "installment" | "machine-booking" | "shop-sale" | "shop-charge" | "affiliate";
 
 /** Where MANDE's money comes from and goes: jobs (charges in; installments and bonuses out), the shop, machine bookings and plans. */
 export type RevenueArea = "jobs" | "shop" | "bookings" | "subscriptions";
@@ -151,7 +151,6 @@ export type RevenueResponse = { entries: RevenueEntry[]; nextBefore: string | nu
 
 export type RevenueSummary = {
   subscription: { totalKobo: number; count: number };
-  charge: { totalKobo: number; count: number; stillOwedKobo: number };
   bonus: { totalKobo: number; count: number };
   /** Paid machine bookings less the ones refunded (totalKobo and count), and the refunds. */
   machineBooking: { totalKobo: number; count: number; refundedKobo: number; refundedCount: number };
@@ -193,12 +192,12 @@ export type SeriesValues = {
     bookingsNetKobo: number;
     subscriptionsKobo: number;
   };
-  /** Paid to manufacturers (installments plus on-time bonuses), rejection charges, and the jobs created and their value. */
+  /** Paid to manufacturers (installments plus on-time bonuses), manufacturers' plan payments, and the jobs created and their value. */
   jobs: {
     paidOutKobo: number;
     installmentsKobo: number;
     bonusesKobo: number;
-    chargesKobo: number;
+    subscriptionsKobo: number;
     jobValueKobo: number;
     jobs: number;
   };

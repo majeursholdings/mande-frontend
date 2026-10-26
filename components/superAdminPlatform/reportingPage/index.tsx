@@ -10,7 +10,7 @@ import FinanceSeriesCard from "./financeSeriesCard";
 // SuperAdminReportingPage: the platform's money over time, each part with
 // its own chart and time frame: MANDE's revenue (money in against money
 // out, and what jobs, the shop, machine bookings and subscriptions each
-// left), jobs (paid to manufacturers against the charges for rejected work),
+// left), jobs (paid to manufacturers against what they pay for their plans),
 // the shop (what customers paid against refunds) and machine bookings (paid
 // against refunded). Each shows how it moved against the period before.
 // How the jobs themselves are going is under Jobs (Job review).
@@ -77,18 +77,18 @@ export default function SuperAdminReportingPage() {
                 figures={[
                     { label: "Installments", value: (totals) => naira(totals.installmentsKobo) },
                     { label: "On-time bonuses", value: (totals) => naira(totals.bonusesKobo) },
-                    { label: "Rejection charges", value: (totals) => naira(totals.chargesKobo) },
+                    { label: "Subscriptions", value: (totals) => naira(totals.subscriptionsKobo) },
                     { label: "New jobs' value", value: (totals) => naira(totals.jobValueKobo) },
                     { label: "Jobs created", value: (totals) => totals.jobs.toLocaleString() },
                 ]}
                 series={[
                     { label: "Paid to manufacturers (out)", color: OUT_COLOR, value: (point) => point.paidOutKobo },
-                    { label: "Rejection charges (in)", color: IN_COLOR, value: (point) => point.chargesKobo },
+                    { label: "Subscriptions (in)", color: IN_COLOR, value: (point) => point.subscriptionsKobo },
                 ]}
                 yLabel="Amount (₦)"
                 formatTick={nairaTick}
                 formatValue={naira}
-                emptyMessage="No job payments or charges in this period."
+                emptyMessage="No job payments or subscriptions in this period."
             />
 
             <div className="grid gap-10 md:gap-6 xl:grid-cols-2">

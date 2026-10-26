@@ -8,8 +8,9 @@ import type {
 // ─────────────────────────────────────────────────────────────────────────────
 // The platform's own money, for the super admin's Revenue page, from the
 // API's /reports/revenue, in four areas:
-//  - jobs: charges for rejected work in; installments and on-time bonuses
-//    paid to manufacturers out (what clients pay for jobs isn't recorded)
+//  - jobs: installments and on-time bonuses paid to manufacturers out (what
+//    clients pay for jobs isn't recorded, and rejection charges are a
+//    penalty, not income)
 //  - the shop: MANDE stock sold and the platform charge on manufacturers'
 //    sales in; MANDE's part of refunds, and reward points spent, out
 //  - machine bookings: paid bookings in; refunds out
@@ -22,7 +23,6 @@ export type RevenueEntryType = ApiRevenueEntry["type"];
 export const REVENUE_ENTRY_TYPES: { value: RevenueEntryType; label: string }[] = [
     { value: "installment", label: "Installment" },
     { value: "bonus", label: "On-time bonus" },
-    { value: "charge", label: "Rejection charge" },
     { value: "shop-sale", label: "Shop sale" },
     { value: "shop-charge", label: "Shop platform charge" },
     { value: "affiliate", label: "Reward points spent" },
@@ -90,7 +90,6 @@ export type RevenueSummary = {
     counts: {
         installments: number;
         bonuses: number;
-        charges: number;
         bookings: number;
         bookingRefunds: number;
         shopSales: number;
@@ -114,7 +113,6 @@ export function toRevenueSummary(summary: ApiRevenueSummary): RevenueSummary {
         counts: {
             installments: summary.installment?.count ?? 0,
             bonuses: summary.bonus.count,
-            charges: summary.charge.count,
             bookings: summary.machineBooking?.count ?? 0,
             bookingRefunds: summary.machineBooking?.refundedCount ?? 0,
             shopSales: summary.shopSale?.count ?? 0,
