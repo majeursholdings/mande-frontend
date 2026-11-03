@@ -144,6 +144,7 @@ export const jobsService = {
     return data;
   },
 
+  /** Fixed work after a rejection. The first time there's nothing to send: approving the delivery step sends the job for sign-off. */
   async submitFinishedWork(jobId: string, photos: string[]) {
     const { data } = await api.post(`/my-jobs/${jobId}/submit`, { photos });
     return data;

@@ -73,7 +73,7 @@ const PRINCIPLES: { icon: LucideIcon; title: string; description: string }[] = [
     {
         icon: Camera,
         title: "Proof at every stage",
-        description: `Up to ${MAX_STEP_PROOF_PHOTOS} photos per stage, checked against the drawing, and approved automatically if no one reviews them within ${REVIEW_WINDOW_HOURS} hours.`,
+        description: `Up to ${MAX_STEP_PROOF_PHOTOS} photos per stage, checked against the drawing. A review later than ${REVIEW_WINDOW_HOURS} hours adds days to your due date.`,
     },
     {
         icon: ClipboardCheck,

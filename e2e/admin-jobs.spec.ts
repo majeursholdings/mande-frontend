@@ -23,14 +23,14 @@ async function openInReviewJob(page: Page) {
 test.describe("a job in review", () => {
     test("opens from the jobs board", async ({ page }) => {
         const sheet = await openInReviewJob(page);
-        await expect(sheet.getByRole("button", { name: "Mark as completed" })).toBeEnabled();
+        await expect(sheet.getByRole("button", { name: "Sign off", exact: true })).toBeEnabled();
         await expect(sheet.getByRole("button", { name: "Reject" })).toBeVisible();
     });
 
     test("signs off with the client's proof of delivery, sent as uploads the API takes", async ({ page }) => {
         const sent = await captureApiCall(page, /\/api\/v1\/jobs\/[^/]+\/sign-off$/, { job: {} });
         const sheet = await openInReviewJob(page);
-        await sheet.getByRole("button", { name: "Mark as completed" }).click();
+        await sheet.getByRole("button", { name: "Sign off", exact: true }).click();
 
         const dialog = page.getByRole("dialog", { name: "Confirm Delivery & Sign Off" });
         await dialog.getByRole("radio", { name: /^5 stars/ }).or(dialog.getByRole("button", { name: /^5 stars/ })).first().click();

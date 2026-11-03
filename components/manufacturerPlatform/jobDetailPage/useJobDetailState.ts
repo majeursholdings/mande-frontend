@@ -165,12 +165,6 @@ export function useJobDetailState(job: Job) {
         void refresh();
     };
 
-    const uploadCompletionPhoto = async (photos: ProofPhoto[]) => {
-        applyServerJob(await jobsService.submitFinishedWork(job.id, photos.map((photo) => photo.publicId)));
-        showBanner("Job marked as done");
-        void refresh();
-    };
-
     // New photo proof replaces the rejected submission and sends the job
     // back for review. Blocked once the job hits its rejection limit.
     const resubmitForReview = async (photos: ProofPhoto[]) => {
@@ -199,7 +193,6 @@ export function useJobDetailState(job: Job) {
         cancelJob,
         reportDelay,
         submitStepProof,
-        uploadCompletionPhoto,
         resubmitForReview,
         addNote,
     };

@@ -17,8 +17,8 @@ type JobRulesValues = Record<JobRuleKey, string>;
 const RULES: { name: JobRuleKey; label: string; description: string; min: number; max: number }[] = [
     {
         name: "reviewWindowHours",
-        label: "Auto-approve after (hours)",
-        description: "Proof or finished work left unreviewed this long is approved. Sundays don't count.",
+        label: "Review window (hours)",
+        description: "Step proof reviewed later than this adds days to the manufacturer's due date. Sundays don't count. Jobs are never signed off automatically.",
         min: 1,
         max: 168,
     },

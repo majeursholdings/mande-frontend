@@ -74,7 +74,8 @@ export type PendingReview = {
   step: string | null;
   manufacturerName: string;
   submittedAt: string;
-  autoApproveAt: string;
+  /** When step proof is due a review. Null for a job waiting for sign-off, which has no deadline. */
+  autoApproveAt: string | null;
   jobCode: string | null;
   /** The proof's first photo (or the finished piece's, or the job's own). */
   imageUrl: string | null;

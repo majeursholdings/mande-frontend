@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { formatPrice } from "@/lib/currency";
-import { formatDuration, formatOrdinalDate, getTimeUntilLabel } from "@/lib/date";
+import { formatDuration, formatOrdinalDate } from "@/lib/date";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -35,7 +35,6 @@ import {
     JOB_PRODUCTION_STEPS,
     MIN_SIGN_OFF_RATING,
     REJECTION_CHARGE_PERCENT,
-    getAutoApproveAt,
     getRejectionCharge,
     type ProductionStepKey,
 } from "@/constant/jobWorkflow";
@@ -200,7 +199,7 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
     const latestApprovedExtension = decidedExtensions.find((request) => request.status === "approved");
     const nextRejectionNumber = job.rejections.length + 1;
 
-    // Why "Mark as completed" is off, shown under it
+    // Why "Sign off" is off, shown under it
     const completeHint =
         status === "completed"
             ? null
@@ -211,9 +210,9 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
               : !isLead
               ? `Only ${leadNames} can review this job.`
               : status === "pending" || status === "in-progress"
-                ? "You can mark it as completed once the manufacturer submits it for review."
-                : status === "in-review" && job.submittedForReviewAt
-                  ? `If no one reviews it, it's approved automatically ${getTimeUntilLabel(getAutoApproveAt(job.submittedForReviewAt))}.`
+                ? "You can sign it off once every step is approved, delivery included."
+                : status === "in-review"
+                  ? "Sign it off once the client has it and is happy. It's never signed off automatically."
                 : isFinal
                   ? `Closed after ${MAX_ADMIN_JOB_REJECTIONS} rejections.`
                   : status === "rejected"
@@ -269,7 +268,7 @@ function JobDetail({ job, onEdit, onDeleted }: { job: AdminJob; onEdit: () => vo
                             )}
                         >
                             <Check className="size-3.5" strokeWidth={2.5} />
-                            {status === "completed" ? "Completed" : "Mark as completed"}
+                            {status === "completed" ? "Completed" : "Sign off"}
                         </button>
                         {canReject && (
                             <button

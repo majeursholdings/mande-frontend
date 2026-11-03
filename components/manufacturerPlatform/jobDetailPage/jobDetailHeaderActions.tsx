@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { MoreHorizontal, CheckCircle2 } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOutsideClickRef } from "@/hooks/useOutsideClickRef";
 
@@ -9,23 +9,20 @@ const MENU_ITEM_CLASS =
     "w-full flex items-center px-3 py-2 text-xs font-medium font-text text-left hover:bg-mist-50 transition-colors cursor-pointer whitespace-nowrap";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// JobDetailHeaderActions — "Mark as done" + the "..." kebab (Report Delay /
-// Cancel Job). Cancel Job is off once they're past the
-// Materials step. Hidden entirely for pending jobs, which use Accept/Decline
+// JobDetailHeaderActions — the "..." kebab (Report Delay / Cancel Job).
+// Cancel Job is off once they're past the Materials step. There's no "mark
+// as done": approving the delivery step sends the job for the project lead's
+// sign-off. Hidden entirely for pending jobs, which use Accept/Decline
 // instead (see jobDetailContent.tsx).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function JobDetailHeaderActions({
-    canMarkAsDone,
-    onMarkAsDoneClick,
     onReportDelay,
     onCancelJob,
     canCancel,
 }: {
-    canMarkAsDone: boolean;
     /** False once they're past the Materials step. */
     canCancel: boolean;
-    onMarkAsDoneClick: () => void;
     onReportDelay: () => void;
     onCancelJob: () => void;
 }) {
@@ -35,22 +32,6 @@ export default function JobDetailHeaderActions({
 
     return (
         <div className="flex items-center gap-3">
-            <button
-                type="button"
-                disabled={!canMarkAsDone}
-                onClick={onMarkAsDoneClick}
-                title={canMarkAsDone ? undefined : "Complete all production steps first"}
-                className={cn(
-                    "flex items-center gap-1.5 text-sm font-medium font-text",
-                    canMarkAsDone
-                        ? "text-secondary-700 hover:text-secondary-900 cursor-pointer"
-                        : "text-mist-300 cursor-not-allowed",
-                )}
-            >
-                <CheckCircle2 className="size-4" />
-                Mark as done
-            </button>
-
             <div ref={menuRef} className="relative">
                 <button
                     type="button"

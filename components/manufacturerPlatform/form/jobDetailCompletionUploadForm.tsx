@@ -69,19 +69,17 @@ const getFields = (photoLabel: string, withNote: boolean): FormFieldConfig[] => 
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// JobDetailCompletionUpload — shown once every production step is approved.
-// Submitting the photo is the "mark as done" action: it's what actually
-// sends the job for review, so there's no separate confirm step on top of it.
-// Also reused, with different copy, to resubmit a rejected job with new
-// proof, and to send proof of each production step — with an optional note
-// when `withNote` is set (every step's proof).
+// JobDetailCompletionUpload — photos sent for review: proof of each
+// production step (with an optional note when `withNote` is set), and new
+// photos of fixed work to resubmit a rejected job. There's no "mark as done":
+// approving the delivery step sends the job for the project lead's sign-off.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function JobDetailCompletionUpload({
     onComplete,
-    title = "Production complete",
-    description = "Upload a photo of the finished furniture to mark this job as done.",
-    submitLabel = "Mark as done",
+    title = "Upload new proof",
+    description = "Upload photos of the fixed furniture to send it for review again.",
+    submitLabel = "Resubmit for review",
     photoLabel = "Furniture photo",
     withNote = false,
 }: {

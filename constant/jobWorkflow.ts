@@ -5,10 +5,13 @@
 // to MAX_STEP_PROOF_PHOTOS photos as proof of each one — they can go on to
 // the next step while the last one waits for review. The project lead
 // approves the proof or sends it back with a reason (the manufacturer sends
-// new proof before going further). Once every step is approved they
-// submit the finished furniture, and the lead signs the job off or rejects
-// it. Anything waiting for the lead is approved automatically
-// REVIEW_WINDOW_HOURS after it was sent, not counting Sundays.
+// new proof before going further). Step proof reviewed more than
+// REVIEW_WINDOW_HOURS after it was sent (not counting Sundays) adds days to
+// the due date. Once every step is approved, delivery included, MANDE takes
+// the piece to the client and the job waits for sign-off: the manufacturer
+// has nothing more to send, and only the lead (or a super admin) signs it
+// off, once the client has it and is happy, or rejects it. Nothing is
+// signed off automatically.
 //
 // The job's amount — the manufacturer's labour — is paid in six parts as
 // the job moves (see JOB_PAYMENT_SCHEDULE), each released to their wallet

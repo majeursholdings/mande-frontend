@@ -51,7 +51,7 @@ const STAGES: Record<ProductionStepKey, Stage> = {
     delivery: {
         icon: Truck,
         image: `/images/webpage/Workers_delivering_wooden_sideboard_20261014191250.webp`,
-        description: "The piece is delivered and the customer signs it off at their address.",
+        description: "MANDE delivers the piece, and your project lead signs it off once the client has it and is happy.",
         pay: `${percentAt("delivery")}% at delivery, ${percentAt("signed-off")}% at sign-off`,
     },
 };

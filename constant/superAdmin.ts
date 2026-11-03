@@ -234,7 +234,7 @@ export type PlatformSettings = {
     bonusPercent: number;
     /** Charged from the manufacturer's wallet each time their finished work is rejected, as a percent of the amount. */
     rejectionChargePercent: number;
-    /** How long a lead has to review proof or finished work before it's approved automatically. */
+    /** How long a lead has to review step proof before a late review adds days to the due date. */
     reviewWindowHours: number;
     /** How long after sign-off a fault can be reported, cancelling the bonus. */
     faultReportDays: number;

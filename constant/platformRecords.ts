@@ -8,9 +8,9 @@
 
 import {
     MAX_JOB_REJECTIONS,
-    getAutoApproveAt,
     getJobPayments,
     getRejectionCharge,
+    getStepProgress,
     settleStepSubmissions,
     type JobFaultReport,
     type JobPaymentInput,
@@ -657,15 +657,14 @@ export type JobRecord = {
     manufacturerReview: ManufacturerReviewRecord | null;
     /**
      * The lead's rating of the finished work when it was under
-     * MIN_SIGN_OFF_RATING: it isn't signed off (or approved automatically)
-     * while it waits for a super admin to sign it off or send it back.
+     * MIN_SIGN_OFF_RATING: it isn't signed off while it waits for a super admin to sign it off or send it back.
      */
     furtherReview: ManufacturerReviewRecord | null;
     /** Each manufacturer's rating of the lead, once the job is completed — one each at most. */
     leadReviews: LeadReviewRecord[];
     /** ISO date the work was signed off. Null until the job is completed. */
     completedAt: string | null;
-    /** Who signed it off. Null when it was approved automatically. */
+    /** Who signed it off. Null for a job approved automatically, before sign-off moved to the lead. */
     completedBy: string | null;
     /** A fault the lead found in the FAULT_REPORT_DAYS after sign-off, which cancels the bonus. */
     faultReport: JobFaultReport | null;
@@ -701,18 +700,22 @@ export const getJobRecordPayments = (job: JobRecord, now: Date = new Date()) =>
     getJobPayments(getJobRecordPaymentInput(job), now);
 
 /**
- * The job with every auto-approval that's come due by `now` applied — step
- * proof, and finished work, left unreviewed for REVIEW_WINDOW_HOURS (not
- * counting Sundays).
+ * The job as the API leaves it by `now`: once every step is approved,
+ * delivery included, it waits for the lead's sign-off, with the delivery
+ * proof as the finished-work photos. Nothing signs itself off.
  */
 export function settleJobRecord(job: JobRecord, now: Date = new Date()): JobRecord {
     const settled = { ...job, stepSubmissions: settleStepSubmissions(job.stepSubmissions, now) };
-    // Held for further review: waiting for a super admin, not the clock
-    if (job.status !== "in-review" || !job.submittedForReviewAt || job.furtherReview) return settled;
-    const approveAt = getAutoApproveAt(job.submittedForReviewAt);
-    return approveAt <= now
-        ? { ...settled, status: "completed", completedAt: approveAt.toISOString(), completedBy: null }
-        : settled;
+    const ready =
+        settled.status === "in-progress" && getStepProgress(settled.stepSubmissions).every((step) => step.state === "approved");
+    if (!ready) return settled;
+    const delivery = settled.stepSubmissions.filter((submission) => submission.step === "delivery").at(-1);
+    return {
+        ...settled,
+        status: "in-review",
+        completionImageUrls: delivery?.imageUrls ?? [],
+        submittedForReviewAt: delivery?.review?.at ?? now.toISOString(),
+    };
 }
 
 /** Rejected for the last time — the manufacturer can't resubmit it. */

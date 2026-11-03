@@ -112,7 +112,7 @@ test("a made-to-order MANDE product goes from the shop through a job to the cust
         await maker.call("post", `/my-jobs/${jobId}/steps/${step}/proof`, { photos: uploads(maker.userId, "step-proof", 3) });
         await owner.call("post", `/jobs/${jobId}/steps/${step}/review`, { outcome: "approved" });
     }
-    await maker.call("post", `/my-jobs/${jobId}/submit`, { photos: uploads(maker.userId, "completion-photo", 2) });
+    // Approving delivery sends it for sign-off: the manufacturer has nothing more to send
     await owner.call("post", `/jobs/${jobId}/sign-off`, {
         rating: 5,
         comment: "Clean joinery, on time",

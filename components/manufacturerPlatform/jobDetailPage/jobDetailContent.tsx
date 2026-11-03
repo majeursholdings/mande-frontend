@@ -11,7 +11,7 @@ import JobDetailStepRecorder from "./jobDetailStepRecorder";
 import JobDetailRejections from "./jobDetailRejections";
 import JobDetailCallAssignee from "./jobDetailCallAssignee";
 import JobDetailPayments from "./jobDetailPayments";
-import JobDetailLeadReview, { HeldForReviewNote } from "./jobDetailLeadReview";
+import JobDetailLeadReview, { HeldForReviewNote, WaitingForSignOffNote } from "./jobDetailLeadReview";
 import JobDetailNotes from "./jobDetailNotes";
 import JobDetailCompletionUpload from "@/components/manufacturerPlatform/form/jobDetailCompletionUploadForm";
 import CancelJobForm from "@/components/manufacturerPlatform/form/cancelJobForm";
@@ -44,7 +44,6 @@ import { useMyJobList } from "@/components/manufacturerPlatform/dashboardLayout/
 
 type DialogKind = "reportDelay" | "cancelJob" | "declineJob" | null;
 
-const COMPLETION_UPLOAD_ID = "job-detail-completion-upload";
 
 /**
  * The job's payments and bonus: the API's own (it decides what's paid), or,
@@ -84,7 +83,6 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
         cancelJob,
         reportDelay,
         submitStepProof,
-        uploadCompletionPhoto,
         resubmitForReview,
         addNote,
     } = useJobDetailState(job);
@@ -94,11 +92,6 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
     const statusConfig = JOB_STATUS_CONFIG[state.status];
     const { steps: productionSteps, completedCount: completedStepCount } = getJobSteps({ ...state, maxRejections });
     const stepProgress = getStepProgress(state.stepSubmissions);
-    // Every step approved: the API says so with no current step left (it sends one while the job is theirs)
-    const allStepsComplete =
-        job.currentStep !== undefined && state.status === "in-progress"
-            ? job.currentStep === null
-            : stepProgress.every((step) => step.state === "approved");
     const { payments, bonus } = getPaymentsOf(job);
     const rules = job.rules ?? null;
     const progressPercent = Math.round(
@@ -114,8 +107,6 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
         isFlagged && hasOtherJob
             ? "Your account is flagged: you can hold one job at a time. Finish your current job to accept this one."
             : null;
-    const canMarkAsDone =
-        state.status === "in-progress" && allStepsComplete && completionImageUrls.length === 0;
     const isPending = state.status === "pending";
     // Accepted a shared job: it starts once the other manufacturer(s) accept too
     const isAwaitingOthers = isPending && !!job.awaitingOthers;
@@ -157,15 +148,6 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
             <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3 border-b border-border">
                 {showHeaderActions ? (
                     <JobDetailHeaderActions
-                        canMarkAsDone={canMarkAsDone}
-                        onMarkAsDoneClick={() =>
-                            document
-                                .getElementById(COMPLETION_UPLOAD_ID)
-                                ?.scrollIntoView({
-                                    behavior: "smooth",
-                                    block: "center",
-                                })
-                        }
                         onReportDelay={() => setDialog("reportDelay")}
                         onCancelJob={() => setDialog("cancelJob")}
                         canCancel={canCancel}
@@ -289,7 +271,7 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                     )}
                 </dl>
 
-                {state.status === "in-review" && job.isHeldForReview && <HeldForReviewNote />}
+                {state.status === "in-review" && (job.isHeldForReview ? <HeldForReviewNote /> : <WaitingForSignOffNote />)}
 
                 <JobDetailRejections
                     rejections={state.rejections}
@@ -332,14 +314,6 @@ export default function JobDetailContent({ job, closeSlot }: { job: Job; closeSl
                         onSubmitProof={submitStepProof}
                         readOnly={state.status !== "in-progress"}
                     />
-                )}
-
-                {canMarkAsDone && (
-                    <div id={COMPLETION_UPLOAD_ID}>
-                        <JobDetailCompletionUpload
-                            onComplete={uploadCompletionPhoto}
-                        />
-                    </div>
                 )}
 
                 {completionImageUrls.length > 0 && (

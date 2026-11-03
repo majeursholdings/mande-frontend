@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { PauseCircle, Star } from "lucide-react";
+import { PauseCircle, Star, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatOrdinalDate } from "@/lib/date";
 import type { Job } from "@/constant/manufacturer";
@@ -70,6 +70,22 @@ export function HeldForReviewNote() {
                 <p className="text-xs font-text text-mist-600">
                     Your project lead has asked Mande to review the finished work further. It&apos;s signed off, or sent
                     back with what to fix, once that&apos;s done. You don&apos;t need to do anything yet.
+                </p>
+            </div>
+        </div>
+    );
+}
+
+/** Every step approved: MANDE delivers it, and the project lead signs it off once the client has it. */
+export function WaitingForSignOffNote() {
+    return (
+        <div role="status" className="flex gap-3 rounded-xl border border-border bg-mist-50 p-4">
+            <Truck className="size-5 shrink-0 text-mist-600" strokeWidth={1.75} aria-hidden />
+            <div className="flex flex-col gap-1">
+                <p className="text-sm font-semibold font-text text-mist-950">Waiting for sign-off</p>
+                <p className="text-xs font-text text-mist-600">
+                    Every step is approved. Mande is delivering it to the client, and your project lead signs it off once
+                    the client has it. You don&apos;t need to do anything.
                 </p>
             </div>
         </div>

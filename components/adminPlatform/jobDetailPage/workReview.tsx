@@ -12,7 +12,7 @@ import { AttachmentList, DetailSection, ImagePreviewGrid } from "./detailParts";
 
 export const photoItems = (urls: string[]) => urls.map((url, index) => ({ url, name: `Photo ${index + 1}` }));
 
-/** The latest photos of the finished furniture the manufacturer submitted for review. */
+/** The latest photos of the finished furniture: the delivery proof, or the fixed work sent after a rejection. */
 export function FinishedFurniture({ job }: { job: AdminJob }) {
     if (job.completionImageUrls.length === 0) return null;
 
@@ -22,7 +22,7 @@ export function FinishedFurniture({ job }: { job: AdminJob }) {
             action={
                 job.submittedForReviewAt && (
                     <span className="text-xs font-text text-mist-500">
-                        Submitted {getRelativeTimeLabel(new Date(job.submittedForReviewAt))}
+                        Sent for sign-off {getRelativeTimeLabel(new Date(job.submittedForReviewAt))}
                     </span>
                 )
             }

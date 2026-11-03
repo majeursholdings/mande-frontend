@@ -88,8 +88,8 @@ export default function JobDetailPayments({
             <p className="flex gap-2 text-xs font-text text-mist-500">
                 <Clock className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                 {reviewWindowHours !== null
-                    ? `Review taking a while? Finished work waiting more than ${reviewWindowHours} hours is signed off automatically, and step proof reviewed late adds days to your due date. Sundays don't count.`
-                    : "Review taking a while? Finished work left unreviewed is signed off automatically, and step proof reviewed late adds days to your due date. Sundays don't count."}
+                    ? `Review taking a while? Step proof reviewed more than ${reviewWindowHours} hours after you send it adds days to your due date (Sundays don't count). The final payment comes when your project lead signs the job off, once the client has it.`
+                    : "Review taking a while? Step proof reviewed late adds days to your due date (Sundays don't count). The final payment comes when your project lead signs the job off, once the client has it."}
             </p>
         </div>
     );

@@ -26,9 +26,9 @@ import { fetchAllPages } from "@/lib/pagination";
 // AdminJobsProvider — every job, shared across the admin (or super admin)
 // dashboard so a job created, edited, reviewed, reassigned or deleted (or a
 // note left on one) stays put while they move between pages. What they do is
-// recorded under their name. Anything left unreviewed past its
-// deadline reads as approved automatically (see settleAdminJob). Loaded from
-// the API (which does the auto-approving); each change is sent there.
+// recorded under their name. A job with every step approved reads as
+// waiting for sign-off (see settleAdminJob), as the API moves it. Loaded
+// from the API; each change is sent there.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** What the create/edit job form fills in — the rest is set by the platform. */
