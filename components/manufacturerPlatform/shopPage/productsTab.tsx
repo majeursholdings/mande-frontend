@@ -36,6 +36,21 @@ function stockLabel(product: SellerProduct): string {
     return product.stock === 0 ? "Sold out" : `${product.stock} in stock`;
 }
 
+/** The price, as a range when its variants cost different amounts, with how many variants it has. */
+export function ProductPrice({ product }: { product: Pick<SellerProduct, "priceKobo" | "priceMaxKobo" | "variants"> }) {
+    const ranged = product.priceMaxKobo !== null && product.priceMaxKobo > product.priceKobo;
+    const variants = product.variants.length;
+    return (
+        <span className="flex flex-col">
+            <span className="whitespace-nowrap font-medium text-mist-950">
+                {formatPrice(fromKobo(product.priceKobo))}
+                {ranged && ` to ${formatPrice(fromKobo(product.priceMaxKobo!))}`}
+            </span>
+            {variants > 0 && <span className="whitespace-nowrap text-xs text-mist-500">{variants === 1 ? "1 variant" : `${variants} variants`}</span>}
+        </span>
+    );
+}
+
 const COLUMNS: ColumnDef<SellerProduct>[] = [
     {
         key: "product",
@@ -55,7 +70,7 @@ const COLUMNS: ColumnDef<SellerProduct>[] = [
             );
         },
     },
-    { key: "price", header: "Price", cell: (product) => <span className="whitespace-nowrap font-medium text-mist-950">{formatPrice(fromKobo(product.priceKobo))}</span> },
+    { key: "price", header: "Price", cell: (product) => <ProductPrice product={product} /> },
     { key: "stock", header: "Stock", cell: (product) => <span className="whitespace-nowrap">{stockLabel(product)}</span> },
     {
         key: "status",

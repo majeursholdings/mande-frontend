@@ -91,7 +91,7 @@ export function orderExportColumns(payoutLabel: string): ExportColumn<ShopOrderP
         { header: "Address", value: (order) => order.customer.street, skipInPdf: true },
         { header: "City", value: (order) => order.customer.city },
         { header: "State", value: (order) => order.customer.state },
-        { header: "Items", value: (order) => order.lines.map((line) => `${line.quantity} × ${line.title}${line.pickup ? " (pickup)" : ""}`).join("; ") },
+        { header: "Items", value: (order) => order.lines.map((line) => `${line.quantity} × ${line.title}${line.variantLabel ? ` (${line.variantLabel}${line.sku ? `, SKU ${line.sku}` : ""})` : ""}${line.pickup ? " (pickup)" : ""}`).join("; ") },
         { header: "Quantity", value: itemCount, kind: "number" },
         { header: "Items total (₦)", value: (order) => naira(order.itemsSubtotalKobo), kind: "money" },
         { header: "Coupon", value: (order) => order.coupon?.code ?? "" },

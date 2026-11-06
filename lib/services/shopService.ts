@@ -82,6 +82,37 @@ export type SellerOverview = { seller: ShopSeller; standing: SellerStanding };
 export type ProductDeliveryFee = { zoneId: string; feeKobo: number; extraUnitKobo: number; etaDays: number };
 export type ProductDelivery = { fees: ProductDeliveryFee[]; pickup: { available: boolean; address: string } };
 
+/** One of a product's options (Color, Size...) and the values a customer picks from. */
+export type ProductOption = { name: string; values: string[] };
+
+/** One combination of the options' values, with its own price, stock, lead time, code and photos. */
+export type ProductVariant = {
+    id: string;
+    /** One value per option, in the options' order. */
+    values: string[];
+    /** The values joined, e.g. "Red / Single". */
+    label: string;
+    priceKobo: number;
+    /** Null when it's made to order. */
+    stock: number | null;
+    leadTimeDays: number | null;
+    sku: string;
+    images: { publicId: string; url: string | null }[];
+    /** False: a combination the seller doesn't sell. */
+    active: boolean;
+};
+
+/** A variant as it's sent: by its values (the API keeps the id of a combination it already has). */
+export type ProductVariantPayload = {
+    values: string[];
+    priceKobo: number;
+    stock: number | null;
+    leadTimeDays?: number | null;
+    sku?: string;
+    images?: { publicId: string }[];
+    active?: boolean;
+};
+
 /** A product as its seller sees it. */
 export type SellerProduct = {
     id: string;
@@ -91,10 +122,17 @@ export type SellerProduct = {
     category: string;
     subcategory: string;
     images: { publicId: string; url: string | null }[];
+    /** With variants: the lowest price of those on sale. */
     priceKobo: number;
-    /** Null when it's made to order. */
+    /** With variants: the highest price of those on sale (null without them). */
+    priceMaxKobo: number | null;
+    /** Null when it's made to order. With variants: their total, or null if any on sale is made to order. */
     stock: number | null;
+    /** With variants: the longest of theirs. */
     leadTimeDays: number | null;
+    /** Up to 3, empty for a product without variants. */
+    options: ProductOption[];
+    variants: ProductVariant[];
     /** Taken back for a change of mind. */
     returnable: boolean;
     delivery: ProductDelivery;
@@ -113,11 +151,19 @@ export type ProductPayload = {
     category: string;
     subcategory: string;
     images: { publicId: string }[];
-    priceKobo: number;
-    stock: number | null;
-    leadTimeDays: number | null;
+    /** Required without options; left out with them (worked out from the variants). */
+    priceKobo?: number;
+    stock?: number | null;
+    leadTimeDays?: number | null;
     returnable: boolean;
     delivery: ProductDelivery;
+    /**
+     * Sent together, the whole set (empty lists take the variants off). With
+     * options, the product's own price, stock and lead time are ignored: the
+     * API works them out from the variants.
+     */
+    options?: ProductOption[];
+    variants?: ProductVariantPayload[];
 };
 
 export type CreateProductPayload = ProductPayload & { status: "draft" | "listed" };
@@ -139,6 +185,9 @@ export type ShopOrderPart = {
         id: string;
         productId: string;
         title: string;
+        /** The variant bought, e.g. "Red / Single" (null for a product without variants), and its code. */
+        variantLabel: string | null;
+        sku: string | null;
         imageUrl: string | null;
         unitPriceKobo: number;
         quantity: number;

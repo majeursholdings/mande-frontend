@@ -72,7 +72,7 @@ test("a made-to-order MANDE product goes from the shop through a job to the cust
     await customer.getByRole("button", { name: "Sign in" }).click();
     await expect(customer.getByText(`Welcome back, ${CUSTOMER.firstName}`)).toBeVisible();
     await customer.goto(`/p/${DESK.slug}`);
-    await customer.getByRole("button", { name: "Add to cart" }).click();
+    await customer.getByRole("button", { name: "Add to cart", exact: true }).click();
     await expect(customer.getByText(`${DESK.title} is in your cart.`)).toBeVisible();
     await customer.goto("/checkout");
     const pay = customer.getByRole("button", { name: /^Pay ₦/ });

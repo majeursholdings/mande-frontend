@@ -115,7 +115,7 @@ export default function OrdersPanel({
             header: "Items",
             cell: (order) => (
                 <span className="flex flex-col">
-                    <span className="max-w-56 truncate text-mist-950">{order.lines.map((line) => line.title).join(", ")}</span>
+                    <span className="max-w-56 truncate text-mist-950">{order.lines.map((line) => (line.variantLabel ? `${line.title} (${line.variantLabel})` : line.title)).join(", ")}</span>
                     <span className="text-xs text-mist-500">{itemCount(order)} {itemCount(order) === 1 ? "item" : "items"}</span>
                 </span>
             ),
@@ -165,6 +165,9 @@ export default function OrdersPanel({
                                         </span>
                                         <span className="flex min-w-0 flex-1 flex-col text-sm font-text">
                                             <span className="truncate font-medium text-mist-950">{line.title}</span>
+                                            {(line.variantLabel || line.sku) && (
+                                                <span className="truncate text-xs text-mist-500">{[line.variantLabel, line.sku && `SKU ${line.sku}`].filter(Boolean).join(", ")}</span>
+                                            )}
                                             <span className="text-mist-500">
                                                 {line.quantity} × {naira(line.unitPriceKobo)}
                                                 {line.pickup ? ", picked up" : line.deliveryFeeKobo ? `, delivery ${naira(line.deliveryFeeKobo)}` : ", free delivery"}

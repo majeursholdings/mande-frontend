@@ -56,7 +56,7 @@ test("a customer buys from two sellers, a seller ships, staff refund one part, t
     for (const product of [SHOP.manufacturerProduct, SHOP.mandeProduct]) {
         await customer.goto(`/p/${product.slug}`);
         await expect(customer.getByRole("heading", { name: product.title, level: 1 })).toBeVisible();
-        await customer.getByRole("button", { name: "Add to cart" }).click();
+        await customer.getByRole("button", { name: "Add to cart", exact: true }).click();
         await expect(customer.getByText(`${product.title} is in your cart.`)).toBeVisible();
     }
 

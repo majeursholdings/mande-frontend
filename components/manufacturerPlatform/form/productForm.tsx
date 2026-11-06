@@ -9,9 +9,10 @@ import { API_PHOTO_ACCEPT, DEFAULT_MAX_FILE_SIZE_MB } from "@/components/form/fi
 import Notice from "@/components/manufacturerPlatform/notice";
 import { Button } from "@/components/ui/button";
 import { SHOP_CATEGORY_OPTIONS, SHOP_LIMITS, subcategoryOptions } from "@/constant/shop";
-import { getErrorMessage } from "@/lib/api";
+import { MandeApiError, getErrorMessage } from "@/lib/api";
 import type { CreateProductPayload, DeliveryZone, ProductPayload, SellerProduct } from "@/lib/services/shopService";
 import { FormSubmitButton } from "./formButtons";
+import VariantsSection, { variantErrorTarget, variantValuesOf, variantsPayload, type VariantValues } from "./productVariants";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ProductForm: adding or editing a product on the shop, for a manufacturer's
@@ -20,6 +21,10 @@ import { FormSubmitButton } from "./formButtons";
 // description, price, in stock or made to order, and how it reaches the
 // customer: a fee for each of the seller's delivery zones it goes to, and/or
 // free pickup. Prices are entered in naira and sent in kobo.
+//
+// A product can also come in variants (see productVariants.tsx): then each
+// variant has its own price, stock or lead time, and the product's own are
+// worked out from them by the API, so those fields are hidden.
 //
 // A new product can be saved as a draft or listed straight away (when the
 // seller can list); an edit saves in place, and a listed product has to stay
@@ -31,7 +36,7 @@ import { FormSubmitButton } from "./formButtons";
 
 type Photo = { publicId: string; url: string };
 
-type ProductValues = {
+type ProductValues = VariantValues & {
     photos: Photo[];
     title: string;
     category: string;
@@ -68,6 +73,7 @@ function toValues(product: SellerProduct | undefined, zones: DeliveryZone[], def
         pickup: product?.delivery.pickup.available ?? false,
         // The seller's own address until they say otherwise
         pickupAddress: product?.delivery.pickup.address || defaultPickupAddress,
+        ...variantValuesOf(product),
     };
     for (const zone of zones) {
         const fee = product?.delivery.fees.find((entry) => entry.zoneId === zone.id);
@@ -79,9 +85,10 @@ function toValues(product: SellerProduct | undefined, zones: DeliveryZone[], def
     return values;
 }
 
-function toPayload(values: ProductValues, zones: DeliveryZone[]): ProductPayload {
+/** The product to send, and the row each variant sent came from (for the API's errors). */
+function toPayload(values: ProductValues, zones: DeliveryZone[], hadVariants: boolean): { payload: ProductPayload; rowKeys: string[] } {
     const madeToOrder = values.availability === "made-to-order";
-    return {
+    const payload: ProductPayload = {
         title: values.title.trim(),
         description: values.description.trim(),
         category: values.category,
@@ -103,6 +110,40 @@ function toPayload(values: ProductValues, zones: DeliveryZone[]): ProductPayload
             pickup: { available: values.pickup, address: values.pickup ? values.pickupAddress.trim() : "" },
         },
     };
+    if (values.variantsOn) {
+        // The API works the product's price, stock and lead time out from the variants
+        const { options, variants, rowKeys } = variantsPayload(values);
+        delete payload.priceKobo;
+        delete payload.stock;
+        delete payload.leadTimeDays;
+        return { payload: { ...payload, options, variants }, rowKeys };
+    }
+    // Switched off: empty lists take the variants off
+    return { payload: hadVariants ? { ...payload, options: [], variants: [] } : payload, rowKeys: [] };
+}
+
+/** Product fields the API names differently, for its 422 errors. */
+const ERROR_FIELDS: Record<string, string> = { title: "title", description: "description", category: "category", subcategory: "subcategory", images: "photos" };
+
+/** Where each of the API's field errors shows in the form (a field that's on screen), as [name, message]. */
+function errorTargets(err: unknown, values: ProductValues, rowKeys: string[]): [string, string][] {
+    if (!(err instanceof MandeApiError) || err.status !== 422 || !err.details || typeof err.details !== "object" || Array.isArray(err.details)) return [];
+    const madeToOrder = values.availability === "made-to-order";
+    return Object.entries(err.details).flatMap(([path, messages]): [string, string][] => {
+        const message = String(Array.isArray(messages) ? messages[0] : messages);
+        const top = path.split(".")[0];
+        if (top === "options" || top === "variants") {
+            if (!values.variantsOn) return [];
+            const target = variantErrorTarget(path, message, values, rowKeys);
+            return [[target.name, target.message]];
+        }
+        if (ERROR_FIELDS[top]) return [[ERROR_FIELDS[top], message]];
+        if (values.variantsOn) return [];
+        if (top === "priceKobo") return [["price", message]];
+        if (top === "stock" && !madeToOrder) return [["stock", message]];
+        if (top === "leadTimeDays" && madeToOrder) return [["leadTimeDays", message]];
+        return [];
+    });
 }
 
 const wholeNumber = (min: number, max: number, label: string) => (value: string) =>
@@ -181,6 +222,7 @@ function ZoneFeeRow({ zone }: { zone: DeliveryZone }) {
 function DeliverySection({ zones, onManageZones, hasDefaultPickup }: { zones: DeliveryZone[]; onManageZones?: () => void; hasDefaultPickup: boolean }) {
     const { register, control, getValues, setValue, formState } = useFormContext<ProductValues>();
     const availability = useWatch({ control, name: "availability" });
+    const variantsOn = useWatch({ control, name: "variantsOn" });
     const pickup = useWatch({ control, name: "pickup" });
     const field = (config: FormFieldConfig) => (
         <FormField<ProductValues>
@@ -196,50 +238,66 @@ function DeliverySection({ zones, onManageZones, hasDefaultPickup }: { zones: De
 
     return (
         <div className="flex flex-col gap-5">
-            <div className="flex flex-col gap-3">
-                {field({
-                    name: "availability",
-                    type: "radio",
-                    label: "Availability",
-                    options: [
-                        { value: "stock", label: "In stock" },
-                        { value: "made-to-order", label: "Made to order" },
-                    ],
-                })}
-                {availability === "made-to-order"
-                    ? field({
-                          name: "leadTimeDays",
-                          type: "number",
-                          label: "Days to make it",
-                          placeholder: "e.g. 21",
-                          step: 1,
-                          description: "Customers see roughly how long it takes before it's ready.",
-                          validation: { validate: wholeNumber(1, SHOP_LIMITS.maxLeadTimeDays, "days") },
-                      })
-                    : field({
-                          name: "stock",
-                          type: "number",
-                          label: "Number in stock",
-                          placeholder: "e.g. 4",
-                          step: 1,
-                          description: "It shows as sold out at 0.",
-                          validation: { validate: wholeNumber(0, SHOP_LIMITS.maxStock, "a number") },
-                      })}
-                {availability === "made-to-order" ? (
-                    <p className={HINT_CLASS}>Made-to-order products are only returned if there&apos;s a problem with them (faulty, damaged, wrong or not as described).</p>
-                ) : (
-                    field({
-                        name: "returnable",
-                        type: "checkbox",
-                        label: (
-                            <span className="flex flex-col">
-                                <span className="font-medium text-mist-950">Take it back if the customer changes their mind</span>
-                                <span className={HINT_CLASS}>Within 7 days of delivery, unused, refunded as store credit. Problems are always returnable.</span>
+            {variantsOn ? (
+                field({
+                    name: "returnable",
+                    type: "checkbox",
+                    label: (
+                        <span className="flex flex-col">
+                            <span className="font-medium text-mist-950">Take it back if the customer changes their mind</span>
+                            <span className={HINT_CLASS}>
+                                For variants in stock: within 7 days of delivery, unused, refunded as store credit. Made-to-order variants are only returned if
+                                there&apos;s a problem with them.
                             </span>
-                        ),
-                    })
-                )}
-            </div>
+                        </span>
+                    ),
+                })
+            ) : (
+                <div className="flex flex-col gap-3">
+                    {field({
+                        name: "availability",
+                        type: "radio",
+                        label: "Availability",
+                        options: [
+                            { value: "stock", label: "In stock" },
+                            { value: "made-to-order", label: "Made to order" },
+                        ],
+                    })}
+                    {availability === "made-to-order"
+                        ? field({
+                              name: "leadTimeDays",
+                              type: "number",
+                              label: "Days to make it",
+                              placeholder: "e.g. 21",
+                              step: 1,
+                              description: "Customers see roughly how long it takes before it's ready.",
+                              validation: { validate: wholeNumber(1, SHOP_LIMITS.maxLeadTimeDays, "days") },
+                          })
+                        : field({
+                              name: "stock",
+                              type: "number",
+                              label: "Number in stock",
+                              placeholder: "e.g. 4",
+                              step: 1,
+                              description: "It shows as sold out at 0.",
+                              validation: { validate: wholeNumber(0, SHOP_LIMITS.maxStock, "a number") },
+                          })}
+                    {availability === "made-to-order" ? (
+                        <p className={HINT_CLASS}>Made-to-order products are only returned if there&apos;s a problem with them (faulty, damaged, wrong or not as described).</p>
+                    ) : (
+                        field({
+                            name: "returnable",
+                            type: "checkbox",
+                            label: (
+                                <span className="flex flex-col">
+                                    <span className="font-medium text-mist-950">Take it back if the customer changes their mind</span>
+                                    <span className={HINT_CLASS}>Within 7 days of delivery, unused, refunded as store credit. Problems are always returnable.</span>
+                                </span>
+                            ),
+                        })
+                    )}
+                </div>
+            )}
 
             <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
@@ -312,6 +370,8 @@ export default function ProductForm({
     const intent = useRef<"draft" | "listed">("draft");
     const methods = useForm<ProductValues>({ mode: "onTouched", defaultValues: toValues(product, zones, defaultPickupAddress) });
     const category = useWatch({ control: methods.control, name: "category" });
+    const variantsOn = useWatch({ control: methods.control, name: "variantsOn" });
+    const hadVariants = (product?.options.length ?? 0) > 0;
 
     const fields: FormFieldConfig[] = [
         {
@@ -367,7 +427,10 @@ export default function ProductForm({
                 maxLength: { value: SHOP_LIMITS.descriptionMax, message: `Keep it to ${SHOP_LIMITS.descriptionMax.toLocaleString("en-GB")} characters` },
             },
         },
-        {
+    ];
+    // With variants, each has its own price (in the Variants section)
+    if (!variantsOn) {
+        fields.push({
             name: "price",
             type: "amount",
             label: "Price",
@@ -377,8 +440,8 @@ export default function ProductForm({
                 required: "Enter the price",
                 validate: (value: string) => Number(value) >= 1 || "Enter at least ₦1",
             },
-        },
-    ];
+        });
+    }
 
     const handleSubmit = async (values: ProductValues) => {
         const listing = !isEdit && intent.current === "listed";
@@ -387,11 +450,13 @@ export default function ProductForm({
             return;
         }
         setIsLoading(true);
+        const { payload, rowKeys } = toPayload(values, zones, hadVariants);
         try {
-            const payload = toPayload(values, zones);
             if (isEdit) await onUpdate?.(payload);
             else await onCreate?.({ ...payload, status: listing ? "listed" : "draft" });
         } catch (err) {
+            // The API's reason for a field, shown on that field (the toast says the first)
+            for (const [name, message] of errorTargets(err, values, rowKeys)) methods.setError(name as Parameters<typeof methods.setError>[0], { message });
             toast.error(getErrorMessage(err, isEdit ? "Couldn't save the product. Please try again." : "Couldn't add the product. Please try again."));
         } finally {
             setIsLoading(false);
@@ -406,7 +471,19 @@ export default function ProductForm({
             isLoading={isLoading}
             rowPairs={[["category", "subcategory"]]}
             hideRequiredMarks
-            footerSlot={<DeliverySection zones={zones} onManageZones={onManageZones} hasDefaultPickup={!!defaultPickupAddress} />}
+            footerSlot={
+                <>
+                    <VariantsSection
+                        hadVariants={hadVariants}
+                        // A new variant starts at the product's own price and availability
+                        seed={() => {
+                            const values = methods.getValues();
+                            return { price: values.price, madeToOrder: values.availability === "made-to-order", leadTimeDays: values.leadTimeDays };
+                        }}
+                    />
+                    <DeliverySection zones={zones} onManageZones={onManageZones} hasDefaultPickup={!!defaultPickupAddress} />
+                </>
+            }
             renderFooter={({ isLoading, canSubmit }) => (
                 <FormActions
                     control={methods.control}

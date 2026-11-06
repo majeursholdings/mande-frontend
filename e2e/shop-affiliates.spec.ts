@@ -42,7 +42,7 @@ async function signIn(page: Page, email: string, firstName: string) {
 
 async function addMirror(page: Page) {
     await page.goto(`/p/${SEED.mirror.slug}`);
-    await page.getByRole("button", { name: "Add to cart" }).click();
+    await page.getByRole("button", { name: "Add to cart", exact: true }).click();
     await expect(page.getByText(`${SEED.mirror.title} is in your cart.`)).toBeVisible();
 }
 

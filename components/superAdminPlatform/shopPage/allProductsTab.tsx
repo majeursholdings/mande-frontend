@@ -8,13 +8,13 @@ import { toast } from "sonner";
 import { ImageOff, Loader2 } from "lucide-react";
 import dayjs from "dayjs";
 import { DataTable, ExportMenu, StatusBadge, TableToolbar, exportRows, type ColumnDef, type ExportFormat } from "@/components/customTable";
+import { ProductPrice } from "@/components/manufacturerPlatform/shopPage/productsTab";
 import { ADMIN_PRODUCT_EXPORT_COLUMNS, exportFilename } from "@/components/manufacturerPlatform/shopPage/shopTransfer";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { PRODUCT_STATUS_FILTER_ITEMS, PRODUCT_STATUS_LABELS, PRODUCT_STATUS_TONES, describeShopCategory, type ProductStatus } from "@/constant/shop";
 import { SHOP_URL } from "@/constant/navigation";
 import { getErrorMessage } from "@/lib/api";
-import { formatPrice, fromKobo } from "@/lib/currency";
 import { queryKeys } from "@/lib/queryKeys";
 import { shopAdminService, type ShopAdminProduct } from "@/lib/services/shopService";
 import ShopReasonForm from "../form/shopReasonForm";
@@ -56,7 +56,7 @@ const COLUMNS: ColumnDef<ShopAdminProduct>[] = [
             </span>
         ),
     },
-    { key: "price", header: "Price", cell: (product) => <span className="whitespace-nowrap font-medium text-mist-950">{formatPrice(fromKobo(product.priceKobo))}</span> },
+    { key: "price", header: "Price", cell: (product) => <ProductPrice product={product} /> },
     {
         key: "status",
         header: "Status",

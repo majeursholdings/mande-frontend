@@ -112,7 +112,7 @@ export default function ProductImportDialog({
                     <div className="flex flex-col gap-5">
                         <section className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-mist-50 px-4 py-3">
                             <p className="max-w-md text-sm font-text text-mist-700">
-                                Start from the template, or export your products and edit that file. Prices are in naira; leave Stock blank for made to order.
+                                Start from the template, or export your products and edit that file. Prices are in naira; leave Stock blank for made to order. Products with variants keep their prices, stock and lead times in the product form.
                             </p>
                             <Button type="button" onClick={downloadTemplate} className={`${SECONDARY_BUTTON_CLASS} gap-2 bg-white border border-border`}>
                                 <Download className="size-4" aria-hidden />
