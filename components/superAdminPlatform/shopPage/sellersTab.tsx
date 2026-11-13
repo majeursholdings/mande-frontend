@@ -71,7 +71,10 @@ const COLUMNS: ColumnDef<ShopSellerRow>[] = [
 export default function SellersTab() {
     const queryClient = useQueryClient();
     const searchParams = useSearchParams();
-    const [openId, setOpenId] = useState<string | null>(null);
+    const [pickedId, setOpenId] = useState<string | null>(null);
+    // ?seller=<id> (a notification's "View seller") opens that seller, until it's closed
+    const [linkClosed, setLinkClosed] = useState(false);
+    const openId = pickedId ?? (linkClosed ? null : searchParams.get("seller"));
     const [isChanging, setIsChanging] = useState(false);
 
     const page = Math.max(1, Number(searchParams.get(`${TABLE_ID}_page`) ?? 1) || 1);
@@ -97,6 +100,7 @@ export default function SellersTab() {
 
     const close = () => {
         setOpenId(null);
+        setLinkClosed(true);
         setIsChanging(false);
     };
 

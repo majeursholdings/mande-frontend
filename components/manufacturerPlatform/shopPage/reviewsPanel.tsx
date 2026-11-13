@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLinkedItem } from "@/hooks/useLinkedItem";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -36,13 +37,13 @@ export default function ReviewsPanel({
     onReport,
 }: {
     tableId: string;
-    api: Pick<SellerShopApi, "listReviews" | "replyToReview">;
+    api: Pick<SellerShopApi, "listReviews" | "replyToReview" | "getReview">;
     queryKey: (filters: Record<string, unknown>) => readonly unknown[];
     /** Reporting a review to MANDE: a manufacturer's. Staff (MANDE stock) don't report their own. */
     onReport?: (id: string, reason: string) => Promise<ShopReviewRow>;
 }) {
     const searchParams = useSearchParams();
-    const [open, setOpen] = useState<ShopReviewRow | null>(null);
+    const [picked, setPicked] = useState<ShopReviewRow | null>(null);
     const page = Math.max(1, Number(searchParams.get(`${tableId}_page`) ?? 1) || 1);
     const kindParam = searchParams.get(`${tableId}_kind`);
     const kind = kindParam === "product" || kindParam === "seller" ? kindParam : undefined;
@@ -55,6 +56,20 @@ export default function ReviewsPanel({
         staleTime: 30_000,
         placeholderData: (previous) => previous,
     });
+    // ?review=<id> (a notification's "View review") opens that review
+    const { linked, closeLink } = useLinkedItem({
+        id: searchParams.get("review"),
+        queryKey: queryKey({}),
+        findOnPage: (id) => query.data?.reviews.find((review) => review.id === id),
+        fetchOne: (id) => api.getReview(id),
+        ready: !!query.data,
+        notFoundMessage: "We couldn't open that review. Find it in the list below.",
+    });
+    const open = picked ?? linked;
+    const setOpen = (review: ShopReviewRow | null) => {
+        setPicked(review);
+        if (!review) closeLink();
+    };
 
     const columns: ColumnDef<ShopReviewRow>[] = [
         { key: "rating", header: "Rating", cell: (review) => <ReviewStars rating={review.rating} /> },

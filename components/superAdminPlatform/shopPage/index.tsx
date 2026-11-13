@@ -24,6 +24,7 @@ import AllProductsTab from "./allProductsTab";
 import ReturnsPanel from "@/components/manufacturerPlatform/shopPage/returnsPanel";
 import ReviewsPanel from "@/components/manufacturerPlatform/shopPage/reviewsPanel";
 import AllReviewsTab from "./allReviewsTab";
+import BankTransfersTab from "./bankTransfersTab";
 import PaymentsTab from "./paymentsTab";
 import ReportsTab from "./reportsTab";
 import SellersTab from "./sellersTab";
@@ -35,7 +36,8 @@ import SellersTab from "./sellersTab";
 // record), orders and delivery zones. Super admins also see every product
 // (taking one down or restoring it), the sellers (their shop access),
 // every return (to step in on any seller's), customers' reports of
-// products, and card refunds that failed and chargebacks.
+// products, and card refunds that failed, bank refunds to send and
+// chargebacks. Both confirm orders paid by bank transfer.
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Where this platform's shop pages are: /admin/shop or /super-admin/shop. */
@@ -62,6 +64,8 @@ export function StaffShopLayout({ children }: { children: ReactNode }) {
         { href: base, label: "Overview", exact: true },
         { href: `${base}/products`, label: "MANDE stock" },
         { href: `${base}/orders`, label: "Orders" },
+        // Orders paid by bank transfer, to check the money arrived and confirm (any order, so super admins too)
+        { href: `${base}/transfers`, label: "Bank transfers" },
         // Admins look after returns of MANDE stock; super admins can also step in on any seller's
         { href: isSuperAdmin ? `${base}/mande-returns` : `${base}/returns`, label: isSuperAdmin ? "MANDE returns" : "Returns" },
         // Admins reply to reviews of MANDE stock; super admins also look after every review
@@ -165,7 +169,12 @@ export function StaffAllReturnsPage() {
     return <ReturnsPanel tableId="all-returns" api={allReturnsService} queryKey={(filters) => queryKeys.shop.allReturns(filters)} showSeller />;
 }
 
-/** Card refunds that failed or are on their way, and chargebacks (super admins). */
+/** Orders paid by bank transfer: confirm the money arrived, or reject it (admins and super admins). */
+export function StaffShopTransfersPage() {
+    return <BankTransfersTab />;
+}
+
+/** Card refunds that failed or are on their way, bank refunds to send, and chargebacks (super admins). */
 export function StaffShopPaymentsPage() {
     return <PaymentsTab />;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLinkedItem } from "@/hooks/useLinkedItem";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -52,7 +53,7 @@ const COLUMNS: ColumnDef<ProductReportRow>[] = [
 export default function ReportsTab() {
     const queryClient = useQueryClient();
     const searchParams = useSearchParams();
-    const [open, setOpen] = useState<ProductReportRow | null>(null);
+    const [picked, setPicked] = useState<ProductReportRow | null>(null);
     const [closing, setClosing] = useState<"resolved" | "dismissed" | null>(null);
 
     const page = Math.max(1, Number(searchParams.get(`${TABLE_ID}_page`) ?? 1) || 1);
@@ -65,6 +66,20 @@ export default function ReportsTab() {
         staleTime: 30_000,
         placeholderData: (previous) => previous,
     });
+    // ?report=<id> (a notification's "Review report") opens that report, open or closed
+    const { linked, closeLink } = useLinkedItem({
+        id: searchParams.get("report"),
+        queryKey: queryKeys.shop.reports(),
+        findOnPage: (id) => query.data?.reports.find((report) => report.id === id),
+        fetchOne: (id) => shopAdminService.getReport(id),
+        ready: !!query.data,
+        notFoundMessage: "We couldn't open that report. Find it in the list below.",
+    });
+    const open = picked ?? linked;
+    const setOpen = (report: ProductReportRow | null) => {
+        setPicked(report);
+        if (!report) closeLink();
+    };
 
     const close = () => {
         setOpen(null);

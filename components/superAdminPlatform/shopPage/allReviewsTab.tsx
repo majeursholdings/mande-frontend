@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLinkedItem } from "@/hooks/useLinkedItem";
 import { useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -61,7 +62,7 @@ const COLUMNS: ColumnDef<ShopReviewRow>[] = [
 export default function AllReviewsTab() {
     const queryClient = useQueryClient();
     const searchParams = useSearchParams();
-    const [open, setOpen] = useState<ShopReviewRow | null>(null);
+    const [picked, setPicked] = useState<ShopReviewRow | null>(null);
     const [hiding, setHiding] = useState(false);
     const [busy, setBusy] = useState(false);
 
@@ -75,6 +76,20 @@ export default function AllReviewsTab() {
         staleTime: 30_000,
         placeholderData: (previous) => previous,
     });
+    // ?review=<id> (a notification's "Review it") opens that review
+    const { linked, closeLink } = useLinkedItem({
+        id: searchParams.get("review"),
+        queryKey: queryKeys.shop.allReviews(),
+        findOnPage: (id) => query.data?.reviews.find((review) => review.id === id),
+        fetchOne: (id) => shopAdminService.getReview(id),
+        ready: !!query.data,
+        notFoundMessage: "We couldn't open that review. Find it in the list below.",
+    });
+    const open = picked ?? linked;
+    const setOpen = (review: ShopReviewRow | null) => {
+        setPicked(review);
+        if (!review) closeLink();
+    };
 
     const done = async (message: string) => {
         await queryClient.invalidateQueries({ queryKey: queryKeys.shop.allReviews().slice(0, -1) });

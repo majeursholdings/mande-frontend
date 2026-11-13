@@ -50,7 +50,7 @@ export default function OrdersPanel({
 }) {
     const searchParams = useSearchParams();
     const [picked, setPicked] = useState<ShopOrderPart | null>(null);
-    // ?order=<orderId> (from Actions) opens that order once it's on the page, until it's closed
+    // ?order=<orderId> (from Actions, or a notification's "View order") opens that order, until it's closed
     const [linkClosed, setLinkClosed] = useState(false);
     const linkedOrderId = searchParams.get("order");
     const page = Math.max(1, Number(searchParams.get(`${tableId}_page`) ?? 1) || 1);
@@ -63,7 +63,23 @@ export default function OrdersPanel({
         staleTime: 30_000,
         placeholderData: (previous) => previous,
     });
-    const linked = !linkClosed && linkedOrderId ? (query.data?.orders.find((order) => order.orderId === linkedOrderId) ?? null) : null;
+    const linkedOnPage = !linkClosed && linkedOrderId ? (query.data?.orders.find((order) => order.orderId === linkedOrderId) ?? null) : null;
+    // Not on this page (an older order): fetched on its own
+    const linkedQuery = useQuery({
+        queryKey: queryKey({ order: linkedOrderId }),
+        queryFn: async () => {
+            try {
+                return await api.getOrder(linkedOrderId!);
+            } catch (error) {
+                toast.error(getErrorMessage(error, "We couldn't open that order. Find it in the list below."));
+                throw error;
+            }
+        },
+        enabled: !linkClosed && !!linkedOrderId && !!query.data && !linkedOnPage,
+        retry: false,
+        staleTime: 30_000,
+    });
+    const linked = linkedOnPage ?? (!linkClosed && linkedOrderId ? (linkedQuery.data ?? null) : null);
     // The open order, as last loaded (so a job made from it shows straight away)
     const openId = picked?.id ?? linked?.id;
     const open = openId ? (query.data?.orders.find((order) => order.id === openId) ?? picked ?? linked) : null;

@@ -392,6 +392,11 @@ export type ReturnsQuery = { page?: number; limit?: number; status?: ReturnStatu
 /** Looking after returns: a seller's own at /my-shop, MANDE stock's at /shop-admin/mande, or (super admins) every one at /shop-admin. */
 function returnsApi(base: string) {
     return {
+        /** One return, by its code: what a notification's "View return" opens. */
+        async getReturn(code: string): Promise<ShopReturnRow> {
+            const { data } = await api.get<{ return: ShopReturnRow }>(`${base}/returns/${encodeURIComponent(code)}`);
+            return data.return;
+        },
         /** `waiting` counts those needing the seller (requested, or sent back). */
         async listReturns(query: ReturnsQuery = {}): Promise<ShopPageInfo & { returns: ShopReturnRow[]; waiting: number }> {
             const { data } = await api.get<ShopPageInfo & { returns: ShopReturnRow[]; waiting: number }>(`${base}/returns`, { params: query });
@@ -437,6 +442,24 @@ function sellerShopApi(base: string, productsBase = `${base}/products`) {
         async listOrders(query: { page?: number; limit?: number; status?: OrderPartStatus } = {}): Promise<ShopPageInfo & { orders: ShopOrderPart[] }> {
             const { data } = await api.get<ShopPageInfo & { orders: ShopOrderPart[] }>(`${base}/orders`, { params: query });
             return data;
+        },
+
+        /** One order (their part), by the order's id: what a notification's "View order" opens. */
+        async getOrder(orderId: string): Promise<ShopOrderPart> {
+            const { data } = await api.get<{ order: ShopOrderPart }>(`${base}/orders/${encodeURIComponent(orderId)}`);
+            return data.order;
+        },
+
+        /** One review of them or their products: what a notification's "View review" opens. */
+        async getReview(reviewId: string): Promise<ShopReviewRow> {
+            const { data } = await api.get<{ review: ShopReviewRow }>(`${base}/reviews/${encodeURIComponent(reviewId)}`);
+            return data.review;
+        },
+
+        /** One of their products, as the products table shows it: what a notification's "View product" opens. */
+        async getSellerProduct(productId: string): Promise<SellerProduct> {
+            const { data } = await api.get<{ product: SellerProduct }>(`${productsBase}/${encodeURIComponent(productId)}`);
+            return data.product;
         },
 
         /** Reviews of them and their products, newest first. */
@@ -619,6 +642,12 @@ export type ProductReportRow = {
 
 export const shopAdminService = {
     /** Every review on the shop, reported ones waiting for a decision first. */
+    /** Any one review: what a notification's "Review it" opens. */
+    async getReview(reviewId: string): Promise<ShopReviewRow> {
+        const { data } = await api.get<{ review: ShopReviewRow }>(`/shop-admin/reviews/${encodeURIComponent(reviewId)}`);
+        return data.review;
+    },
+
     async listAllReviews(query: { page?: number; limit?: number; status?: "published" | "hidden"; reported?: boolean } = {}): Promise<ShopPageInfo & { reviews: ShopReviewRow[] }> {
         const { data } = await api.get<ShopPageInfo & { reviews: ShopReviewRow[] }>("/shop-admin/reviews", { params: { ...query, reported: query.reported ? "true" : undefined } });
         return data;
@@ -636,6 +665,12 @@ export const shopAdminService = {
     /** Keeps a reported review showing, closing the seller's report. */
     async keepReview(id: string): Promise<void> {
         await api.post(`/shop-admin/reviews/${encodeURIComponent(id)}/keep`);
+    },
+
+    /** One report, open or closed: what a notification's "Review report" opens. */
+    async getReport(reportId: string): Promise<ProductReportRow> {
+        const { data } = await api.get<{ report: ProductReportRow }>(`/shop-admin/reports/${encodeURIComponent(reportId)}`);
+        return data.report;
     },
 
     async listReports(query: { page?: number; limit?: number; status?: ProductReportRow["status"] } = {}): Promise<ShopPageInfo & { reports: ProductReportRow[] }> {
@@ -689,10 +724,87 @@ export const shopAdminService = {
     },
 };
 
+// ─── Bank transfers (admins and super admins) ─────────────────────────────────
+
+/**
+ * An order paid by bank transfer: waiting for the customer to send it, sent
+ * (staff check MANDE's bank and confirm it), confirmed (the order is paid),
+ * rejected (the order is cancelled), or expired (never marked as sent in time).
+ */
+export type BankTransferStatus = "awaiting_transfer" | "sent" | "confirmed" | "rejected" | "expired";
+
+export type BankTransferRow = {
+    /** One row per order (the order's id). */
+    id: string;
+    orderId: string;
+    orderCode: string;
+    orderStatus: "pending_payment" | "paid" | "cancelled" | "expired";
+    createdAt: string;
+    totalKobo: number;
+    /** Paid with store credit; the transfer is the rest (amountKobo). */
+    creditKobo: number;
+    customer: { name: string; phone: string; email: string | null };
+    items: { title: string; quantity: number }[];
+    status: BankTransferStatus;
+    /** What the transfer must be, exactly. */
+    amountKobo: number;
+    /** MANDE's account the customer was told to pay into. */
+    payTo: BankAccount;
+    dueAt: string;
+    /** The account the customer says they paid from (where a refund goes back to). */
+    sender: SenderAccount | null;
+    hasReceipt: boolean;
+    sentAt: string | null;
+    reviewedAt: string | null;
+    reviewedBy: string | null;
+    rejectReason: string | null;
+};
+
+export const bankTransfersService = {
+    /** Transfers, all or one status: the ones waiting on staff ("sent") first, longest waiting first, then newest. */
+    async list(query: { page?: number; limit?: number; status?: BankTransferStatus } = {}): Promise<ShopPageInfo & { transfers: BankTransferRow[] }> {
+        const { data } = await api.get<ShopPageInfo & { transfers: BankTransferRow[] }>("/shop-admin/bank-transfers", { params: query });
+        return data;
+    },
+
+    /** One order's transfer: what a notification's "Review transfer" opens. */
+    async get(orderId: string): Promise<BankTransferRow> {
+        const { data } = await api.get<{ transfer: BankTransferRow }>(`/shop-admin/bank-transfers/${encodeURIComponent(orderId)}`);
+        return data.transfer;
+    },
+
+    /** A link to the customer's receipt that works for a few minutes: fetched each time it's opened. */
+    async receipt(orderId: string): Promise<{ url: string; kind: "image" | "document"; name: string | null }> {
+        const { data } = await api.get<{ receipt: { url: string; kind: "image" | "document"; name: string | null } }>(`/shop-admin/bank-transfers/${orderId}/receipt`);
+        return data.receipt;
+    },
+
+    /** The money arrived: the order is paid. */
+    async confirm(orderId: string): Promise<BankTransferRow> {
+        const { data } = await api.post<{ transfer: BankTransferRow }>(`/shop-admin/bank-transfers/${orderId}/confirm`);
+        return data.transfer;
+    },
+
+    /** It didn't arrive (or didn't match): the order is cancelled, and the customer told why. */
+    async reject(orderId: string, reason: string): Promise<BankTransferRow> {
+        const { data } = await api.post<{ transfer: BankTransferRow }>(`/shop-admin/bank-transfers/${orderId}/reject`, { reason });
+        return data.transfer;
+    },
+};
+
 // ─── Refunds and disputes (super admins) ──────────────────────────────────────
 
-/** Where a card refund stands: "failed" ones are still owed to the customer until a super admin retries them or gives them as credit ("credited"). */
+/**
+ * Where a refund stands: "failed" card refunds are still owed to the customer
+ * until a super admin retries them or gives them as credit ("credited"). A
+ * bank refund (an order paid by transfer) is "pending" until a super admin
+ * sends it and marks it sent ("succeeded"), or gives it as credit.
+ */
 export type CardRefundStatus = "pending" | "succeeded" | "failed" | "credited";
+
+export type BankAccount = { bankName: string; accountNumber: string; accountName: string };
+/** The account a customer paid from, as staff see it on a transfer: the last 4 digits only (the full number is on its refund, if one's owed). */
+export type SenderAccount = { bankName: string; accountName: string; accountNumberLast4: string };
 
 export type CardRefundRow = {
     /** One per card refund (its part and key). */
@@ -715,6 +827,9 @@ export type CardRefundRow = {
     attempts: number;
     settledBy: string | null;
     settledAt: string | null;
+    /** "bank": the order was paid by bank transfer, so a super admin sends this back by hand to `sendTo` (the account the customer paid from). */
+    method: "card" | "bank";
+    sendTo: BankAccount | null;
 };
 
 export type ShopDisputeStatus = "open" | "won" | "lost";
@@ -743,8 +858,10 @@ export type ShopDisputeRow = {
 };
 
 export const shopPaymentsService = {
-    /** Card refunds: failed and pending ones by default, failed first. */
-    async listRefunds(query: { page?: number; limit?: number; status?: "failed" | "pending" | "credited" } = {}): Promise<ShopPageInfo & { refunds: CardRefundRow[] }> {
+    /** Card and bank refunds: failed and pending ones by default, the ones waiting on someone first. */
+    async listRefunds(
+        query: { page?: number; limit?: number; status?: "failed" | "pending" | "credited"; method?: "card" | "bank" } = {},
+    ): Promise<ShopPageInfo & { refunds: CardRefundRow[] }> {
         const { data } = await api.get<ShopPageInfo & { refunds: CardRefundRow[] }>("/shop-admin/refunds", { params: query });
         return data;
     },
@@ -755,13 +872,34 @@ export const shopPaymentsService = {
         return data.refund;
     },
 
-    /** Gives a failed card refund to the customer as store credit instead. */
+    /** A bank refund the super admin has sent from MANDE's bank, with the bank's reference if they have it. */
+    async markRefundSent(row: Pick<CardRefundRow, "orderId" | "partId" | "key">, reference?: string): Promise<CardRefundRow> {
+        const { data } = await api.post<{ refund: CardRefundRow }>(`/shop-admin/orders/${row.orderId}/parts/${row.partId}/refunds/sent`, {
+            key: row.key,
+            ...(reference?.trim() && { reference: reference.trim() }),
+        });
+        return data.refund;
+    },
+
+    /** Gives a failed card refund (or a bank refund not sent yet) to the customer as store credit instead. */
     async creditRefund(row: Pick<CardRefundRow, "orderId" | "partId" | "key">): Promise<CardRefundRow> {
         const { data } = await api.post<{ refund: CardRefundRow }>(`/shop-admin/orders/${row.orderId}/parts/${row.partId}/refunds/credit`, { key: row.key });
         return data.refund;
     },
 
     /** Chargebacks, open ones first by the date to answer by. */
+    /** One dispute: what a notification's "View dispute" opens. */
+    async getDispute(disputeId: string): Promise<ShopDisputeRow> {
+        const { data } = await api.get<{ dispute: ShopDisputeRow }>(`/shop-admin/disputes/${encodeURIComponent(disputeId)}`);
+        return data.dispute;
+    },
+
+    /** One card or bank refund on an order part: what a notification's "View refund" opens. */
+    async getRefund(row: Pick<CardRefundRow, "orderId" | "partId" | "key">): Promise<CardRefundRow> {
+        const { data } = await api.get<{ refund: CardRefundRow }>(`/shop-admin/orders/${row.orderId}/parts/${row.partId}/refund`, { params: { key: row.key } });
+        return data.refund;
+    },
+
     async listDisputes(query: { page?: number; limit?: number; status?: ShopDisputeStatus } = {}): Promise<ShopPageInfo & { disputes: ShopDisputeRow[] }> {
         const { data } = await api.get<ShopPageInfo & { disputes: ShopDisputeRow[] }>("/shop-admin/disputes", { params: query });
         return data;

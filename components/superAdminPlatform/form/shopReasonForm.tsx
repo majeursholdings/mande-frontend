@@ -14,9 +14,10 @@ const REASON_MIN = 5;
 const REASON_MAX = 500;
 
 /**
- * A reason, for a shop action the seller is told about: taking a product
- * off the shop, or revoking or restoring a seller's shop access. The API
- * keeps it on the record and in the seller's notification.
+ * A reason, for a shop action the seller (or customer) is told about:
+ * taking a product off the shop, revoking or restoring a seller's shop
+ * access, or rejecting a bank transfer. The API keeps it on the record and
+ * in the notification.
  */
 export default function ShopReasonForm({
     label,
@@ -24,6 +25,7 @@ export default function ShopReasonForm({
     description,
     submitLabel,
     loadingLabel = "Saving...",
+    maxLength = REASON_MAX,
     onSubmit,
     onCancel,
 }: {
@@ -32,6 +34,8 @@ export default function ShopReasonForm({
     description?: string;
     submitLabel: string;
     loadingLabel?: string;
+    /** The longest reason the API takes for this action (500 unless it says less). */
+    maxLength?: number;
     onSubmit: (reason: string) => Promise<void>;
     onCancel: () => void;
 }) {
@@ -50,7 +54,7 @@ export default function ShopReasonForm({
                 validate: (value: string) => {
                     const length = value.trim().length;
                     if (length < REASON_MIN) return `Use at least ${REASON_MIN} characters`;
-                    return length <= REASON_MAX || `Keep it to ${REASON_MAX} characters`;
+                    return length <= maxLength || `Keep it to ${maxLength} characters`;
                 },
             },
         },

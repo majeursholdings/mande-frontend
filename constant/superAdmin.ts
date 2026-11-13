@@ -292,6 +292,22 @@ export type ShopSettings = {
     lowRatingAlert: { belowRating: number; minReviews: number };
     /** Affiliates, MANDE stock only: the owner earns rewardPercent of the price over a product's salesToReach sales. */
     affiliate?: ShopAffiliateSettings;
+    /** Paying by bank transfer to MANDE's account (set on its own, with reauth: PUT /settings/platform/shop/bank-transfer). */
+    bankTransfer?: ShopBankTransferSettings;
+};
+
+/**
+ * Paying for shop orders by bank transfer: the account customers send money
+ * to, and how many hours they have to send it and say so before the order
+ * expires. Staff confirm each transfer on Shop › Bank transfers.
+ */
+export type ShopBankTransferSettings = {
+    enabled: boolean;
+    bankName: string;
+    /** 10 digits (NUBAN), or "" while it's not set up. */
+    accountNumber: string;
+    accountName: string;
+    sendWithinHours: number;
 };
 
 export type ShopAffiliateSettings = {

@@ -61,7 +61,21 @@ const topicLabel = (topic: string) =>
 const providerLabel = (provider: string | null) => API_PROVIDERS.find((option) => option.value === provider)?.label ?? "A platform";
 
 /** One thing waiting for a super admin: what it is, what's behind it, and the buttons to deal with it. */
-export default function ActionCard({ action, handlers, now }: { action: SuperAdminAction; handlers: ActionHandlers; now: Date }) {
+/** Brings a card a link points at into view (a ref callback, as it mounts). */
+const scrollIntoView = (element: HTMLLIElement | null) => element?.scrollIntoView({ block: "center", behavior: "smooth" });
+
+export default function ActionCard({
+    action,
+    handlers,
+    now,
+    highlighted = false,
+}: {
+    action: SuperAdminAction;
+    handlers: ActionHandlers;
+    now: Date;
+    /** The item a link points at (?item=<id>, from a notification): scrolled to and picked out. */
+    highlighted?: boolean;
+}) {
     const { getManufacturerUrl, jobsUrl, permissions } = useStaffPlatform();
     const jobLink = (jobId: string, code: string | undefined) =>
         `${jobsUrl}?job=${encodeURIComponent(code ? code.toLowerCase() : jobId)}`;
@@ -316,7 +330,15 @@ export default function ActionCard({ action, handlers, now }: { action: SuperAdm
     }
 
     return (
-        <li className="flex flex-col gap-4 rounded-xl border border-border bg-white p-5 sm:flex-row sm:gap-5">
+        <li
+            id={`action-${action.id}`}
+            ref={highlighted ? scrollIntoView : undefined}
+            aria-current={highlighted ? "true" : undefined}
+            className={cn(
+                "flex flex-col gap-4 rounded-xl border bg-white p-5 sm:flex-row sm:gap-5",
+                highlighted ? "border-secondary-700 ring-2 ring-secondary-700/20" : "border-border",
+            )}
+        >
             <span className={cn("flex size-10 shrink-0 items-center justify-center rounded-full", className)}>
                 <Icon className="size-5" strokeWidth={1.75} aria-hidden />
             </span>

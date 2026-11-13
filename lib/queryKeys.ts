@@ -156,6 +156,7 @@ export const queryKeys = {
     mandeReturns: (filters?: Record<string, unknown>) => [...queryKeys.shop.all, "mande-returns", filters] as const,
     allReturns: (filters?: Record<string, unknown>) => [...queryKeys.shop.all, "all-returns", filters] as const,
     cardRefunds: (filters?: Record<string, unknown>) => [...queryKeys.shop.all, "card-refunds", filters] as const,
+    bankTransfers: (filters?: Record<string, unknown>) => [...queryKeys.shop.all, "bank-transfers", filters] as const,
     disputes: (filters?: Record<string, unknown>) => [...queryKeys.shop.all, "disputes", filters] as const,
     seller: (id: string) => [...queryKeys.shop.all, "seller", id] as const,
   },

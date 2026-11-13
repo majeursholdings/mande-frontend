@@ -25,6 +25,7 @@ import { formatPrice, fromKobo } from "@/lib/currency";
 import type { SellerOverview, SellerProduct, SellerShopApi } from "@/lib/services/shopService";
 import ProductImportDialog from "./productImportDialog";
 import { exportFilename, productExportColumns } from "./shopTransfer";
+import { useLinkedItem } from "@/hooks/useLinkedItem";
 
 const PAGE_SIZE = 10;
 
@@ -115,8 +116,8 @@ export default function ProductsTab({
     const queryClient = useQueryClient();
     const searchParams = useSearchParams();
     const [isCreating, setIsCreating] = useState(false);
-    const [editing, setEditing] = useState<SellerProduct | null>(null);
-    const [viewingRemoved, setViewingRemoved] = useState<SellerProduct | null>(null);
+    const [editingPicked, setEditingPicked] = useState<SellerProduct | null>(null);
+    const [removedPicked, setRemovedPicked] = useState<SellerProduct | null>(null);
     const [deleting, setDeleting] = useState<SellerProduct | null>(null);
     const [busyId, setBusyId] = useState<string | null>(null);
     const [isImporting, setIsImporting] = useState(false);
@@ -133,6 +134,26 @@ export default function ProductsTab({
         staleTime: 30_000,
         placeholderData: (previous) => previous,
     });
+
+    // ?product=<id> (a notification's "View product") opens that product: its form, or why it was taken off
+    const { linked, closeLink } = useLinkedItem({
+        id: searchParams.get("product"),
+        queryKey: queryKey({}),
+        findOnPage: (id) => query.data?.products.find((product) => product.id === id),
+        fetchOne: (id) => api.getSellerProduct(id),
+        ready: !!query.data,
+        notFoundMessage: "We couldn't open that product. Find it in the list below.",
+    });
+    const editing = editingPicked ?? (linked && linked.status !== "removed" ? linked : null);
+    const viewingRemoved = removedPicked ?? (linked?.status === "removed" ? linked : null);
+    const setEditing = (product: SellerProduct | null) => {
+        setEditingPicked(product);
+        if (!product) closeLink();
+    };
+    const setViewingRemoved = (product: SellerProduct | null) => {
+        setRemovedPicked(product);
+        if (!product) closeLink();
+    };
 
     const standing = query.data?.standing ?? overview?.standing;
     const zones = overview?.seller.deliveryZones ?? [];

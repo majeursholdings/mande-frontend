@@ -1,7 +1,7 @@
 import { api } from "@/lib/api";
 import type { PricingPlan } from "@/constant/plans";
 import type { SuperAdminInviteRecord, SuperAdminRecord, TwoFactorMethod } from "@/constant/platformRecords";
-import type { ApiKey, PlatformSettings, ShopSettings, SuperAdminRole, WithdrawalFeeSettings } from "@/constant/superAdmin";
+import type { ApiKey, PlatformSettings, ShopBankTransferSettings, ShopSettings, SuperAdminRole, WithdrawalFeeSettings } from "@/constant/superAdmin";
 import type { ApiKeyDraft } from "@/components/superAdminPlatform/form/apiKeyForm";
 import type { PlanChanges } from "@/components/superAdminPlatform/settingsContext";
 
@@ -151,6 +151,14 @@ export const superAdminService = {
   /** The shop's rules: all of them at once, with the reauth token (they set MANDE's charge on sales). */
   async updateShopSettings(settings: ShopSettings, reauthToken: string): Promise<PlatformSettings> {
     const { data } = await api.put<{ settings: PlatformSettings }>("/settings/platform/shop", settings, {
+      headers: { "X-Reauth-Token": reauthToken },
+    });
+    return data.settings;
+  },
+
+  /** The account shop customers pay into by bank transfer, with the reauth token (it decides where money goes). */
+  async updateBankTransferSettings(settings: ShopBankTransferSettings, reauthToken: string): Promise<PlatformSettings> {
+    const { data } = await api.put<{ settings: PlatformSettings }>("/settings/platform/shop/bank-transfer", settings, {
       headers: { "X-Reauth-Token": reauthToken },
     });
     return data.settings;

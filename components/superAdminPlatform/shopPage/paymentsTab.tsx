@@ -1,12 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useLinkedItem } from "@/hooks/useLinkedItem";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { DataTable, StatusBadge, TableToolbar, type ColumnDef, type StatusTone } from "@/components/customTable";
+import MainForm from "@/components/form";
+import type { FormFieldConfig } from "@/components/form/types";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { getErrorMessage } from "@/lib/api";
@@ -20,6 +24,10 @@ import { shopPaymentsService, type CardRefundRow, type CardRefundStatus, type Sh
 //    first), and ones still on their way. A failed one is still owed to the
 //    customer: retry it on their card, or give it as store credit. Each
 //    refund is checked with the platform before it shows as done or failed.
+//    Refunds on orders paid by bank transfer are here too: the platform
+//    never had that money, so a super admin sends it back by transfer to the
+//    account the customer paid from and marks it sent (or gives it as store
+//    credit). Those still to send come first, with the failed card ones.
 //  • Chargebacks: a customer asked their bank for the money back. Open ones
 //    first, by the date to answer by; evidence is sent on the payment
 //    platform's dashboard. A lost one is counted against the order like a
@@ -39,6 +47,18 @@ const REFUND_STATUS_ITEMS = [
 ];
 const REFUND_STATUS_LABELS: Record<CardRefundStatus, string> = { pending: "On its way", succeeded: "Refunded", failed: "Failed", credited: "Given as credit" };
 const REFUND_STATUS_TONES: Record<CardRefundStatus, StatusTone> = { pending: "amber", succeeded: "green", failed: "red", credited: "blue" };
+const REFUND_METHOD_ITEMS = [
+    { value: "card", label: "Card" },
+    { value: "bank", label: "Bank transfer" },
+];
+
+/** A bank refund still pending is waiting on a super admin to send it, not on the platform. */
+const refundStatus = (row: CardRefundRow): { label: string; tone: StatusTone } =>
+    row.method === "bank" && row.status === "pending"
+        ? { label: "To send", tone: "red" }
+        : row.method === "bank" && row.status === "succeeded"
+          ? { label: "Sent", tone: "green" }
+          : { label: REFUND_STATUS_LABELS[row.status] ?? row.status, tone: REFUND_STATUS_TONES[row.status] ?? "gray" };
 
 const DISPUTE_STATUS_ITEMS = [
     { value: "open", label: "Open" },
@@ -61,11 +81,12 @@ const REFUND_COLUMNS: ColumnDef<CardRefundRow>[] = [
     { key: "customer", header: "Customer", cell: (row) => row.customerName },
     { key: "amount", header: "Amount", cell: (row) => <span className="whitespace-nowrap">{naira(row.amountKobo)}</span> },
     { key: "for", header: "For", cell: (row) => <span className="line-clamp-1 max-w-56 text-mist-600">{refundFor(row)}</span> },
+    { key: "to", header: "Back to", cell: (row) => (row.method === "bank" ? "Bank transfer" : "Card") },
     { key: "asked", header: "Asked", cell: (row) => <span className="whitespace-nowrap">{dayjs(row.at).format("D MMM YYYY")}</span> },
     {
         key: "status",
         header: "Status",
-        cell: (row) => <StatusBadge label={REFUND_STATUS_LABELS[row.status] ?? row.status} tone={REFUND_STATUS_TONES[row.status] ?? "gray"} variant="pill" />,
+        cell: (row) => <StatusBadge label={refundStatus(row).label} tone={refundStatus(row).tone} variant="pill" />,
     },
 ];
 
@@ -102,7 +123,7 @@ const DISPUTE_COLUMNS: ColumnDef<ShopDisputeRow>[] = [
 function usePage(tableId: string) {
     const searchParams = useSearchParams();
     const page = Math.max(1, Number(searchParams.get(`${tableId}_page`) ?? 1) || 1);
-    return { page, status: searchParams.get(`${tableId}_status`) };
+    return { page, status: searchParams.get(`${tableId}_status`), method: searchParams.get(`${tableId}_method`) };
 }
 
 function Detail({ label, children }: { label: string; children: React.ReactNode }) {
@@ -118,17 +139,42 @@ function Detail({ label, children }: { label: string; children: React.ReactNode 
 
 function RefundsSection() {
     const queryClient = useQueryClient();
-    const { page, status: statusParam } = usePage(REFUNDS_TABLE);
+    const { page, status: statusParam, method: methodParam } = usePage(REFUNDS_TABLE);
     const status = REFUND_STATUS_ITEMS.some((item) => item.value === statusParam) ? (statusParam as "failed" | "pending" | "credited") : undefined;
-    const [open, setOpen] = useState<CardRefundRow | null>(null);
+    const method = REFUND_METHOD_ITEMS.some((item) => item.value === methodParam) ? (methodParam as "card" | "bank") : undefined;
+    const [picked, setPicked] = useState<CardRefundRow | null>(null);
     const [busy, setBusy] = useState<"retry" | "credit" | null>(null);
+    const searchParams = useSearchParams();
 
     const query = useQuery({
-        queryKey: queryKeys.shop.cardRefunds({ page, status }),
-        queryFn: () => shopPaymentsService.listRefunds({ page, limit: PAGE_SIZE, status }),
+        queryKey: queryKeys.shop.cardRefunds({ page, status, method }),
+        queryFn: () => shopPaymentsService.listRefunds({ page, limit: PAGE_SIZE, status, method }),
         staleTime: 30_000,
         placeholderData: (previous) => previous,
     });
+    // ?order=&part=&key= (a notification's "View refund") opens that refund
+    const linkOrder = searchParams.get("order");
+    const linkPart = searchParams.get("part");
+    const linkKey = searchParams.get("key");
+    const { linked, closeLink } = useLinkedItem({
+        id: linkOrder && linkPart && linkKey ? [linkOrder, linkPart, linkKey].join("|") : null,
+        queryKey: queryKeys.shop.cardRefunds(),
+        findOnPage: (id) => {
+            const [orderId, partId, key] = id.split("|");
+            return query.data?.refunds.find((row) => row.orderId === orderId && row.partId === partId && row.key === key);
+        },
+        fetchOne: (id) => {
+            const [orderId = "", partId = "", key = ""] = id.split("|");
+            return shopPaymentsService.getRefund({ orderId, partId, key });
+        },
+        ready: !!query.data,
+        notFoundMessage: "We couldn't open that refund. Find it in the list below.",
+    });
+    const open = picked ?? linked;
+    const setOpen = (row: CardRefundRow | null) => {
+        setPicked(row);
+        if (!row) closeLink();
+    };
 
     const settle = async (action: "retry" | "credit") => {
         if (!open) return;
@@ -150,9 +196,10 @@ function RefundsSection() {
     return (
         <section className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
-                <h2 className="text-lg font-semibold text-mist-950">Card refunds</h2>
+                <h2 className="text-lg font-semibold text-mist-950">Refunds</h2>
                 <p className="font-text text-sm text-mist-600">
                     Refunds the payment platform refused or couldn&apos;t finish, and ones still on their way. A failed refund is still owed to the customer: retry it on their card, or give it as store credit.
+                    A refund on an order paid by bank transfer is yours to send: transfer it to the customer&apos;s account, then mark it sent.
                 </p>
             </div>
             <DataTable
@@ -162,10 +209,17 @@ function RefundsSection() {
                 pagination={query.data ? { total: query.data.total, totalPages: query.data.totalPages, rowsPerPage: PAGE_SIZE } : { total: 0, totalPages: 1, rowsPerPage: PAGE_SIZE }}
                 loading={query.isPending}
                 error={query.isError ? "We couldn't load the refunds. Please refresh the page." : undefined}
-                emptyMessage={status ? "No refunds here." : "No card refunds need attention."}
+                emptyMessage={status || method ? "No refunds here." : "No refunds need attention."}
                 onRowClick={setOpen}
                 rowActions={[{ label: "View", onSelect: setOpen }]}
-                toolbar={<TableToolbar filters={[{ title: "Needs attention", paramKey: "status", items: REFUND_STATUS_ITEMS }]} />}
+                toolbar={
+                    <TableToolbar
+                        filters={[
+                            { title: "Needs attention", paramKey: "status", items: REFUND_STATUS_ITEMS },
+                            { title: "Card and bank", paramKey: "method", items: REFUND_METHOD_ITEMS },
+                        ]}
+                    />
+                }
             />
 
             <Dialog open={!!open} onOpenChange={(next) => !next && !busy && setOpen(null)}>
@@ -178,50 +232,70 @@ function RefundsSection() {
                         <div className="flex flex-col gap-5 font-text text-sm">
                             <dl className="flex flex-col">
                                 <Detail label="Status">
-                                    <StatusBadge label={REFUND_STATUS_LABELS[open.status] ?? open.status} tone={REFUND_STATUS_TONES[open.status] ?? "gray"} variant="pill" />
+                                    <StatusBadge label={refundStatus(open).label} tone={refundStatus(open).tone} variant="pill" />
                                 </Detail>
                                 <Detail label="Why">{open.reason}</Detail>
-                                <Detail label="Paid with">{open.provider ? PLATFORM_NAMES[open.provider] : "Unknown"}</Detail>
-                                {open.refundId && <Detail label="Platform refund id">{open.refundId}</Detail>}
+                                <Detail label="Paid with">{open.method === "bank" ? "Bank transfer" : open.provider ? PLATFORM_NAMES[open.provider] : "Unknown"}</Detail>
+                                {open.sendTo && (
+                                    <Detail label="Send it to">
+                                        {open.sendTo.accountName}, {open.sendTo.bankName} {open.sendTo.accountNumber}
+                                    </Detail>
+                                )}
+                                {open.refundId && <Detail label={open.method === "bank" ? "Bank reference" : "Platform refund id"}>{open.refundId}</Detail>}
                                 {open.failureReason && <Detail label="What went wrong">{open.failureReason}</Detail>}
                                 {open.checkedAt && <Detail label="Last checked">{dayjs(open.checkedAt).format("D MMM YYYY, h:mm a")}</Detail>}
-                                <Detail label="Times asked">{open.attempts}</Detail>
+                                {open.method !== "bank" && <Detail label="Times asked">{open.attempts}</Detail>}
                                 {open.settledBy && open.settledAt && (
-                                    <Detail label={open.status === "credited" ? "Given as credit by" : "Retried by"}>
+                                    <Detail label={open.status === "credited" ? "Given as credit by" : open.method === "bank" ? "Sent by" : "Retried by"}>
                                         {open.settledBy}, {dayjs(open.settledAt).format("D MMM YYYY")}
                                     </Detail>
                                 )}
                             </dl>
-                            {open.status === "pending" && (
+                            {open.method === "bank" && open.status === "pending" && (
+                                <BankRefundSentForm
+                                    key={open.id}
+                                    refund={open}
+                                    busy={!!busy}
+                                    onClose={() => setOpen(null)}
+                                    onCredit={() => settle("credit")}
+                                    onSent={async () => {
+                                        await queryClient.invalidateQueries({ queryKey: queryKeys.shop.cardRefunds().slice(0, -1) });
+                                        setOpen(null);
+                                    }}
+                                />
+                            )}
+                            {open.method !== "bank" && open.status === "pending" && (
                                 <p className="rounded-lg bg-mist-50 px-4 py-3 text-mist-700">
                                     The payment platform is still working on it. It updates here once they confirm it went through or failed.
                                 </p>
                             )}
-                            <div className="flex flex-wrap justify-end gap-3">
-                                <Button
-                                    type="button"
-                                    disabled={!!busy}
-                                    onClick={() => setOpen(null)}
-                                    className="h-10 cursor-pointer rounded-button bg-mist-100 px-4 text-sm font-medium text-mist-950 hover:bg-mist-200"
-                                >
-                                    Close
-                                </Button>
-                                {open.status === "failed" && (
-                                    <>
-                                        <Button type="button" variant="outline" disabled={!!busy} onClick={() => settle("credit")} className="h-10 rounded-button px-4 text-sm">
-                                            {busy === "credit" ? "Adding credit..." : "Give as store credit"}
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            disabled={!!busy}
-                                            onClick={() => settle("retry")}
-                                            className="h-10 cursor-pointer rounded-button bg-secondary-700 px-4 text-sm font-medium text-white hover:bg-secondary-900"
-                                        >
-                                            {busy === "retry" ? "Asking..." : "Retry on card"}
-                                        </Button>
-                                    </>
-                                )}
-                            </div>
+                            {!(open.method === "bank" && open.status === "pending") && (
+                                <div className="flex flex-wrap justify-end gap-3">
+                                    <Button
+                                        type="button"
+                                        disabled={!!busy}
+                                        onClick={() => setOpen(null)}
+                                        className="h-10 cursor-pointer rounded-button bg-mist-100 px-4 text-sm font-medium text-mist-950 hover:bg-mist-200"
+                                    >
+                                        Close
+                                    </Button>
+                                    {open.status === "failed" && (
+                                        <>
+                                            <Button type="button" variant="outline" disabled={!!busy} onClick={() => settle("credit")} className="h-10 rounded-button px-4 text-sm">
+                                                {busy === "credit" ? "Adding credit..." : "Give as store credit"}
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                disabled={!!busy}
+                                                onClick={() => settle("retry")}
+                                                className="h-10 cursor-pointer rounded-button bg-secondary-700 px-4 text-sm font-medium text-white hover:bg-secondary-900"
+                                            >
+                                                {busy === "retry" ? "Asking..." : "Retry on card"}
+                                            </Button>
+                                        </>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
                 </DialogContent>
@@ -230,12 +304,95 @@ function RefundsSection() {
     );
 }
 
+/**
+ * A bank refund to send: the super admin transfers it from MANDE's bank to
+ * the customer's account, then marks it sent here, with the bank's reference
+ * if they have it. Or they give it as store credit instead.
+ */
+function BankRefundSentForm({
+    refund,
+    busy,
+    onClose,
+    onCredit,
+    onSent,
+}: {
+    refund: CardRefundRow;
+    busy: boolean;
+    onClose: () => void;
+    onCredit: () => void;
+    onSent: () => Promise<void>;
+}) {
+    const methods = useForm<{ reference: string }>({ mode: "onTouched", defaultValues: { reference: "" } });
+    const [sending, setSending] = useState(false);
+    const fields: FormFieldConfig[] = [
+        {
+            name: "reference",
+            type: "text",
+            label: "Bank reference (optional)",
+            placeholder: "From your bank's receipt",
+            maxLength: 120,
+            validation: { maxLength: { value: 120, message: "Keep it to 120 characters" } },
+        },
+    ];
+
+    const submit = async ({ reference }: { reference: string }) => {
+        setSending(true);
+        try {
+            await shopPaymentsService.markRefundSent(refund, reference);
+            toast.success("Marked as sent. The customer has been told.");
+            await onSent();
+        } catch (error) {
+            toast.error(getErrorMessage(error, "We couldn't mark that refund as sent. Please try again."));
+        } finally {
+            setSending(false);
+        }
+    };
+
+    return (
+        <div className="flex flex-col gap-3">
+            <p className="rounded-lg bg-mist-50 px-4 py-3 text-mist-700">
+                Send {naira(refund.amountKobo)} from MANDE&apos;s bank to the account above, then mark it sent. Only mark it once the transfer has gone: the customer is told it&apos;s on its way.
+            </p>
+            <MainForm<{ reference: string }>
+                methods={methods}
+                fields={fields}
+                onSubmit={submit}
+                requireValidToSubmit={false}
+                hideRequiredMarks
+                renderFooter={() => (
+                    <div className="flex flex-wrap justify-end gap-3">
+                        <Button
+                            type="button"
+                            disabled={busy || sending}
+                            onClick={onClose}
+                            className="h-10 cursor-pointer rounded-button bg-mist-100 px-4 text-sm font-medium text-mist-950 hover:bg-mist-200"
+                        >
+                            Close
+                        </Button>
+                        <Button type="button" variant="outline" disabled={busy || sending} onClick={onCredit} className="h-10 rounded-button px-4 text-sm">
+                            {busy ? "Adding credit..." : "Give as store credit"}
+                        </Button>
+                        <Button
+                            type="submit"
+                            disabled={busy || sending}
+                            className="h-10 cursor-pointer rounded-button bg-secondary-700 px-4 text-sm font-medium text-white hover:bg-secondary-900"
+                        >
+                            {sending ? "Saving..." : "Mark as sent"}
+                        </Button>
+                    </div>
+                )}
+            />
+        </div>
+    );
+}
+
 // ─── Disputes ─────────────────────────────────────────────────────────────────
 
 function DisputesSection() {
     const { page, status: statusParam } = usePage(DISPUTES_TABLE);
     const status = DISPUTE_STATUS_ITEMS.some((item) => item.value === statusParam) ? (statusParam as ShopDisputeStatus) : undefined;
-    const [open, setOpen] = useState<ShopDisputeRow | null>(null);
+    const [picked, setPicked] = useState<ShopDisputeRow | null>(null);
+    const searchParams = useSearchParams();
 
     const query = useQuery({
         queryKey: queryKeys.shop.disputes({ page, status }),
@@ -243,6 +400,20 @@ function DisputesSection() {
         staleTime: 30_000,
         placeholderData: (previous) => previous,
     });
+    // ?dispute=<id> (a notification's "View dispute") opens that dispute
+    const { linked, closeLink } = useLinkedItem({
+        id: searchParams.get("dispute"),
+        queryKey: queryKeys.shop.disputes(),
+        findOnPage: (id) => query.data?.disputes.find((dispute) => dispute.id === id),
+        fetchOne: (id) => shopPaymentsService.getDispute(id),
+        ready: !!query.data,
+        notFoundMessage: "We couldn't open that dispute. Find it in the list below.",
+    });
+    const open = picked ?? linked;
+    const setOpen = (dispute: ShopDisputeRow | null) => {
+        setPicked(dispute);
+        if (!dispute) closeLink();
+    };
 
     return (
         <section className="flex flex-col gap-3">

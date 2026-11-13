@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCheck } from "lucide-react";
 import { toast } from "sonner";
@@ -47,6 +48,7 @@ const DIALOG_BUTTON = "h-11 px-5 font-medium font-text rounded-button cursor-poi
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function SuperAdminActionsPage() {
+    const searchParams = useSearchParams();
     const { actions, isPending, isError } = useSuperAdminActionsQuery();
     const { getJob, signOffHeldJob, rejectJob, followUpLeadReview, isLoading: isJobsLoading } = useAdminJobs();
     const { getManufacturer, declineDeletionRequest, isLoading: isManufacturersLoading } = useAdminManufacturers();
@@ -82,6 +84,8 @@ export default function SuperAdminActionsPage() {
     const now = new Date();
 
     const shown = actions.filter((action) => kind === "all" || action.kind === kind);
+    // ?item=<id> (a notification's link, e.g. a withdrawal to check): that item, scrolled to and picked out
+    const linkedItem = searchParams.get("item");
     const counts = Object.fromEntries(
         ACTION_KINDS.map(({ value }) => [value, actions.filter((action) => action.kind === value).length]),
     ) as Record<SuperAdminActionKind, number>;
@@ -200,6 +204,7 @@ export default function SuperAdminActionsPage() {
                             key={action.id}
                             action={action}
                             now={now}
+                            highlighted={action.id === linkedItem}
                             handlers={{
                                 onDeleteAccount: (manufacturerId) => openDialog({ kind: "delete", manufacturerId }),
                                 onTurnDownDeletion: (manufacturerId) => openDialog({ kind: "turn-down", manufacturerId }),

@@ -11,7 +11,7 @@ import {
     type SuperAdminInviteRecord,
     type SuperAdminRecord,
 } from "@/constant/platformRecords";
-import { type ApiKey, type PlatformSettings, type ShopSettings, type WithdrawalFeeSettings, type SuperAdminRole } from "@/constant/superAdmin";
+import { type ApiKey, type PlatformSettings, type ShopBankTransferSettings, type ShopSettings, type WithdrawalFeeSettings, type SuperAdminRole } from "@/constant/superAdmin";
 import type { ApiKeyDraft } from "./form/apiKeyForm";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -50,6 +50,8 @@ type SuperAdminSettingsValue = {
     updateShopSettings: (settings: ShopSettings, reauthToken: string) => Promise<void>;
     /** The withdrawal fee and when it starts (needs the reauth token). */
     updateWithdrawalFee: (fee: WithdrawalFeeSettings, reauthToken: string) => Promise<void>;
+    /** The account shop customers pay into by bank transfer (needs the reauth token). */
+    updateBankTransferSettings: (settings: ShopBankTransferSettings, reauthToken: string) => Promise<void>;
 
     apiKeys: ApiKey[];
     /**
@@ -193,6 +195,10 @@ export function SuperAdminSettingsProvider({ children }: { children: ReactNode }
             },
             updateWithdrawalFee: async (fee, reauthToken) => {
                 await superAdminService.updateWithdrawalFee(fee, reauthToken);
+                await queryClient.invalidateQueries({ queryKey: queryKeys.settings.platform() });
+            },
+            updateBankTransferSettings: async (settings, reauthToken) => {
+                await superAdminService.updateBankTransferSettings(settings, reauthToken);
                 await queryClient.invalidateQueries({ queryKey: queryKeys.settings.platform() });
             },
 

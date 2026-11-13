@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLinkedItem } from "@/hooks/useLinkedItem";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -41,7 +42,7 @@ export default function ReturnsPanel({
     showSeller?: boolean;
 }) {
     const searchParams = useSearchParams();
-    const [open, setOpen] = useState<ShopReturnRow | null>(null);
+    const [picked, setPicked] = useState<ShopReturnRow | null>(null);
     const page = Math.max(1, Number(searchParams.get(`${tableId}_page`) ?? 1) || 1);
     const statusParam = searchParams.get(`${tableId}_status`);
     const status = RETURN_STATUS_FILTER_ITEMS.some((item) => item.value === statusParam) ? (statusParam as ReturnStatus | "open") : undefined;
@@ -52,6 +53,20 @@ export default function ReturnsPanel({
         staleTime: 30_000,
         placeholderData: (previous) => previous,
     });
+    // ?return=<code> (a notification's "View return") opens that return
+    const { linked, closeLink } = useLinkedItem({
+        id: searchParams.get("return")?.toUpperCase() ?? null,
+        queryKey: queryKey({}),
+        findOnPage: (code) => query.data?.returns.find((entry) => entry.code === code),
+        fetchOne: (code) => api.getReturn(code),
+        ready: !!query.data,
+        notFoundMessage: "We couldn't open that return. Find it in the list below.",
+    });
+    const open = picked ?? linked;
+    const setOpen = (entry: ShopReturnRow | null) => {
+        setPicked(entry);
+        if (!entry) closeLink();
+    };
 
     const columns: ColumnDef<ShopReturnRow>[] = [
         { key: "code", header: "Return", cell: (entry) => <span className="font-medium text-mist-950">{entry.code}</span> },
